@@ -72,7 +72,7 @@ When you select "Local" network, the app renders a two-player split-screen on a 
 
 ### With browser extension wallet
 
-1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/test-extension) for build and install instructions)
+1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/webapp-tutorial/test-extension) for build and install instructions)
 2. Run `yarn dev`
 3. Select "Browser Wallet" → connect via the wallet extension → verify emojis match
 4. Play the same flow as above (share the contract address with your opponent)
@@ -106,11 +106,11 @@ Ensure SponsoredFPC is registered with PXE. The `EmbeddedWallet` does this autom
 
 ### Contract compilation fails
 
-Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location.
+Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location: in the example, the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create.
 
 ## Next steps
 
-You now have a working Aztec webapp. From here you could:
+You now have a working Aztec webapp. Next, [test the contract](./07-testing-the-contract.md) with Noir unit tests in the TXE. From here you could also:
 
 - Add more game features (tournaments, betting, leaderboards)
 - Deploy your own contract with custom game logic

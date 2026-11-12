@@ -7,6 +7,10 @@ description: Commit immutable values into a contract's address salt, eliminating
 
 Aztec contracts can commit immutable values directly into the contract's address by encoding them into the deployment salt, removing the need for a separate initialization transaction.
 
+:::warning aztec-immutables-macro is no longer maintained
+The aztec-immutables-macro repository was archived in July 2026 and receives no updates. Before you depend on it, check that it builds against your Aztec version. The technique this page explains, encoding immutables in the deployment salt, still applies.
+:::
+
 ## Overview
 
 Rather than storing immutables in private storage (which requires an initializer function and an extra transaction), the [aztec-immutables-macro](https://github.com/defi-wonderland/aztec-immutables-macro/tree/dev) library encodes them into the contract's salt:

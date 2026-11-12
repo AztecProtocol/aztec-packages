@@ -5,7 +5,6 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_short_monomial_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
@@ -460,9 +459,6 @@ template class SmallSubgroupIPAProver<TranslatorShortMonomialFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
-#endif
 
 // Instantiations used in tests
 template class SmallSubgroupIPAProver<BN254Settings>;

@@ -36,8 +36,11 @@ We want to add a few more dependencies now before we start:
 
 ```bash
 cd hardhat-aztec-example
+git checkout 3be1b31f8054cd4a81817b6940171849950b8dfb
 yarn add @aztec/aztec.js@5.2.0 @aztec/accounts@5.2.0 @aztec/stdlib@5.2.0 @aztec/wallets@5.2.0 @aztec/viem@2.38.2 tsx
 ```
+
+The `git checkout` pins the starter to a commit we reviewed, so the tutorial always uses reviewed code.
 
 :::note Use `@aztec/l1-artifacts` for the L1 interfaces
 The starter repo may still pin `@aztec/l1-contracts` as a git dependency; that repository is no longer updated. In `package.json`, replace it with the `@aztec/l1-artifacts` npm package at the version used in this tutorial, then run `yarn install` again:

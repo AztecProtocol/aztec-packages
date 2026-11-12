@@ -6,6 +6,7 @@
 # ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX at module load, which takes out every
 # --lang at once, so generate one of each here rather than trusting the callers
 # to notice.
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source
 
 schema="$root/ipc-codegen/echo_example/schema/schema.jsonc"

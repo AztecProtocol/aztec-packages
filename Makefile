@@ -21,6 +21,12 @@ export DENOISE := 1
 
 ROOT := $(shell git rev-parse --show-toplevel)
 
+# Recipes call ci3 directly, so the submodules (ci3 among them) must be at their pins before any recipe
+# runs, including when make is started without bootstrap.sh. A no-op when they already are.
+ifneq ($(shell "$(ROOT)/bootstrap.sh" init >&2 && echo ok),ok)
+$(error ./bootstrap.sh init failed)
+endif
+
 # Core helper to run a shell command with colored, prefixed output
 # Usage: $(call run_command,label,directory,command)
 # Color is automatically computed from label hash by color_prefix script
@@ -70,7 +76,8 @@ fast-foundation: barretenberg bb-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
 		ci3-tests \
-		claude-tests
+		claude-tests \
+		scripts-tests
 
 # The labs components are built from the aztec-node checkout in the labs/ submodule, against
 # this tree's packages and binaries (see the Labs section).
@@ -427,6 +434,14 @@ wsdb-tests: wsdb
 claude-tests:
 	$(call test,$@,.claude)
 
+#==============================================================================
+# Repository scripts
+#==============================================================================
+
+.PHONY: scripts-tests
+scripts-tests:
+	$(call test,$@,scripts)
+
 # The ci3 scripts' own tests (redact, semver, cache, ...).
 .PHONY: ci3-tests
 ci3-tests:
@@ -473,18 +488,17 @@ labs-use-local: labs-patched labs-deps
 	$(call run_command,$@,$(LABS_DIR),./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
 	  && $(ROOT)/scripts/labs_fnd_hashes.sh \
 	  && (cd yarn-project && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
-	  && (cd docs && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
 	  && $(ROOT)/labs-patches/bootstrap.sh commit-use-local)
 
 # ci3 takes the repo root from an inherited $$root, so the submodule's make must not see
 # this tree's. The test commands it collects are relative to the submodule, and the test
-# engine runs them from this root: TEST_CMD_PREFIX (a labs patch) cds into the submodule
-# and clears the inherited root so its ci3 re-derives it there.
+# engine runs them from this root: TEST_CMD_PREFIX (inserted by labs' ci3/prefix_test_cmds)
+# cds into the submodule and clears the inherited root so its ci3 re-derives it there.
 # aztec-up, release-image, and the docker-compose based tests (the compose, web3signer and
-# ha e2e flavours, the playground browser tests, the docs examples run) package or mount
-# the labs tree on its own (verdaccio publish, docker build context, a compose volume of
-# the checkout) where the use-local portals do not resolve, so they are left to the labs
-# repo's own CI: the targets are not run and the test commands are skipped.
+# ha e2e flavours, the playground browser tests) package or mount the labs tree on its own
+# (verdaccio publish, docker build context, a compose volume of the checkout) where the
+# use-local portals do not resolve, so they are left to the labs repo's own CI: the targets
+# are not run and the test commands are skipped.
 # scripts/labs_env.sh is the single definition of that environment, shared with the
 # bootstrap-side collectors (scripts/labs_test_cmds.sh).
 LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
@@ -492,7 +506,6 @@ LABS_MAKE := $(ROOT)/scripts/labs_env.sh $(MAKE)
 # fast covers what a foundation change can break: labs compiled against the portals and its
 # unit/e2e tests, and the contracts against this tree's nargo/bb. spartan, playground and
 # the claude tooling only consume yarn-project and go in full (the pin-bump PR runs full).
-# The docs are built from this tree's docs/ (see Docs), not labs/docs.
 LABS_FAST_GOALS := yarn-project yarn-project-tests aztec-nr noir-contracts contract-snapshots-tests
 LABS_FULL_GOALS := spartan playground playground-tests claude-tests yarn-project-benches
 

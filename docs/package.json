@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/inject_llms_directive.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_search_index.mts build",
+    "build": "node scripts/aztec_node.mts fetch && yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && yarn validate:redirects && yarn validate:api-ref-links && yarn docusaurus build && node scripts/aztec_nr_api_markdown.mjs build && node scripts/split_typescript_api.mjs build && node scripts/append_api_docs_to_llms.js && node scripts/inject_md_directive.js && node scripts/index_migration_notes.mjs && node scripts/inject_llms_directive.js && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_agent_readiness.mts build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_search_index.mts build",
     "validate:redirects": "./scripts/validate_redirect_targets.sh",
     "validate:api-ref-links": "./scripts/validate_api_ref_links.sh",
     "check:orphaned-urls": "./scripts/check_orphaned_urls.sh",
@@ -35,14 +35,20 @@
     "@rspack/core": "^1.0.0",
     "@signalwire/docusaurus-plugin-llms-txt": "^1.2.2",
     "clsx": "^2.1.1",
+    "hast-util-select": "^6.0.4",
+    "hast-util-to-string": "^3.0.1",
     "prism-react-renderer": "^2.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "6.0.3",
     "react-player": "^2.16.1",
     "rehype-katex": "7",
-    "remark-gfm": "^1.0.0",
-    "remark-math": "6"
+    "rehype-parse": "^9",
+    "rehype-remark": "^10",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "6",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.0"
   },
   "devDependencies": {
     "@aztec-foundation/l1-artifacts": "6.0.0-rc.7",

@@ -9,6 +9,7 @@ set -euo pipefail
 CI_MODE="${1:?CI_MODE must be provided as first argument}"
 shift
 
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 
 function setup_environment {
@@ -22,11 +23,13 @@ function setup_environment {
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
-  # To allow full concurrency, we set instance postfix for merge-train PRs
-  if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
-    export INSTANCE_POSTFIX=${PR_COMMITS:-}
-    echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
-    echo "Instance postfix set to: $INSTANCE_POSTFIX"
+  # Pushes to next run once per commit (see ci3.yml's concurrency), and bootstrap_ec2 terminates a
+  # running instance with the same name, so each commit's instances, the bench box among them, which
+  # the build instance launches, get the commit in their names.
+  if [ "${GITHUB_EVENT_NAME:-}" == "push" ] && [ "${GITHUB_REF:-}" == "refs/heads/next" ]; then
+    export INSTANCE_NAME_SUFFIX="_${GITHUB_SHA:0:9}"
+    export CI3_PASS_ENV="${CI3_PASS_ENV:+$CI3_PASS_ENV }INSTANCE_NAME_SUFFIX"
+    echo "Instance name suffix: $INSTANCE_NAME_SUFFIX"
   fi
   # The SSH key is written only for the direct-SSH bootstrap path (CI_USE_SSH=1, set from
   # the CI_USE_SSH repo variable as an escape hatch if SSM breaks). SSM mode authenticates
@@ -51,6 +54,12 @@ function check_cache {
   local cache_name="ci-success-${CI_MODE}-${tree_hash}.tar.gz"
   # Export for use by ci3_success.sh
   echo "CI_CACHE_NAME=$cache_name" >> $GITHUB_ENV
+  # A merge to next always runs, even when its tree already passed on the PR: it is what benchmarks
+  # the landed code and records it in the next sections of the CI and bench dashboards.
+  if [ "${GITHUB_EVENT_NAME:-}" == "push" ] && [ "${GITHUB_REF:-}" == "refs/heads/next" ]; then
+    echo "Not using the .github/ci3.sh CI cache for a push to next."
+    return
+  fi
   # Only whitelist some ci modes for cache.
   # E.g. we skip cache for release builds - they must always produce versioned images
   cached_ci_modes=(

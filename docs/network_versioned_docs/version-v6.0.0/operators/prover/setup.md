@@ -158,7 +158,7 @@ If you need to access admin endpoints, use `docker exec`:
 docker exec -it prover-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -H 'x-api-key: [ADMIN_API_KEY]' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
 The admin API requires an API key by default. The node generates one at first startup and prints it once to the logs; pass it with the `x-api-key` header (or `Authorization: Bearer [ADMIN_API_KEY]`). See [admin API key authentication](../reference/changelog/v4.md#admin-api-key-authentication).
@@ -166,7 +166,7 @@ The admin API requires an API key by default. The node generates one at first st
 
 **Important:** The broker exposes port 8080 via `ports: - ${PROVER_BROKER_PORT}:8080`, making it accessible to external prover agents. Ensure this port is reachable from your agent machines.
 
-This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This configuration includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options. For testnet, replace every `--network mainnet` in this guide with `--network testnet`, and use Sepolia L1 endpoints.
 
 #### Step 4: Start Node and Broker
 

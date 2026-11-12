@@ -17,7 +17,7 @@ class API {
         bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
         std::string scheme;                   // the proving system or IVC scheme
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
-        std::string verifier_target;          // target verification environment (evm, noir-recursive, starknet, etc.)
+        std::string verifier_target;          // target verification environment (evm, noir-recursive, etc.)
         bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials

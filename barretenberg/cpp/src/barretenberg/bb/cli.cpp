@@ -122,11 +122,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #else
     name += "\nAVM Transpiler: disabled";
 #endif
-#ifdef STARKNET_GARAGA_FLAVORS
-    name += "\nStarknet Garaga Extensions: enabled";
-#else
-    name += "\nStarknet Garaga Extensions: disabled";
-#endif
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
@@ -218,16 +213,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     const auto add_oracle_hash_option = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_option(
-                "--oracle_hash",
-                flags.oracle_hash_type,
-                "The hash function used by the prover as random oracle standing in for a verifier's challenge "
-                "generation. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
-                "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
-                "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
-                "for verification in a Starknet smart contract, which can be generated using the Garaga library. "
-                "Prefer using --verifier_target instead.")
-            ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"))
+            ->add_option("--oracle_hash",
+                         flags.oracle_hash_type,
+                         "The hash function used by the prover as random oracle standing in for a verifier's challenge "
+                         "generation. Poseidon2 is to be used for proofs that are intended to be verified inside of a "
+                         "circuit. Keccak is optimized for verification in an Ethereum smart contract, where Keccak "
+                         "has a privileged position due to the existence of an EVM precompile. "
+                         "Prefer using --verifier_target instead.")
+            ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"))
             ->group(advanced_group);
     };
 
@@ -243,18 +236,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "  noir-recursive       Noir circuits (poseidon2, ZK)\n"
                          "  noir-recursive-no-zk Noir circuits without ZK\n"
                          "  noir-rollup          Rollup with IPA (poseidon2, ZK)\n"
-                         "  noir-rollup-no-zk    Rollup without ZK\n"
-                         "  starknet             Starknet via Garaga (ZK)\n"
-                         "  starknet-no-zk       Starknet without ZK")
+                         "  noir-rollup-no-zk    Rollup without ZK")
             ->envname("BB_VERIFIER_TARGET")
-            ->check(CLI::IsMember({ "evm",
-                                    "evm-no-zk",
-                                    "noir-recursive",
-                                    "noir-recursive-no-zk",
-                                    "noir-rollup",
-                                    "noir-rollup-no-zk",
-                                    "starknet",
-                                    "starknet-no-zk" }));
+            ->check(CLI::IsMember(
+                { "evm", "evm-no-zk", "noir-recursive", "noir-recursive-no-zk", "noir-rollup", "noir-rollup-no-zk" }));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -830,11 +815,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.verifier_target == "noir-rollup-no-zk") {
             flags.oracle_hash_type = "poseidon2";
             flags.ipa_accumulation = true;
-            flags.disable_zk = true;
-        } else if (flags.verifier_target == "starknet") {
-            flags.oracle_hash_type = "starknet";
-        } else if (flags.verifier_target == "starknet-no-zk") {
-            flags.oracle_hash_type = "starknet";
             flags.disable_zk = true;
         }
         vinfo("verifier_target '",

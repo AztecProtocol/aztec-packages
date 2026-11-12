@@ -34,6 +34,7 @@ export function runMainWorker(
               module: msg.module,
               threads: o.threads,
               memory: o.memory,
+              moduleMemory: o.moduleMemory,
               env: o.env,
               entry: o.entry,
               logger: log,

@@ -5,15 +5,17 @@ A sample Aztec webapp demonstrating wallet connection, contract deployment, and 
 ## Prerequisites
 
 - Node.js 22+
-- Yarn
+- Yarn 4, through Corepack (`corepack enable`)
 - The Aztec CLI installed (`aztec` command available)
 
 ## Quick Start
 
 ### 1. Install dependencies
 
+`setup.sh` writes the Aztec version into `package.json` and installs. Pass the version your Aztec CLI runs, without the leading `v`:
+
 ```bash
-yarn install
+./setup.sh <version>
 ```
 
 ### 2. Compile the contract

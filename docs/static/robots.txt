@@ -1,8 +1,40 @@
+# docs.aztec.network
+# Documentation for building unstoppable private apps on Aztec.
+#
+# Machine-readable entry points:
+#   https://docs.aztec.network/llms.txt        index of every page (llmstxt.org)
+#   https://docs.aztec.network/llms-full.txt   the complete docs in one file
+#   Any page is also served as markdown: append .md to its URL, or request
+#   the page with an "Accept: text/markdown" header.
+
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
+Disallow: /search
+
+# AI assistants, answer engines, and training crawlers are explicitly welcome.
+# A crawler that matches a named group ignores the * group, so the signal repeats here.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: Amazonbot
+User-agent: CCBot
+User-agent: DuckAssistBot
+User-agent: meta-externalagent
+User-agent: MistralAI-User
+User-agent: cohere-ai
+User-agent: Bytespider
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+Disallow: /search
 
 Sitemap: https://docs.aztec.network/sitemap.xml
-
-# LLM-friendly documentation index (llmstxt.org):
-# https://docs.aztec.network/llms.txt
-# https://docs.aztec.network/llms-full.txt

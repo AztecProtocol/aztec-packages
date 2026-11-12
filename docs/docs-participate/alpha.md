@@ -12,6 +12,8 @@ This page is the central reference for understanding what Alpha is, what risks c
 
 Alpha is the first production deployment of the Aztec rollup. Governance, staking, and block production are fully operational with real economic stakes. Sequencers must stake real tokens to participate, and governance proposals have real consequences.
 
+Alpha currently runs **Aztec Tierra**, the v6 release line. Alpha is the network; Tierra is the software it runs. See the [Networks page](/networks) for the exact version each network is on.
+
 However, "production" does not mean "finished." Alpha exists to:
 
 - Battle-test the protocol under real conditions

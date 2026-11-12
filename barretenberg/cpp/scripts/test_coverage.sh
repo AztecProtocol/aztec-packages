@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source "$(git rev-parse --show-toplevel)/ci3/source"
 set -euo pipefail
 
@@ -35,7 +36,6 @@ llvm-cov-20 show \
   -format=html \
   -output-dir=build-coverage/coverage-report \
   --ignore-filename-regex=".*/_deps/.*" \
-  --ignore-filename-regex=".*/ext/starknet/.*" \
   --ignore-filename-regex=".*/lmdblib/.*" \
   --ignore-filename-regex=".*/vm2/.*" \
   "${args[@]}"

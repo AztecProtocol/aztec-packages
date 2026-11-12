@@ -7,28 +7,38 @@
 #   ./scripts/aztecjs_reference_generation/update_docs.sh current            # Updates current only
 #   ./scripts/aztecjs_reference_generation/update_docs.sh v2.0.2             # Updates v2.0.2 only
 #   ./scripts/aztecjs_reference_generation/update_docs.sh --check            # Fails if current is stale
+#   ./scripts/aztecjs_reference_generation/update_docs.sh --line v6 --check  # The same for a line's current page
 
 set -euo pipefail
 
 CHECK_ONLY=false
 TARGET_VERSION=""
+LINE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) CHECK_ONLY=true ;;
+    --line) LINE="${2:?--line needs a line, like v6}"; shift ;;
     *) TARGET_VERSION="$1" ;;
   esac
   shift
 done
+# A line has only its current page; its released pages are main's versioned docs.
+TARGET_VERSION="${TARGET_VERSION:-${LINE:+current}}"
 TARGET_VERSION="${TARGET_VERSION:-all}"
+if [[ -n "$LINE" && "$TARGET_VERSION" != current ]]; then
+  echo "Error: --line $LINE updates the line's current page only, not $TARGET_VERSION" >&2
+  exit 1
+fi
 
 # Constants
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-readonly SCRIPT_DIR DOCS_ROOT TARGET_VERSION
+CURRENT_DIR="$DOCS_ROOT${LINE:+/lines/$LINE}/docs-developers/docs/aztec-js"
+readonly SCRIPT_DIR DOCS_ROOT TARGET_VERSION LINE CURRENT_DIR
 
 # shellcheck source-path=SCRIPTDIR source=../lib/aztec_node.sh
 source "$SCRIPT_DIR/../lib/aztec_node.sh"
-require_aztec_node
+require_aztec_node "$LINE"
 readonly AZTEC_JS_SRC="$AZTEC_NODE_DIR/yarn-project/aztec.js/src"
 readonly OUTPUT_FILE="aztec_js_reference.md"
 readonly SIDEBAR_POSITION="98"
@@ -85,6 +95,10 @@ sidebar_position: ${SIDEBAR_POSITION}
 This is an auto-generated reference. For tutorials and guides, see the [Aztec.js Guide](./index.md).
 :::
 
+:::tip Looking up one name?
+Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/#api_ref_version/llms.txt).
+:::
+
 EOF
 
 # Append markdown content (skip first line which is duplicate title)
@@ -94,7 +108,7 @@ tail -n +2 "$TEMP_MD" >> "$TEMP_WITH_FRONTMATTER"
 if [[ "$CHECK_ONLY" == true ]]; then
   echo ""
   echo "Step 3: Comparing against the committed reference..."
-  readonly COMMITTED="$DOCS_ROOT/docs-developers/docs/aztec-js/$OUTPUT_FILE"
+  readonly COMMITTED="$CURRENT_DIR/$OUTPUT_FILE"
 
   if [[ ! -f "$COMMITTED" ]]; then
     echo "Error: no committed reference at $COMMITTED"
@@ -127,7 +141,7 @@ The committed Aztec.js reference no longer matches yarn-project/aztec.js/src.
 
 Regenerate it and commit the result:
 
-  cd docs && ./scripts/aztecjs_reference_generation/update_docs.sh current
+  cd docs && ./scripts/aztecjs_reference_generation/update_docs.sh ${LINE:+--line $LINE }current
 EOF
   exit 1
 fi
@@ -141,7 +155,7 @@ update_version() {
   local target_dir=""
 
   if [[ "$version" == "current" ]]; then
-    target_dir="$DOCS_ROOT/docs-developers/docs/aztec-js"
+    target_dir="$CURRENT_DIR"
   else
     target_dir="$DOCS_ROOT/developer_versioned_docs/version-${version}/docs/aztec-js"
   fi
@@ -151,7 +165,20 @@ update_version() {
     return 1
   fi
 
-  cp "$TEMP_WITH_FRONTMATTER" "$target_dir/$OUTPUT_FILE"
+  if [[ "$version" == "current" ]]; then
+    cp "$TEMP_WITH_FRONTMATTER" "$target_dir/$OUTPUT_FILE"
+  else
+    # Versioned copies skip preprocessing, so resolve #api_ref_version here as the build would.
+    local api_ref
+    api_ref=$(node -e 'const c = require(process.argv[1]), v = process.argv[2];
+      process.stdout.write(c.mainnet === v ? "mainnet" : c.testnet === v ? "testnet" : "")' \
+      "$DOCS_ROOT/developer_version_config.json" "$version")
+    if [[ -z "$api_ref" ]]; then
+      echo "  Warning: $version is neither the mainnet nor the testnet version, so its API reference folder is unknown"
+      return 1
+    fi
+    sed "s|#api_ref_version|$api_ref|g" "$TEMP_WITH_FRONTMATTER" > "$target_dir/$OUTPUT_FILE"
+  fi
   echo "  ✓ Updated $version"
   return 0
 }

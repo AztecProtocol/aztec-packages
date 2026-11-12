@@ -6,17 +6,19 @@ aztec_nr_api_version: next
 ---
 
 import Link from "@docusaurus/Link";
-import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
+import { useActivePluginAndVersion } from "@docusaurus/plugin-content-docs/client";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import { aztecNrApiFolder } from "@site/src/utils/aztecNrApi.mjs";
 
 export const useApiVersion = () => {
-  const version = useActiveVersion("developer");
-  if (!version || version.name === "current") return "next";
-  // Map Docusaurus version to API docs folder using version label
-  // Labels are set explicitly in docusaurus.config.js (e.g., "Mainnet (...)")
-  const label = version.label || "";
-  if (label.startsWith("Alpha")) return "mainnet";
-  if (label.startsWith("Testnet")) return "testnet";
-  return version.name;
+  const { siteConfig } = useDocusaurusContext();
+  const { activePlugin, activeVersion } = useActivePluginAndVersion() ?? {};
+  return aztecNrApiFolder(
+    activeVersion,
+    siteConfig.customFields.aztecNrApiFolders,
+    activePlugin?.pluginId,
+    siteConfig.customFields.lineApiFolders,
+  );
 };
 
 export const ModuleLink = ({ path, children }) => {

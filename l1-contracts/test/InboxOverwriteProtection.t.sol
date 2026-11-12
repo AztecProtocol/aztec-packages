@@ -75,11 +75,11 @@ contract InboxOverwriteProtectionTest is Test {
   function _sendExpectingOverwriteRevert(InboxHarness _inbox, uint256 _salt, uint64 _evicted) internal {
     DataStructures.L2Actor memory recipient =
       DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version});
-    bytes32 content = bytes32(uint256(0x2000 + _salt));
-    bytes32 secretHash = bytes32(uint256(0x3000 + _salt));
+    bytes32 publicContentHash = bytes32(uint256(0x2000 + _salt));
+    bytes32 privateContentHash = bytes32(uint256(0x3000 + _salt));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__WouldOverwriteUnconsumedBucket.selector, _evicted));
-    _inbox.sendL2Message(recipient, content, secretHash);
+    _inbox.sendL2Message(recipient, publicContentHash, privateContentHash);
   }
 
   // Opens `_count` buckets, one per L1 block: a strictly larger block timestamp forces the message into a

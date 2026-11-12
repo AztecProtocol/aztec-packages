@@ -1,3 +1,4 @@
+#include <cstring>
 // Unit tests for the Constantine signed-Booth window recoder used by the
 // round-parallel Pippenger MSM. Validates the scalar packed-digit recoder,
 // the SIMD x4 specialisations (Localised / Bottom / Boundary), and the
@@ -75,10 +76,6 @@ std::array<uint64_t, NUM_LIMBS_U64> random_scalar_limbs()
 
 // View the same scalar as a uint32 limb array (little-endian: x86/ARM/WASM all
 // agree). The SIMD x4 helpers index by uint32 limbs.
-const uint32_t* as_u32(const std::array<uint64_t, NUM_LIMBS_U64>& s)
-{
-    return reinterpret_cast<const uint32_t*>(s.data());
-}
 
 // Drive `get_constantine_packed_digit` via the params returned by
 // `compute_constantine_slice_params`. The hot loop in Stage 1 / Stage 4 unpacks
@@ -114,10 +111,18 @@ void production_simd_path(const std::array<uint64_t, NUM_LIMBS_U64> scalars[4],
     const uint32_t val_mask_scalar = (uint32_t{ 1 } << window_bits) - 1;
     const cnst::SimdU32x4 val_mask{ val_mask_scalar, val_mask_scalar, val_mask_scalar, val_mask_scalar };
 
-    const uint32_t* s0 = as_u32(scalars[0]);
-    const uint32_t* s1 = as_u32(scalars[1]);
-    const uint32_t* s2 = as_u32(scalars[2]);
-    const uint32_t* s3 = as_u32(scalars[3]);
+    std::array<uint32_t, NUM_LIMBS_U32> limbs0;
+    std::memcpy(limbs0.data(), scalars[0].data(), sizeof(limbs0));
+    const uint32_t* s0 = limbs0.data();
+    std::array<uint32_t, NUM_LIMBS_U32> limbs1;
+    std::memcpy(limbs1.data(), scalars[1].data(), sizeof(limbs1));
+    const uint32_t* s1 = limbs1.data();
+    std::array<uint32_t, NUM_LIMBS_U32> limbs2;
+    std::memcpy(limbs2.data(), scalars[2].data(), sizeof(limbs2));
+    const uint32_t* s2 = limbs2.data();
+    std::array<uint32_t, NUM_LIMBS_U32> limbs3;
+    std::memcpy(limbs3.data(), scalars[3].data(), sizeof(limbs3));
+    const uint32_t* s3 = limbs3.data();
 
     const uint32_t wb_u32 = static_cast<uint32_t>(window_bits);
     switch (cnst::classify_slice_path_u32(sp)) {

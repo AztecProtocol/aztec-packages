@@ -16,11 +16,9 @@ on:
   merge_group: {}
 
 concurrency:
-  # merge-train PRs: one run per commit — distinct commits run concurrently (each is a real
-  # train state to test), but duplicate events for the same commit (synchronize + the bot's
-  # label re-applies) collapse. Keying on head.sha instead of run_id is what collapses them;
-  # run_id is unique per run and never collapsed anything. Everything else: one run per branch.
-  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || github.event.merge_group.head_ref || github.ref_name }}
+  # Pushes to next: one run per commit, so a later merge does not cancel the full run (and
+  # benchmarks) of the one before. Everything else: one run per branch.
+  group: ci3-${{ (github.event_name == 'push' && github.ref == 'refs/heads/next' && github.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -53,13 +51,6 @@ jobs:
       contents: read    # checkout/fetch with the default github.token
       pull-requests: read # merge_group mode looks up the source PR
     steps:
-      - name: Remove wakeup label
-        if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        # REST: `gh pr edit` needs a read:org-scoped token for its viewer query and fails silently.
-        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/ci-wakeup-pr-after-merge" >/dev/null || true
-
       # Do NOT bump actions/checkout to v6 here. v6 ("persist creds to a separate file", #2286)
       # stores the persisted github.token in a temp credentials file pulled in via includeIf, which
       # `git config --unset-all http....extraheader` cannot clear. Our runner-side pushes (ci3.sh
@@ -76,6 +67,12 @@ jobs:
           # Persisted for authenticated reads (e.g. the aztec-packages-private mirror); pushes swap in
           # a bot-PAT remote at each push site.
           persist-credentials: true
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the contract
+        # libraries. The others are marked update = none in this checkout, so `bootstrap.sh init`, which
+        # every script that sources ci3 runs, leaves them out too. A no-op on refs from before ci3 became
+        # a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -144,15 +141,6 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: ./.github/ci3_success.sh
 
-      # Uses ci3/upload_benchmarks rather than github-action-benchmark: the action full-clones
-      # the multi-GB data repo per upload; the script does a shallow sparse clone instead.
-      - name: Upload benchmarks
-        if: env.BENCH_UPLOAD == '1'
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: ./ci3/upload_benchmarks "Aztec Benchmarks" "bench/${BENCH_BRANCH:-}" ./bench-out/bench.json "$COMMIT_SHA"
-
   # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
   # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the
   # EC2 build machine never holds npm publish rights. Public repo only — the private repo publishes
@@ -173,6 +161,12 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+      - name: Check out the ci3 submodule
+        # Only the ci3 submodule: `submodules: true` would also clone noir-repo and the contract
+        # libraries. The others are marked update = none in this checkout, so `bootstrap.sh init`, which
+        # every script that sources ci3 runs, leaves them out too. A no-op on refs from before ci3 became
+        # a submodule.
+        run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -200,4 +194,4 @@ jobs:
           S3_BUILD_CACHE_AWS_PARAMS="--region us-east-2" ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
 
       - name: Publish
-        run: ./ci3/publish_npm_release "$NPM_RELEASE_DIR/npm-release"
+        run: ./scripts/publish_npm_release "$NPM_RELEASE_DIR/npm-release"

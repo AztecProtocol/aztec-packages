@@ -14,7 +14,7 @@ Aztec is in its **Alpha** phase, a live mainnet where bugs, including critical o
 
 ## 1. Understand what you are using
 
-Aztec is a privacy-first Layer 2 network on Ethereum. In practice that means:
+Aztec is a decentralized Layer 2 network on Ethereum built for private apps. In practice that means:
 
 - Your transactions are proven correct **on your own device**, so your private data never leaves it. The network only sees a proof.
 - Apps and users choose what stays private (like balances, identities, and amounts) and what is public.

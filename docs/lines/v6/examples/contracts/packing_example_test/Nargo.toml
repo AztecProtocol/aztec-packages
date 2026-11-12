@@ -1,0 +1,9 @@
+[package]
+name = "packing_example_test"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../../../.aztec-node/tree/noir-projects/aztec-nr/aztec" }
+packing_example = { path = "../packing_example" }

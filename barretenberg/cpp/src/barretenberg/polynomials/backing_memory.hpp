@@ -66,15 +66,19 @@ template <typename Fr> struct BackingMemory {
 #if !defined(__wasm__) && !defined(_WIN32)
     // File-backed data substruct with cleanup metadata
     struct FileBackedData {
-        size_t file_size;
-        Fr* raw_data_ptr;
+        size_t file_size = 0;
+        Fr* raw_data_ptr = nullptr;
+        int fd = -1;
 
         ~FileBackedData()
         {
             if (raw_data_ptr != nullptr && file_size > 0) {
                 munmap(raw_data_ptr, file_size);
-                current_storage_usage.fetch_sub(file_size);
             }
+            if (fd >= 0) {
+                close(fd);
+            }
+            current_storage_usage.fetch_sub(file_size);
         }
     };
     std::shared_ptr<FileBackedData> file_backed;
@@ -167,6 +171,8 @@ template <typename Fr> struct BackingMemory {
 
         size_t required_bytes = size * sizeof(Fr);
 
+        auto file_backed_data = std::make_shared<FileBackedData>();
+
         // Check and update storage usage to enforce budget
         size_t current_usage = current_storage_usage.load();
         while (true) {
@@ -180,6 +186,7 @@ template <typename Fr> struct BackingMemory {
             }
         }
 
+        file_backed_data->file_size = required_bytes;
         size_t file_size = required_bytes;
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
@@ -193,32 +200,31 @@ template <typename Fr> struct BackingMemory {
 
         std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
 
-        auto fail = [&](int fd, const std::string& step, int error) {
-            if (fd >= 0) {
-                close(fd);
-            }
-            current_storage_usage.fetch_sub(required_bytes);
+        auto fail = [&](const std::string& step, int error) {
             throw_or_abort("slow_low_memory: " + step + " failed for " + std::to_string(file_size) + "-byte file " +
                            filename + ": " + std::strerror(error));
         };
 
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
+        file_backed_data->fd = fd;
         if (fd < 0) {
-            fail(-1, "open", errno);
+            fail("open", errno);
         }
         // The open fd, and after it the mapping, keep the file alive; unlinking now means a crash cannot
         // leave witness data behind in the temp directory.
-        std::filesystem::remove(filename);
+        if (unlink(filename.c_str()) != 0) {
+            fail("unlink", errno);
+        }
 
         // Reserve the blocks up front: with a shared mapping, a write into a hole on a full disk raises
         // SIGBUS instead of failing here. Apple has no posix_fallocate and keeps that exposure.
 #if defined(__APPLE__)
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            fail(fd, "ftruncate", errno);
+            fail("ftruncate", errno);
         }
 #else
         if (int error = posix_fallocate(fd, 0, static_cast<off_t>(file_size)); error != 0) {
-            fail(fd, "posix_fallocate", error);
+            fail("posix_fallocate", error);
         }
 #endif
 
@@ -226,15 +232,13 @@ template <typename Fr> struct BackingMemory {
         // would turn every written page into an anonymous copy-on-write page.
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            fail(fd, "mmap", errno);
+            fail("mmap", errno);
         }
         // The mapping holds its own reference to the file, so the descriptor is not needed past this point;
         // keeping one per polynomial would hit RLIMIT_NOFILE on large proofs.
-        close(fd);
-
-        auto file_backed_data = std::make_shared<FileBackedData>();
-        file_backed_data->file_size = file_size;
         file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
+        close(fd);
+        file_backed_data->fd = -1;
 
         memory.raw_data = static_cast<Fr*>(addr);
         memory.file_backed = std::move(file_backed_data);

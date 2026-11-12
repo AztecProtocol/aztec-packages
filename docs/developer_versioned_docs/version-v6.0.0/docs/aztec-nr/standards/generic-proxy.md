@@ -4,6 +4,10 @@ sidebar_position: 5
 description: Forwarding layer for account abstraction that routes calls by argument count.
 ---
 
+:::note
+In the `aztec-standards` repository, [`GenericProxy`](https://github.com/AztecProtocol/aztec-standards/tree/v6.0.0/src/generic_proxy) is an internal test utility, not a standard. Its Noir test suites use it when a call must come from a contract, and it carries no stability or compatibility guarantees, so do not build on it.
+:::
+
 In Aztec, account contracts authorize every transaction the user sends and must be able to forward calls to any contract. However, Noir requires function signatures to be known at compile time, so an account contract cannot call an arbitrary function with an arbitrary number of arguments in a single generic entrypoint.
 
 The Generic Proxy contract solves this by providing a fixed set of forwarding functions — one per argument count — that the account contract can call. This avoids hard-coding every possible target function signature while keeping the account contract simple.
@@ -31,7 +35,7 @@ pub contract GenericProxy {
             self.context.call_private_function(target, selector, args).get_preimage();
         returns
     }
-    // ... forward_private_1 through forward_private_8
+    // ... forward_private_1 through forward_private_8, and forward_public_4
 }
 ```
 

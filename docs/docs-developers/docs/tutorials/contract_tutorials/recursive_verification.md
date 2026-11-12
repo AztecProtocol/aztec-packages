@@ -13,14 +13,14 @@ This is called "recursive" verification because the proof is verified inside an 
 :::
 
 :::tip Full Working Example
-The complete code for this tutorial is available in the [docs/examples](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples) directory. Clone it to follow along or use it as a reference.
+The complete code for this tutorial is in [`docs/examples/`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples): the circuit in [`circuits/hello_circuit`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/circuits/hello_circuit), the contract in [`contracts/recursive_verification_contract`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/contracts/recursive_verification_contract) and the scripts in [`ts/recursive_verification`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/ts/recursive_verification). Use it as a reference while you follow along.
 :::
 
 ## Prerequisites
 
 Before starting, ensure you have the following installed and configured:
 
-- Node.js (v22 or later)
+- Node.js, at the version [the Aztec installer requires](../../../getting_started_on_local_network.md#prerequisites)
 - yarn package manager
 - Aztec CLI (version #include_aztec_version)
 - Nargo
@@ -192,7 +192,7 @@ Expected output:
 
 ## Part 3: Writing the Aztec Contract
 
-The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments a counter for the caller.
+The Aztec contract stores the verification key hash and verifies proofs submitted by users. When a valid proof is submitted, it increments the counter of the address the caller names.
 
 ### Why This Contract Design?
 
@@ -258,7 +258,7 @@ Replace the contents of `ValueNotEqual/ValueNotEqual_contract/src/main.nr` with:
 The scaffolded `ValueNotEqual/ValueNotEqual_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
 
 ```rust
-// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts for examples.
 ```
 :::
 
@@ -335,6 +335,10 @@ fn increment(
   - Fails (reverts) if any check fails
 - Uses `enqueue_self._increment_public(owner)` to schedule a public function call
 
+:::warning The example does not authorize `owner`
+`increment` takes `owner` from the caller and never checks it, so anyone with a valid proof can increment any address's counter. That keeps this example about proof verification. For state that belongs to the caller, key it by `self.msg_sender()` instead of an argument.
+:::
+
 **Why `enqueue_self` instead of a direct call?**
 
 In Aztec, private functions cannot directly modify public state. Instead, they enqueue public function calls that execute after the private phase completes. This ensures:
@@ -397,10 +401,10 @@ Create the following files in your project root directory.
   "dependencies": {
     "@aztec-labs/accounts": "#include_version_without_prefix",
     "@aztec-labs/aztec.js": "#include_version_without_prefix",
-    "@aztec-foundation/bb.js": "#include_version_without_prefix",
+    "@aztec-foundation/bb.js": "#include_foundation_version_without_prefix",
     "@aztec-labs/kv-store": "#include_version_without_prefix",
     "@aztec-labs/noir-contracts.js": "#include_version_without_prefix",
-    "@aztec-foundation/noir-noir_js": "#include_version_without_prefix",
+    "@aztec-foundation/noir-noir_js": "#include_foundation_version_without_prefix",
     "@aztec-labs/pxe": "#include_version_without_prefix",
     "@aztec-labs/wallets": "#include_version_without_prefix",
     "tsx": "^4.20.6"
@@ -675,7 +679,7 @@ The counter starts at 10 (set during deployment), and after successful proof ver
 
 ## Quick Reference
 
-If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples) in the main repository.
+If you want to run all commands at once, or if you're starting fresh, here's the complete workflow. You can also reference the [full working example](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples).
 
 ```bash
 # Install dependencies (after creating package.json and tsconfig.json)

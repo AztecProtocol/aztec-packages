@@ -13,7 +13,7 @@ Now that you have a wallet, you can deploy the Pod Racing contract and interact 
 
 Before your PXE (Private eXecution Environment) can interact with a contract, it needs two pieces of information: the **artifact** (the compiled contract bytecode and ABI) and the **instance** (the deployed address and constructor parameters). Without these, PXE cannot construct proofs or route transactions to the correct contract.
 
-Open [`src/contract.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/contract.ts). This file imports the generated `PodRacingContract` class from the compiled artifacts and wraps each contract method in a simple async function that the UI components call. The key functions are described below.
+Open [`src/contract.ts`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/webapp-tutorial/src/contract.ts). This file imports the generated `PodRacingContract` class from the compiled artifacts and wraps each contract method in a simple async function that the UI components call. The key functions are described below.
 
 ### Deploying a new contract
 
@@ -31,7 +31,7 @@ Each function maps to a step in the game lifecycle:
 - `joinGame(gameId)` — **public**. Updates the `Race` to add the caller as player 2. The game is now active.
 - `playRound(gameId, round, tracks)` — **private**. Creates a `GameRoundNote` storing your point allocation for this round. The note is encrypted and only you can read it. Enqueues a public call to increment your round counter so your opponent can see you've completed a round (without seeing your points).
 - `finishGame(gameId)` — **private**. Reads all your `GameRoundNote`s, sums up totals per track, and publishes the aggregated scores to public state. This is the "reveal" phase.
-- `finalizeGame(gameId)` — **public**. Compares both players' track totals, declares the winner (best of 5 tracks), and updates the win history.
+- `finalizeGame(gameId)` — **public**. Once both players have revealed, compares their track totals, declares the winner (best of 5 tracks), and updates the win history. Each game can be finalized once.
 
 ## Game lobby component
 
@@ -55,7 +55,7 @@ The opponent pastes the contract address and game ID to join. Under the hood, th
 
 ## The game board component
 
-Open [`src/components/GameBoard.tsx`](https://github.com/aztec-labs-eng/aztec-node/tree/#include_aztec_version/docs/examples/webapp-tutorial/src/components/GameBoard.tsx). The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
+Open [`src/components/GameBoard.tsx`](https://github.com/AztecProtocol/aztec-packages/tree/#docs_commit/docs/examples/webapp-tutorial/src/components/GameBoard.tsx). The board lets you allocate points across 5 tracks each round. There is a constraint: your total points per round must sum to less than 10 (i.e., at most 9 points). This forces strategic trade-offs — you can't dominate every track.
 
 ### Submitting a round (private transaction)
 
@@ -74,9 +74,9 @@ After all 3 rounds, the game has two more phases:
 #include_code finish-and-finalize /docs/examples/webapp-tutorial/src/components/GameBoard.tsx typescript
 
 - **`finish_game`**: A private function that reads all your `GameRoundNote`s, sums up totals per track, and publishes the aggregated scores. This is the "reveal" — your per-round choices stay hidden, but your final totals become public.
-- **`finalize_game`**: A public function that compares both players' totals track by track and declares the winner (best of 5 tracks). Can only be called after the game's block deadline.
+- **`finalize_game`**: A public function that compares both players' totals track by track and declares the winner (best of 5 tracks). Can only be called once per game, after both players have revealed and the game's block deadline has passed.
 
-Why two separate phases? Both players must call `finish_game` before anyone can call `finalize_game`. This ensures neither player can see the other's totals before committing their own. The block deadline adds a time constraint: the game must reach a certain block number before finalization, preventing a player from waiting indefinitely.
+Why two separate phases? Both players must call `finish_game` before anyone can call `finalize_game`. This ensures neither player can see the other's totals before committing their own. The block deadline adds a time constraint: no one can finalize before the game reaches a certain block number. The contract has no reveal deadline, so a player who never calls `finish_game` blocks finalization (see [known limits](./07-testing-the-contract.md#known-limits-of-the-tutorial-contract)).
 
 ## Game status display
 

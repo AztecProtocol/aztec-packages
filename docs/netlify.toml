@@ -28,6 +28,39 @@
   ignore = "./scripts/netlify-ignore-build.sh preview"
   command = "./scripts/netlify-build.sh"
 
+# Names the docs index on every response (RFC 8288 `describedby`), for agents that read headers
+# before content; pages also link it in their body.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Link = '</llms.txt>; rel="describedby"'
+
+# =============================================================================
+# ACTIVE REDIRECTS: Section Landings
+# No docs instance serves a page at its root, so each root lands on the first
+# page of its sidebar.
+# =============================================================================
+[[redirects]]
+    from = "/developers"
+    to = "/developers/overview"
+    status = 301
+
+[[redirects]]
+    from = "/developers/docs"
+    to = "/developers/docs/foundational-topics"
+    status = 301
+
+[[redirects]]
+    from = "/operate"
+    to = "/operate/operators"
+    status = 301
+
+[[redirects]]
+    # Must precede /network/*, whose empty splat would send it to the bare /operate/.
+    from = "/network"
+    to = "/operate/operators"
+    status = 301
+
 # =============================================================================
 # ACTIVE REDIRECTS: Core Navigation
 # =============================================================================
@@ -149,11 +182,39 @@
 # =============================================================================
 [[redirects]]
     from = "/favicon.ico"
-    to = "/img/Aztec_Symbol_Dark.png"
+    to = "/img/brand/favicon.png"
+    status = 301
+
+# Logo files replaced by img/brand/; other sites embed the old URLs.
+# Netlify matches the encoded request path, so spaces are written as %20.
+[[redirects]]
+    from = "/img/Aztec_Symbol_Dark.png"
+    to = "/img/brand/favicon.png"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec%20Symbol_Light.png"
+    to = "/img/brand/aztec-symbol-paper.svg"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec%20Wordmark_Dark.svg"
+    to = "/img/brand/aztec-wordmark-ink.svg"
+    status = 301
+
+[[redirects]]
+    from = "/img/Aztec%20Wordmark_Light.svg"
+    to = "/img/brand/aztec-wordmark-paper.svg"
     status = 301
 
 [[redirects]]
     from = "/developers/guides/smart_contracts/testing"
+    to = "/developers/docs/aztec-nr/testing_contracts"
+    status = 301
+
+# The tutorials linked this path from contract code that readers paste; the v5.2.0 snapshot still does.
+[[redirects]]
+    from = "/aztec-nr/testing_contracts"
     to = "/developers/docs/aztec-nr/testing_contracts"
     status = 301
 
@@ -212,6 +273,19 @@
     from = "/developers/docs/aztec-js/wallet-sdk"
     to = "/developers/docs/tutorials/js_tutorials/webapp/wallet-sdk"
     status = 301
+
+[[redirects]]
+    # Release line vanity paths: Tierra is the current line, so its name resolves
+    # to the unprefixed docs. Repoint these at the archived version path when a
+    # later line becomes current.
+    from = "/developers/tierra/*"
+    to = "/developers/:splat"
+    status = 302
+
+[[redirects]]
+    from = "/operate/tierra/*"
+    to = "/operate/:splat"
+    status = 302
 
 [[redirects]]
     # Unified Alpha/Testnet docs: the testnet-prefixed routes fold into the default version
@@ -291,6 +365,11 @@
 
 [[redirects]]
     from = "/guides/privacy_considerations"
+    to = "/developers/docs/resources/considerations/privacy_considerations"
+
+# The Aztec.nr API reference links this path from its doc comments.
+[[redirects]]
+    from = "/developers/resources/considerations/privacy_considerations"
     to = "/developers/docs/resources/considerations/privacy_considerations"
 
 [[redirects]]
@@ -780,6 +859,11 @@
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/how_to_define_functions"
     to = "/developers/docs/aztec-nr/framework-description/functions/how_to_define_functions"
+
+# The Aztec.nr API reference links this path; the splat below would send it to a page that does not exist.
+[[redirects]]
+    from = "/developers/docs/guides/smart_contracts/storage"
+    to = "/developers/docs/aztec-nr/framework-description/state_variables"
 
 [[redirects]]
     from = "/developers/docs/guides/smart_contracts/advanced/*"

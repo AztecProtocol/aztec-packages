@@ -1,7 +1,5 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
@@ -184,10 +182,6 @@ template <typename Flavor> void OinkVerifier<Flavor>::complete_grand_product_rou
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
-template class OinkVerifier<UltraStarknetFlavor>;
-template class OinkVerifier<UltraStarknetZKFlavor>;
-#endif
 template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;

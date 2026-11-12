@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Run the TS package tests (UDS transport, in-process server + client).
+"$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source
 cd $(dirname $0)/../ts
 yarn install --immutable

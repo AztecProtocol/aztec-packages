@@ -5,6 +5,7 @@ const childProcess = require("child_process");
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
 const { syncVersionsFile } = require("../network_docs");
+const { lineLinks, lineNames, lineOf } = require("./line");
 
 // const { generateInstructionSet } = require("./InstructionSet/genMarkdown"); // Removed with protocol-specs
 
@@ -30,6 +31,12 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
         const result = await preprocess(updatedContent, filepath, rootDir);
         updatedContent = result.content;
         isUpdated = isUpdated || result.isUpdated;
+      }
+      const line = lineOf(filepath, rootDir);
+      if (line) {
+        const linked = lineLinks(updatedContent, line);
+        isUpdated = isUpdated || linked !== updatedContent;
+        updatedContent = linked;
       }
 
       contentUpdates.push({
@@ -134,24 +141,23 @@ async function run() {
   const baseDestDir = path.join(rootDir, "docs", "processed-docs");
   const baseCachedDestDir = path.join(rootDir, "docs", "processed-docs-cache");
 
-  // Process all docs directories that may contain macros
-  const docsDirs = [
-    path.join(rootDir, "docs", "docs"),
-    path.join(rootDir, "docs", "docs-developers"),
-    path.join(rootDir, "docs", "docs-operate"),
-    path.join(rootDir, "docs", "docs-participate"),
-  ];
+  // Process all docs directories that may contain macros, each to its own path under
+  // processed-docs/: docs/, docs-developers/, ..., and lines/<line>/docs-developers/ for a line.
+  // Production serves no dev docs, and a line's checkout is not fetched there.
+  const lineDirs = process.env.CONTEXT === "production" ? [] : lineNames(rootDir).flatMap((line) =>
+    ["docs-developers", "docs-operate"].map((dir) => path.join("lines", line, dir)),
+  );
+  const docsDirs = ["docs", "docs-developers", "docs-operate", "docs-participate", ...lineDirs];
 
-  for (const docsDir of docsDirs) {
+  for (const dirName of docsDirs) {
+    const docsDir = path.join(docsRoot, dirName);
     if (!fs.existsSync(docsDir)) {
       console.log(`Skipping ${docsDir} (does not exist)`);
       continue;
     }
 
-    const dirName = path.basename(docsDir);
     console.log(`Processing ${dirName}...`);
 
-    // Maintain directory separation: processed-docs/docs/, processed-docs/docs-developers/, etc.
     const destDir = path.join(baseDestDir, dirName);
     const cachedDestDir = path.join(baseCachedDestDir, dirName);
 

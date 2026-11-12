@@ -1,7 +1,7 @@
 #pragma once
 // This header hosts TWO implementations behind one facade:
 //   * `bb::scalar_multiplication::legacy::*`  — the pre-rewrite Pippenger MSM, bodies
-//     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
+//     byte-identical to the implementation before the rewrite (only wrapped in the `legacy` sub-namespace).
 //   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
 // The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
 // the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY).

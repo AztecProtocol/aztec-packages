@@ -6,7 +6,6 @@ tags: [protocol, storage]
 references: ["labs/noir-projects/aztec-nr/uint-note/src/uint_note.nr"]
 ---
 
-import Image from "@theme/IdealImage";
 
 Aztec has a hybrid public/private state model. Contract developers can specify which data is public and which is private, as well as the functions that operate on that data.
 
@@ -40,7 +39,7 @@ Rather than storing entire notes, the protocol stores **note commitments** (hash
 
 When a note is consumed, Aztec creates a nullifier from the note data and may create new notes with updated information. This decouples the actions of creating, updating, and deleting private state.
 
-<Image img={require("@site/static/img/public-and-private-state-diagram.png")} />
+<Diagram name="public-private-state" alt="Public state is a data tree whose leaves are updated in place. Private state is a UTXO model: spending a note emits a nullifier and creates new notes." />
 
 Notes work like cash. To spend a 5 dollar note on a \$3.50 purchase, you nullify the \$5 note and create two new notes: \$1.50 for yourself and \$3.50 for the recipient. Only you and the recipient know about the \$3.50 transfer.
 

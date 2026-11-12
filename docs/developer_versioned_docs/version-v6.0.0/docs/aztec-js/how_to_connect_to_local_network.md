@@ -17,7 +17,7 @@ This guide shows you how to connect your application to the Aztec local network 
 ## Install dependencies
 
 ```bash
-yarn add @aztec-labs/aztec.js@6.0.0 @aztec-labs/wallets@6.0.0
+yarn add @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/wallets@6.0.0
 ```
 
 ## Connect to the network

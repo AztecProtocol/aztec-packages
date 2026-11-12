@@ -6,6 +6,8 @@ displayed_sidebar: operatorsSidebar
 references: ["labs/yarn-project/aztec/src/cli/cmds/start_node.ts", "labs/yarn-project/aztec/src/cli/aztec_start_options.ts"]
 ---
 
+import NodeHardware from "../_node_hardware.mdx";
+
 ## Overview
 
 This guide covers the steps required to run a full node on Aztec using Docker Compose.
@@ -16,13 +18,10 @@ You should run your own full node if you want to interact with the network in th
 
 ### Minimum Hardware Requirements
 
-- 8 core / 16 vCPU (Skylake or newer microarchitecture)
-- 8 GB RAM
-- 1 TB NVMe SSD
-- 25 Mbps network connection
+<NodeHardware />
 
 These requirements are subject to change as the network throughput increases.
 
 **Before proceeding:** Ensure you've reviewed and completed the [prerequisites](../prerequisites.md).
 
-This setup includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options.
+This setup includes only essential settings. The `--network mainnet` flag applies network-specific defaults—see the [CLI reference](../reference/cli-reference.md) for all available configuration options. For testnet, replace every `--network mainnet` in this guide with `--network testnet`, and use Sepolia L1 endpoints.
