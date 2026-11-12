@@ -87,9 +87,7 @@ template <typename Fq_, typename Fr_, typename Params> class group {
                                                                 const size_t num_generators,
                                                                 const size_t starting_index = 0)
     {
-        // Safety: domain_separator_bytes is indexed via &domain_separator_bytes[0] below.
-        // An empty domain separator would be UB and also defeats domain separation.
-        BB_ASSERT(!domain_separator_bytes.empty(), "derive_generators: domain_separator_bytes must be non-empty");
+        const blake3::out_array domain_hash = hash_domain_separator(domain_separator_bytes);
 
         // We serialize the generator index into 4 bytes (uint32_t). Ensure we never silently truncate.
         if (num_generators > 0) {
@@ -100,21 +98,9 @@ template <typename Fq_, typename Fr_, typename Params> class group {
         }
 
         std::vector<affine_element> result;
-        const auto domain_hash = blake3::blake3s_constexpr(&domain_separator_bytes[0], domain_separator_bytes.size());
-        std::vector<uint8_t> generator_preimage;
-        generator_preimage.reserve(64);
-        std::copy(domain_hash.begin(), domain_hash.end(), std::back_inserter(generator_preimage));
-        for (size_t i = 0; i < 32; ++i) {
-            generator_preimage.emplace_back(0);
-        }
+        result.reserve(num_generators);
         for (size_t i = starting_index; i < starting_index + num_generators; ++i) {
-            auto generator_index = static_cast<uint32_t>(i);
-            uint32_t mask = 0xff;
-            generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
-            generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
-            generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
-            generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
-            result.push_back(affine_element::hash_to_curve(generator_preimage));
+            result.push_back(derive_generator(domain_hash, static_cast<uint32_t>(i)));
         }
         return result;
     }
@@ -128,6 +114,33 @@ template <typename Fq_, typename Fr_, typename Params> class group {
             domain_bytes.emplace_back(static_cast<unsigned char>(i));
         }
         return derive_generators(domain_bytes, num_generators, starting_index);
+    }
+
+    /**
+     * @brief The BLAKE3 hash of a domain separator, which forms the first half of every generator preimage in
+     * `derive_generators`.
+     */
+    inline static blake3::out_array hash_domain_separator(const std::vector<uint8_t>& domain_separator_bytes)
+    {
+        // An empty domain separator defeats domain separation.
+        BB_ASSERT(!domain_separator_bytes.empty(), "derive_generators: domain_separator_bytes must be non-empty");
+        return blake3::blake3s_constexpr(domain_separator_bytes.data(), domain_separator_bytes.size());
+    }
+
+    /**
+     * @brief Generator number `generator_index` of the domain whose separator hashes to `domain_hash`, exactly as
+     * `derive_generators` computes it.
+     * @details A pure function of its arguments, so distinct indices may be derived concurrently.
+     */
+    inline static affine_element derive_generator(const blake3::out_array& domain_hash, const uint32_t generator_index)
+    {
+        std::vector<uint8_t> generator_preimage(64, 0);
+        std::copy(domain_hash.begin(), domain_hash.end(), generator_preimage.begin());
+        generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
+        generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & 0xff);
+        generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & 0xff);
+        generator_preimage[35] = static_cast<uint8_t>(generator_index & 0xff);
+        return affine_element::hash_to_curve(generator_preimage);
     }
 };
 
