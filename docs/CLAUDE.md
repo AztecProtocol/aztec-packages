@@ -227,6 +227,8 @@ The examples build with the pin's published toolchain, the same code the snippet
 
 Tutorials that build an example where it sits (webapp, wallet extension, uniswap) fetch it with a `Clone the example` block: a sparse fetch of this repository at `#docs_commit` that takes the page's line's `examples/` and `Nargo.toml` and leaves out the other line's (nargo takes the topmost `Nargo.toml` as the workspace), then aztec-node's `noir-projects` at `#include_aztec_version` into that line's `.aztec-node/tree`. Its versions come from the page's macros, never from the pin file it checks out: in a release cut, `DOCS_COMMIT` still holds the dev pin. `scripts/fresh_clone_test.sh <page>` runs the block as rendered in an empty folder and builds the example.
 
+`scripts/page_tests.mts` names, for every tutorial and getting-started page with a shell block, the test that runs its commands (`TRANSCRIPTS`) or why none does (`UNTESTED`); `scripts/__tests__/page_tests.test.mts` fails on a page in neither and on a stale entry. The list only shrinks: never add a page to `UNTESTED`, or a reason to a page, to get a failing test green. A version a page types (`hardhat@…`, `yarn@…`) must equal the one the example it quotes installs (`page_versions.test.mts`).
+
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
 - **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
