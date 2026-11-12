@@ -17,9 +17,9 @@ const BIOME_PACKAGE = "@biomejs/biome";
 // Where Biome reads a directive: at the start of a comment's text, after `//` (also trailing code),
 // after `/*` and any stars, or on a later line of a block comment after an optional `*`. Matching is
 // textual, so a string that looks like a directive is counted too, which fails safe. `-end` closes
-// a `-start` range and is not counted on its own. Biome trims any Unicode whitespace there, not
-// only spaces and tabs.
-const SPACE = String.raw`[\p{White_Space}--[\n\r\u2028\u2029]]`;
+// a `-start` range and is not counted on its own. Biome separates the parts with any Unicode
+// whitespace except a line feed, which is a parse error after the form.
+const SPACE = String.raw`[\p{White_Space}--\n]`;
 const DIRECTIVE = new RegExp(
   String.raw`(?:\/\/|\/\*+|^${SPACE}*\**)${SPACE}*(biome-ignore(?:-all|-start|-end)?)${SPACE}+([^:\n]*?)${SPACE}*:`,
   "gmv",
