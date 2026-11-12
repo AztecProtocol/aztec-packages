@@ -17,7 +17,7 @@ You build three parts:
 
 ## Prerequisites
 
-- Node.js (v22 or later) and yarn
+- Node.js (v26.12.0 or later) and yarn
 - The Aztec CLI at version #include_aztec_version, with a local network running (see [Connecting to a local network](../../aztec-js/how_to_connect_to_local_network.md))
 - Familiarity with [notes](../../foundational-topics/state_management.md) and [proving Noir circuits in TypeScript](./recursive_verification.md)
 
