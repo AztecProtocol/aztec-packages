@@ -1,4 +1,6 @@
 barretenberg_module(api chonk bbapi dsl libdeflate::libdeflate_static nlohmann_json::nlohmann_json)
+# api_msgpack.cpp includes bbapi's generated dispatch header.
+add_dependencies(api_objects bb_ipc_generated)
 
 if(NOT WASM AND NOT FUZZING)
     target_link_libraries(api_tests PRIVATE vm2_stub)
