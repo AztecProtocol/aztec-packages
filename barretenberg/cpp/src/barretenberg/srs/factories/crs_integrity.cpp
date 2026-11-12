@@ -42,8 +42,13 @@ void verify_chunks(const char* name,
 
     std::atomic<bool> matches{ true };
     parallel_for([&](ThreadChunk thread_chunk) {
+        const auto chunks = thread_chunk.range(num_chunks);
+        // Most workers get no chunk; they must not allocate the buffer.
+        if (chunks.empty()) {
+            return;
+        }
         std::vector<uint8_t> encoded(chunk_points * encoded_point_bytes);
-        for (size_t c : thread_chunk.range(num_chunks)) {
+        for (size_t c : chunks) {
             bool valid = true;
             for (size_t i = 0; valid && i < chunk_points; ++i) {
                 valid = encode(points[(c * chunk_points) + i], encoded.data() + (i * encoded_point_bytes));
