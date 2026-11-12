@@ -11,20 +11,32 @@ import { test } from "node:test";
 // newer publication still waits out the gate.
 const docs = path.resolve(import.meta.dirname, "../..");
 const SCOPES = /^@aztec-(labs|foundation)\/\*(?:@(.*))?$/;
+const UNREAD = "<unread>";
 const lines = ["", ...fs.readdirSync(path.join(docs, "lines")).map((l) => `lines/${l}/`)];
 
-// The entries of each npmPreapprovedPackages in a page's YAML blocks or a .yarnrc.yml: an inline
-// list or the `- "…"` items under it.
+// The entries of each npmPreapprovedPackages in a page's YAML blocks or a .yarnrc.yml: a one-line
+// list, or the `- …` items under the key, without YAML comments. A list in another form reads as one
+// UNREAD entry, which fails the check rather than escaping it.
 function preapprovals(text: string): string[] {
+  const scalar = (raw: string) => {
+    const quoted = raw.trim().match(/^(["'])(.*?)\1\s*(#.*)?$/);
+    return quoted ? quoted[2] : raw.replace(/\s+#.*$/, "").trim();
+  };
   const entries: string[] = [];
   const rows = text.split("\n");
   for (let i = 0; i < rows.length; i++) {
-    const m = rows[i].match(/^\s*npmPreapprovedPackages:\s*(.*)$/);
+    const m = rows[i].match(/^\s*npmPreapprovedPackages:(.*)$/);
     if (!m) continue;
-    let items: string[] = [];
-    if (m[1].startsWith("[")) items = m[1].replace(/^\[|\]\s*$/g, "").split(",");
-    else for (let j = i + 1, item; (item = rows[j]?.match(/^\s*-\s*(.+)$/)); j++) items.push(item[1]);
-    entries.push(...items.map((e) => e.trim().replace(/^["']|["']$/g, "")));
+    const rest = m[1].replace(/\s+#.*$/, "").trim();
+    if (/^\[.*\]$/.test(rest)) entries.push(...rest.slice(1, -1).split(",").filter((e) => e.trim()).map(scalar));
+    else if (rest) entries.push(UNREAD);
+    else
+      for (let j = i + 1; j < rows.length; j++) {
+        if (/^\s*(#.*)?$/.test(rows[j])) continue;
+        const item = rows[j].match(/^\s*-\s+(.+)$/);
+        if (!item) break;
+        entries.push(scalar(item[1]));
+      }
   }
   return entries;
 }
@@ -47,9 +59,17 @@ function firstParty() {
     for (const entry of preapprovals(fs.readFileSync(file, "utf8"))) {
       const m = entry.match(SCOPES);
       if (m) found.push({ file: path.relative(docs, file), scope: `@aztec-${m[1]}`, version: m[2] });
+      else if (entry === UNREAD || /@aztec-(labs|foundation)\//.test(entry)) found.push({ file: path.relative(docs, file), scope: "unread", version: entry });
     }
   return found;
 }
+
+test("the reader takes every form of the list and flags one it cannot read", () => {
+  const read = (yaml: string) => preapprovals(yaml).filter((e) => e === UNREAD || /@aztec-(labs|foundation)\//.test(e));
+  assert.deepEqual(read(`npmPreapprovedPackages:\n  - "@aztec-labs/*" # day one\n\n  # and\n  - @aztec-foundation/*@1.0.0 # x\nnext: 1`), ["@aztec-labs/*", "@aztec-foundation/*@1.0.0"]);
+  assert.deepEqual(read(`npmPreapprovedPackages: ['@aztec/*', "@aztec-labs/*@#include_aztec_version"] # x`), ["@aztec-labs/*@#include_aztec_version"]);
+  assert.deepEqual(read(`npmPreapprovedPackages: [\n  "@aztec-labs/*",\n]`), [UNREAD]);
+});
 
 test("every page and the webapp tutorial pre-approve the first-party scopes only at the versions they install", () => {
   const found = firstParty();
@@ -62,6 +82,7 @@ test("every page and the webapp tutorial pre-approve the first-party scopes only
     return scope === "@aztec-labs" ? snapshot : /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
   };
   const wrong = found.filter(({ file, scope, version }) => {
+    if (scope === "unread") return true;
     const w = want(file, scope);
     return typeof w === "string" ? version !== w : !w.test(version ?? "");
   });
