@@ -1653,7 +1653,9 @@ held=$(
   find "$(git -C "$CUT" rev-parse --absolute-git-dir)/modules" -type d -name objects -prune 2>/dev/null |
     while read -r objects; do
       m=${objects%/objects}
-      { git --git-dir="$m" log --oneline --branches --tags --not --remotes; git --git-dir="$m" stash list; } | sed "s|^|$m: |"
+      { git --git-dir="$m" log --oneline --branches --tags --not --remotes
+        git --git-dir="$m" log --oneline --reflog --not --remotes HEAD
+        git --git-dir="$m" stash list; } | sed "s|^|$m: |"
     done
 )
 if [ -z "$held" ]; then git -C "$DEST_ROOT" worktree remove --force "$CUT"; else printf 'Stop, the cut holds:\n%s\n' "$held" >&2; fi
@@ -1662,8 +1664,10 @@ if [ -z "$held" ]; then git -C "$DEST_ROOT" worktree remove --force "$CUT"; else
 The cut has checked-out submodules, and git removes such a worktree only with `--force`,
 which also discards uncommitted changes and the submodules' local commits and stashes. So
 it runs only once the cut's status and every submodule repository under its git directory
-come back empty (Step 17 committed everything); otherwise it prints what they hold: stop
-and report it. Ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
+come back empty (Step 17 committed everything): no commit that only a local branch, tag or
+reflog reaches, and no stash. The reflog pass leaves out `HEAD`, the commit the cut records,
+which the submodule fetched by its hash, so no remote branch holds it. Otherwise it prints
+what they hold: stop and report it. Ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
 The branch `docs-cut/<cut>` stays as the record of the cut until the destination
 commit has merged. `$STATE` holds the CLI's home, the checkout and the logs; remove it once
 the release is out.
