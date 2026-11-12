@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -87,10 +88,21 @@ bb::HonkProof create_mock_avm_proof_without_pub_inputs();
  * @tparam IO The IO type that determines public inputs handling and whether IPA proof is included
  * @param acir_public_inputs_size Number of public inputs coming from the ACIR constraints
  * @param make_proof_invalid If true, the proof is an invalid proof
+ * @param engine Source of the circuit's random values; the default engine if null. A ZK prover draws its masking
+ * values from the default engine regardless.
  */
 template <typename Flavor, typename IO>
 std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_arbitrary_valid_honk_proof_and_vk(
-    size_t acir_public_inputs_size);
+    size_t acir_public_inputs_size, bb::numeric::RNG* engine = nullptr);
+
+/**
+ * @brief Make exactly the random draws of construct_arbitrary_valid_honk_proof_and_vk, without building or proving.
+ * @details For callers that do not need the proof but must leave the engine where constructing it would. Only
+ * non-ZK flavors qualify: their provers draw nothing, whereas a ZK prover draws masking values, some on worker threads.
+ */
+template <typename Flavor, typename IO>
+void discard_arbitrary_valid_honk_proof_randomness(size_t acir_public_inputs_size, bb::numeric::RNG* engine = nullptr)
+    requires(!Flavor::HasZK);
 
 /**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
