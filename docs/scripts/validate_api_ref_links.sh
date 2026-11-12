@@ -18,7 +18,7 @@ set -euo pipefail
 #
 # Usage: validate_api_ref_links.sh   (DOCS_ROOT overrides the docs/ directory it reads)
 #
-# Exit code: Always 0 (warnings only) to avoid breaking builds initially.
+# Exit code: 1 if a link is broken. A version mismatch only warns.
 
 # Lowercase a string. The `${var,,}` form this replaces is bash 4 only: macOS
 # ships bash 3.2, where it aborts with "bad substitution".
@@ -439,7 +439,7 @@ echo "  - Version mismatches: $VERSION_MISMATCH_COUNT"
 
 if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo ""
-  echo "WARNING: $BROKEN_COUNT broken API reference link(s) found."
+  echo "ERROR: $BROKEN_COUNT broken API reference link(s) found."
   echo "These links point to files that don't exist in static/aztec-nr-api/ or static/typescript-api/."
   echo "Run 'yarn generate:aztec-nr-api' or 'yarn generate:typescript-api' to regenerate the API docs."
 fi
@@ -450,5 +450,5 @@ if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
   echo "These links reference the wrong API version for their docs directory."
 fi
 
-# Exit 0 with warnings to avoid breaking builds initially
-exit 0
+# pathname:/// links bypass Docusaurus's link check, so this is the only gate for them.
+[[ $BROKEN_COUNT -eq 0 ]]
