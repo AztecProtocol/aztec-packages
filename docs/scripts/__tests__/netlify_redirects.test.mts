@@ -24,7 +24,7 @@ function readRedirects(text: string): Redirect[] {
     else if (row === "" || row.startsWith("#")) return;
     else if (row.startsWith("[")) {
       // Any other spelling (quoted, dotted, single brackets) would declare rules this reader skips.
-      if (row.replace(/#[^\]"']*$/, "").includes("redirects")) fail("unsupported redirect table");
+      if (row.replace(/\]\s*#.*$/, "]").includes("redirects")) fail("unsupported redirect table");
       current = undefined;
     } else if (!current && /^["']?redirects\b/.test(row)) fail("unsupported redirects key");
     else if (current) {
@@ -70,7 +70,7 @@ test("readRedirects reads the file's subset and refuses anything else", () => {
     '  to = "/b"',
     "  status = 301",
     "",
-    "[[headers]] # headers, not redirects",
+    "[[headers]] # unlike [[redirects]], not \"redirects\"",
     '  for = "/*"',
   ].join("\n");
   assert.deepEqual(readRedirects(text), [{ line: 3, from: "/a", to: "/b", status: 301 }]);
