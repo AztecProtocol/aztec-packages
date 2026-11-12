@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import {
   classList,
   codeBlockTexts,
@@ -11,6 +11,7 @@ import {
   hasFooter,
   hasSearchTrigger,
   main,
+  type Model,
   pageUrl,
 } from "../check_built_site.mts";
 
@@ -84,9 +85,13 @@ test("expectedSections follows the layout model: production drops the dev docs a
   assert.equal(pageUrl("operate", "", "operators/x"), "/operate/operators/x");
 });
 
+const fixtures: string[] = [];
+after(() => fixtures.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
+
 /** A minimal production-layout build that passes, so each test below breaks exactly one thing. */
 function fixtureBuild(): { dir: string; write: (url: string, html: string) => void } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "built-site-"));
+  fixtures.push(dir);
   const write = (url: string, html: string) => {
     const file = path.join(dir, url === "/" ? "index.html" : `${url.slice(1)}.html`);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -106,16 +111,16 @@ function fixtureBuild(): { dir: string; write: (url: string, html: string) => vo
   return { dir, write };
 }
 
-const model = {
+const model: Model = {
   configs: { developer: { mainnet: "v6.0.0" }, network: { mainnet: "v6.0.0" } },
   cut: { developer: ["v6.0.0", "v5.2.0"], network: ["v6.0.0", "v5.2.0"] },
   lines: ["v6"],
   production: true,
 };
 
-function run(dir: string): { code: number; out: string } {
+function run(dir: string, layout: Model = model): { code: number; out: string } {
   const lines: string[] = [];
-  const code = main(dir, model, (line: string) => lines.push(line));
+  const code = main(dir, layout, (line: string) => lines.push(line));
   return { code, out: lines.join("\n") };
 }
 
@@ -154,4 +159,15 @@ test("main passes a healthy build and names each regression it is for", () => {
     assert.match(out, expected, name);
     assert.match(out, /1 problems/, name);
   }
+});
+
+test("a layout with one version passes without a version menu, as the menu then renders as a plain link", () => {
+  const b = fixtureBuild();
+  fs.rmSync(path.join(b.dir, "developers/v5.2.0"), { recursive: true });
+  fs.rmSync(path.join(b.dir, "operate/v5.2.0"), { recursive: true });
+  const shell = `<nav>${search}<a class="navbar__item navbar__link" href=/developers/overview>Tierra (v6.0.0)</a></nav>${footer}`;
+  b.write("/developers/overview", shell);
+  b.write("/operate/operators/solo-sequencer/configure-environment", `${shell}<pre><code>{{ETH_RPC}}</code></pre>`);
+  const { code, out } = run(b.dir, { ...model, cut: { developer: ["v6.0.0"], network: ["v6.0.0"] } });
+  assert.equal(code, 0, out);
 });

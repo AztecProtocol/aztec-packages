@@ -1,10 +1,6 @@
-// Fails a build whose key pages stop showing what readers rely on, though the build itself succeeded:
-// a docs version or dev line missing from its layout, the dev docs or a dev line served by production,
-// a version menu that drops a version or a page, an operator page whose command template or recommended
-// version is gone, a page without its search button or footer. Reads named pages of the build and the
-// docs version configs; the layout comes from the model docusaurus.config.js builds from
-// (src/network_docs.js). Most OperatorConfig parts render nothing on the server, so only their fallbacks
-// can be checked here.
+// Fails a build whose key pages lost what readers rely on though the build succeeded. The expected
+// layout comes from the model docusaurus.config.js builds from (src/network_docs.js). Most
+// OperatorConfig parts render nothing on the server, so only their fallbacks can be checked here.
 //
 //   node scripts/check_built_site.mts <build-dir>
 import fs from "node:fs";
@@ -141,7 +137,10 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     if (root) {
       const links = dropdownLinks(root, s.rootUrl as string);
       const sorted = (l: string[]) => [...l].sort().join(" ");
-      if (!links) problems.push(`version menu on ${s.rootUrl}: no menu offers this page`);
+      // With one version the menu renders as a plain link, which offers nothing to check.
+      if (!links) {
+        if (s.urls.length > 1) problems.push(`version menu on ${s.rootUrl}: no menu offers this page`);
+      }
       else if (sorted(links) !== sorted(s.urls)) {
         problems.push(`version menu on ${s.rootUrl} links [${links.join(", ")}], expected [${s.urls.join(", ")}]`);
       }
