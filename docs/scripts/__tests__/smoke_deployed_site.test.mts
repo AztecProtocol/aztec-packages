@@ -70,7 +70,7 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
     ...netlifyRoutes(o),
     "/developers": redirect(`${o}/developers/docs`),
     "/network/operators/setup/running_a_node": redirect(`${elsewhere.origin}/operate/operators/setup/running_a_node`),
-    "/developers/overview.md": send(200, "text/plain; charset=UTF-8", TWIN),
+    "/developers/overview.md": send(200, "text/markdown-broken; charset=UTF-8", TWIN),
     "/developers/overview": send(200, "text/markdown; charset=utf-8", TWIN),
     "/developers/docs/resources/migration_notes.md": send(200, "text/markdown", "Included versions: none\n"),
     "/commit.txt": send(200, "text/plain", "not a commit\n"),
@@ -80,14 +80,14 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   const fail = (id: string) => out.split("\n").find((l) => l.startsWith(`FAIL ${id} `)) ?? "";
   assert.match(fail("B1"), /redirects to \/developers\/docs, expected \/developers\/overview/);
   assert.match(fail("B2"), /redirects off the site/);
-  assert.match(fail("B3"), /content-type text\/plain/);
+  assert.match(fail("B3"), /content-type text\/markdown-broken/);
   assert.match(fail("B4"), /browser request: content-type text\/markdown/);
   assert.match(fail("B5"), /6\.0\.0 not among the included versions/);
   assert.match(fail("B7"), /not a commit id/);
   assert.deepEqual(elsewhere.hits, []);
 });
 
-test("a soft 404, an oversized body and a commit mismatch fail; bad base URLs are refused", async () => {
+test("a redirect target that fails with its query, a soft 404, an oversized body and a commit mismatch fail; bad base URLs are refused", async () => {
   const { origin } = await serve((o) => ({
     ...netlifyRoutes(o),
     "/commit.txt": (_req, res) => {
@@ -95,10 +95,19 @@ test("a soft 404, an oversized body and a commit mismatch fail; bad base URLs ar
       res.end("0".repeat(6 * 1024 * 1024));
     },
   }));
-  const soft = await serve(netlifyRoutes, send(200, "text/html", "<html></html>"));
+  const soft = await serve(
+    (o) => ({
+      ...netlifyRoutes(o),
+      "/network/operators/setup/running_a_node": redirect(`${o}/operate/operators/setup/running_a_node?broken=1`),
+      "/operate/operators/setup/running_a_node": (req, res) =>
+        (req.url?.includes("broken") ? send(404, "text/html", "") : send(200, "text/html", "<html></html>"))(req, res),
+    }),
+    send(200, "text/html", "<html></html>"),
+  );
   const { out } = await run([origin, "--commit", SHA]);
   assert.match(out, /FAIL B7 .*over 5 MiB/);
   const mismatch = await run([soft.origin, "--commit", "a".repeat(40)]);
+  assert.match(mismatch.out, /FAIL B2 .*running_a_node\?broken=1: got 404/);
   assert.match(mismatch.out, /FAIL B6 .*expected 404, got 200/);
   assert.match(mismatch.out, new RegExp(`FAIL B7 .*${SHA}, expected a{40}`));
   for (const bad of [[], ["ftp://example.org"], ["https://user:pw@example.org"], ["https://example.org/?a=1"], ["https://example.org/sub"], [origin, "--commit", "abc"]]) {

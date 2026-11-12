@@ -1,7 +1,6 @@
-// Checks what a deployed docs site answers outside the build: Netlify redirects, the two edge functions
-// (markdown content negotiation, migration-notes ranges), the 404 page and the commit id the build
-// published. Every URL it requests exists in production and in deploy previews. Node built-ins only, so
-// it runs without an install; it sends no credential and follows no redirect off the base's origin.
+// Checks what a deployed docs site answers outside the build (Netlify redirects, edge functions, the 404
+// page, the published commit id), against production or a deploy preview; Node built-ins only, so it
+// runs without an install.
 //
 //   node docs/scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]
 import fs from "node:fs";
@@ -39,7 +38,7 @@ const getter = (base: URL): Get => async (pathAndQuery, accept = "*/*") => {
   return { url, status: res.status, type: res.headers.get("content-type") ?? "", header: (n) => res.headers.get(n) ?? "", body };
 };
 
-const isType = (reply: Reply, type: string) => reply.type.toLowerCase().startsWith(type);
+const isType = (reply: Reply, type: string) => reply.type.split(";")[0].trim().toLowerCase() === type;
 
 /** Problems with a redirect from `reply` to `expected` (a path on the base's origin); the target URL when there are none. */
 function redirectTo(reply: Reply, expected: string, problems: string[]): URL | null {
@@ -72,9 +71,10 @@ export const CHECKS: Check[] = [
       const problems: string[] = [];
       const target = redirectTo(await get("/network/operators/setup/running_a_node"), "/operate/operators/setup/running_a_node", problems);
       if (!target) return problems;
-      const page = await get(target.pathname, BROWSER_ACCEPT);
-      if (page.status !== 200 || !isType(page, "text/html")) return [`${target.pathname}: got ${page.status} ${page.type}, expected 200 text/html`];
-      return `/network/* → ${target.pathname} (200)`;
+      const destination = target.pathname + target.search;
+      const page = await get(destination, BROWSER_ACCEPT);
+      if (page.status !== 200 || !isType(page, "text/html")) return [`${destination}: got ${page.status} ${page.type}, expected 200 text/html`];
+      return `/network/* → ${destination} (200)`;
     },
   },
   {
