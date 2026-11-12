@@ -57,6 +57,11 @@ template <class Curve> class CommitmentKey {
         , srs_size(round_up_to_even(num_points))
     {}
     /**
+     * @brief Throw unless the SRS points are canonical. Called before computing a verification key.
+     */
+    void verify_srs_integrity() const { srs->verify_points_integrity(); }
+
+    /**
      * @brief Checks the commitment key is properly initialized.
      *
      * @return bool

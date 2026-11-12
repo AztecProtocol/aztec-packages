@@ -210,6 +210,8 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   const std::string& fallback_url)
 {
     BB_BENCH_NAME("get_bn254_g1_data");
+    // The CRS constructor accepts only whole pinned chunks.
+    num_points = round_up_to_chunk_boundary(num_points);
     const bool verify_cached_crs = std::getenv("BB_VERIFY_CRS") != nullptr;
     const size_t cached_read_points = verify_cached_crs ? round_up_to_chunk_boundary(num_points) : num_points;
     std::filesystem::create_directories(path);
