@@ -48,12 +48,12 @@ yarn add @aztec-labs/aztec.js@#include_aztec_version @aztec-labs/accounts@#inclu
 ```
 
 :::tip Packages published in the last 24 hours
-Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`. It exempts only the versions this page installs, so a later publication still waits out the gate:
 
 ```yaml
 npmPreapprovedPackages:
-  - "@aztec-labs/*"
-  - "@aztec-foundation/*"
+  - "@aztec-labs/*@#include_version_without_prefix"
+  - "@aztec-foundation/*@#include_foundation_version_without_prefix"
 ```
 :::
 

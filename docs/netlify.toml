@@ -114,7 +114,7 @@
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
-    to = "developers/docs/tutorials/js_tutorials/aztecjs-getting-started"
+    to = "/developers/docs/tutorials/js_tutorials/first_full_project"
 
 [[redirects]]
     from = "/v2.0.2/migration_notes"
