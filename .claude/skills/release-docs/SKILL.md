@@ -1039,6 +1039,25 @@ Repeat both `update_docs_versions.sh` lines for each other release type this ver
 serves. Verify the new version appears in both `developer_version_config.json` and
 `network_version_config.json`.
 
+**Re-cutting a released version** (a snapshot rebuilt from a newer line, with no new
+release). `docs:version` refuses a version that exists, and Docusaurus refuses a config
+version with no snapshot, so in the cut, remove the old snapshot and set its config entries
+aside first:
+
+```bash
+git rm -r -q "developer_versioned_docs/version-$LABS_TAG" "developer_versioned_sidebars/version-$LABS_TAG-sidebars.json"
+jq --arg v "$LABS_TAG" 'with_entries(select(.value != $v))' developer_version_config.json >c.tmp &&
+  mv c.tmp developer_version_config.json
+CONTEXT=production docs_env yarn docusaurus docs:version:developer "$LABS_TAG"
+```
+
+Then run `update_docs_versions.sh` for each release type the entry served. `CONTEXT=production`
+skips the dev lines, whose config check throws when no network runs the line's major (`no
+network runs v6`); the snapshot does not depend on it. The config and `developer_versions.json`
+must come back unchanged. Step 16 has nothing to delete, but after Step 13 run its
+`check_orphaned_urls.sh` against the live sitemap: no published URL may be lost. Step 19 still
+records the pages the re-cut adds, once they are live.
+
 **Strip the `## TBD` section from the snapshot; it is not cosmetic.** Step 8 leaves
 unshipped items there and the cut copies the file wholesale; in one rehearsal it carried
 ~4,000 characters about an unmerged oracle. Remove the whole `## TBD` section and any
