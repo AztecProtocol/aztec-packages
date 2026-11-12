@@ -71,16 +71,18 @@ beforeEach(() => {
 
 type Endpoints = Record<string, unknown>;
 const onLine: Endpoints = { [`${API}/compare/v6...${PINNED}`]: { status: "behind" } };
-// v6.0.1 tagged on release/6.0.1, which forked from v6 at FORK, after v6 left main.
+// v6.0.1 tagged on release/6.0.1, which forked at FORK and adds one commit that neither v6 nor main has.
+const OWN = { sha: "d".repeat(40), commit: { message: "chore: bump toolchain pins to 6.0.1\n\nbody" } };
 const onRelease: Endpoints = {
   [`${API}/compare/v6...${PINNED}`]: {
     status: "diverged",
+    ahead_by: 1,
     merge_base_commit: { sha: FORK, commit: { committer: { date: "2026-10-21T11:37:06Z" } } },
-    commits: [{ sha: "d".repeat(40), commit: { message: "chore: bump toolchain pins to 6.0.1\n\nbody" } }],
+    commits: [OWN],
   },
   [`${API}/compare/release/6.0.1...${PINNED}`]: { status: "identical" },
   [API]: { default_branch: "main" },
-  [`${API}/compare/main...${FORK}`]: { status: "diverged" },
+  [`${API}/compare/main...${PINNED}`]: { status: "diverged", ahead_by: 1, commits: [OWN] },
 };
 
 const promote = (tag: string, env: Record<string, string | undefined> = {}, endpoints: Endpoints = onLine) => {
@@ -134,7 +136,7 @@ test("a wrong worktree, a dirty docs/, another major, a pinned commit on neither
     ["another major", () => promote("v7.0.0"), /v7\.0\.0 is not a v6 release/],
     ["off every branch", () => promote("v6.0.1", {}, { [`${API}/compare/v6...${PINNED}`]: { status: "diverged" } }), new RegExp(`${PINNED}\\) is not on aztec-labs-eng/aztec-node's v6 branch .*diverged.*release/6\\.0\\.1`)],
     ["another release's branch", () => promote("v6.0.1", {}, { ...onRelease, [`${API}/compare/release/6.0.1...${PINNED}`]: { status: "diverged" } }), /neither .*v6 nor its release\/6\.0\.1 branch/],
-    ["a release branch from main", () => promote("v6.0.1", {}, { ...onRelease, [`${API}/compare/main...${FORK}`]: { status: "behind" } }), /release\/6\.0\.1 forks from main, not from v6/],
+    ["a release branch from main", () => promote("v6.0.1", {}, { ...onRelease, [`${API}/compare/main...${PINNED}`]: { status: "behind", ahead_by: 0, commits: [] } }), /release\/6\.0\.1 carries commits main has \(dddddddddd…\): it is not a release branch of v6/],
     ["failed pin", () => promote("v6.0.1", { PIN_FAIL: "1" }), /pinning line v6 to v6\.0\.1 failed/],
   ];
   for (const [name, run, message] of cases) {

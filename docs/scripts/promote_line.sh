@@ -39,21 +39,23 @@ case "$status" in
   behind | identical) ;;
   diverged)
     # A release may be tagged on its own branch (v6.0.0 on release/6.0.0). Accept only the branch named for the
-    # tag's version, and only when it forks from the line after the line left the default branch: a fork point
-    # the default branch has would mean the release came from there, not from the line.
+    # tag's version, and only when the tag's own commits are on neither the line nor the default branch: the
+    # fork point alone cannot tell, since a line can leave the default branch after a release forks from it.
     release=release/${tag#v}
     rstatus=$(compare "$release" "$commit" .status) ||
       unpin "$tag ($commit) is not on $repo's $line branch (compare $line...$commit: diverged), nor on a $release branch"
     [[ "$rstatus" = behind || "$rstatus" = identical ]] ||
       unpin "$tag ($commit) is on neither $repo's $line nor its $release branch (compare $release...$commit: $rstatus)"
+    default=$(gh api "repos/$repo" --jq .default_branch) || unpin "cannot read $repo's default branch"
+    # The compare API lists at most 250 commits: refuse rather than check a truncated list.
+    own=$(compare "$line" "$commit" 'if .ahead_by == (.commits | length) then .commits[].sha else error("truncated") end') ||
+      unpin "cannot list $tag's commits that $line lacks"
+    off_default=$(compare "$default" "$commit" 'if .ahead_by == (.commits | length) then .commits[].sha else error("truncated") end') ||
+      unpin "cannot list $tag's commits that $default lacks"
+    shared=$(grep -Fxv -f <(printf '%s\n' "$off_default") <<<"$own" || true)
+    [ -z "$shared" ] || unpin "$release carries commits $default has ($(head -c 10 <<<"$shared")…): it is not a release branch of $line"
     read -r fork forked < <(compare "$line" "$commit" '"\(.merge_base_commit.sha) \(.merge_base_commit.commit.committer.date)"') ||
       unpin "cannot find where $release forks from $line"
-    default=$(gh api "repos/$repo" --jq .default_branch) || unpin "cannot read $repo's default branch"
-    dstatus=$(compare "$default" "$fork" .status) || unpin "cannot compare $release's fork point $fork with $default"
-    case "$dstatus" in
-      diverged | ahead) ;;
-      *) unpin "$release forks from $default, not from $line (its fork point $fork is on $default)" ;;
-    esac
     echo "$tag is on $repo's $release, which forks from $line at $fork ($forked). The tag's commits not on $line:"
     compare "$line" "$commit" '.commits[] | "  \(.sha[0:10]) \(.commit.message | split("\n")[0])"' || unpin "cannot list $tag's commits"
     ;;
