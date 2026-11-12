@@ -7,8 +7,6 @@ const { preprocessIncludeVersion } = require("./include_version");
 const { syncVersionsFile } = require("../network_docs");
 const { lineLinks, lineNames, lineOf } = require("./line");
 
-// const { generateInstructionSet } = require("./InstructionSet/genMarkdown"); // Removed with protocol-specs
-
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   const files = fs.readdirSync(docsDir);
   const contentUpdates = [];

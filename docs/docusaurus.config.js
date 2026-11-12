@@ -2,10 +2,6 @@
 // Note: type annotations allow type checking and IDEs autocompletion
 
 const { themes } = require("prism-react-renderer");
-// @ts-ignore
-const lightTheme = themes.github;
-// @ts-ignore
-const darkTheme = themes.dracula;
 
 // @ts-ignore
 import math from "remark-math";
@@ -14,8 +10,6 @@ import katex from "rehype-katex";
 
 // @ts-ignore
 const path = require("path");
-// @ts-ignore
-const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const {
   apiReferenceDirs,
@@ -499,7 +493,6 @@ const config = {
         apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
-    // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
     organizationId: ORGANIZATION_ID,

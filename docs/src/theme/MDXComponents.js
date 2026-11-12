@@ -3,11 +3,6 @@ import MDXComponents from "@theme-original/MDXComponents";
 import Version, { AztecPackagesVersion } from "@site/src/components/Version";
 import CodeBlock from "@theme/CodeBlock";
 import Heading from "@theme/Heading";
-import Card from '@site/src/components/TutorialCard';
-import CardBody from '@site/src/components/TutorialCard/CardBody';
-import CardFooter from '@site/src/components/TutorialCard/CardFooter';
-import CardHeader from '@site/src/components/TutorialCard/CardHeader';
-import CardImage from '@site/src/components/TutorialCard/CardImage';
 import OperatorConfig from '@site/src/components/OperatorConfig';
 import ConfigCode from '@site/src/components/OperatorConfig/ConfigCode';
 import InlineCommand from '@site/src/components/OperatorConfig/InlineCommand';
@@ -30,11 +25,6 @@ export default {
   AztecPackagesVersion,
   CodeBlock,
   Heading,
-  Card,
-  CardHeader,
-  CardBody,
-  CardFooter,
-  CardImage,
   OperatorConfig,
   ConfigCode,
   InlineCommand,
