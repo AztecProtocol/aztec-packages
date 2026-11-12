@@ -495,7 +495,9 @@ eval "$(node -e '
 echo "API_FOLDER=${API_FOLDER:-none} KEEP=${KEEP:-none}"
 for pair in $KEEP; do
   for root in aztec-nr-api typescript-api; do
-    rsync -a --delete "static/$root/${pair%%:*}/" "static/$root/${pair#*:}/"
+    dst="static/$root/${pair#*:}"
+    rm -rf "$dst" && mkdir -p "$dst"
+    git -C "$CUT" archive "$PINNED" "docs/static/$root/${pair%%:*}" | tar -x -C "$dst" --strip-components=4
   done
 done
 if [ "$API_FOLDER" = <release_type> ]; then
@@ -512,7 +514,8 @@ docs_env yarn generate:aztecjs-reference
 - Empty (devnet): no network docs version reads this type, so no folder is generated.
 - `KEEP` lists `<folder>:<network>` for a network that stays on the version it shared with
   this type (mainnet moves on while testnet stays): the loop copies the shared folder to
-  that network before the generators overwrite it, and Step 16 removes its redirects.
+  that network from the pin commit, so a rerun after the generators overwrote the folder
+  still copies the old reference, and Step 16 removes its redirects.
 
 This writes:
 

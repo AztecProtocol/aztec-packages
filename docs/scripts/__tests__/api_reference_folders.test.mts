@@ -11,15 +11,35 @@ const read = (file: string) => fs.readFileSync(path.join(docs, file), "utf8");
 const config = JSON.parse(read("developer_version_config.json"));
 const ROOTS = ["aztec-nr-api", "typescript-api"];
 
-// `from`, `to` and `status` of each [[redirects]] block; commented-out keys do not match.
-const redirects = (toml: string) =>
-  toml
-    .split(/^\[\[redirects\]\]\s*$/m)
-    .slice(1)
-    .map((block) => {
-      const key = (name: string) => block.match(new RegExp(`^\\s*${name}\\s*=\\s*"?([^"\\n]*?)"?\\s*$`, "m"))?.[1];
-      return { from: key("from"), to: key("to"), status: key("status"), force: key("force") };
-    });
+// The keys of each [[redirects]] table, for the TOML this file uses: basic or literal strings and bare
+// values, each optionally followed by a comment. Any other table header ends the table.
+function redirects(toml: string): Record<string, string>[] {
+  const tables: Record<string, string>[] = [];
+  let table: Record<string, string> | undefined;
+  for (const line of toml.split("\n")) {
+    if (/^\s*\[/.test(line)) {
+      table = /^\s*\[\[redirects\]\]\s*(#.*)?$/.test(line) ? {} : undefined;
+      if (table) tables.push(table);
+      continue;
+    }
+    const pair = table && line.match(/^\s*(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s#]+))\s*(#.*)?$/);
+    if (pair && table) table[pair[1]] = pair[2] ?? pair[3] ?? pair[4];
+  }
+  return tables;
+}
+
+test("the redirect reader reads both string kinds and comments, and stops at the next table", () => {
+  const toml = [
+    `[[redirects]]`,
+    `    from = '/a/*' # a comment`,
+    `    # to = "/commented"`,
+    `    to = "/b/:splat"`,
+    `    status = 302`,
+    `[build.environment]`,
+    `    force = "true"`,
+  ].join("\n");
+  assert.deepEqual(redirects(toml), [{ from: "/a/*", to: "/b/:splat", status: "302" }]);
+});
 
 test("static/ holds the API reference folder of each version a network reads, and no folder no version links", () => {
   const [developer] = docsInstances(config, config, true);
@@ -48,7 +68,7 @@ test("a network on another network's API reference folder redirects its own fold
       const rule = rules.find((r) => r.from === from);
       if (folder === network) assert.equal(rule, undefined, `${from}: static/${root}/${network} serves ${network}, so the redirect only catches its 404s`);
       // 302 and no `force`: the network's own folder wins again, uncached, the day it returns.
-      else assert.deepEqual(rule, { from, to: `/${root}/${folder}/:splat`, status: "302", force: undefined }, `${from} must redirect to ${folder}'s folder`);
+      else assert.deepEqual(rule, { from, to: `/${root}/${folder}/:splat`, status: "302" }, `${from} must redirect to ${folder}'s folder`);
     }
   }
 });
