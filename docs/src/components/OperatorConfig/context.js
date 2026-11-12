@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import networkVersionConfig from '@site/network_version_config.json';
 
 // Default to the testnet version, fall back to mainnet, then to a sane string.

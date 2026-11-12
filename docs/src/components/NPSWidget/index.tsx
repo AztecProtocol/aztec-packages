@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './styles.module.css';
 import { analytics } from '@site/src/utils/analytics';
 

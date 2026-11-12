@@ -1,4 +1,3 @@
-import React from 'react';
 import { RECOMMENDED_VERSION } from './context';
 
 /**

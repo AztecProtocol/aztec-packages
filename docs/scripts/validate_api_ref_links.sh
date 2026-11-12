@@ -41,7 +41,7 @@ docs_routes_init_api_indexes
 echo "Validating API reference links..."
 
 # Collect directories to scan.
-# 1. processed-docs/ — current docs with macros resolved (available during build after preprocess:move)
+# 1. processed-docs/ — current docs with macros resolved (written by `yarn preprocess`)
 # 2. developer_versioned_docs/ — pinned version snapshots (macros already resolved at version time)
 # 3. docs-developers/ — source files (for TypeScript API JSX components that don't use macros)
 # We skip docs-developers/ for aztec-nr-api links because they contain unresolved #api_ref_version macros,
