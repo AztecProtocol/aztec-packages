@@ -120,6 +120,26 @@ template <typename Builder> cycle_group<Builder> straus_plookup_table<Builder>::
 
     // Get native index value and look up the corresponding point
     auto native_index = static_cast<size_t>(uint256_t(index.get_value()));
+#ifndef __wasm__
+    return read_at_index(index, native_index);
+}
+
+// Only the fixed-base caller can use the integer captured by scalar decomposition.
+// Constant slices retain the public conversion/assertion sequence.
+template <typename Builder>
+cycle_group<Builder> straus_plookup_table<Builder>::read_with_native_index(const field_t& index, size_t native_index)
+{
+    if (index.is_constant()) {
+        return read(index);
+    }
+    BB_ASSERT_DEBUG(static_cast<size_t>(uint256_t(index.get_value())) == native_index);
+    return read_at_index(index, native_index);
+}
+
+template <typename Builder>
+cycle_group<Builder> straus_plookup_table<Builder>::read_at_index(const field_t& index, size_t native_index)
+{
+#endif
     BB_ASSERT(native_index < native_table.size());
     const auto& point = native_table[native_index];
 
