@@ -73,6 +73,12 @@ void handle_chonk_compress_proof(BBApiRequest& ctx,
 void handle_chonk_decompress_proof(BBApiRequest& ctx,
                                    wire::BbChonkDecompressProof&& cmd,
                                    Responder<wire::BbChonkDecompressProofResponse> respond);
+void handle_aztec_contract_class(BBApiRequest& ctx,
+                                 wire::BbAztecContractClass&& cmd,
+                                 Responder<wire::BbAztecContractClassResponse> respond);
+void handle_aztec_protocol_genesis_nullifiers(BBApiRequest& ctx,
+                                              wire::BbAztecProtocolGenesisNullifiers&& cmd,
+                                              Responder<wire::BbAztecProtocolGenesisNullifiersResponse> respond);
 void handle_poseidon2_hash(BBApiRequest& ctx,
                            wire::BbPoseidon2Hash&& cmd,
                            Responder<wire::BbPoseidon2HashResponse> respond);

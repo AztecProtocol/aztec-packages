@@ -1,6 +1,7 @@
 #include <cstdint>
 
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/aztec/contract_hashing.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -34,7 +35,7 @@ FF unconstrained_compute_leaf_slot(const AztecAddress& contract_address, const F
 
 FF unconstrained_silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
 {
-    return Poseidon2::hash({ DOM_SEP__SILOED_NULLIFIER, contract_address, nullifier });
+    return aztec::silo_nullifier(contract_address, nullifier);
 }
 
 FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
