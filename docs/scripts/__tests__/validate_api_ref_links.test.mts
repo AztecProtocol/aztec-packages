@@ -9,7 +9,7 @@ const docs = path.resolve(import.meta.dirname, "../..");
 const script = path.join(docs, "scripts/validate_api_ref_links.sh");
 
 // Mainnet and testnet read v1.0.0, so the build writes a scoped index into the mainnet API folders
-// only, although static/ has a testnet folder too.
+// only, although the fixture's static/ has a testnet folder too.
 const page = [
   "[index](pathname:///typescript-api/mainnet/llms.txt)",
   "[package](pathname:///typescript-api/mainnet/aztec.js.md)",

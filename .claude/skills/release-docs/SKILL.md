@@ -474,17 +474,51 @@ networks stay Alpha and Testnet, and CLI, env and Docker values stay `mainnet` a
 
 ### Step 6: Generate API Reference Docs
 
+A docs version links the API reference folder of the first network that reads it (mainnet
+before testnet; `networkApiFolder` in `src/network_docs.js`, which `#api_ref_version` also
+reads), so one version is stored once. Work out the folder this release's pages will link,
+and whether another network, keeping the version it shared with this type, now needs a
+folder of its own:
+
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
-docs_env yarn generate:typescript-api <new_version>
-docs_env yarn generate:aztec-nr-api <new_version>
+eval "$(node -e '
+  const { networkApiFolder } = require("./src/network_docs");
+  const [type, version] = process.argv.slice(1);
+  const before = require("./developer_version_config.json");
+  const after = { ...before, [type]: version };
+  const keep = Object.keys(before).filter(
+    (n) => n !== type && networkApiFolder(before, n) !== n && networkApiFolder(after, n) === n);
+  console.log(`API_FOLDER=${networkApiFolder(after, type) ?? ""}`);
+  console.log(`KEEP="${keep.map((n) => `${networkApiFolder(before, n)}:${n}`).join(" ")}"`);
+' <release_type> "$LABS_TAG")"
+echo "API_FOLDER=${API_FOLDER:-none} KEEP=${KEEP:-none}"
+for pair in $KEEP; do
+  for root in aztec-nr-api typescript-api; do
+    rsync -a --delete "static/$root/${pair%%:*}/" "static/$root/${pair#*:}/"
+  done
+done
+if [ "$API_FOLDER" = <release_type> ]; then
+  docs_env yarn generate:typescript-api <new_version>
+  docs_env yarn generate:aztec-nr-api <new_version>
+fi
 docs_env yarn generate:aztecjs-reference
 ```
 
+- `API_FOLDER` is `<release_type>`: the two API generators write it.
+- It names another network: that network's folder already holds this version's reference,
+  so the generators are skipped. Step 16 removes this type's old folders and adds its
+  redirects.
+- Empty (devnet): no network docs version reads this type, so no folder is generated.
+- `KEEP` lists `<folder>:<network>` for a network that stays on the version it shared with
+  this type (mainnet moves on while testnet stays): the loop copies the shared folder to
+  that network before the generators overwrite it, and Step 16 removes its redirects.
+
 This writes:
 
-- `docs/static/typescript-api/<release_type>/`
-- `docs/static/aztec-nr-api/<release_type>/`
+- `docs/static/typescript-api/<release_type>/` and `docs/static/aztec-nr-api/<release_type>/`,
+  when `API_FOLDER` is `<release_type>`
+- the copies `KEEP` names
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
 
 The generators read the checkout at the tag: TypeDoc over the `yarn-project` Step 2d installed,
@@ -1442,7 +1476,7 @@ A first cut of a release type has nothing to clean up.
 - `docs/developer_versioned_sidebars/version-<old_version>-sidebars.json`
 - the old entry in `developer_version_config.json`
 - any version-named API docs under `docs/static/aztec-nr-api/` or
-  `docs/static/typescript-api/` (the release-type folders are overwritten, not deleted)
+  `docs/static/typescript-api/` (network folders follow "API reference folders" below)
 
 and reconcile so `developer_versions.json` drops it too:
 
@@ -1455,6 +1489,26 @@ scripts/update_docs_versions.sh developer
 If an entry in `developer_version_config.json` or `network_version_config.json` names a
 version whose directory no longer exists, remove that entry: `update_docs_versions.sh`
 reconciles one release type at a time and does not remove other types' orphans.
+
+#### API reference folders
+
+After Step 11 each network links its own folder, or the folder of the first network on its
+version (Step 6). Make `static/` and `docs/netlify.toml` agree for every network, not only
+this release type:
+
+- `git rm -r` each `docs/static/aztec-nr-api/<network>/` and
+  `docs/static/typescript-api/<network>/` that no version links any more, and append it to
+  `$STATE/deleted.txt`.
+- A network on another network's folder has two redirects in the "API REFERENCE FOLDERS"
+  section of `docs/netlify.toml`: `/aztec-nr-api/<network>/*` and `/typescript-api/<network>/*`
+  to `/<root>/<folder>/:splat`, `status = 302`, without `force`. A network on its own
+  folder has neither: delete them.
+
+Then check the cut:
+
+```bash
+node --test scripts/__tests__/api_reference_folders.test.mts
+```
 
 #### Network/operator docs (mainnet and testnet only)
 
@@ -1531,7 +1585,7 @@ Sort every listed path into exactly one class:
    ```bash
    . ~/.cache/aztec-docs-cut/<cut>/env.sh
    for d in developer_versioned_docs/version-$LABS_TAG network_versioned_docs/version-$LABS_TAG \
-       static/aztec-nr-api/<release_type> static/typescript-api/<release_type>; do
+       static/{aztec-nr-api,typescript-api}/{mainnet,testnet}; do
      [ -d "$CUT/docs/$d" ] && rsync -a --delete "$CUT/docs/$d/" "$DEST_ROOT/docs/$d/"
    done
    for f in developer_versioned_sidebars/version-$LABS_TAG-sidebars.json \
@@ -1549,7 +1603,8 @@ Sort every listed path into exactly one class:
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
    destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
-   `release_names.json` entry from Step 5, edits to existing snapshots). Carry them as
+   `release_names.json` entry from Step 5, Step 16's `netlify.toml` redirects, edits to
+   existing snapshots). Carry them as
    reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 
