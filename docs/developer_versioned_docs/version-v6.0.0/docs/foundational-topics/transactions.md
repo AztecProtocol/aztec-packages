@@ -69,7 +69,7 @@ constructor(
   public salt: Fr,
 ) {}
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/stdlib/src/tx/tx_request.ts#L16-L34" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_request.ts#L16-L34</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/stdlib/src/tx/tx_request.ts#L16-L34" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_request.ts#L16-L34</a></sub></sup>
 
 
 Where:
@@ -124,7 +124,7 @@ export class TxExecutionRequest {
     public salt = Fr.random(),
   ) {}
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/stdlib/src/tx/tx_execution_request.ts#L22-L63" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_execution_request.ts#L22-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/stdlib/src/tx/tx_execution_request.ts#L22-L63" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_execution_request.ts#L22-L63</a></sub></sup>
 
 
 An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function. Here is an example using an ECDSA signature:
@@ -147,7 +147,7 @@ fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
     std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L55-L72" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L55-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L55-L72" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L55-L72</a></sub></sup>
 
 
 Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a `Tx` object is created and can be sent to the network to be included in a block:
@@ -190,7 +190,7 @@ export class Tx extends Gossipable {
     super();
   }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/stdlib/src/tx/tx.ts#L53-L90" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx.ts#L53-L90</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/stdlib/src/tx/tx.ts#L53-L90" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx.ts#L53-L90</a></sub></sup>
 
 
 #### Contract Interaction Methods
@@ -218,7 +218,7 @@ public async simulate(
   options: SimulateInteractionOptions = {} as SimulateInteractionOptions,
 ): Promise<SimulationResult> {
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L115-L130</a></sub></sup>
 
 
 ##### `send`
@@ -243,7 +243,7 @@ public async send<TReturn = TxReceipt>(
   options: SendInteractionOptions<InteractionWaitOptions>,
 ): Promise<SendReturn<typeof options.wait, TReturn>> {
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L37-L56</a></sub></sup>
 
 
 ### Batch Transactions
@@ -260,7 +260,7 @@ export class BatchCall extends BaseContractInteraction {
     super(wallet);
   }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/batch_call.ts#L17-L26</a></sub></sup>
 
 
 ### Enabling Transaction Semantics

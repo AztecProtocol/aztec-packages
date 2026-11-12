@@ -2,7 +2,7 @@
 title: "4. Account Management"
 description: Key derivation, encrypted storage, and SchnorrAccountContract for Aztec wallet accounts
 sidebar_position: 4
-references: ["docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts", "docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts"]
 ---
 
 # Account Management
@@ -92,7 +92,7 @@ export async function createAccount(
   return { address, secret, salt };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts#L61-L82" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts#L61-L82</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts#L61-L82" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/wallet-impl.ts#L61-L82</a></sub></sup>
 
 
 Breaking this down:
@@ -143,7 +143,7 @@ export async function deriveMasterKey(
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L58-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L58-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L58-L92" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L58-L92</a></sub></sup>
 
 
 Key derivation parameters:
@@ -198,7 +198,7 @@ export async function decryptWithKey(
   return new TextDecoder().decode(decrypted);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L94-L137" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L94-L137</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L94-L137" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L94-L137</a></sub></sup>
 
 
 Each account gets a unique random IV for AES-GCM. The stored data includes:
@@ -280,7 +280,7 @@ export async function setActiveAccount(address: string): Promise<void> {
   await storageSet({ [STORAGE_KEYS.ACTIVE_ACCOUNT]: address });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L263-L333" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L263-L333</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L263-L333" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L263-L333</a></sub></sup>
 
 
 The stored account structure:
@@ -375,7 +375,7 @@ export async function hasPassword(): Promise<boolean> {
   return !!data;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L187-L261" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L187-L261</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L187-L261" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/wallet/storage.ts#L187-L261</a></sub></sup>
 
 
 This provides:
@@ -454,7 +454,7 @@ async function handleUnlockWallet(password: string) {
   return { success: true };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L606-L670" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L606-L670</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L607-L671" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L607-L671</a></sub></sup>
 
 
 Each account:
@@ -519,7 +519,7 @@ async function handleDeployAccount(address: string) {
   return { success: true, txHash: receipt.txHash?.toString() };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L553-L604" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L553-L604</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L554-L605" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L554-L605</a></sub></sup>
 
 
 The deployment:

@@ -3,7 +3,7 @@ title: Reading Contract Data
 tags: [functions, simulation, events, logs]
 sidebar_position: 5
 description: How to read data from contracts including simulating functions, reading logs, and retrieving events.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "docs/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts", "labs/yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts", "labs/yarn-project/aztec.js/src/contract/contract_function_interaction.ts"]
 ---
 
 This guide shows you how to read data from Aztec contracts in TypeScript, including simulating function calls, reading raw logs, and retrieving typed events.
@@ -26,7 +26,7 @@ const { result: balance } = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
 
 
 The `from` option specifies which account context to use for the simulation. This is required for all simulations. For private functions, it determines which account's private state is accessed. For public functions, it sets the `msg_sender` context.
@@ -55,7 +55,7 @@ console.log("Balance:", metaResult.result);
 console.log("L2 gas used:", metaResult.gasUsed!.totalGas.l2Gas);
 console.log("DA gas used:", metaResult.gasUsed!.totalGas.daGas);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L355-L363" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L355-L363</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L355-L363" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L355-L363</a></sub></sup>
 
 
 The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `gasUsed` (the raw gas the simulation consumed, with `totalGas` and `teardownGas`). Derive your own gas limits from `gasUsed` if you want to declare them explicitly; otherwise the wallet fills in the network's per-tx admission limits.
@@ -70,7 +70,7 @@ const { result: privateBalance } = await token.methods
   .balance_of_private(aliceAddress)
   .simulate({ from: aliceAddress });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L492-L497" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L492-L497</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L492-L497" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L492-L497</a></sub></sup>
 
 
 If the caller doesn't have access to another address's notes, the simulation will fail with an error.
@@ -112,7 +112,7 @@ if (publicLogs.length > 0) {
   console.log("Raw log fields:", rawFields.length);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L365-L376" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L365-L376</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L365-L376" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L365-L376</a></sub></sup>
 
 
 You can scope this to a single transaction (by locating its block and matching its tx hash) or to a block range (by reading each block's tx effects):
@@ -143,7 +143,7 @@ const rangeLogs = (
   )
 ).flat();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L447-L472" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L447-L472</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L447-L472" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L447-L472</a></sub></sup>
 
 
 ## Reading events
@@ -157,7 +157,7 @@ Use the `getPublicEvents` helper to retrieve typed public events:
 ```typescript title="import_get_public_events" showLineNumbers 
 import { getPublicEvents as _importCheck } from "@aztec-labs/aztec.js/events";
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L483-L485" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L483-L485</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L483-L485" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L483-L485</a></sub></sup>
 
 
 ```typescript title="get_public_events" showLineNumbers 
@@ -179,7 +179,7 @@ const { events: collectedEvent1s } = await getPublicEvents<ExampleEvent1>(
   publicEventFilter,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L147-L165" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L147-L165</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L147-L165" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L147-L165</a></sub></sup>
 
 
 The function parameters are:
@@ -202,7 +202,7 @@ Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivat
 import type { PrivateEventFilter } from "@aztec-labs/aztec.js/wallet";
 import { BlockNumber } from "@aztec-labs/aztec.js/fields";
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L487-L490" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L487-L490</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L487-L490" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L487-L490</a></sub></sup>
 
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
@@ -227,7 +227,7 @@ const collectedEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
   eventFilter,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L76-L95" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L76-L95</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L76-L95" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/effects/event_logs.test.ts#L76-L95</a></sub></sup>
 
 
 The `PrivateEventFilter` includes:
@@ -284,7 +284,7 @@ async function pollForTransferEvents() {
 // Example: poll once (in production, use setInterval)
 await pollForTransferEvents();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L297-L331" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L297-L331</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L297-L331" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L297-L331</a></sub></sup>
 
 
 For private events, use the same pattern with `wallet.getPrivateEvents()` and update the `fromBlock` in your filter accordingly.

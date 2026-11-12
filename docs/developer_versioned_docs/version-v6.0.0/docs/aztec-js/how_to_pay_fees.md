@@ -3,7 +3,7 @@ title: Paying Fees
 tags: [fees, transactions, accounts, mana, gas]
 sidebar_position: 7
 description: Pay transaction fees on Aztec, understand mana costs, estimate gas, and retrieve fees from receipts.
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "labs/yarn-project/aztec.js/src/fee/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts", "labs/yarn-project/aztec.js/src/fee/*"]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
@@ -48,7 +48,7 @@ const { gasUsed } = await token.methods
 // Pad the raw usage yourself to leave headroom for variance, e.g. 10%.
 const estimatedGasLimits = gasUsed!.totalGas.mul(1.1);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L378-L384" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L378-L384</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L378-L384" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L378-L384</a></sub></sup>
 
 
 The `gasUsed` object contains the raw gas the simulation consumed:
@@ -67,7 +67,7 @@ const currentFees = await node.getCurrentMinFees();
 const estimatedFee = estimatedGasLimits.computeFee(currentFees).toBigInt();
 console.log("Estimated fee:", estimatedFee);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L386-L390" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L386-L390</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L386-L390" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L386-L390</a></sub></sup>
 
 
 :::tip
@@ -84,7 +84,7 @@ const { receipt: feeReceipt } = await token.methods
   .send({ from: aliceAddress });
 console.log("Transaction fee:", feeReceipt.transactionFee);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L392-L397" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L392-L397</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L392-L397" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L392-L397</a></sub></sup>
 
 
 The `transactionFee` field is a `bigint` representing the total fee paid in the fee token (Fee Juice). You can also check execution status:
@@ -94,7 +94,7 @@ console.log("Succeeded:", feeReceipt.hasExecutionSucceeded());
 console.log("Block:", feeReceipt.blockNumber);
 console.log("Fee paid:", feeReceipt.transactionFee);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L399-L403" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L399-L403</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L399-L403" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L399-L403</a></sub></sup>
 
 
 ## Pay with Fee Juice
@@ -113,7 +113,7 @@ const { receipt: feeJuiceReceipt } = await token.methods
   });
 console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L405-L414" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L405-L414</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L405-L414" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L405-L414</a></sub></sup>
 
 
 ## Use Fee Payment Contracts
@@ -157,7 +157,7 @@ const { contract: sponsoredContract } = await TokenContract.deploy(
   18,
 ).send({ from: aliceAddress, fee: { paymentMethod: sponsoredPaymentMethod } });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L50-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L50-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L50-L72" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L50-L72</a></sub></sup>
 
 
 Here's a simpler example from the test suite:
@@ -174,7 +174,7 @@ const { receipt: tx } = await bananaCoin.methods
     },
   });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts#L422-L433" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts#L422-L433</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts#L422-L433" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts#L422-L433</a></sub></sup>
 
 
 ### Private fee payment
@@ -258,7 +258,7 @@ const l1Client = createExtendedL1Client([l1RpcUrl], l1Mnemonic);
 const logger = createLogger("docs:fee-juice-bridge");
 const portalManager = await L1FeeJuicePortalManager.new(node, l1Client, logger);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L99-L113" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L99-L113</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L99-L113" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L99-L113</a></sub></sup>
 
 
 Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `aztec_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
@@ -275,7 +275,7 @@ const claim = await portalManager.bridgeTokensPublic(
 console.log("Claim secret:", claim.claimSecret);
 console.log("Claim amount:", claim.claimAmount);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L115-L126" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L115-L126</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L115-L126" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L115-L126</a></sub></sup>
 
 
 After this transaction is minted on L1 and a few blocks pass, you can claim the message on L2 and use it directly to pay for fees:
@@ -297,7 +297,7 @@ await deployMethodBridged.send({
   fee: { paymentMethod: bridgePaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L166-L182" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L166-L182</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L166-L182" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L166-L182</a></sub></sup>
 
 
 ## Configure gas settings
@@ -340,7 +340,7 @@ const gasSettings = GasSettings.from({
   maxPriorityFeesPerGas: { feePerDaGas: 0n, feePerL2Gas: 0n },
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L416-L436" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L416-L436</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L416-L436" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L416-L436</a></sub></sup>
 
 
 Then pass the settings when sending:
@@ -353,7 +353,7 @@ const { receipt: gsReceipt } = await token.methods
     fee: { gasSettings },
   });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L438-L445" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L438-L445</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L438-L445" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L438-L445</a></sub></sup>
 
 
 Note that `gasLimits` and `teardownGasLimits` use `daGas`/`l2Gas` field names, while `maxFeesPerGas` and `maxPriorityFeesPerGas` use `feePerDaGas`/`feePerL2Gas`.
@@ -372,7 +372,7 @@ const { gasUsed: autoGasUsed } = await token.methods
 const autoEstimate = autoGasUsed!.totalGas.mul(1.2); // 20% padding
 console.log("Auto-estimated L2 gas:", autoEstimate.l2Gas);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L474-L481" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L474-L481</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L474-L481" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L474-L481</a></sub></sup>
 
 
 :::tip

@@ -1,4 +1,4 @@
-# @aztec/aztec.js
+# @aztec-labs/aztec.js
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   Capsule,
   Contract,
   // ... and more
-} from '@aztec/aztec.js';
+} from '@aztec-labs/aztec.js';
 ```
 
 ## Classes
@@ -2141,3 +2141,16 @@ Values: `reverted`, `success`
 Block inclusion/finalization status.
 
 Values: `checkpointed`, `dropped`, `finalized`, `pending`, `proposed`, `proven`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/entrypoints**
+- `AuthWitnessProvider`, `ChainInfo`, `DefaultAccountEntrypointOptions`, `EntrypointInterface`
+
+**@aztec-labs/foundation**
+- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Branded`, `BufferReader`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`, `TreeLeafIndex`, `ZodFor`
+
+**@aztec-labs/stdlib**
+- `ABIParameterSchema`, `AbiDecoded`, `AbiErrorType`, `AbiNamedValue`, `AbiType`, `AbiValue`, `ArrayType`, `AuthWitness`, `AztecAddress`, `AztecNode`, `BasicType`, `BasicValue`, `BlockHash`, `CHECKPOINTED`, `Capsule`, `ChonkProof`, `CompleteAddress`, `ContractArtifact`, `ContractArtifactWithHash`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractClassLog`, `ContractClassLogFields`, `ContractInstance`, `ContractInstanceWithAddress`, `ContractInstantiationData`, `ContractOverrides`, `DROPPED`, `DebugFileMap`, `DebugLog`, `DroppedTxReceipt`, `EventSelector`, `ExecutionPayload`, `FINALIZED`, `FieldLayout`, `FunctionAbi`, `FunctionArtifact`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `FunctionType`, `GasFees`, `GasSettings`, `GasUsed`, `GlobalVariables`, `Gossipable`, `HashedValues`, `IntegerType`, `IntegerValue`, `MinedTxReceipt`, `NestedProcessReturnValues`, `NoirCompiledContract`, `NoirFunctionEntry`, `NoteSelector`, `OffchainEffect`, `Opts`, `PENDING`, `PROPOSED`, `PROVEN`, `PendingTxReceipt`, `PrivateExecutionResult`, `PrivateExecutionStep`, `PrivateKernelTailCircuitPublicInputs`, `PrivateSimulationResult`, `ProtocolContractAddresses`, `ProvingStats`, `PublicCallRequestWithCalldata`, `PublicKeys`, `PublicSimulationOutput`, `PublicStorageOverride`, `RevertCode`, `Selector`, `SimulationOverrides`, `SimulationStats`, `StringType`, `StructType`, `StructValue`, `TopicType`, `TupleType`, `TupleValue`, `Tx`, `TxContext`, `TxEffect`, `TxExecutionRequest`, `TxExecutionResult`, `TxHash`, `TxProfileResult`, `TxReceipt`, `TxReceiptBase`, `TxReceiptInterface`, `TxRequest`, `TxSimulationResult`, `TxStats`, `TxStatus`, `TxsLimits`, `UnminedTxReceipt`

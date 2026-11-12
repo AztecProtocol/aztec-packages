@@ -3,7 +3,7 @@ title: Using Authentication Witnesses
 tags: [accounts, authwit]
 sidebar_position: 6
 description: Step-by-step guide to implementing authentication witnesses in Aztec.js for delegated transactions.
-references: ["docs/examples/ts/aztecjs_authwit/index.ts", "labs/yarn-project/aztec.js/src/utils/authwit.ts", "labs/yarn-project/aztec.js/src/wallet/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_authwit/index.ts", "labs/yarn-project/aztec.js/src/utils/authwit.ts", "labs/yarn-project/aztec.js/src/wallet/*"]
 ---
 
 This guide shows you how to create and use authentication witnesses (authwits) to authorize other accounts to perform actions on your behalf.
@@ -77,7 +77,7 @@ await privateAction.send({
   additionalScopes: [aliceAddress],
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_authwit/index.ts#L45-L71" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_authwit/index.ts#L45-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L45-L71" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L45-L71</a></sub></sup>
 
 
 :::tip
@@ -112,7 +112,7 @@ await authwit.send();
 // Now Bob can execute the transfer
 await publicAction.send({ from: bobAddress });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_authwit/index.ts#L73-L96" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_authwit/index.ts#L73-L96</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L73-L96" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L73-L96</a></sub></sup>
 
 
 ## Create arbitrary message authwits
@@ -138,7 +138,7 @@ const intent = {
 const arbitraryWitness = await wallet.createAuthWit(aliceAddress, intent);
 console.log("Arbitrary authwit created:", arbitraryWitness);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_authwit/index.ts#L98-L116" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_authwit/index.ts#L98-L116</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L98-L116" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L98-L116</a></sub></sup>
 
 
 The `consumer` is the contract address that will verify this authwit.
@@ -175,7 +175,7 @@ const revokeInteraction = await SetPublicAuthwitContractInteraction.create(
 );
 await revokeInteraction.send();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_authwit/index.ts#L118-L145" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_authwit/index.ts#L118-L145</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L118-L145" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_authwit/index.ts#L118-L145</a></sub></sup>
 
 
 ## Next steps

@@ -88,5 +88,5 @@ export type Account = EntrypointInterface &
     getAddress(): AztecAddress;
   };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/aztec.js/src/account/account.ts#L23-L34" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/account.ts#L23-L34</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/aztec.js/src/account/account.ts#L23-L34" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/account/account.ts#L23-L34</a></sub></sup>
 

@@ -48,7 +48,7 @@ Import the function:
 ```rust title="history_import" showLineNumbers 
 use aztec::history::note::assert_note_existed_by;
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L19-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L19-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L19-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L19-L21</a></sub></sup>
 
 
 Prove a note exists in the note hash tree:
@@ -57,7 +57,7 @@ Prove a note exists in the note hash tree:
 let header = self.context.get_anchor_block_header();
 let confirmed_note = assert_note_existed_by(header, hinted_note);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L55-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L55-L58</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L55-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/claim_contract/src/main.nr#L55-L58</a></sub></sup>
 
 
 ## Prove note validity

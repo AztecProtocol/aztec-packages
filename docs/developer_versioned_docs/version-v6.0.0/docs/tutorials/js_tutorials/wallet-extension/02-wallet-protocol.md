@@ -2,7 +2,7 @@
 title: "2. Wallet Protocol"
 description: Implementing the Aztec wallet SDK protocol - discovery, ECDH key exchange, and secure messaging
 sidebar_position: 2
-references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet Protocol
@@ -185,7 +185,7 @@ const callbacks: BackgroundConnectionCallbacks = {
   },
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884</a></sub></sup>
 
 
 Key points:
@@ -696,7 +696,7 @@ async function handleTransactionApproval(
   }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L904-L1402" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L904-L1402</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L904-L1402" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L904-L1402</a></sub></sup>
 
 
 The `handler.approveDiscovery()` call:
@@ -915,7 +915,7 @@ async function sendToOffscreen(message: any, _retried = false): Promise<any> {
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176</a></sub></sup>
 
 
 For methods that need approval, the extension stores them as pending and waits for user action:
@@ -973,7 +973,7 @@ const transport: BackgroundTransport = {
   },
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L499-L532" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L499-L532</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L499-L532" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L499-L532</a></sub></sup>
 
 
 Key points:

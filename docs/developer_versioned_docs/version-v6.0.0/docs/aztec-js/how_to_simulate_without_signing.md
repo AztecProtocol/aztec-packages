@@ -3,7 +3,7 @@ title: Simulate without signing prompts
 tags: [simulation, authwit, wallet]
 sidebar_position: 6
 description: How to call .simulate() on a view function or estimate gas without prompting the user to sign authentication witnesses.
-references: ["docs/examples/ts/aztecjs_kernelless_simulation/index.ts", "labs/yarn-project/aztec.js/src/contract/interaction_options.ts", "labs/yarn-project/aztec.js/src/authorization/call_authorization_request.ts", "labs/yarn-project/wallets/src/embedded/embedded_wallet.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts", "labs/yarn-project/aztec.js/src/contract/interaction_options.ts", "labs/yarn-project/aztec.js/src/authorization/call_authorization_request.ts", "labs/yarn-project/wallets/src/embedded/embedded_wallet.ts"]
 ---
 
 You want to call `.simulate()` from an app and not have the user's wallet pop up a signing prompt. This page covers the symptoms that lead to that prompt, why the obvious workarounds do not work, and the right fix.
@@ -55,7 +55,7 @@ const { result: decimals } = await tokenContract.methods
 
 console.log("Token decimals (read via private view):", decimals);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L44-L54" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L44-L54</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L44-L54" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L44-L54</a></sub></sup>
 
 
 If you genuinely need to construct your own `SimulationOverrides` (for example, to combine a contract-instance swap with a `fastForwardContractUpdate` for upgrade testing), you can pass them through `.simulate()`:
@@ -130,7 +130,7 @@ if (authwitEffects.length !== 1) {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L82-L114" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L82-L114</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L82-L114" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L82-L114</a></sub></sup>
 
 
 Decode each effect into a `CallAuthorizationRequest`. The `innerHash` field is the piece the authorizing account needs to sign:
@@ -158,7 +158,7 @@ if (!authorizationRequests[0].onBehalfOf.equals(aliceAddress)) {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L116-L138" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L116-L138</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L116-L138" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L116-L138</a></sub></sup>
 
 
 Build a real authentication witness from each inner hash and send the transaction with the collected witnesses attached:
@@ -189,7 +189,7 @@ await donateAction.send({
   authWitnesses,
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L140-L165" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_kernelless_simulation/index.ts#L140-L165</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L140-L165" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts#L140-L165</a></sub></sup>
 
 
 The app does not need to know which calls require authwits ahead of time. The simulation discovers them; the wallet signs them at send time.

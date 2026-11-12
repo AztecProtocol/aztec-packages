@@ -60,7 +60,7 @@ public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_
 public_teardown_call_request: PublicCallRequest,
 l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163</a></sub></sup>
 
 
 ### Private Context Broken Down
@@ -81,7 +81,7 @@ pub struct PrivateContextInputs {
     pub protocol_nullifier: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18</a></sub></sup>
 
 
 As shown in the snippet, the application context is made up of 3 main structures. The call context, the block header, and the private global variables.
@@ -131,7 +131,7 @@ Some data structures impose time constraints, e.g. they may make it so that a va
 ```rust title="expiration-timestamp" showLineNumbers 
 pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649</a></sub></sup>
 
 
 A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.

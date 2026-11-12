@@ -6,13 +6,19 @@ aztec_nr_api_version: next
 ---
 
 import Link from "@docusaurus/Link";
-import { useActiveVersion } from "@docusaurus/plugin-content-docs/client";
+import { useActivePluginAndVersion } from "@docusaurus/plugin-content-docs/client";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { aztecNrApiFolder } from "@site/src/utils/aztecNrApi.mjs";
 
 export const useApiVersion = () => {
   const { siteConfig } = useDocusaurusContext();
-  return aztecNrApiFolder(useActiveVersion("developer"), siteConfig.customFields.aztecNrApiFolders);
+  const { activePlugin, activeVersion } = useActivePluginAndVersion() ?? {};
+  return aztecNrApiFolder(
+    activeVersion,
+    siteConfig.customFields.aztecNrApiFolders,
+    activePlugin?.pluginId,
+    siteConfig.customFields.lineApiFolders,
+  );
 };
 
 export const ModuleLink = ({ path, children }) => {

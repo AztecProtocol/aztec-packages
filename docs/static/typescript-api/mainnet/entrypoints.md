@@ -1,4 +1,4 @@
-# @aztec/entrypoints
+# @aztec-labs/entrypoints
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   EncodedAppEntrypointCalls,
   encode,
   // ... and more
-} from '@aztec/entrypoints';
+} from '@aztec-labs/entrypoints';
 ```
 
 ## Classes
@@ -143,3 +143,13 @@ Encoded function call for an Aztec entrypoint
 The mechanism via which an account contract will pay for a transaction in which it gets invoked.
 
 Values: `0`, `2`, `1`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/foundation**
+- `Fr`
+
+**@aztec-labs/stdlib**
+- `AuthWitness`, `AztecAddress`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `HashedValues`, `TxExecutionRequest`

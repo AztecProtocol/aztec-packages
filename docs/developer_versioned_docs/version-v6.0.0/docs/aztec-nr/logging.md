@@ -3,7 +3,7 @@ title: Logging from Contracts
 sidebar_position: 4
 tags: [contracts, logging, debugging, aztec.nr]
 description: Add log statements to your Aztec contracts and control log verbosity in tests and local networks.
-references: ["docs/examples/contracts/logging_example/src/main.nr", "labs/noir-projects/aztec-nr/aztec/src/logging.nr"]
+references: ["docs/lines/v6/examples/contracts/logging_example/src/main.nr", "labs/noir-projects/aztec-nr/aztec/src/logging.nr"]
 ---
 
 Aztec contracts can emit log messages at seven severity levels. Private function logs appear immediately during local simulation in the Private eXecution Environment (PXE), while public function logs are collected and displayed in test mode.
@@ -24,7 +24,7 @@ use aztec::oracle::logging::{
     warn_log, warn_log_format,
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L5-L11" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L5-L11</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L5-L11" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L5-L11</a></sub></sup>
 
 
 Or import only what you need:
@@ -74,7 +74,7 @@ fn log_all_levels(value: Field) {
     trace_log_format("trace: {0}", [value]);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L48-L66" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L48-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L48-L66" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L48-L66</a></sub></sup>
 
 
 ## Simple log messages
@@ -86,7 +86,7 @@ Each level has a function that accepts a plain string with no format arguments:
 info_log("Private function called");
 debug_log("Checkpoint reached in private function");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L23-L27" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L23-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L23-L27" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L23-L27</a></sub></sup>
 
 
 ## Log messages with format arguments
@@ -106,7 +106,7 @@ fn log_format_patterns(a: Field, b: Field, c: Field) {
     debug_log_format("All values: {}", [a, b, c]);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L68-L80" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L68-L80</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L68-L80" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L68-L80</a></sub></sup>
 
 
 :::note
@@ -118,7 +118,7 @@ fn log_with_address(sender: AztecAddress) {
     info_log_format("Sender: {0}", [sender.to_field()]);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L33-L38" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L33-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L33-L38" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L33-L38</a></sub></sup>
 
 :::
 
@@ -224,7 +224,7 @@ fn log_public(value: Field) {
     debug_log_format("Public value: {0}", [value]);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/logging_example/src/main.nr#L40-L46" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/logging_example/src/main.nr#L40-L46</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/logging_example/src/main.nr#L40-L46" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/logging_example/src/main.nr#L40-L46</a></sub></sup>
 
 
 ### Accessing logs programmatically

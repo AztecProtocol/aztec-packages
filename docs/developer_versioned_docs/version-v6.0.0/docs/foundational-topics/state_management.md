@@ -98,7 +98,7 @@ pub struct UintNote {
     pub value: u128,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
 
 
 **`FieldNote`** - Stores a single `Field` value.

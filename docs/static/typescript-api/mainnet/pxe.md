@@ -1,4 +1,4 @@
-# @aztec/pxe
+# @aztec-labs/pxe
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   CapsuleService,
   CapsuleStore,
   // ... and more
-} from '@aztec/pxe';
+} from '@aztec-labs/pxe';
 ```
 
 ## Classes
@@ -887,3 +887,16 @@ type pxeConfigMappings = ConfigMappingsType<PXEConfig>
 Chain state of a retractable fact's origin block, mirroring the L2 chain tips. - `Pending`: above the proven tip. - `Proven`: proof on L1 but not yet finalized. - `Finalized`: L1-finalized. The numeric discriminants must stay in sync with the Noir `OriginBlockState` in `noir-projects/aztec-nr/aztec/src/facts/origin_state.nr`: PXE serializes this value into the `Fact` oracle response and Noir deserializes it via `from_u8`, which rejects any value outside this set.
 
 Values: `3`, `1`, `2`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/aztec.js**
+- `PrivateEventFilter`
+
+**@aztec-labs/foundation**
+- `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `EthAddress`, `FieldsOf`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`, `Point`
+
+**@aztec-labs/stdlib**
+- `AppTaggingSecret`, `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `ContractOverrides`, `DataInBlock`, `DataStoreConfig`, `DebugLog`, `EventSelector`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `L2Tips`, `Note`, `NoteDao`, `NoteStatus`, `PublicKey`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

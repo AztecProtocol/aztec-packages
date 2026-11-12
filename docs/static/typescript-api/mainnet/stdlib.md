@@ -1,4 +1,4 @@
-# @aztec/stdlib
+# @aztec-labs/stdlib
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   AztecAddress,
   BlockHash,
   // ... and more
-} from '@aztec/stdlib';
+} from '@aztec-labs/stdlib';
 ```
 
 ## Classes
@@ -4791,3 +4791,13 @@ Values: `reverted`, `success`
 Block inclusion/finalization status.
 
 Values: `checkpointed`, `dropped`, `finalized`, `pending`, `proposed`, `proven`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/constants**
+- `CHONK_PROOF_LENGTH`, `DomainSeparator`, `DomainSeparator.IVSK_M`, `DomainSeparator.NHK_M`, `DomainSeparator.OVSK_M`, `DomainSeparator.TSK_M`, `RECURSIVE_PROOF_LENGTH`, `RECURSIVE_ROLLUP_HONK_PROOF_LENGTH`
+
+**@aztec-labs/foundation**
+- `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Buffer32`, `BufferReader`, `Bufferable`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `IndexWithinCheckpoint`, `Logger`, `MerkleTree`, `PickIfFlag`, `Point`, `Prettify`, `Signature`, `SlotNumber`, `TypedEventEmitter`, `ViemSignature`, `ViemTransactionSignature`, `ZodFor`

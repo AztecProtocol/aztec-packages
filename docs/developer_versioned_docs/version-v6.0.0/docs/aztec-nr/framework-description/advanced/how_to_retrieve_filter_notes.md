@@ -52,7 +52,7 @@ let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
     .set_limit(1));
 assert(notes.len() == 1, "NFT not found when transferring");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L234" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L234</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L234" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L234</a></sub></sup>
 
 
 ## Filter notes by properties
@@ -122,7 +122,7 @@ pub fn filter_notes_min_sum(
     selected
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L4-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L4-L22</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L4-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/filter.nr#L4-L22</a></sub></sup>
 
 
 Then use it with `NoteGetterOptions`:
@@ -179,7 +179,7 @@ unconstrained fn get_private_nfts(owner: AztecAddress, page_index: u32) -> ([Fie
     (owned_nft_ids, page_limit_reached)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286</a></sub></sup>
 
 
 :::tip Viewer vs Getter

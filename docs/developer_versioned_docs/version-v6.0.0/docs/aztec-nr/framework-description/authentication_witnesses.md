@@ -46,7 +46,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, authw
     self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L284-L291" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L284-L291</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L284-L291" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L284-L291</a></sub></sup>
 
 
 ### Public function example
@@ -61,7 +61,7 @@ fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, authwi
     self.storage.public_balances.at(to).write(to_balance);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L170-L179" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L170-L179</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L170-L179" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L170-L179</a></sub></sup>
 
 
 The macro parameters specify:
@@ -109,7 +109,7 @@ fn _approve_bridge_and_exit_input_asset_to_L1(token: AztecAddress, token_bridge:
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L166-L201" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L166-L201</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L166-L201" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L166-L201</a></sub></sup>
 
 
 Key steps:
@@ -132,7 +132,7 @@ fn cancel_authwit(inner_hash: Field) {
     self.context.push_nullifier_unsafe(nullifier);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L275-L282" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L275-L282</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L275-L282" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L275-L282</a></sub></sup>
 
 
 :::note
