@@ -20,7 +20,7 @@ void handle_simulate(AvmFfiRequest& /*request*/,
                      wire::AvmSimulate&& /*command*/,
                      Responder<wire::AvmSimulateResponse> respond)
 {
-    respond.error("Simulate needs a world state and contract DB, which the in-process bb-avm-sim cannot reach yet; "
+    respond.error("Simulate needs a world state and a contract DB, and this AVM instance has neither; "
                   "SimulateWithHints needs neither");
 }
 

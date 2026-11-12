@@ -53,7 +53,8 @@ template <>
 void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder<wire::AvmSimulateResponse> respond)
 {
     if (request.cdb_client == nullptr || request.wsdb_client == nullptr) {
-        respond.error("Simulate needs bb-avm-sim started with --wsdb and --cdb");
+        respond.error("Simulate needs a world state and a contract DB, and this AVM instance has neither; "
+                      "SimulateWithHints needs neither");
         return;
     }
     // Reuse the process-lifetime token (cleared of any prior cancellation) instead
