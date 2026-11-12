@@ -13,20 +13,25 @@ import {
 import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
-import NFTPortal from "../../../target/solidity/nft_bridge/NFTPortal.sol/NFTPortal.json" with { type: "json" };
-import SimpleNFT from "../../../target/solidity/nft_bridge/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
-import { NFTBridgeContract } from "./artifacts/NFTBridge.js";
-import { NFTPunkContract } from "./artifacts/NFTPunk.js";
+import NFTPortal from "../artifacts/contracts/NFTPortal.sol/NFTPortal.json" with { type: "json" };
+import SimpleNFT from "../artifacts/contracts/SimpleNFT.sol/SimpleNFT.json" with { type: "json" };
+import { NFTBridgeContract } from "../contracts/aztec/artifacts/NFTBridge.js";
+import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
 
 // Setup L1 client using anvil's default mnemonic (same as e2e tests)
 const MNEMONIC = "test test test test test test test test test test test junk";
-const l1Client = createExtendedL1Client(["http://localhost:8545"], MNEMONIC);
+const l1Client = createExtendedL1Client(
+  [process.env.ETHEREUM_HOST ?? "http://localhost:8545"],
+  MNEMONIC,
+);
 const ownerEthAddress = l1Client.account.address;
 
 // Setup L2 using Aztec's local network and one of its initial accounts
 console.log("Setting up L2...\n");
-const node = createAztecNodeClient("http://localhost:8080");
-const aztecWallet = await EmbeddedWallet.create(node);
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
+const aztecWallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
 const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
@@ -47,13 +52,13 @@ console.log("Deploying L1 contracts...\n");
 const { address: nftAddress } = await deployL1Contract(
   l1Client,
   SimpleNFT.abi,
-  SimpleNFT.bytecode.object as `0x${string}`,
+  SimpleNFT.bytecode as `0x${string}`,
 );
 
 const { address: portalAddress } = await deployL1Contract(
   l1Client,
   NFTPortal.abi,
-  NFTPortal.bytecode.object as `0x${string}`,
+  NFTPortal.bytecode as `0x${string}`,
 );
 
 console.log(`SimpleNFT: ${nftAddress}`);

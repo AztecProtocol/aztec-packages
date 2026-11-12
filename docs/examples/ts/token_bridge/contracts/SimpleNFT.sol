@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
 // docs:start:simple_nft
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
 import {ERC721} from "@oz/token/ERC721/ERC721.sol";

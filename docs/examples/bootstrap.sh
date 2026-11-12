@@ -368,6 +368,11 @@ function test-first-project {
   "$REPO_ROOT/$DOCS_PATH/examples/ts/first_full_project/fresh_folder_test.sh"
 }
 
+function test-fresh-clone {
+  pin_toolchain
+  "$REPO_ROOT/docs/scripts/fresh_clone_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-fresh-clone <page>}"
+}
+
 # Every line's checkout and toolchain, installed before test commands that share them run in parallel.
 function pin_toolchains {
   pin_toolchain
@@ -385,10 +390,18 @@ function test_cmds {
   echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
-  # The fresh-folder test also renders its page with the site's preprocessing.
+  # The fresh-folder and clone tests also render their pages with the site's preprocessing.
   local render=("^docs/src/" "^docs/developer_version_config.json" "^docs/release_names.json")
   local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
   echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
+  # A clone block fetches its line's examples and Nargo.toml, and the aztec-node tag its page renders.
+  local tutorials=docs-developers/docs/tutorials/js_tutorials clone_pages=(webapp/index.md uniswap_swap.md)
+  local clone=("^docs/scripts/fresh_clone_test.sh" "${render[@]}")
+  local clone_hash
+  clone_hash=$(cache_content_hash .rebuild_patterns ^docs/Nargo.toml "^docs/$tutorials/" "${clone[@]}")
+  for page in "${clone_pages[@]}"; do
+    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$tutorials/$page"
+  done
   # A line's TXE needs a port of its own: the test commands run in parallel.
   local line line_hash i=0
   for line in $("${aztec_node[@]}" lines); do
@@ -396,6 +409,10 @@ function test_cmds {
     echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
     echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
+    for page in "${clone_pages[@]}"; do
+      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$tutorials/$page"
+    done
     i=$((i + 1))
   done
 }
@@ -499,6 +516,9 @@ case "$cmd" in
     ;;
   test-webapp-e2e)
     WEBAPP_TESTS=e2e validate-webapp-tutorial
+    ;;
+  test-fresh-clone)
+    test-fresh-clone "$@"
     ;;
   *)
     default_cmd_handler "$@"

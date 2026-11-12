@@ -1,6 +1,7 @@
 #include "ipc_runtime/blocking_call.hpp"
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/shm/futex.hpp"
 #include "ipc_runtime/shm/mpsc_shm.hpp"
 #include "ipc_runtime/shm/spsc_shm.hpp"
 #include "ipc_runtime/shm_client.hpp"
@@ -9,6 +10,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <condition_variable>
 #include <csignal>
 #include <cstddef>
@@ -329,6 +331,214 @@ TEST(ShmTest, RingRejectsCorruptLengthPrefix)
 
     uint64_t corrupt_id = 0;
     EXPECT_THROW((void)ring_receive_msg(consumer, 10'000'000ULL, corrupt_id), std::runtime_error);
+
+    SpscShm::unlink(ring_name);
+}
+
+/** A raw mapping of a ring's control block, to act on it the way another process would. */
+class RawCtrl {
+  public:
+    explicit RawCtrl(const std::string& ring_name)
+    {
+        fd_ = shm_open(ring_name.c_str(), O_RDWR, 0600);
+        if (fd_ < 0) {
+            throw std::runtime_error("RawCtrl: shm_open failed");
+        }
+        mem_ = mmap(nullptr, sizeof(SpscCtrl), PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0);
+        if (mem_ == MAP_FAILED) {
+            ::close(fd_);
+            throw std::runtime_error("RawCtrl: mmap failed");
+        }
+    }
+    RawCtrl(const RawCtrl&) = delete;
+    RawCtrl& operator=(const RawCtrl&) = delete;
+    ~RawCtrl()
+    {
+        munmap(mem_, sizeof(SpscCtrl));
+        ::close(fd_);
+    }
+    SpscCtrl& operator*() const { return *static_cast<SpscCtrl*>(mem_); }
+
+  private:
+    int fd_ = -1;
+    void* mem_ = nullptr;
+};
+
+constexpr auto TEST_STEP_LIMIT = std::chrono::seconds(5);
+
+/** Wait (bounded) until a waiter has armed `flag`, i.e. is in or entering its futex wait. */
+bool await_armed(const std::atomic<bool>& flag)
+{
+    auto limit = std::chrono::steady_clock::now() + TEST_STEP_LIMIT;
+    while (!flag.load(std::memory_order_acquire)) {
+        if (std::chrono::steady_clock::now() > limit) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    return true;
+}
+
+/**
+ * Futex-wake `word` until a sleeper is actually woken, without touching
+ * wake_gen: what a waiter sees when the peer's wake for an earlier message lands
+ * late, or the kernel wakes it spuriously.
+ */
+bool stray_wake(std::atomic<uint64_t>& word)
+{
+    auto limit = std::chrono::steady_clock::now() + TEST_STEP_LIMIT;
+    while (futex_wake(reinterpret_cast<volatile uint32_t*>(&word), INT_MAX) < 1) {
+        if (std::chrono::steady_clock::now() > limit) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    }
+    return true;
+}
+
+/** Call `wake` until `done` is set: a single wakeup_all() can land before the waiter sleeps. */
+void wake_until(const std::atomic<bool>& done, const std::function<void()>& wake)
+{
+    auto limit = std::chrono::steady_clock::now() + TEST_STEP_LIMIT;
+    while (!done.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < limit) {
+        wake();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
+/**
+ * A futex return with nothing ready and no wakeup_all() is not a timeout: the
+ * consumer must go back to sleep. IpcClient::receive returning empty under an
+ * infinite timeout is fatal to callers such as ipc_codegen::IpcBackend.
+ */
+TEST(ShmTest, SpscConsumerWaitSurvivesAStrayWake)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string ring_name = "shm_stray_rx_" + std::to_string(getpid());
+    SpscShm::unlink(ring_name);
+    auto producer = SpscShm::create(ring_name, RING_SIZE);
+    auto consumer = SpscShm::connect(ring_name);
+    RawCtrl raw(ring_name);
+
+    std::atomic<bool> woke_sleeper{ false };
+    std::thread waker([&] {
+        if (await_armed((*raw).consumer_blocked) && stray_wake((*raw).head)) {
+            woke_sleeper = true;
+        }
+        // Give a waiter that wrongly returned on the stray wake time to do so.
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        void* buf = producer.claim(4, 1'000'000'000ULL);
+        uint32_t value = 42;
+        std::memcpy(buf, &value, sizeof(value));
+        producer.publish(4);
+    });
+
+    void* data = consumer.peek(4, 10'000'000'000ULL);
+    waker.join();
+
+    ASSERT_TRUE(woke_sleeper) << "the stray wake never reached a sleeping consumer";
+    ASSERT_NE(data, nullptr) << "peek reported a timeout on a stray wake";
+    uint32_t value = 0;
+    std::memcpy(&value, data, sizeof(value));
+    EXPECT_EQ(value, 42U);
+    consumer.release(4);
+
+    SpscShm::unlink(ring_name);
+}
+
+/** The producer-side counterpart: a full ring's claim() waits out a stray wake until space frees. */
+TEST(ShmTest, SpscProducerWaitSurvivesAStrayWake)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string ring_name = "shm_stray_tx_" + std::to_string(getpid());
+    SpscShm::unlink(ring_name);
+    auto producer = SpscShm::create(ring_name, RING_SIZE);
+    auto consumer = SpscShm::connect(ring_name);
+    RawCtrl raw(ring_name);
+
+    ASSERT_NE(producer.claim(2048, 1'000'000'000ULL), nullptr);
+    producer.publish(2048);
+    ASSERT_NE(producer.claim(1024, 1'000'000'000ULL), nullptr);
+    producer.publish(1024);
+
+    std::atomic<bool> woke_sleeper{ false };
+    std::thread waker([&] {
+        if (await_armed((*raw).producer_blocked) && stray_wake((*raw).tail)) {
+            woke_sleeper = true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (consumer.peek(2048, 1'000'000'000ULL) != nullptr) {
+            consumer.release(2048);
+        }
+    });
+
+    void* space = producer.claim(2048, 10'000'000'000ULL);
+    waker.join();
+
+    ASSERT_TRUE(woke_sleeper) << "the stray wake never reached a sleeping producer";
+    ASSERT_NE(space, nullptr) << "claim reported a timeout on a stray wake";
+    producer.publish(2048);
+
+    SpscShm::unlink(ring_name);
+}
+
+/**
+ * wakeup_all() through another mapping of the ring (in production, the peer
+ * process shutting down) still ends a blocked wait promptly.
+ */
+TEST(ShmTest, SpscWakeupThroughAnotherMappingEndsAWait)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string ring_name = "shm_peer_wakeup_" + std::to_string(getpid());
+    SpscShm::unlink(ring_name);
+    auto producer = SpscShm::create(ring_name, RING_SIZE);
+    auto consumer = SpscShm::connect(ring_name);
+    RawCtrl raw(ring_name);
+
+    std::atomic<bool> done{ false };
+    std::thread waker([&] {
+        if (await_armed((*raw).consumer_blocked)) {
+            wake_until(done, [&] { producer.wakeup_all(); });
+        }
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    void* data = consumer.peek(4, 10'000'000'000ULL);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+    done = true;
+    waker.join();
+
+    EXPECT_EQ(data, nullptr);
+    EXPECT_LT(elapsed.count(), 5000) << "the peer's wakeup_all() did not end the wait";
+
+    SpscShm::unlink(ring_name);
+}
+
+/** wakeup_all() on the waiting object itself still ends the wait: shutdown and close rely on it. */
+TEST(ShmTest, SpscOwnWakeupEndsAWait)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string ring_name = "shm_own_wakeup_" + std::to_string(getpid());
+    SpscShm::unlink(ring_name);
+    auto producer = SpscShm::create(ring_name, RING_SIZE);
+    auto consumer = SpscShm::connect(ring_name);
+    RawCtrl raw(ring_name);
+
+    std::atomic<bool> done{ false };
+    std::thread waker([&] {
+        if (await_armed((*raw).consumer_blocked)) {
+            wake_until(done, [&] { consumer.wakeup_all(); });
+        }
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    void* data = consumer.peek(4, 10'000'000'000ULL);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+    done = true;
+    waker.join();
+
+    EXPECT_EQ(data, nullptr);
+    EXPECT_LT(elapsed.count(), 5000) << "own wakeup_all() did not end the wait";
 
     SpscShm::unlink(ring_name);
 }

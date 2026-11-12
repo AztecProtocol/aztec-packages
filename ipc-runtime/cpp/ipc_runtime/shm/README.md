@@ -246,6 +246,7 @@ The shared memory region contains:
    - Atomic head/tail counters (cache-line aligned)
    - Futex sequencers for sleep/wake
    - Capacity and mask (immutable)
+   - `wake_gen`, bumped by `wakeup_all()` (in the capacity line's padding)
 2. **Data buffer** (power-of-2 size, follows control block)
 
 Total size: `sizeof(SpscCtrl) + capacity`
@@ -272,6 +273,7 @@ Instead of busy-waiting forever:
 1. **Producer**: Spins briefly checking for space, then sleeps on the `tail` futex (armed against the current tail value)
 2. **Consumer**: Spins briefly checking for data, then sleeps on the `head` futex (armed against the current head value)
 3. **Wakeup**: Before sleeping, the waiter sets `consumer_blocked`/`producer_blocked` and re-checks the ring; it clears the flag when it wakes. The other side calls `futex_wake` after publishing/releasing only while that flag is set, so a busy channel makes no syscalls at all. Each side stores (data index or flag) and then loads the other's, so both put a `seq_cst` fence between the two: release/acquire alone lets the load run ahead of the store, and both sides could then miss each other. `futex_wait` re-checks the armed value atomically under the futex bucket lock, so a publish/release that races the sleep returns `EAGAIN` instead of sleeping.
+4. **Futex returns are hints**: a wait can return with nothing changed (EINTR, a spurious wakeup, or the peer's wake for an earlier message landing late after it was preempted between seeing the flag and calling `futex_wake`). The waiter re-arms and sleeps for the time left unless the ring is ready, the deadline has passed, or `wake_gen` changed: `wakeup_all()` bumps it before waking, from any process, so shutdown still ends a blocked wait at once.
 
 This provides:
 - Low latency when active (spin catches transitions, and no wake syscalls)

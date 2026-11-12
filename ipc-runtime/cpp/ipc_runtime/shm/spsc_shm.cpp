@@ -159,6 +159,7 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
     ctrl->tail.store(0ULL, std::memory_order_relaxed);
     ctrl->consumer_blocked.store(false, std::memory_order_relaxed);
     ctrl->producer_blocked.store(false, std::memory_order_relaxed);
+    ctrl->wake_gen.store(0, std::memory_order_relaxed);
     std::atomic_ref<uint64_t>(ctrl->capacity).store(cap, std::memory_order_release);
 
     auto* buf = reinterpret_cast<uint8_t*>(ctrl + 1);
@@ -333,6 +334,60 @@ void SpscShm::release(size_t n)
     }
 }
 
+/**
+ * Sleep on `word` until `ready()`, the timeout, or a wakeup_all() on this ring.
+ *
+ * A futex return alone means nothing: besides EINTR and spurious wakeups, the
+ * peer's wake for an earlier message can land late (it saw `blocked` set, was
+ * preempted before its futex_wake, and the wake hits our next wait). So a return
+ * is only acted on if one of those three holds; otherwise we re-arm and sleep
+ * for the time left. wakeup_all() is recognised by ctrl_->wake_gen, which it
+ * bumps before waking, from any process mapping the ring.
+ * `blocked` is the flag the peer checks (after its own fence) to decide whether
+ * to issue a futex wake.
+ */
+template <typename Ready>
+bool SpscShm::block_until(std::atomic<uint64_t>& word, std::atomic<bool>& blocked, uint64_t timeout_ns, Ready ready)
+{
+    const uint32_t wake_gen = ctrl_->wake_gen.load(std::memory_order_acquire);
+    const uint64_t start = mono_ns_now();
+    const uint64_t deadline = timeout_ns > UINT64_MAX - start ? UINT64_MAX : start + timeout_ns;
+
+    while (true) {
+        auto seen = static_cast<uint32_t>(word.load(std::memory_order_acquire));
+        blocked.store(true, std::memory_order_release);
+        // Pairs with the fence in publish()/release(): the flag must be visible
+        // before the re-check reads the peer's index.
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
+        if (ready()) {
+            blocked.store(false, std::memory_order_relaxed);
+            return true;
+        }
+        const uint64_t now = mono_ns_now();
+        if (now >= deadline || ctrl_->wake_gen.load(std::memory_order_acquire) != wake_gen) {
+            blocked.store(false, std::memory_order_relaxed);
+            return false;
+        }
+
+        const int rc = futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&word), seen, deadline - now);
+        const int err = errno;
+        blocked.store(false, std::memory_order_relaxed);
+        // Any other failure (e.g. futex unavailable under a seccomp policy) would
+        // recur on every pass, so report it as a timeout rather than spin.
+        if (rc < 0 && err != EINTR && err != EAGAIN && err != ETIMEDOUT) {
+            return ready();
+        }
+
+        if (ready()) {
+            return true;
+        }
+        if (ctrl_->wake_gen.load(std::memory_order_acquire) != wake_gen) {
+            return false;
+        }
+    }
+}
+
 bool SpscShm::wait_for_data(size_t need, uint64_t timeout_ns)
 {
     uint64_t cap = ctrl_->capacity;
@@ -417,26 +472,9 @@ bool SpscShm::wait_for_data(size_t need, uint64_t timeout_ns)
         return false;
     }
 
-    // About to block - load seq, final check, then block
-    uint32_t head_now = static_cast<uint32_t>(ctrl_->head.load(std::memory_order_acquire));
-
-    ctrl_->consumer_blocked.store(true, std::memory_order_release);
-    // Pairs with the fence in publish(): the flag must be visible before the
-    // re-check reads head.
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-
-    if (check_available()) {
-        ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
-        previous_had_data_ = true; // Found data before blocking
-        return true;
-    }
-
-    // Wait on futex for producer to signal new data
-    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), head_now, remaining_timeout);
-    ctrl_->consumer_blocked.store(false, std::memory_order_relaxed);
-
-    bool result = check_available();
-    previous_had_data_ = result; // Update flag based on final result
+    // Block until the producer publishes (it wakes us via head while consumer_blocked is set).
+    bool result = block_until(ctrl_->head, ctrl_->consumer_blocked, remaining_timeout, check_available);
+    previous_had_data_ = result;
     return result;
 }
 
@@ -524,31 +562,15 @@ bool SpscShm::wait_for_space(size_t need, uint64_t timeout_ns)
         return false;
     }
 
-    // About to block - load seq, final check, then block
-    uint32_t tail_now = static_cast<uint32_t>(ctrl_->tail.load(std::memory_order_acquire));
-
-    // Wait on futex for consumer to signal freed space
-    ctrl_->producer_blocked.store(true, std::memory_order_release);
-    // Pairs with the fence in release(): the flag must be visible before the
-    // re-check reads tail.
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-
-    if (check_space()) {
-        ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
-        previous_had_space_ = true; // Found space before blocking
-        return true;
-    }
-
-    futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), tail_now, remaining_timeout);
-    ctrl_->producer_blocked.store(false, std::memory_order_relaxed);
-
-    bool result = check_space();
-    previous_had_space_ = result; // Update flag based on final result
+    // Block until the consumer frees space (it wakes us via tail while producer_blocked is set).
+    bool result = block_until(ctrl_->tail, ctrl_->producer_blocked, remaining_timeout, check_space);
+    previous_had_space_ = result;
     return result;
 }
 
 void SpscShm::wakeup_all()
 {
+    ctrl_->wake_gen.fetch_add(1, std::memory_order_seq_cst);
     futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->head), INT_MAX);
     futex_wake(reinterpret_cast<volatile uint32_t*>(&ctrl_->tail), INT_MAX);
 }
