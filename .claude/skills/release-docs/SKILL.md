@@ -1120,7 +1120,13 @@ done
 
 It prints nothing when every page matches. Fix a mismatch in the snapshot, a release-only
 change (Step 17): the source local network pages install their own line's pin, which the
-cut does not move at the destination.
+cut does not move at the destination. The tutorials that start from the local network state
+the same minimum as a prerequisite (`Node.js (v<node> or later)`): set each to the snapshot's
+local network page's.
+
+```bash
+grep -n 'Node\.js (v' developer_versioned_docs/version-$LABS_TAG/docs/tutorials/*/{first_full_project,note_hash_proof}.md
+```
 
 ### Step 12: Check the Content Against the Tag
 
@@ -1642,11 +1648,22 @@ minutes later, unversioned pages included, so merge only when the release may go
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 "$DEST_ROOT/.claude/skills/release-docs/local_network.sh" stop "$STATE"
-git -C "$DEST_ROOT" worktree remove "$CUT"
+held=$(
+  git -C "$CUT" status --porcelain --ignore-submodules=none
+  find "$(git -C "$CUT" rev-parse --absolute-git-dir)/modules" -type d -name objects -prune 2>/dev/null |
+    while read -r objects; do
+      m=${objects%/objects}
+      { git --git-dir="$m" log --oneline --branches --tags --not --remotes; git --git-dir="$m" stash list; } | sed "s|^|$m: |"
+    done
+)
+if [ -z "$held" ]; then git -C "$DEST_ROOT" worktree remove --force "$CUT"; else printf 'Stop, the cut holds:\n%s\n' "$held" >&2; fi
 ```
 
-`worktree remove` refuses while the cut has uncommitted changes (Step 17 committed
-everything); ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
+The cut has checked-out submodules, and git removes such a worktree only with `--force`,
+which also discards uncommitted changes and the submodules' local commits and stashes. So
+it runs only once the cut's status and every submodule repository under its git directory
+come back empty (Step 17 committed everything); otherwise it prints what they hold: stop
+and report it. Ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
 The branch `docs-cut/<cut>` stays as the record of the cut until the destination
 commit has merged. `$STATE` holds the CLI's home, the checkout and the logs; remove it once
 the release is out.
