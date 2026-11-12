@@ -26,8 +26,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-/docs/developers/reference/aztecjs
-/docs/developers/reference/smart_contract_reference/aztec-nr
 test-results
 
 !CLAUDE.md
