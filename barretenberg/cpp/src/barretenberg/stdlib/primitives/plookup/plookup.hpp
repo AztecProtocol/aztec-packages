@@ -27,6 +27,11 @@ template <typename Builder> class plookup_read {
 
   public:
     static std::pair<field_pt, field_pt> read_pair_from_table(const plookup::MultiTableId id, const field_pt& key);
+#ifndef __wasm__
+    // Select C2[0] and C3[last]; all lookup witnesses and constraints are still generated.
+    static std::pair<field_pt, field_pt> read_first_and_last_from_table(const plookup::MultiTableId id,
+                                                                        const field_pt& key);
+#endif
 
     static field_pt read_from_2_to_1_table(const plookup::MultiTableId id,
                                            const field_pt& key_a,
@@ -37,5 +42,16 @@ template <typename Builder> class plookup_read {
                                                                const field_pt& key_a,
                                                                const field_pt& key_b = 0,
                                                                const bool is_2_to_1_lookup = false);
+
+    /**
+     * @brief Return lookup[columns[i]][rows[i]] for each i, where lookup = get_lookup_accumulators(id, key).
+     * @details Creates the same witnesses and gates as get_lookup_accumulators(id, key) but constructs only the
+     * selected result wrappers. Instantiated for N = 3 and N = 8.
+     */
+    template <size_t N>
+    static std::array<field_pt, N> read_rows_from_table(const plookup::MultiTableId id,
+                                                        const field_pt& key,
+                                                        const std::array<plookup::ColumnIdx, N>& columns,
+                                                        const std::array<size_t, N>& rows);
 };
 } // namespace bb::stdlib

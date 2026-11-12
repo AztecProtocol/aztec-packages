@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -35,6 +36,32 @@ inline std::vector<uint64_t> slice_input(const uint256_t& input, const uint64_t 
 }
 
 /**
+ * @brief Return `target % base` and replace `target` with `target / base`.
+ * @details Computes quotient and remainder together: a mask and a shift for a power-of-two base, one native division
+ * while `target` fits in 64 bits, and one single-limb long division otherwise (which rejects a zero base).
+ */
+inline uint64_t divmod_in_place(uint256_t& target, const uint64_t base)
+{
+    if (std::has_single_bit(base)) {
+        const uint64_t remainder = target.data[0] & (base - 1);
+        target >>= static_cast<uint64_t>(std::countr_zero(base));
+        return remainder;
+    }
+    if (base != 0 && (target.data[1] | target.data[2] | target.data[3]) == 0) {
+        const uint64_t value = target.data[0];
+        if (value < base) {
+            target.data[0] = 0;
+            return value;
+        }
+        target.data[0] = value / base;
+        return value % base;
+    }
+    const auto [quotient, remainder] = target.divmod(base);
+    target = quotient;
+    return remainder;
+}
+
+/**
  * @brief Decompose a uint256_t using a different base for each digit position (least-significant first).
  * Throws if the input is too large to be fully represented by the given bases.
  */
@@ -49,8 +76,7 @@ inline std::vector<uint64_t> slice_input_using_variable_bases(const uint256_t& i
         if (target >= bases[i] && i == bases.size() - 1) {
             throw_or_abort(format("Last key slice greater than ", bases[i]));
         }
-        slices.push_back((target % bases[i]).data[0]);
-        target /= bases[i];
+        slices.push_back(divmod_in_place(target, bases[i]));
     }
     return slices;
 }
@@ -76,14 +102,11 @@ template <uint64_t base, uint64_t num_slices> constexpr std::array<uint256_t, nu
 template <uint64_t base> constexpr uint256_t map_into_sparse_form(const uint64_t input)
 {
     uint256_t out = 0UL;
-    auto converted = input;
 
     constexpr auto base_powers = get_base_powers<base, 32>();
-    for (size_t i = 0; i < 32; ++i) {
-        uint64_t sparse_bit = ((converted >> i) & 1U);
-        if (sparse_bit) {
-            out += base_powers[i];
-        }
+    // Visit only the set bits among the low 32, in increasing order.
+    for (uint64_t remaining = input & 0xffffffffULL; remaining != 0; remaining &= remaining - 1) {
+        out += base_powers[static_cast<size_t>(std::countr_zero(remaining))];
     }
     return out;
 }

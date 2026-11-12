@@ -428,6 +428,29 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
                                                               const FF column_3_step_size)
     requires(ExecutionTrace::has_gate_kind(GateKind::Lookup))
 {
+    append_lookup_gate(key_idx,
+                       val1_idx,
+                       val2_idx,
+                       table,
+                       entry,
+                       FF(table.table_index),
+                       column_1_step_size,
+                       column_2_step_size,
+                       column_3_step_size);
+}
+
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::append_lookup_gate(const uint32_t key_idx,
+                                                              const uint32_t val1_idx,
+                                                              const uint32_t val2_idx,
+                                                              plookup::BasicTable& table,
+                                                              const plookup::BasicTable::LookupEntry& entry,
+                                                              const FF& table_index_selector,
+                                                              const FF& column_1_step_size,
+                                                              const FF& column_2_step_size,
+                                                              const FF& column_3_step_size)
+    requires(ExecutionTrace::has_gate_kind(GateKind::Lookup))
+{
     this->assert_valid_variables({ key_idx, val1_idx, val2_idx });
 
     table.lookup_gates.emplace_back(entry);
@@ -440,7 +463,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
         row.q_m = column_2_step_size;
         row.q_c = column_3_step_size;
         row.q_2 = column_1_step_size;
-        row.q_3 = FF(table.table_index);
+        row.q_3 = table_index_selector;
         block_for_row.template append_gate<GateKind::Lookup>(row);
     }
     this->increment_num_gates();
@@ -486,13 +509,22 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const auto& multi_table = plookup::get_multitable(id);
     const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
+    read_data[ColumnIdx::C1].reserve(num_lookups);
+    read_data[ColumnIdx::C2].reserve(num_lookups);
+    read_data[ColumnIdx::C3].reserve(num_lookups);
 
+    // Consecutive basic lookups often share a table: resolve it and its q_3 selector once per run of equal ids.
+    plookup::BasicTable* table = nullptr;
+    FF table_index_selector;
     for (size_t i = 0; i < num_lookups; ++i) {
         const bool is_first_lookup = (i == 0);
         const bool is_last_lookup = (i == num_lookups - 1);
 
-        // Get basic lookup table; construct and add to builder.lookup_tables if not already present
-        plookup::BasicTable& table = get_table(multi_table.basic_table_ids[i]);
+        if (table == nullptr || table->id != multi_table.basic_table_ids[i]) {
+            // Get basic lookup table; construct and add to builder.lookup_tables if not already present
+            table = &get_table(multi_table.basic_table_ids[i]);
+            table_index_selector = FF(table->table_index);
+        }
 
         // Create witness variables: first lookup reuses user's input indices, subsequent create new variables
         const auto first_idx = is_first_lookup ? key_a_index : this->add_variable(read_values[ColumnIdx::C1][i]);
@@ -510,8 +542,15 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         const FF col2_step = is_last_lookup ? FF(0) : -multi_table.column_2_step_sizes[i + 1];
         const FF col3_step = is_last_lookup ? FF(0) : -multi_table.column_3_step_sizes[i + 1];
 
-        create_lookup_gate(
-            first_idx, second_idx, third_idx, table, read_values.lookup_entries[i], col1_step, col2_step, col3_step);
+        append_lookup_gate(first_idx,
+                           second_idx,
+                           third_idx,
+                           *table,
+                           read_values.lookup_entries[i],
+                           table_index_selector,
+                           col1_step,
+                           col2_step,
+                           col3_step);
     }
     return read_data;
 }
