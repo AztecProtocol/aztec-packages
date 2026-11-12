@@ -23,7 +23,7 @@ UltraProver_<Flavor>::UltraProver_(std::shared_ptr<ProverInstance> prover_instan
  *
  * **Prover Level (this function):**
  *   [public_inputs | honk_proof | ipa_proof]
- *   - Appends IPA proof if prover_instance->ipa_proof is non-empty
+ *   - Appends the prover instance's IPA proof if it has one, waiting for it if it is still being computed
  *   - SYMMETRIC with UltraVerifier_::split_rollup_proof() which extracts the IPA portion
  *
  * **API Level (bbapi):**
@@ -37,9 +37,10 @@ template <typename Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Fla
     auto proof = transcript->export_proof();
 
     // Append IPA proof if present
-    if (!prover_instance->ipa_proof.empty()) {
-        BB_ASSERT_EQ(prover_instance->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
-        proof.insert(proof.end(), prover_instance->ipa_proof.begin(), prover_instance->ipa_proof.end());
+    const HonkProof& ipa_proof = prover_instance->resolve_ipa_proof();
+    if (!ipa_proof.empty()) {
+        BB_ASSERT_EQ(ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
+        proof.insert(proof.end(), ipa_proof.begin(), ipa_proof.end());
     }
 
     return proof;

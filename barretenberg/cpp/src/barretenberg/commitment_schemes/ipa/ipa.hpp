@@ -4,6 +4,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/deferred_value.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -13,13 +14,75 @@
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <numeric>
+#include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace bb {
+template <size_t log_poly_length = CONST_ECCVM_LOG_N> struct IpaOpeningProofTask;
+
+namespace detail {
+// batch_two_round_fold's scratch is proportional to its number of output points, so the SRS fold is cut into blocks.
+inline constexpr size_t SRS_FOLD_BLOCK = 2048;
+
+/**
+ * @brief Folds an SRS two IPA rounds at once, in place: for q = G.size() / 4 and every i < q,
+ * G[i] ← u1·u2·G[i] + u1·G[i+q] + u2·G[i+2q] + G[i+3q].
+ * @details Calls `Curve::Element::batch_two_round_fold` on at most `block` output points at a time, so the fold's
+ * scratch memory is proportional to `block` rather than to q. Each output point depends only on its four inputs and
+ * the challenges, so the result is that of a single call on the whole span. Entries [q, 4q) are left unchanged.
+ * @param G 4q affine points, none at infinity; q need not be a power of two.
+ * @param u1 First-round challenge, below 2^127.
+ * @param u2 Second-round challenge, below 2^127.
+ * @param block Maximum number of output points per fold call; must be positive.
+ */
+template <typename Curve>
+void two_round_fold_srs(std::span<typename Curve::AffineElement> G,
+                        const typename Curve::ScalarField& u1,
+                        const typename Curve::ScalarField& u2,
+                        size_t block = SRS_FOLD_BLOCK)
+{
+    using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
+    BB_ASSERT_EQ(G.size() % 4, 0U, "the two-round SRS fold needs four equal quarters");
+    BB_ASSERT_GT(block, 0U, "the SRS fold block must hold at least one output point");
+    const size_t quarter = G.size() / 4;
+
+    if (quarter <= block) {
+        auto G_folded =
+            GroupElement::batch_two_round_fold(std::span<const Commitment>{ G.data(), 4 * quarter }, u1, u2);
+        parallel_for_heuristic(
+            quarter, [&](size_t idx) { G[idx] = G_folded[idx]; }, thread_heuristics::FF_COPY_COST * 2);
+        return;
+    }
+
+    std::vector<Commitment> block_inputs(4 * block);
+    for (size_t start = 0; start < quarter; start += block) {
+        const size_t len = std::min(block, quarter - start);
+        parallel_for_heuristic(
+            len,
+            [&](size_t idx) {
+                for (size_t k = 0; k < 4; ++k) {
+                    block_inputs[(k * len) + idx] = G[(k * quarter) + start + idx];
+                }
+            },
+            thread_heuristics::FF_COPY_COST * 8);
+        auto G_folded =
+            GroupElement::batch_two_round_fold(std::span<const Commitment>{ block_inputs.data(), 4 * len }, u1, u2);
+        // Writing G[start, start + len) in place is safe: later blocks read only G[s, s + len') for s ≥ start + len
+        // and entries of the quarters [q, 4q), which are never written.
+        parallel_for_heuristic(
+            len, [&](size_t idx) { G[start + idx] = G_folded[idx]; }, thread_heuristics::FF_COPY_COST * 2);
+    }
+}
+} // namespace detail
+
 /**
 * @brief IPA (inner product argument) commitment scheme class.
 *
@@ -91,6 +154,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     // polynomial, given as ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}), and the running truth value of the IPA
     // accumulation claim.
     using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
+
+    using OpeningProofTask = IpaOpeningProofTask<log_poly_length>;
 
     /**
      * @brief Deferred native IPA verification state — the native counterpart of `VerifierAccumulator`.
@@ -360,10 +425,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             // Step 6.e, fused: G_vec_new[i] = u1·u2·G[i] + u1·G[i+q] + u2·G[i+2q] + G[i+3q].
             // Round challenges are 127-bit limbs (transcript split_challenge); batch_two_round_fold
             // BB_ASSERTs that precondition.
-            auto G_folded = GroupElement::batch_two_round_fold(
-                std::span<const Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
-            parallel_for_heuristic(
-                quarter, [&](size_t idx) { G_vec_local[idx] = G_folded[idx]; }, thread_heuristics::FF_COPY_COST * 2);
+            detail::two_round_fold_srs<Curve>(std::span<Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
 
             round_size = quarter;
             round_idx += 2;
@@ -406,6 +468,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         //      calling the `send_to_verifier` method, as the verifier knows them.
 
         const auto commitment = ck.commit(polynomial);
+        add_claim_to_hash_buffer(commitment, opening_claim, transcript);
+    }
+
+    /**
+     * @brief Add the opening claim to the hash buffer, given the commitment to its polynomial.
+     *
+     * @param commitment Must equal `ck.commit(opening_claim.polynomial)`; the hash buffer is then the same as with the
+     * overload that computes it.
+     */
+    template <typename Transcript>
+    static void add_claim_to_hash_buffer(const Commitment& commitment,
+                                         const ProverOpeningClaim<Curve>& opening_claim,
+                                         const std::shared_ptr<Transcript>& transcript)
+    {
         transcript->add_to_hash_buffer("IPA:commitment", commitment);
         transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
         transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
@@ -731,6 +807,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
+     * @brief Compute an IPA opening proof for a caller that already holds the commitment to the polynomial.
+     *
+     * @param commitment Must equal `ck.commit(opening_claim.polynomial)`; the proof is then identical to the one from
+     * the overload that computes it, without its MSM.
+     */
+    template <typename Transcript = NativeTranscript>
+    static void compute_opening_proof(const CK& ck,
+                                      const ProverOpeningClaim<Curve>& opening_claim,
+                                      const Commitment& commitment,
+                                      const std::shared_ptr<Transcript>& transcript)
+    {
+        add_claim_to_hash_buffer(commitment, opening_claim, transcript);
+        compute_opening_proof_internal(ck, opening_claim, transcript);
+    }
+
+    /**
      * @brief Natively verify the correctness of an IPA Proof
      *
      * @param vk Verification_key containing srs
@@ -993,28 +1085,34 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Prove a native IPA opening of `challenge_poly` at the (challenge, evaluation) carried by `output_claim`,
-     * returning `output_claim` paired with the generated proof. Shared tail of `accumulate` and
-     * `prove_accumulator_claim`.
+     * @brief Run the native opening proof of a deferred (claim, proof task) pair on the calling thread.
      */
-    static std::pair<OpeningClaim<Curve>, HonkProof> prove_challenge_poly_opening(
-        const CommitmentKey<curve::Grumpkin>& ck,
-        OpeningClaim<Curve> output_claim,
-        const Polynomial<bb::fq>& challenge_poly)
+    static std::pair<OpeningClaim<Curve>, HonkProof> prove_now(
+        std::pair<OpeningClaim<Curve>, OpeningProofTask> deferred)
+    {
+        HonkProof proof = deferred.second.prove();
+        return { std::move(deferred.first), std::move(proof) };
+    }
+
+    /**
+     * @brief Set up the native IPA opening of `challenge_poly` at the (challenge, evaluation) carried by
+     * `output_claim`, returning `output_claim` paired with the task that proves it. Shared tail of
+     * `accumulate_deferred` and `prove_accumulator_claim_deferred`.
+     */
+    static std::pair<OpeningClaim<Curve>, OpeningProofTask> defer_challenge_poly_opening(
+        const CommitmentKey<curve::Grumpkin>& ck, OpeningClaim<Curve> output_claim, Polynomial<bb::fq> challenge_poly)
         requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
-        auto prover_transcript = std::make_shared<NativeTranscript>();
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
         BB_ASSERT_EQ(challenge_poly.evaluate(opening_pair.challenge),
                      opening_pair.evaluation,
                      "Opening claim does not hold for challenge polynomial.");
-        IPA<NativeCurve, log_poly_length>::compute_opening_proof(
-            ck, { challenge_poly, opening_pair }, prover_transcript);
 
         output_claim.opening_pair.evaluation.self_reduce();
-        return { output_claim, prover_transcript->export_proof() };
+        return { std::move(output_claim),
+                 OpeningProofTask{ ck, { std::move(challenge_poly), opening_pair }, std::nullopt } };
     }
 
     /**
@@ -1029,6 +1127,18 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const CommitmentKey<curve::Grumpkin>& ck,
                                                                 VerifierAccumulator verifier_accumulator_1,
                                                                 VerifierAccumulator verifier_accumulator_2)
+        requires Curve::is_stdlib_type
+    {
+        return prove_now(accumulate_deferred(ck, std::move(verifier_accumulator_1), std::move(verifier_accumulator_2)));
+    }
+
+    /**
+     * @brief `accumulate` with the native opening proof returned as a task instead of computed.
+     */
+    static std::pair<OpeningClaim<Curve>, OpeningProofTask> accumulate_deferred(
+        const CommitmentKey<curve::Grumpkin>& ck,
+        VerifierAccumulator verifier_accumulator_1,
+        VerifierAccumulator verifier_accumulator_2)
         requires Curve::is_stdlib_type
     {
         static_assert(IsAnyOf<typename Curve::Builder, UltraCircuitBuilder>);
@@ -1061,7 +1171,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Polynomial<bb::fq> challenge_poly =
             create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, bb::fq(alpha.get_value()));
 
-        return prove_challenge_poly_opening(ck, std::move(output_claim), challenge_poly);
+        return defer_challenge_poly_opening(ck, std::move(output_claim), std::move(challenge_poly));
     }
 
     /**
@@ -1073,6 +1183,16 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      */
     static std::pair<OpeningClaim<Curve>, HonkProof> prove_accumulator_claim(const CommitmentKey<curve::Grumpkin>& ck,
                                                                              VerifierAccumulator verifier_accumulator)
+        requires Curve::is_stdlib_type
+    {
+        return prove_now(prove_accumulator_claim_deferred(ck, std::move(verifier_accumulator)));
+    }
+
+    /**
+     * @brief `prove_accumulator_claim` with the native opening proof returned as a task instead of computed.
+     */
+    static std::pair<OpeningClaim<Curve>, OpeningProofTask> prove_accumulator_claim_deferred(
+        const CommitmentKey<curve::Grumpkin>& ck, VerifierAccumulator verifier_accumulator)
         requires Curve::is_stdlib_type
     {
         static_assert(IsAnyOf<typename Curve::Builder, UltraCircuitBuilder>);
@@ -1094,7 +1214,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Polynomial<bb::fq> challenge_poly =
             construct_poly_from_u_challenges_inv(std::span<const bb::fq>(native_u_challenges_inv));
 
-        return prove_challenge_poly_opening(ck, std::move(output_claim), challenge_poly);
+        return defer_challenge_poly_opening(ck, std::move(output_claim), std::move(challenge_poly));
     }
 
     /**
@@ -1161,32 +1281,111 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         return all_relations_succeeded;
     }
 
+    /**
+     * @brief Draw the random polynomial, then the random evaluation point, opened by
+     * create_random_valid_ipa_claim_and_proof.
+     * @details Separate from the proving so that a caller can reproduce the draws without proving.
+     */
+    static std::pair<Polynomial<bb::fq>, bb::fq> sample_random_opening(numeric::RNG* engine = nullptr)
+        requires Curve::is_stdlib_type
+    {
+        if (engine == nullptr) {
+            engine = &numeric::get_randomness();
+        }
+        // Each coefficient is bb::fq::random_element(engine): the engine is read serially, in the same order (lo then
+        // hi per coefficient), and only the conversion of the drawn words into field elements runs in parallel.
+        constexpr bb::fq pow_2_256 = bb::fq(uint256_t(1) << 128).sqr();
+        constexpr size_t block_size = std::min<size_t>(poly_length, size_t{ 1 } << 12);
+        Polynomial<bb::fq> poly(poly_length);
+        std::vector<std::array<uint256_t, 2>> draws(block_size);
+        for (size_t start = 0; start < poly_length; start += block_size) {
+            for (auto& [lo, hi] : draws) {
+                lo = engine->get_random_uint256();
+                hi = engine->get_random_uint256();
+            }
+            parallel_for_heuristic(
+                block_size,
+                [&](size_t k) { poly.at(start + k) = bb::fq(draws[k][0]) + (pow_2_256 * bb::fq(draws[k][1])); },
+                thread_heuristics::FF_MULTIPLICATION_COST * 4);
+        }
+        const bb::fq x = bb::fq::random_element(engine);
+        return { std::move(poly), x };
+    }
+
     static std::pair<OpeningClaim<Curve>, HonkProof> create_random_valid_ipa_claim_and_proof(
         UltraCircuitBuilder& builder)
+        requires Curve::is_stdlib_type
+    {
+        const auto [poly, x] = sample_random_opening();
+        return create_valid_ipa_claim_and_proof(builder, poly, x);
+    }
+
+    /**
+     * @brief Natively prove the opening of poly at x and add the claim to the builder as witnesses.
+     */
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_valid_ipa_claim_and_proof(UltraCircuitBuilder& builder,
+                                                                                      const Polynomial<bb::fq>& poly,
+                                                                                      const bb::fq& x)
+        requires Curve::is_stdlib_type
+    {
+        return prove_now(create_valid_ipa_claim_deferred(builder, poly, x));
+    }
+
+    /**
+     * @brief `create_valid_ipa_claim_and_proof` with the native opening proof returned as a task instead of computed.
+     */
+    static std::pair<OpeningClaim<Curve>, OpeningProofTask> create_valid_ipa_claim_deferred(
+        UltraCircuitBuilder& builder, const Polynomial<bb::fq>& poly, const bb::fq& x)
         requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
         using Builder = typename Curve::Builder;
         using Curve = stdlib::grumpkin<Builder>;
-        auto ipa_transcript = std::make_shared<NativeTranscript>();
+        // Built on the calling thread rather than by the task: the global CRS factory is not safe to use concurrently.
         CommitmentKey<NativeCurve> ipa_commitment_key(poly_length);
-        size_t n = poly_length;
-        auto poly = Polynomial<bb::fq>(n);
-        for (size_t i = 0; i < n; i++) {
-            poly.at(i) = bb::fq::random_element();
-        }
-        bb::fq x = bb::fq::random_element();
         bb::fq eval = poly.evaluate(x);
         auto commitment = ipa_commitment_key.commit(poly);
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
-        IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
 
         auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
         auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
         auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
-        return { stdlib_opening_claim, ipa_transcript->export_proof() };
+        return { stdlib_opening_claim,
+                 OpeningProofTask{ std::move(ipa_commitment_key), { poly, opening_pair }, commitment } };
+    }
+};
+
+/**
+ * @brief A native IPA opening proof whose inputs are fixed but which has not been computed yet.
+ * @details Owns everything it reads, draws no randomness and touches no circuit builder, so it can be proven on any
+ * thread.
+ */
+template <size_t log_poly_length> struct IpaOpeningProofTask {
+    CommitmentKey<curve::Grumpkin> ck;
+    ProverOpeningClaim<curve::Grumpkin> claim;
+    // The commitment to claim.polynomial when the caller already holds it, so that the prover need not recompute it.
+    std::optional<curve::Grumpkin::AffineElement> commitment;
+
+    HonkProof prove() const
+    {
+        using NativeIPA = IPA<curve::Grumpkin, log_poly_length>;
+        auto transcript = std::make_shared<NativeTranscript>();
+        if (commitment.has_value()) {
+            NativeIPA::compute_opening_proof(ck, claim, *commitment, transcript);
+        } else {
+            NativeIPA::compute_opening_proof(ck, claim, transcript);
+        }
+        return transcript->export_proof();
+    }
+
+    /**
+     * @brief Compute the proof on a background thread.
+     */
+    DeferredValue<HonkProof> launch() &&
+    {
+        return DeferredValue<HonkProof>::launch([task = std::move(*this)] { return task.prove(); });
     }
 };
 

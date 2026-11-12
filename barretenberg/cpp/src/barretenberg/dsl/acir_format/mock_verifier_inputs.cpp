@@ -49,6 +49,8 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_oink_proof(
     for (const auto& pub : builder.public_inputs()) {
         proof.emplace_back(builder.get_variable(pub));
     }
+    // The builder is discarded here, so wait for a pending IPA proof now: its failure must not go unnoticed.
+    builder.resolve_ipa_proof();
 
     // Populate mock witness polynomial commitments
     populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);

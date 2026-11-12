@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/deferred_value.hpp"
 #include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -220,6 +221,22 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     std::vector<fr> ipa_proof;
+    // An IPA proof still being computed, held instead of ipa_proof until resolve_ipa_proof().
+    DeferredValue<std::vector<fr>> pending_ipa_proof;
+
+    /**
+     * @brief Hand over an IPA proof that is still being computed; it replaces any proof set before.
+     */
+    void set_pending_ipa_proof(DeferredValue<std::vector<fr>> proof)
+    {
+        ipa_proof.clear();
+        pending_ipa_proof = std::move(proof);
+    }
+
+    /**
+     * @brief The IPA proof, after waiting for a pending one. Rethrows what computing a pending proof threw.
+     */
+    const std::vector<fr>& resolve_ipa_proof() { return resolve_into(ipa_proof, pending_ipa_proof); }
 
     void populate_public_inputs_block();
 
