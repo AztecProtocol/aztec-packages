@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "memory.h"
 #include "tracy/Tracy.hpp"
+#include "try_catch_shim.hpp"
 #include <atomic>
 #include <cstddef>
 #include <cstdlib>
@@ -66,19 +67,6 @@ inline void release_free_heap_memory()
 #endif
 }
 
-/**
- * @brief Make glibc return freed memory to the operating system promptly, for runs that bound resident memory.
- * @details By default glibc raises its mmap threshold to the size of each freed mmap-served chunk (up to 32 MiB) and
- * its trim threshold to twice that. After one large buffer is freed, later buffers of up to 32 MiB are carved from
- * the heap instead of mapped, and up to 64 MiB of free heap is kept resident. Setting both thresholds explicitly turns
- * that adjustment off: chunks of 1 MiB or more are always mapped and unmapped on free, and free heap above 1 MiB is
- * returned. Apple's libmalloc has no mallopt equivalent that can be set from inside the process (its tuning is
- * environment variables read at startup); there the retention is its large cache, which malloc_zone_pressure_relief
- * does not empty. So on Apple a replacement global operator new (mem.cpp) applies the same idea at libmalloc's own
- * large-block threshold: once this has run, every allocation of 128 KiB or more is an anonymous mapping of its own,
- * unmapped when it is deleted, and never enters the cache. Allocations made through malloc directly still do.
- * ScratchBuffer maps its buffer directly on every platform.
- */
 namespace detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline std::atomic<bool> map_scratch_directly{ false };
@@ -95,6 +83,19 @@ using AllocationObserver = void (*)(size_t);
 void set_allocation_observer(AllocationObserver observer);
 } // namespace detail
 
+/**
+ * @brief Make glibc return freed memory to the operating system promptly, for runs that bound resident memory.
+ * @details By default glibc raises its mmap threshold to the size of each freed mmap-served chunk (up to 32 MiB) and
+ * its trim threshold to twice that. After one large buffer is freed, later buffers of up to 32 MiB are carved from
+ * the heap instead of mapped, and up to 64 MiB of free heap is kept resident. Setting both thresholds explicitly turns
+ * that adjustment off: chunks of 1 MiB or more are always mapped and unmapped on free, and free heap above 1 MiB is
+ * returned. Apple's libmalloc has no mallopt equivalent that can be set from inside the process (its tuning is
+ * environment variables read at startup); there the retention is its large cache, which malloc_zone_pressure_relief
+ * does not empty. So on Apple a replacement global operator new (mem.cpp) applies the same idea at libmalloc's own
+ * large-block threshold: once this has run, every allocation of 128 KiB or more is an anonymous mapping of its own,
+ * unmapped when it is deleted, and never enters the cache. Allocations made through malloc directly still do.
+ * ScratchBuffer maps its buffer directly on every platform.
+ */
 inline void configure_heap_for_low_memory()
 {
 #if defined(__GLIBC__)
@@ -128,7 +129,7 @@ class ScratchBuffer {
         if (detail::map_scratch_directly.load(std::memory_order_relaxed)) {
             void* addr = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             if (addr == MAP_FAILED) {
-                throw std::bad_alloc();
+                THROW std::bad_alloc();
             }
             data_ = static_cast<std::byte*>(addr);
             mapped_ = true;
