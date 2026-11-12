@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { parseVersion, renderRange, selectRange } from '@site/src/migration_ranges.mjs';
 import { markdownPathFor } from '@site/src/utils/agentLinks';

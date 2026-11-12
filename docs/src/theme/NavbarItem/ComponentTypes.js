@@ -1,4 +1,3 @@
-import React from 'react';
 import ComponentTypes from '@theme-original/NavbarItem/ComponentTypes';
 import { useActivePlugin } from '@docusaurus/plugin-content-docs/client';
 import UnifiedVersionDropdown from './UnifiedVersionDropdown';
