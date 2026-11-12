@@ -297,7 +297,7 @@ function execute-examples {
   fi
   pin_toolchain
   local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
-  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+  DOCS_UID=$(id -u) DOCS_GID=$(id -g) run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
 # Runs the Noir tests of every docs workspace package that has any (the type = "lib" test

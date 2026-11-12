@@ -222,7 +222,10 @@ Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alic
 #include_code checkpoint_1 /docs/lines/v6/examples/ts/bob_token_contract/index.ts raw
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
 ```
 
 Run your test:

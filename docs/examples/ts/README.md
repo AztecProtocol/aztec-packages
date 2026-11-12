@@ -89,15 +89,15 @@ The `AZTEC_NODE_URL` env var is used by the runner script and the example `index
 | `aztecjs_testing` | Test patterns: minting, transfers, revert testing |
 | `example_swap` | Cross-chain token swap via L1 uniswap portal (L2→L1→L2) |
 | `recursive_verification` | Recursive proof generation and onchain verification flow |
+| `bob_token_contract` | The token contract tutorial's custom contract: deploy, mint, transfer |
+| `token_bridge` | The NFT bridge tutorial: L1 portal, L2 bridge, deposit and withdrawal |
+| `aztecjs_kernelless_simulation` | Simulating a transaction without kernel circuits |
 
 ### Examples Not Executed (Type-Checked Only)
 
-These examples require additional infrastructure or custom contracts with verification keys:
-
 | Example | Reason |
 |---------|--------|
-| `bob_token_contract` | Custom contract requires verification keys |
-| `token_bridge` | Requires L1 contracts and bridge infrastructure |
+| `aave_bridge` | Disabled after timing out (~600s) waiting for a proven block |
 
 ## Adding New Examples
 
