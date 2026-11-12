@@ -9,7 +9,7 @@ This tutorial takes you from an empty folder to a contract deployed on a local n
 
 ## Prerequisites
 
-- Node.js (v22 or later) and npm
+- Node.js (v24.15.0 or later) and npm
 - The Aztec CLI at version 6.0.0, with a local network running. See [Getting started on the local network](../../../getting_started_on_local_network.md) to install the CLI and start the network with `aztec start --local-network`.
 
 ## Create the contract
