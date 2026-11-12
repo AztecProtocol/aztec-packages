@@ -10,6 +10,7 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
@@ -415,6 +416,12 @@ class RollupIO {
         inputs.pairing_inputs = PairingInputs::construct_default();
         auto [stdlib_opening_claim, ipa_proof_task] =
             IPA<grumpkin<Builder>>::create_valid_ipa_claim_deferred(builder, ipa_polynomial, ipa_challenge);
+        if (!bb::rollup_experimental_optimizations_enabled()) {
+            inputs.ipa_claim = stdlib_opening_claim;
+            builder.ipa_proof = ipa_proof_task.prove();
+            inputs.set_public();
+            return;
+        }
         auto ipa_proof = std::move(ipa_proof_task).launch();
         inputs.ipa_claim = stdlib_opening_claim;
         inputs.set_public();

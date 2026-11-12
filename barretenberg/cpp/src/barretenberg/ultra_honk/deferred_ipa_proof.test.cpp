@@ -22,7 +22,7 @@ TEST(DeferredIpaProof, EqualsSynchronousProof)
 
     UltraCircuitBuilder builder;
     stdlib::recursion::honk::RollupIO::add_default(builder, polynomial, challenge);
-    EXPECT_TRUE(builder.pending_ipa_proof.valid());
+    EXPECT_EQ(builder.pending_ipa_proof.valid(), rollup_experimental_optimizations_enabled());
 
     ProverInstance_<UltraFlavor> prover_instance(builder);
     EXPECT_TRUE(prover_instance.has_ipa_proof());

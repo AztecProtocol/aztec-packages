@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -193,141 +194,167 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit)
 {
-    auto& tables = circuit.get_lookup_tables();
-    // loop over all tables used in the circuit; each table contains data about the lookups made on it
-    size_t table_offset = circuit.blocks.lookup.trace_offset();
-    const auto process_table = [&]<bool ParallelQueries>(auto& table,
-                                                         size_t output_offset,
-                                                         auto& indices_in_table,
-                                                         auto& counts,
-                                                         auto& row_index) {
-        const auto& lookup_gates = table.lookup_gates;
-        const auto for_each_query = [&](const auto& query) {
-            if constexpr (ParallelQueries) {
-                parallel_for_heuristic(lookup_gates.size(), query, thread_heuristics::FF_MULTIPLICATION_COST * 8);
-            } else {
-                for (size_t gate_idx = 0; gate_idx < lookup_gates.size(); ++gate_idx) {
-                    query(gate_idx);
+    if (!bb::rollup_experimental_optimizations_enabled()) {
+
+        // loop over all tables used in the circuit; each table contains data about the lookups made on it
+        size_t table_offset = circuit.blocks.lookup.trace_offset();
+        for (auto& table : circuit.get_lookup_tables()) {
+            table.initialize_index_map();
+
+            for (auto& gate_data : table.lookup_gates) {
+                // convert lookup gate data to an array of three field elements, one for each of the 3 columns
+                auto table_entry = gate_data.to_table_components(table.use_twin_keys);
+
+                // find the index of the entry in the table
+                auto index_in_table = table.index_map[table_entry];
+
+                // increment the read count at the corresponding index in the full polynomial
+                size_t index_in_poly = table_offset + index_in_table;
+                read_counts.at(index_in_poly)++;
+                read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
+            }
+            table_offset += table.size(); // set the offset of the next table within the polynomials
+        }
+
+    } else {
+
+        auto& tables = circuit.get_lookup_tables();
+        // loop over all tables used in the circuit; each table contains data about the lookups made on it
+        size_t table_offset = circuit.blocks.lookup.trace_offset();
+        const auto process_table = [&]<bool ParallelQueries>(auto& table,
+                                                             size_t output_offset,
+                                                             auto& indices_in_table,
+                                                             auto& counts,
+                                                             auto& row_index) {
+            const auto& lookup_gates = table.lookup_gates;
+            const auto for_each_query = [&](const auto& query) {
+                if constexpr (ParallelQueries) {
+                    parallel_for_heuristic(lookup_gates.size(), query, thread_heuristics::FF_MULTIPLICATION_COST * 8);
+                } else {
+                    for (size_t gate_idx = 0; gate_idx < lookup_gates.size(); ++gate_idx) {
+                        query(gate_idx);
+                    }
                 }
+            };
+            indices_in_table.resize(lookup_gates.size());
+            const detail::DenseLookupIndex dense_index(table);
+            std::atomic<bool> direct_complete{ true };
+            if (dense_index) {
+                for_each_query([&](size_t gate_idx) {
+                    if (!dense_index.find(table, lookup_gates[gate_idx], indices_in_table[gate_idx])) {
+                        direct_complete.store(false, std::memory_order_relaxed);
+                    }
+                });
+            }
+            if (!dense_index || !direct_complete.load(std::memory_order_relaxed)) {
+                // Build only on the calling thread, after all direct queries have joined.
+                // Re-run every query, preserving the original behavior for aliases or non-dense tables.
+                const bool use_row_index = lookup_read_count_detail::RowIndex::eligible(table);
+                if (use_row_index) {
+                    row_index.initialize(table);
+                } else {
+                    table.initialize_index_map();
+                }
+                for_each_query([&](size_t gate_idx) {
+                    // convert lookup gate data to an array of three field elements, one for each of the 3 columns
+                    auto table_entry = lookup_gates[gate_idx].to_table_components(table.use_twin_keys);
+                    // find the index of the entry in the table
+                    indices_in_table[gate_idx] =
+                        use_row_index ? row_index.find(table_entry) : table.index_map[table_entry];
+                });
+            }
+
+            counts.assign(table.size(), 0);
+            for (const size_t index_in_table : indices_in_table) {
+                counts.at(index_in_table)++;
+            }
+            for (size_t index_in_table = 0; index_in_table < counts.size(); ++index_in_table) {
+                if (counts[index_in_table] == 0) {
+                    continue;
+                }
+                // add the read count at the corresponding index in the full polynomial
+                size_t index_in_poly = output_offset + index_in_table;
+                read_counts.at(index_in_poly) += counts[index_in_table];
+                read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
             }
         };
-        indices_in_table.resize(lookup_gates.size());
-        const detail::DenseLookupIndex dense_index(table);
-        std::atomic<bool> direct_complete{ true };
-        if (dense_index) {
-            for_each_query([&](size_t gate_idx) {
-                if (!dense_index.find(table, lookup_gates[gate_idx], indices_in_table[gate_idx])) {
-                    direct_complete.store(false, std::memory_order_relaxed);
-                }
-            });
-        }
-        if (!dense_index || !direct_complete.load(std::memory_order_relaxed)) {
-            // Build only on the calling thread, after all direct queries have joined.
-            // Re-run every query, preserving the original behavior for aliases or non-dense tables.
-            const bool use_row_index = lookup_read_count_detail::RowIndex::eligible(table);
-            if (use_row_index) {
-                row_index.initialize(table);
-            } else {
-                table.initialize_index_map();
-            }
-            for_each_query([&](size_t gate_idx) {
-                // convert lookup gate data to an array of three field elements, one for each of the 3 columns
-                auto table_entry = lookup_gates[gate_idx].to_table_components(table.use_twin_keys);
-                // find the index of the entry in the table
-                indices_in_table[gate_idx] = use_row_index ? row_index.find(table_entry) : table.index_map[table_entry];
-            });
-        }
-
-        counts.assign(table.size(), 0);
-        for (const size_t index_in_table : indices_in_table) {
-            counts.at(index_in_table)++;
-        }
-        for (size_t index_in_table = 0; index_in_table < counts.size(); ++index_in_table) {
-            if (counts[index_in_table] == 0) {
-                continue;
-            }
-            // add the read count at the corresponding index in the full polynomial
-            size_t index_in_poly = output_offset + index_in_table;
-            read_counts.at(index_in_poly) += counts[index_in_table];
-            read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
-        }
-    };
 
 #if !defined(__wasm__) && SIZE_MAX > UINT32_MAX
-    const size_t cpus = get_num_cpus();
-    if (cpus > 1 && tables.size() / cpus >= 4) {
-        // Each BasicTable owns its columns/map/gates. Only initially empty-map
-        // tables enter outer scheduling; prepopulated/stale maps retain the old path.
-        std::vector<size_t> offsets;
-        offsets.reserve(tables.size());
-        size_t end = table_offset;
-        size_t largest_scratch = 1;
-        bool eligible = true;
-        for (const auto& table : tables) {
-            if (!lookup_read_count_detail::RowIndex::eligible(table) ||
-                table.size() > (std::numeric_limits<size_t>::max() - end) ||
-                table.lookup_gates.size() > (std::numeric_limits<size_t>::max() - table.size() * 64 - 4096) / 16) {
-                eligible = false;
-                break;
+        const size_t cpus = get_num_cpus();
+        if (cpus > 1 && tables.size() / cpus >= 4) {
+            // Each BasicTable owns its columns/map/gates. Only initially empty-map
+            // tables enter outer scheduling; prepopulated/stale maps retain the old path.
+            std::vector<size_t> offsets;
+            offsets.reserve(tables.size());
+            size_t end = table_offset;
+            size_t largest_scratch = 1;
+            bool eligible = true;
+            for (const auto& table : tables) {
+                if (!lookup_read_count_detail::RowIndex::eligible(table) ||
+                    table.size() > (std::numeric_limits<size_t>::max() - end) ||
+                    table.lookup_gates.size() > (std::numeric_limits<size_t>::max() - table.size() * 64 - 4096) / 16) {
+                    eligible = false;
+                    break;
+                }
+                offsets.push_back(end);
+                end += table.size();
+                // A scheduling estimate, not an allocator/RSS guarantee. RowIndex
+                // uses <32 bytes/row; count and query capacities can retain headroom.
+                const size_t estimate = table.size() * 64 + table.lookup_gates.size() * 16 + 4096;
+                largest_scratch = std::max(largest_scratch, estimate);
             }
-            offsets.push_back(end);
-            end += table.size();
-            // A scheduling estimate, not an allocator/RSS guarantee. RowIndex
-            // uses <32 bytes/row; count and query capacities can retain headroom.
-            const size_t estimate = table.size() * 64 + table.lookup_gates.size() * 16 + 4096;
-            largest_scratch = std::max(largest_scratch, estimate);
-        }
-        const auto count_begin = reinterpret_cast<uintptr_t>(read_counts.data());
-        const auto tag_begin = reinterpret_cast<uintptr_t>(read_tags.data());
-        const size_t count_bytes = read_counts.size() * sizeof(*read_counts.data());
-        const size_t tag_bytes = read_tags.size() * sizeof(*read_tags.data());
-        const bool overlapping =
-            count_bytes != 0 && tag_bytes != 0 &&
-            (count_begin <= tag_begin ? tag_begin - count_begin < count_bytes : count_begin - tag_begin < tag_bytes);
-        constexpr size_t SCRATCH_ESTIMATE_BUDGET = size_t{ 4 } << 30;
-        const size_t workers = std::min(cpus, SCRATCH_ESTIMATE_BUDGET / largest_scratch);
-        if (eligible && !overlapping && end - table_offset >= (size_t{ 1 } << 18) && workers > 1) {
-            struct Scratch {
-                std::vector<size_t> indices;
-                std::vector<uint32_t> counts;
-                lookup_read_count_detail::RowIndex row_index;
-            };
-            std::vector<Scratch> scratch(workers);
-            std::vector<std::exception_ptr> errors(tables.size());
-            std::atomic<size_t> next_table{ 0 };
-            parallel_for(workers, [&](size_t worker) {
-                auto& local = scratch[worker];
-                while (true) {
-                    const size_t index = next_table.fetch_add(1, std::memory_order_relaxed);
-                    if (index >= tables.size()) {
-                        break;
+            const auto count_begin = reinterpret_cast<uintptr_t>(read_counts.data());
+            const auto tag_begin = reinterpret_cast<uintptr_t>(read_tags.data());
+            const size_t count_bytes = read_counts.size() * sizeof(*read_counts.data());
+            const size_t tag_bytes = read_tags.size() * sizeof(*read_tags.data());
+            const bool overlapping = count_bytes != 0 && tag_bytes != 0 &&
+                                     (count_begin <= tag_begin ? tag_begin - count_begin < count_bytes
+                                                               : count_begin - tag_begin < tag_bytes);
+            constexpr size_t SCRATCH_ESTIMATE_BUDGET = size_t{ 4 } << 30;
+            const size_t workers = std::min(cpus, SCRATCH_ESTIMATE_BUDGET / largest_scratch);
+            if (eligible && !overlapping && end - table_offset >= (size_t{ 1 } << 18) && workers > 1) {
+                struct Scratch {
+                    std::vector<size_t> indices;
+                    std::vector<uint32_t> counts;
+                    lookup_read_count_detail::RowIndex row_index;
+                };
+                std::vector<Scratch> scratch(workers);
+                std::vector<std::exception_ptr> errors(tables.size());
+                std::atomic<size_t> next_table{ 0 };
+                parallel_for(workers, [&](size_t worker) {
+                    auto& local = scratch[worker];
+                    while (true) {
+                        const size_t index = next_table.fetch_add(1, std::memory_order_relaxed);
+                        if (index >= tables.size()) {
+                            break;
+                        }
+                        // Inner queries run serially: no nested worker pool. Table
+                        // output segments are disjoint, preserving every per-row field update.
+                        try {
+                            process_table.template operator()<false>(
+                                tables[index], offsets[index], local.indices, local.counts, local.row_index);
+                        } catch (...) {
+                            errors[index] = std::current_exception();
+                        }
                     }
-                    // Inner queries run serially: no nested worker pool. Table
-                    // output segments are disjoint, preserving every per-row field update.
-                    try {
-                        process_table.template operator()<false>(
-                            tables[index], offsets[index], local.indices, local.counts, local.row_index);
-                    } catch (...) {
-                        errors[index] = std::current_exception();
+                });
+                // Preserve caller-side exception delivery and table-order selection.
+                for (const auto& error : errors) {
+                    if (error) {
+                        std::rethrow_exception(error);
                     }
                 }
-            });
-            // Preserve caller-side exception delivery and table-order selection.
-            for (const auto& error : errors) {
-                if (error) {
-                    std::rethrow_exception(error);
-                }
+                return;
             }
-            return;
         }
-    }
 #endif
-    std::vector<size_t> indices_in_table;
-    std::vector<uint32_t> counts;
-    lookup_read_count_detail::RowIndex row_index;
-    for (auto& table : tables) {
-        process_table.template operator()<true>(table, table_offset, indices_in_table, counts, row_index);
-        table_offset += table.size();
+        std::vector<size_t> indices_in_table;
+        std::vector<uint32_t> counts;
+        lookup_read_count_detail::RowIndex row_index;
+        for (auto& table : tables) {
+            process_table.template operator()<true>(table, table_offset, indices_in_table, counts, row_index);
+            table_offset += table.size();
+        }
     }
 }
 

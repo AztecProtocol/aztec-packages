@@ -1,4 +1,5 @@
 #include "./plookup.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -24,6 +25,16 @@ std::array<field_t<Builder>, N> read_selected_lookup_rows(const MultiTableId id,
                                                           const std::array<ColumnIdx, N>& columns,
                                                           const std::array<size_t, N>& rows)
 {
+    if (!bb::rollup_experimental_optimizations_enabled()) {
+        const auto lookup = plookup_read<Builder>::get_lookup_accumulators(id, key_a, key_b, is_2_to_1_lookup);
+        std::array<field_t<Builder>, N> result;
+        for (size_t i = 0; i < N; ++i) {
+            const auto row = rows[i] == LAST_LOOKUP_ROW ? lookup[columns[i]].size() - 1 : rows[i];
+            result[i] = lookup[columns[i]][row];
+        }
+        return result;
+    }
+
     Builder* ctx = key_a.get_context() ? key_a.get_context() : key_b.get_context();
     const auto lookup_data =
         plookup::get_lookup_accumulators(id, key_a.get_value(), key_b.get_value(), is_2_to_1_lookup);

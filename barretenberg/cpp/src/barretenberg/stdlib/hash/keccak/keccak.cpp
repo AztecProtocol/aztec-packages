@@ -1,6 +1,7 @@
 #include "keccak.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
@@ -416,31 +417,57 @@ template <typename Builder> void keccak<Builder>::pi(keccak_state& internal)
  */
 template <typename Builder> void keccak<Builder>::chi(keccak_state& internal)
 {
-    // (cost = 12 * 25 = 300?)
-    auto& state = internal.state;
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    for (size_t y = 0; y < 5; ++y) {
-        std::array<field_ct, 5> lane_outputs;
-        for (size_t x = 0; x < 5; ++x) {
-            const auto A = state[y * 5 + x];
-            const auto B = state[y * 5 + ((x + 1) % 5)];
-            const auto C = state[y * 5 + ((x + 2) % 5)];
+        // (cost = 12 * 25 = 300?)
+        auto& state = internal.state;
 
-            // vv should cost 1 gate
-            lane_outputs[x] = (A + A + CHI_OFFSET).add_two(-B, C);
+        for (size_t y = 0; y < 5; ++y) {
+            std::array<field_ct, 5> lane_outputs;
+            for (size_t x = 0; x < 5; ++x) {
+                const auto A = state[y * 5 + x];
+                const auto B = state[y * 5 + ((x + 1) % 5)];
+                const auto C = state[y * 5 + ((x + 2) % 5)];
+
+                // vv should cost 1 gate
+                lane_outputs[x] = (A + A + CHI_OFFSET).add_two(-B, C);
+            }
+            for (size_t x = 0; x < 5; ++x) {
+                // Normalize lane outputs and assign to internal.state
+                auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
+                internal.state[y * 5 + x] = accumulators[ColumnIdx::C2][0];
+                internal.state_msb[y * 5 + x] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
+            }
         }
-        for (size_t x = 0; x < 5; ++x) {
-            // Normalize lane outputs and assign to internal.state
+
+    } else {
+
+        // (cost = 12 * 25 = 300?)
+        auto& state = internal.state;
+
+        for (size_t y = 0; y < 5; ++y) {
+            std::array<field_ct, 5> lane_outputs;
+            for (size_t x = 0; x < 5; ++x) {
+                const auto A = state[y * 5 + x];
+                const auto B = state[y * 5 + ((x + 1) % 5)];
+                const auto C = state[y * 5 + ((x + 2) % 5)];
+
+                // vv should cost 1 gate
+                lane_outputs[x] = (A + A + CHI_OFFSET).add_two(-B, C);
+            }
+            for (size_t x = 0; x < 5; ++x) {
+                // Normalize lane outputs and assign to internal.state
 #ifndef __wasm__
-            const auto [value, msb] =
-                plookup_read<Builder>::read_first_and_last_from_table(KECCAK_CHI_OUTPUT, lane_outputs[x]);
-            internal.state[y * 5 + x] = value;
-            internal.state_msb[y * 5 + x] = msb;
+                const auto [value, msb] =
+                    plookup_read<Builder>::read_first_and_last_from_table(KECCAK_CHI_OUTPUT, lane_outputs[x]);
+                internal.state[y * 5 + x] = value;
+                internal.state_msb[y * 5 + x] = msb;
 #else
-            auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
-            internal.state[y * 5 + x] = accumulators[ColumnIdx::C2][0];
-            internal.state_msb[y * 5 + x] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
+                auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
+                internal.state[y * 5 + x] = accumulators[ColumnIdx::C2][0];
+                internal.state_msb[y * 5 + x] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
 #endif
+            }
         }
     }
 }

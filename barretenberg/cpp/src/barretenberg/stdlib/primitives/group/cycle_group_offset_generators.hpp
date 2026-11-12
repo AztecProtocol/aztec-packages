@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
@@ -53,7 +54,12 @@ template <typename Curve> class cycle_group_offset_generators {
             }
             const std::span<const AffineElement> held =
                 blocks.empty() ? std::span<const AffineElement>{} : std::span<const AffineElement>(*blocks.back());
-            blocks.push_back(std::make_unique<const Block>(derive_block(held, block_size)));
+            if (bb::rollup_experimental_optimizations_enabled()) {
+                blocks.push_back(std::make_unique<const Block>(derive_block(held, block_size)));
+            } else {
+                blocks.push_back(
+                    std::make_unique<const Block>(Group::derive_generators(DOMAIN_SEPARATOR, block_size, 0)));
+            }
         }
 
         return { blocks.back()->data(), num_generators };

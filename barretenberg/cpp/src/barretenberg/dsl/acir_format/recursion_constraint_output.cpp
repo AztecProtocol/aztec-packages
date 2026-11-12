@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 
 namespace acir_format {
 
@@ -138,7 +139,11 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         auto [ipa_claim, ipa_proof_task] = perform_IPA_accumulation(builder);
 
         // Nothing reads the proof before the circuit is proven, so it is computed in the background meanwhile
-        builder.set_pending_ipa_proof(std::move(ipa_proof_task).launch());
+        if (bb::rollup_experimental_optimizations_enabled()) {
+            builder.set_pending_ipa_proof(std::move(ipa_proof_task).launch());
+        } else {
+            builder.ipa_proof = ipa_proof_task.prove();
+        }
 
         // Propagate pairing points and ipa claim
         IO inputs;
