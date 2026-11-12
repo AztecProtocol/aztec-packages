@@ -14,3 +14,4 @@ dependencies:
   - "@aztec-labs/accounts"
   - "@aztec-labs/wallets"
   - "@aztec-labs/noir-contracts.js"
+  - "@aztec-labs/standard-contracts"
