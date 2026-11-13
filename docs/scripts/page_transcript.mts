@@ -55,9 +55,10 @@ const KEY = /^\s*([\w-]+|"[^"]*")\s*=/;
 const TABLE = /^\s*\[([^[\]]+)\]\s*(#.*)?$/;
 const isContent = (row: string) => row.trim() !== "" && !row.trim().startsWith("#");
 
-const bare = (row: string) => row.replace(/\s+/g, "");
+// The row without the whitespace outside its quoted strings, so that formatting alone never differs.
+const bare = (row: string) => row.replace(/("(?:[^"\\]|\\.)*"|'[^']*')|\s+/g, (_, quoted?: string) => quoted ?? "");
 
-// Each `table\0key` the rows define, with its row without whitespace, and the index after each table's
+// Each `table\0key` the rows define, with its `bare` row, and the index after each table's
 // last content row ("" is the rows before the first header).
 function tables(rows: string[]) {
   const keys = new Map<string, string>();

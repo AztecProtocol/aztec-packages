@@ -87,13 +87,23 @@ export const isShell = (b: Block) => SHELL.test(b.info);
 // <CodeBlock>. A shell file pulled in by #include_code is found with the site's own directive pattern.
 const UNREAD = /^\s*(>\s*)+(```|~~~)|<CodeBlock\b/;
 
+// src/preprocess/include_code.js, loaded on first use.
+const includeCode = () =>
+  createRequire(import.meta.url)("../src/preprocess/include_code.js") as {
+    includeCodeDirective: RegExp;
+    extractCodeSnippet(file: string, name: string): [string, number, number];
+  };
+
+// Each #include_code directive in a text, matched as the site's preprocessor matches it.
+const directives = (text: string) => {
+  const { source, flags } = includeCode().includeCodeDirective;
+  return [...text.matchAll(new RegExp(source, flags))];
+};
+
 /** The 1-based lines of a markdown text holding a code block the census cannot read. */
 export function unread(text: string): number[] {
-  const { includeCodeDirective: directive } = createRequire(import.meta.url)("../src/preprocess/include_code.js") as {
-    includeCodeDirective: RegExp;
-  };
   const lineAt = (index: number) => text.slice(0, index).split("\n").length;
-  const included = [...text.matchAll(new RegExp(directive.source, directive.flags))].filter((m) => SHELL.test(m[3])).map((m) => lineAt(m.index));
+  const included = directives(text).filter((m) => SHELL.test(m[3])).map((m) => lineAt(m.index));
   const rows = text.split("\n").flatMap((row, i) => (UNREAD.test(row) ? [i + 1] : []));
   return [...new Set([...rows, ...included])].sort((x, y) => x - y);
 }
@@ -156,13 +166,10 @@ export function walk(page: Block[], steps: Step[]): { bound: Bound[]; errors: st
  * @param source the file's path; `rel` is that path as the page's `#include_code` names it, without the leading slash
  */
 export function uncovered(page: string, source: string, rel: string): number[] {
-  const { extractCodeSnippet } = createRequire(import.meta.url)("../src/preprocess/include_code.js") as {
-    extractCodeSnippet(file: string, name: string): [string, number, number];
-  };
   const covered = new Set<number>();
-  for (const [, name, file] of page.matchAll(/^\s*#include_code\s+(\S+)\s+\/(\S+)/gm)) {
-    if (file !== rel) continue;
-    const [, start, end] = extractCodeSnippet(source, name);
+  for (const [, name, file] of directives(page)) {
+    if (file !== `/${rel}`) continue;
+    const [, start, end] = includeCode().extractCodeSnippet(source, name);
     for (let n = start + 1; n < end; n++) covered.add(n);
   }
   return fs

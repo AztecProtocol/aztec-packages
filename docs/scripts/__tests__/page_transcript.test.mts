@@ -60,6 +60,7 @@ test("merge adds only the keys a table lacks, at the end of that table, and refu
   const block = '[dependencies]\naztec = {git="a"}\nbalance_set = { git = "b" }\n[new]\nz = 2';
   assert.equal(mergeToml(file, block), '[package]\nname = "c"\n\n[dependencies]\naztec = { git = "a" }\nbalance_set = { git = "b" }\n\n[extra]\nk = 1\n\n[new]\nz = 2');
   assert.throws(() => mergeToml(file, '[dependencies]\naztec = { git = "a/" }'), /another value: aztec/);
+  assert.throws(() => mergeToml(file, '[dependencies]\naztec = { git = " a" }'), /another value: aztec/);
   assert.throws(() => mergeToml(file, "[dependencies]\naztec = {invalid toml"), /another value/);
   assert.throws(() => mergeToml(file, "[d]\nx = [\n  1,\n]"), /one-line keys/);
 });
