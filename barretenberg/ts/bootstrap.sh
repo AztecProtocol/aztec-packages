@@ -121,19 +121,17 @@ function install_and_compile_packages {
 }
 
 # The C++ build directories whose binaries the packages ship, as <platform>=<build dir> lines: this machine's own
-# build, or the cross builds (one named platform, or every one on an amd64 release).
+# build, or the cross builds (every one on an amd64 release, which stages them all before publishing).
 function native_build_dirs {
   echo "$(arch)-$(os)=build"
 }
 
 function cross_build_dirs {
-  if [ -n "${1:-}" ]; then
-    echo "$1=build-$1"
-  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+  if semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
     local cross_arch
     for cross_arch in arm64-linux amd64-macos arm64-macos; do echo "$cross_arch=build-$cross_arch"; done
   else
-    echo "This task is expected to be run with an explicit arch or in an x86 release context." >&2
+    echo "Staging no cross builds: they are staged only in an amd64 release context." >&2
   fi
 }
 
@@ -248,16 +246,6 @@ function test {
   (cd bb.js && ./bootstrap.sh test)
 }
 
-# Stages the cross-compiled binaries into the packages that ship them (bb.js ships none of its own; the bb binary it
-# runs through comes from bb.js-api). Runs after build_packages, whose install it reuses.
-function cross_copy_packages {
-  cross_build_dirs "$@" | stage_arch_packages
-}
-
-function cross_copy {
-  cross_copy_packages "$@"
-}
-
 function get_projects {
   echo "$PWD/bb.js"
   if [ -d bb.js-api ]; then
@@ -327,7 +315,7 @@ function release {
 
 export -f generate_bb_avm_sim_package generate_cdb_package generate_bb_js_api_package generate_wsdb_ref_package
 export -f generate_packages install_and_compile_packages native_build_dirs cross_build_dirs stage_arch_packages
-export -f build_packages_ts build_packages build_bb_js build cross_copy_packages cross_copy
+export -f build_packages_ts build_packages build_bb_js build
 export -f release deploy_bb_js_api deploy_bb_avm_sim deploy_cdb deploy_wsdb_ref
 
 case "$cmd" in

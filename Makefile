@@ -104,7 +104,8 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release-foundation: fast-foundation bb-cpp-release-dir bb-ts-packages-cross-copy bb-bin-cross-copy ipc-runtime-cross
+# barretenberg/ts stages every platform's binaries into its packages in its own release step, so no cross copy here.
+release-foundation: fast-foundation bb-cpp-release-dir bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -268,11 +269,6 @@ bb-ts-packages: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-th
 # BB TypeScript - TypeScript bindings, over bb.js-api.
 bb-ts: bb-ts-packages
 	$(call build,$@,barretenberg/ts,build_bb_js)
-
-# Stages the cross-compiled binaries into bb.js-api, bb-avm-sim and wsdb-ref. It reuses bb-ts-packages' install
-# rather than reinstalling, so it runs safely alongside anything else working out of that node_modules.
-bb-ts-packages-cross-copy: bb-ts-packages bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy_packages)
 
 # bb and bb-avm as npm packages (meta + one package per platform).
 bb-bin: bb-cpp-native
