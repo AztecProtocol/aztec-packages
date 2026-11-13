@@ -113,32 +113,57 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
-if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
-    # Mobile builds exclude these modules that aren't needed on mobile
+
+# What a build carries beyond the proving core. WASM, FUZZING and BB_LITE never combine (see
+# CMakePresets.json), so each build is exactly one kind; anything else is a full native build.
+#
+#                                                  native  wasm  lite  fuzzing
+#   AVM simulator (aztec, world_state_reference,     yes    yes    -    FUZZING_AVM
+#     vm2; vm2 defines vm2_sim whatever AVM says)
+#   bb-avm-sim (avm)                                 yes    yes    -     -
+#   wsdb and cdb IPC clients (vm2_wsdb, cdb)         yes     -     -     -
+#   ipc-runtime                                      yes    yes    -     -
+#   world_state_reference and api in the archives    yes     -     -     -
+#
+# The AVM fuzzer (FUZZING_AVM) builds on top of either a fuzzing or a native build.
+set(BB_WITH_AVM_SIM OFF)
+set(BB_WITH_AVM_SERVICE OFF)
+set(BB_WITH_IPC_CLIENTS OFF)
+set(BB_WITH_IPC_RUNTIME OFF)
+set(BB_ARCHIVE_WORLD_STATE_REFERENCE OFF)
+if(WASM)
+    set(BB_WITH_AVM_SIM ON)
+    set(BB_WITH_AVM_SERVICE ON)
+    set(BB_WITH_IPC_RUNTIME ON)
+elseif(FUZZING)
+    set(BB_WITH_AVM_SIM ${FUZZING_AVM})
+elseif(NOT BB_LITE)
+    set(BB_WITH_AVM_SIM ON)
+    set(BB_WITH_AVM_SERVICE ON)
+    set(BB_WITH_IPC_CLIENTS ON)
+    set(BB_WITH_IPC_RUNTIME ON)
+    set(BB_ARCHIVE_WORLD_STATE_REFERENCE ON)
+endif()
+
+if(BB_WITH_AVM_SIM)
     add_subdirectory(barretenberg/aztec)
     add_subdirectory(barretenberg/world_state_reference)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
+endif()
+if(BB_WITH_IPC_CLIENTS)
     add_subdirectory(barretenberg/vm2_wsdb)
     add_subdirectory(barretenberg/cdb)
+endif()
+if(BB_WITH_AVM_SERVICE)
     add_subdirectory(barretenberg/avm)
 endif()
-
-# Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
-# library target (static, or INTERFACE under WASM with transport sources
-# stubbed) that bbapi/wsdb/etc link against for the codegen-emitted
-# bb_ipc_server.hpp dispatcher.
-if(NOT FUZZING AND NOT BB_LITE)
+if(BB_WITH_IPC_RUNTIME)
+    # Provides the `ipc_runtime` library target (static, or INTERFACE under WASM with transport sources
+    # stubbed) that bbapi/wsdb/etc link against for the codegen-emitted bb_ipc_server.hpp dispatcher.
     add_subdirectory(${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp ${CMAKE_BINARY_DIR}/ipc-runtime)
 endif()
-
 if(FUZZING_AVM)
-    if(FUZZING)
-        # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
-        add_subdirectory(barretenberg/aztec)
-        add_subdirectory(barretenberg/world_state_reference)
-        add_subdirectory(barretenberg/vm2)
-    endif()
     add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
@@ -196,15 +221,17 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-# Save the core object list before adding lmdb/world_state (not needed by FFI consumers).
+# The core object list: what FFI consumers of bb-external need (bb_ipc_ffi_entry()).
 set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
 
-if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
-    # crypto_merkle_tree is header-only now (no _objects target); api still contributes objects.
-    # world_state_reference carries the reference merkle DB and its C ABI
-    # (bb_wsref_*), which external world-state implementations link for conformance testing.
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
+# world_state_reference is the in-memory reference merkle DB and its bb_wsref_* C ABI, which external
+# world-state implementations link for their conformance tests. It is vm2-free; vm2_stub satisfies its
+# Stats references.
+if(BB_ARCHIVE_WORLD_STATE_REFERENCE)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS
+        $<TARGET_OBJECTS:world_state_reference_objects>
+        $<TARGET_OBJECTS:api_objects>)
+    list(APPEND BB_EXTERNAL_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
 endif()
 
 add_library(
@@ -213,16 +240,9 @@ add_library(
     ${BARRETENBERG_TARGET_OBJECTS}
 )
 
-# bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need bb_ipc_ffi_entry().
-# Built with -fvisibility=hidden; only the IPC_FFI_EXPORT symbols remain visible.
 if(NOT WASM)
-    # world_state_reference (the in-memory reference merkle DB and its bb_wsref_* C ABI) rides
-    # along so an external world-state implementation can link the release archive alone for
-    # its conformance tests. It is vm2-free; vm2_stub satisfies its Stats references.
-    if(NOT FUZZING AND NOT BB_LITE)
-        list(APPEND BB_EXTERNAL_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
-    endif()
+    # A static library for external consumers (e.g. barretenberg-rs), built with -fvisibility=hidden so
+    # only the IPC_FFI_EXPORT symbols remain visible.
     add_library(
         bb-external
         STATIC
@@ -288,17 +308,4 @@ if(WASM)
         barretenberg.wasm.gz ALL
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
-
-    if(ENABLE_STACKTRACES)
-        target_link_libraries(
-            barretenberg.wasm
-            PUBLIC
-            Backward::Interface
-        )
-        target_link_options(
-            barretenberg.wasm
-            PRIVATE
-            -ldw -lelf
-        )
-    endif()
 endif()
