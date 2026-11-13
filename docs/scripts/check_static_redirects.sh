@@ -127,7 +127,7 @@ function self_test {
     "hdr.svg|[[headers]]\nfor = \"/*\"\n[headers.values]\nfrom = \"/hdr.svg\"|fail"
     "sub.svg|[[redirects]]\nfrom = \"/real\"\nto = \"/x\"\n[redirects.headers]\nfrom = \"/sub.svg\"|fail"
     "subq.svg|[[redirects]]\nfrom = \"/real2\"\nto = \"/x\"\n[ redirects . query ] # q\nfrom = \"/subq.svg\"|fail"
-    "aztec-nr-api/mainnet/gone.html||ignored"
+    "aztec-nr-api/v1.0.0/gone.html||ignored"
     "aztec-nr-api/v1.0.0/index.html||fail"
     "typescript-api/v1.0.0/aztec.js.md|from = \"/typescript-api/v1.0.0/*\"|ok"
   )
@@ -144,9 +144,9 @@ function self_test {
   done
   expected+="static/img/unstaged.svg"$'\n'
 
-  mkdir -p "$tmp/static/img" "$tmp/static/aztec-nr-api/mainnet" "$tmp/snapshots"
+  mkdir -p "$tmp/static/img" "$tmp/static/aztec-nr-api/v1.0.0" "$tmp/snapshots"
   printf '%s' "$toml" >"$tmp/netlify.toml"
-  for file in img/present.svg img/icon.svg img/new.png img/unstaged.svg aztec-nr-api/mainnet/kept.html; do
+  for file in img/present.svg img/icon.svg img/new.png img/unstaged.svg aztec-nr-api/v1.0.0/kept.html; do
     : >"$tmp/static/$file"
   done
   git -C "$tmp" init -q

@@ -115,8 +115,8 @@ function rewrite(node, context) {
  *
  * @param {string} html the page
  * @param {{pagePath: string, folder: string, banner: string}} options `pagePath` is the page's URL
- *   path (`/aztec-nr-api/mainnet/noir_aztec/index.html`), `folder` its reference folder's
- *   (`/aztec-nr-api/mainnet/`), `banner` the line that opens the page
+ *   path (`/aztec-nr-api/v6.0.0/noir_aztec/index.html`), `folder` its reference folder's
+ *   (`/aztec-nr-api/v6.0.0/`), `banner` the line that opens the page
  * @returns {string | null} null for a page without nargo doc's <main>
  */
 export function convertRustdocPage(html, { pagePath, folder, banner }) {

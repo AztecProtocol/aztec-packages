@@ -95,7 +95,7 @@ api_reference_folder() {
 }
 
 # Resolve a link path to a file in static/, case-insensitively.
-# Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
+# Args: $1 = path relative to static/ (e.g., aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.publicmutable)
 # Outputs: the matched filesystem path (if found), empty string if not
 # Returns: 0 if found, 1 if not
 resolve_static_path() {

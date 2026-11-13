@@ -43,7 +43,7 @@ const pkg = [
   "### LogLevel",
   "Values: `debug`, `info`",
 ].join("\n");
-const options = { pkg: "foundation", npmName: "@aztec-labs/foundation", version: "v6.0.0", index: "https://x/typescript-api/mainnet/llms.txt" };
+const options = { pkg: "foundation", npmName: "@aztec-labs/foundation", version: "v6.0.0", index: "https://x/typescript-api/v6.0.0/llms.txt" };
 
 test("splitPackage merges names that differ only in case and keeps every kind", () => {
   const pages = splitPackage(pkg, options);
@@ -53,7 +53,7 @@ test("splitPackage merges names that differ only in case and keeps every kind", 
     "foundation/LogLevel.md enum",
   ]);
   const [logger, blockNumber] = pages;
-  assert.match(logger.markdown, /^> TypeScript API reference, `@aztec-labs\/foundation` v6\.0\.0\. Index: https:\/\/x\/typescript-api\/mainnet\/llms\.txt\n\n# Logger\n\nPackage: `@aztec-labs\/foundation` \(class, type\)\./);
+  assert.match(logger.markdown, /^> TypeScript API reference, `@aztec-labs\/foundation` v6\.0\.0\. Index: https:\/\/x\/typescript-api\/v6\.0\.0\/llms\.txt\n\n# Logger\n\nPackage: `@aztec-labs\/foundation` \(class, type\)\./);
   assert.match(logger.markdown, /## Class Logger\n\nA logger\.\n\n```typescript\n### not a heading\n```\n\n## Type logger\n\nThe type\.\n$/);
   assert.match(blockNumber.markdown, /## Function BlockNumber\n\nMakes one\.\n\n## Type BlockNumber\n\n```typescript\ntype BlockNumber = number\n```\n$/);
   assert.doesNotMatch(pages.map((p) => p.markdown).join(""), /Quick Import|from '@aztec\/foundation'/);

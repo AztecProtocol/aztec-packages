@@ -116,21 +116,21 @@ describe("resultMeta", () => {
   });
 
   it("titles API pages by kind and name, under their module path", () => {
-    assert.deepStrictEqual(resultMeta("/aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateSet", "default", versionPaths), {
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PrivateSet", "default", versionPaths), {
       section: "Aztec.nr API",
       version: null,
       trail: ["noir_aztec", "state_vars"],
       api: true,
       title: "struct PrivateSet",
     });
-    assert.deepStrictEqual(resultMeta("/aztec-nr-api/testnet/noir_aztec/state_vars/", "default", versionPaths), {
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/v6.0.0/noir_aztec/state_vars/", "default", versionPaths), {
       section: "Aztec.nr API",
       version: null,
       trail: ["noir_aztec"],
       api: true,
       title: "module state_vars",
     });
-    assert.deepStrictEqual(resultMeta("/aztec-nr-api/mainnet/", "default", versionPaths), {
+    assert.deepStrictEqual(resultMeta("/aztec-nr-api/v6.0.0/", "default", versionPaths), {
       section: "Aztec.nr API",
       version: null,
       trail: [],

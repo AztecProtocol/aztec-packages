@@ -2,7 +2,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { classifyPage, pageUrl, stampPage } = require("../plugins/pagefind/pages");
 
-const API_DIRS = ["aztec-nr-api/mainnet/"];
+const API_DIRS = ["aztec-nr-api/v6.0.0/"];
 const docsPage = (tag, body = "<p>Install the sandbox.</p>") =>
   `<html><head><meta data-rh=true name=docusaurus_tag content=${tag} />` +
   `<meta data-rh=true name=docsearch:docusaurus_tag content=${tag} /></head>` +
@@ -24,14 +24,14 @@ describe("classifyPage", () => {
 
   it("indexes only the configured API trees' item pages, ranked lower", () => {
     assert.deepStrictEqual(
-      classifyPage("aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PrivateSet.html", apiPage, API_DIRS),
+      classifyPage("aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PrivateSet.html", apiPage, API_DIRS),
       { tag: "default", body: "main", weight: "0.5" },
     );
     for (const rel of [
-      "aztec-nr-api/testnet/noir_aztec/state_vars/struct.PrivateSet.html",
-      "aztec-nr-api/mainnet/std/index.html",
-      "aztec-nr-api/mainnet/protocol_types/constants/global.MAX_FIELD.html",
-      "aztec-nr-api/mainnet/all.html",
+      "aztec-nr-api/v5.2.0/noir_aztec/state_vars/struct.PrivateSet.html",
+      "aztec-nr-api/v6.0.0/std/index.html",
+      "aztec-nr-api/v6.0.0/protocol_types/constants/global.MAX_FIELD.html",
+      "aztec-nr-api/v6.0.0/all.html",
     ]) {
       assert.strictEqual(classifyPage(rel, apiPage, API_DIRS), null, rel);
     }
@@ -85,5 +85,5 @@ it("pageUrl maps built files to their served URLs", () => {
   assert.strictEqual(pageUrl("index.html"), "/");
   assert.strictEqual(pageUrl("participate.html"), "/participate");
   assert.strictEqual(pageUrl("developers/v5.2.0/docs/aztec-js.html"), "/developers/v5.2.0/docs/aztec-js");
-  assert.strictEqual(pageUrl("aztec-nr-api/mainnet/index.html"), "/aztec-nr-api/mainnet/");
+  assert.strictEqual(pageUrl("aztec-nr-api/v6.0.0/index.html"), "/aztec-nr-api/v6.0.0/");
 });

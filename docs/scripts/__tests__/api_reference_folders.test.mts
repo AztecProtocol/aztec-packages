@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import networkDocs from "../../src/network_docs.js";
 
-const { API_REFERENCE_STAND_INS, apiReferenceDirs, docsInstances } = networkDocs;
+const { API_REFERENCE_STAND_INS, apiReferenceDirs, apiReferenceFolder, docsInstances } = networkDocs;
 const docs = path.join(import.meta.dirname, "../..");
 const read = (file: string) => fs.readFileSync(path.join(docs, file), "utf8");
 const ROOTS = ["aztec-nr-api", "typescript-api"];
@@ -63,6 +63,62 @@ test("a missing file, an unlisted folder page, an unlinked folder and a stand-in
     ]);
   } finally {
     fs.rmSync(staticDir, { recursive: true, force: true });
+  }
+});
+
+const API_LINK = /(?<![\w-])(aztec-nr-api|typescript-api)\/([^/\s)"'`]+)\//g;
+const pages = (dir: string): string[] =>
+  fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true, recursive: true }).filter((e) => e.isFile() && /\.mdx?$/.test(e.name)).map((e) => path.join(e.parentPath, e.name))
+    : [];
+
+// Problems with the API folder each page under `root` links. A source page names `#api_ref_version`, since the
+// cut freezes it into its snapshot as the version being released; a snapshot names its own version's folder. A
+// `${…}` folder is resolved at runtime (the Aztec.nr API page).
+function linkProblems(root: string): string[] {
+  const lineDirs = fs.existsSync(path.join(root, "lines")) ? fs.readdirSync(path.join(root, "lines")).map((l) => `lines/${l}`) : [];
+  const dirs: [string, string][] = [
+    ...["docs", "docs-participate", "docs-developers", "docs-operate", ...lineDirs.flatMap((l) => [`${l}/docs-developers`, `${l}/docs-operate`])].map(
+      (d): [string, string] => [d, "#api_ref_version"],
+    ),
+    ...["developer_versioned_docs", "network_versioned_docs"].flatMap((d) =>
+      (fs.existsSync(path.join(root, d)) ? fs.readdirSync(path.join(root, d)) : [])
+        .filter((v) => v.startsWith("version-"))
+        .map((v): [string, string] => [`${d}/${v}`, apiReferenceFolder(v.slice("version-".length))]),
+    ),
+  ];
+  const problems: string[] = [];
+  for (const [dir, expected] of dirs)
+    for (const file of pages(path.join(root, dir)))
+      fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
+        for (const [, apiRoot, folder] of line.matchAll(API_LINK))
+          if (folder !== expected && !folder.startsWith("${"))
+            problems.push(`${path.relative(root, file)}:${i + 1}: links ${apiRoot}/${folder}/, expected ${apiRoot}/${expected}/`);
+      });
+  return problems;
+}
+
+test("every page links its own version's API reference folder", () => {
+  assert.deepEqual(linkProblems(docs), []);
+});
+
+test("a network or literal folder in a source page and another version's folder in a snapshot each fail", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "api-reference-links-"));
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), text);
+  };
+  try {
+    write("docs-developers/a.md", "[ok](pathname:///aztec-nr-api/#api_ref_version/llms.txt)\n[net](https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt)\n");
+    write("lines/v6/docs-developers/b.mdx", `const href = \`/aztec-nr-api/\${v}/x\`;\n<a href="/typescript-api/v6.0.0/aztec.js.md">x</a>\n`);
+    write("developer_versioned_docs/version-v2.0.0/c.md", "[ok](pathname:///aztec-nr-api/v2.0.0/x)\n[old](pathname:///typescript-api/v1.0.0/x)\n");
+    assert.deepEqual(linkProblems(root), [
+      "docs-developers/a.md:2: links aztec-nr-api/mainnet/, expected aztec-nr-api/#api_ref_version/",
+      "lines/v6/docs-developers/b.mdx:2: links typescript-api/v6.0.0/, expected typescript-api/#api_ref_version/",
+      "developer_versioned_docs/version-v2.0.0/c.md:2: links typescript-api/v1.0.0/, expected typescript-api/v2.0.0/",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
