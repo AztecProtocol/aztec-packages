@@ -22,6 +22,7 @@
   "assist": { "enabled": false },
   "linter": {
     "enabled": true,
+    "domains": { "react": "recommended" },
     "rules": {
       "preset": "recommended",
       "a11y": "off",
