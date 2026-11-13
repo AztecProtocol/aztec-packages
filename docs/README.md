@@ -8,7 +8,7 @@ The source of https://docs.aztec.network: a Docusaurus 3 site, hosted on Netlify
 | --- | --- | --- |
 | `docs/` | Landing and other root pages | yes |
 | `docs-developers/`, `docs-operate/`, `examples/`, `sidebars-developer.js`, `sidebars-operate.js` | The main dev line: pages (Docusaurus's "current" version), the code they quote, sidebars. Pinned by `aztec-node.json` | no |
-| `lines/v6/` | The v6 dev line: the same set, its pin, and `lines/v6/allowed-differences.txt` | no; previews serve it at `/developers-v6/` and `/operate-v6/` |
+| `lines/v6/` | The v6 dev line: the same set, its pin, and `lines/v6/allowed-differences.txt` | no; previews serve it at `/developers-v6/` and `/operate-v6/`, marked noindex and left out of search, `llms.txt` and the sitemap |
 | `docs-participate/` | Unversioned participation pages | yes |
 | `developer_versioned_docs/`, `network_versioned_docs/` and their `*_versioned_sidebars/` | Release snapshots, served as written | yes |
 | `static/aztec-nr-api/<network>/`, `static/typescript-api/<network>/` | Committed API references, one folder per released version a network reads, shared by networks on that version (`src/network_docs.js`) | yes |
@@ -26,7 +26,7 @@ Run them in `docs/`, with the Node of `.nvmrc` and the Yarn of `package.json`'s 
 | `yarn install` | Install. CI installs with `--immutable`. Yarn refuses a package younger than 7 days, except the first-party scopes `.yarnrc.yml` lists. |
 | `yarn start` | Fetch the pinned aztec-node checkout, preprocess once, generate the dev Aztec.nr reference, serve on port 3000 (`HOST` sets the host, `--port` the port). Run `node scripts/aztec_node.mts provision nargo` once first. There is no hot reload: restart to see an edit. |
 | `yarn build` | The full build and its checks, into `build/` (see below). Run `source scripts/node_options.sh` first, as CI and Netlify do, or Node prints a localStorage warning per render worker. `CONTEXT=production` builds the production layout. |
-| `yarn serve` | Serve `build/`. |
+| `yarn serve` | Serve `build/`, without the `netlify.toml` redirects: `/developers` answers 404, `/developers/overview` is the page. |
 | `yarn preprocess` | Expand the macros into `processed-docs/`, which is what Docusaurus reads. It loads `.env`, if present, into the build variables. |
 | `yarn spellcheck` | cspell, with the words in `docs-words.txt` (add a real word there). A line's pages are checked only through `processed-docs/`, so run `yarn preprocess` first. |
 | `yarn lint` | Biome (lint only, a warning fails), the `biome-baseline.json` count test, strict `tsc` over `scripts/**/*.mts` (`tsconfig.scripts.json`), shellcheck over `bootstrap.sh` and `scripts/*.sh`. |
@@ -126,7 +126,7 @@ A new TypeScript example is a folder under `examples/ts/` with `examples/ts/<exa
 
 ## Search
 
-Search is [Pagefind](https://pagefind.app), built by every `yarn build` into `build/pagefind/`, with no server or key. `src/plugins/pagefind/` indexes the Aztec.nr API pages of each network's version and every docs page except a dev line's preview (`/developers-v6/`, `/operate-v6/`), which repeats the dev docs; `src/theme/SearchBar/` searches the version being read. `scripts/check_search_index.mts` fails the build when a sitemap page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query in `PROBES` misses its page in the top 10.
+Search is [Pagefind](https://pagefind.app), built by every `yarn build` into `build/pagefind/`, with no server or key. `src/plugins/pagefind/` indexes the Aztec.nr API pages of each network's version and every docs page but the dev line previews; `src/theme/SearchBar/` searches the version being read. `scripts/check_search_index.mts` fails the build when a sitemap page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query in `PROBES` misses its page in the top 10.
 
 ## Publishing
 
