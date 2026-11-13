@@ -486,6 +486,17 @@ This writes:
 - `docs/static/typescript-api/$LABS_TAG/` and `docs/static/aztec-nr-api/$LABS_TAG/`
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
 
+List the new folders' landing pages in `docs/snapshots/published-static.txt`, so deleting
+either folder later fails `check_static_redirects.sh` until it has a redirect
+(`api_reference_folders.test.mts` fails a served folder whose pages are not listed):
+
+```bash
+f=snapshots/published-static.txt
+{ grep '^#' "$f"; { grep -v -e '^#' -e '^[[:space:]]*$' "$f"
+    printf '%s\n' "aztec-nr-api/$LABS_TAG/index.html" "typescript-api/$LABS_TAG/aztec.js.md"; } | LC_ALL=C sort -u; } >"$STATE/published-static.txt"
+mv "$STATE/published-static.txt" "$f"
+```
+
 Step 16 points the networks' URLs at the folder of the version each runs and removes the
 folders no served version links.
 
@@ -1587,7 +1598,7 @@ Sort every listed path into exactly one class:
 2. **Shared source repairs**: edits to files the destination also has that hold at the
    destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
    `release_names.json` entry from Step 5, Step 16's `netlify.toml` redirects, including the
-   API reference rules, edits to existing snapshots). Carry them as
+   API reference rules, Step 6's `published-static.txt` lines, edits to existing snapshots). Carry them as
    reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 

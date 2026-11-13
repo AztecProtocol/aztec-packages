@@ -107,7 +107,7 @@ Build variables: `RELEASE_TYPE` (default `mainnet`); `DOCS_COMMIT`, required whe
 | Node JSON-RPC API | `yarn generate:node-api-reference [--target-dir <dir>]` | `labs/yarn-project/stdlib/src/interfaces/` | `docs-operate/operators/reference/node-api-reference.md` | `yarn install` |
 | Operator CLI | `yarn generate:operator-cli-reference` | the installed aztec CLI's `aztec start --help` | `docs-operate/operators/reference/cli-reference.md` | the aztec CLI |
 
-`RELEASE_TYPE` or the version string picks `<folder>` (see each generator's header). More detail: `scripts/aztec_nr_docs_generation/README.md`, `scripts/aztecjs_reference_generation/README.md`, `scripts/cli_reference_generation/CLI_DOCS_README.md`.
+The API generators refuse a folder name that is not a version (`api_reference_folder` in `scripts/lib/aztec_node.sh`). More detail: `scripts/aztec_nr_docs_generation/README.md`, `scripts/aztecjs_reference_generation/README.md`, `scripts/cli_reference_generation/CLI_DOCS_README.md`.
 
 ## Examples and page tests
 

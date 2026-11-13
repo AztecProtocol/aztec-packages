@@ -132,10 +132,13 @@ test("each network's API reference URLs redirect to the folder of the version it
   }
 });
 
-test("every redirect into the API reference names a folder static/ holds, and an error code names mainnet's", () => {
+test("every redirect into the API reference names a folder static/ holds; a retired folder and an error code name mainnet's", () => {
   const mainnet = networkDocs.networkApiFolder(config, "mainnet");
   const problems: string[] = [];
-  for (const { line, from, to } of readRedirects(fs.readFileSync(toml, "utf8"))) {
+  for (const { line, from, to, status } of readRedirects(fs.readFileSync(toml, "utf8"))) {
+    const retired = from?.match(/^\/(aztec-nr-api|typescript-api)\/([^/]+)\/\*$/);
+    if (retired && !networkDocs.networkApiFolder(config, retired[2]) && (to !== `/${retired[1]}/${mainnet}/:splat` || status !== 302))
+      problems.push(`netlify.toml:${line}: ${from} must redirect to /${retired[1]}/${mainnet}/:splat with status 302`);
     const m = to?.match(/^\/(aztec-nr-api|typescript-api)\/([^/]+)(\/[^?#]*)?/);
     if (!m) continue;
     const [, root, folder, rest = ""] = m;
