@@ -8,6 +8,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <filesystem>
@@ -541,6 +542,27 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         const size_t num_msms = sizes.size();
 
+        // The straddle members grow with the pool and outgrow the fixture from 61 threads up (2 * 256 * 61 >
+        // num_points). Extend the points to the largest member, rather than drop members or narrow the pool, so the
+        // boundary is still tested at the pool's own width.
+        std::vector<AffineElement> points = generators;
+        const size_t max_size = std::ranges::max(sizes);
+        if (max_size > points.size()) {
+            const size_t first_new = points.size();
+            // Draws stay on this thread (under BBERG_DEBUG_LOG the engine is one unsynchronised generator); only the
+            // point arithmetic runs in parallel.
+            std::vector<ScalarField> discrete_logs(max_size - first_new);
+            for (auto& discrete_log : discrete_logs) {
+                discrete_log = ScalarField::random_element(&engine);
+            }
+            points.resize(max_size);
+            parallel_for_range(discrete_logs.size(), [&](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    points[first_new + i] = Group::one * discrete_logs[i];
+                }
+            });
+        }
+
         const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
         std::vector<AffineElement> expected(num_msms);
         std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
@@ -567,13 +589,14 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 // Alternate measured-count and bare (no-estimate) hints through the channel.
                 dedup_infos[k] = (k % 2 == 0) ? dup_count : uint32_t{ 1 };
             }
-            std::span<const AffineElement> pts(&generators[0], n);
+            ASSERT_LE(n, points.size()) << "MSM " << k << " (n=" << n << ") is larger than the points built for it";
+            std::span<const AffineElement> pts(points.data(), n);
             batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
             expected[k] = naive_msm(batch_scalars[k], pts);
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
+            points, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
 
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
