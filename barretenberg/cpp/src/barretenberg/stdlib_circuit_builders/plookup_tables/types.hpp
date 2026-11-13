@@ -283,6 +283,10 @@ struct LookupHashTable {
         for (size_t i = 0; i < column_1.size(); ++i) {
             size_t slot = hash({ column_1[i], column_2[i], column_3[i] }) & (capacity - 1);
             while (slots[slot] != 0) {
+                const size_t row = slots[slot] - 1;
+                if (column_1[row] == column_1[i] && column_2[row] == column_2[i] && column_3[row] == column_3[i]) {
+                    break;
+                }
                 slot = (slot + 1) & (capacity - 1);
             }
             slots[slot] = static_cast<uint32_t>(i + 1);
