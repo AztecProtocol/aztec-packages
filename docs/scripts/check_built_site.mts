@@ -17,10 +17,7 @@ export const SAMPLE_PAGES: Record<string, string> = {
 const TOOLCHAIN_PAGE = "operators/solo-sequencer/install-toolchain";
 const OTHER_PAGES = ["/", "/404", "/participate"];
 const TEMPLATE_TOKEN = /\{\{[A-Z][A-Z0-9_]*\}\}/;
-/**
- * The pages meant to render math, by path under a version or line root, so every copy matches. Two unescaped `$` in
- * one paragraph or table cell render as math, so KaTeX output on any other page fails; an entry no page matches fails.
- */
+/** The pages meant to render math, by path under a version or line root, so every copy matches. */
 export const MATH_PAGES = ["docs/foundational-topics/advanced/storage/indexed_merkle_tree", "docs/foundational-topics/ethereum-aztec-messaging"];
 // Generated API reference pages: thousands of files, and no Docusaurus page among them.
 const GENERATED_REFERENCE = ["aztec-nr-api/**", "typescript-api/**"];
@@ -106,7 +103,6 @@ export const hasSearchTrigger = (html: string) =>
 
 const rendersMath = (html: string) => html.includes("katex-html") && startTags(html, "span").some((tag) => classList(tag).includes("katex"));
 
-/** A problem for each built page outside MATH_PAGES that renders math, and for each entry no such page matches. */
 function mathProblems(buildDir: string): string[] {
   const problems: string[] = [];
   const matched = new Set<string>();
