@@ -1,7 +1,7 @@
 #include "barretenberg/wsdb_ref/wsdb_ref_handlers.hpp"
 
 #include "barretenberg/aztec/aztec_constants.hpp"
-#include "barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp"
+#include "barretenberg/world_state_reference/test_genesis.hpp"
 #include "barretenberg/wsdb_ref/generated/wsdb_ffi.hpp"
 
 #include <gtest/gtest.h>
@@ -77,9 +77,9 @@ std::vector<wire::TreeHeight> protocol_tree_heights()
              { .treeId = 4, .height = ARCHIVE_HEIGHT } };
 }
 
-/** The canonical genesis, built as a C++ caller of Init builds it: the protocol's tree heights and initial sizes and
- * the protocol contracts' registration nullifiers. */
-wire::WsdbInit canonical_init()
+/** The test genesis (test_genesis.hpp), built as a C++ caller of Init builds it: the protocol's tree heights and
+ * initial sizes with the test nullifiers prefilled. */
+wire::WsdbInit test_genesis_init()
 {
     wire::WsdbInit init{ .treeHeights = protocol_tree_heights(),
                          .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
@@ -87,13 +87,13 @@ wire::WsdbInit canonical_init()
                          .prefilledNullifiers = {},
                          .genesisTimestamp = 0,
                          .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
-    for (const auto& nullifier : world_state::genesis_protocol_nullifiers()) {
+    for (const auto& nullifier : world_state::test_genesis_nullifiers()) {
         init.prefilledNullifiers.push_back(bytes_of_fr(nullifier));
     }
     return init;
 }
 
-/** A fresh service instance at the canonical genesis, called through the generated dispatch, independent of the
+/** A fresh service instance at the test genesis, called through the generated dispatch, independent of the
  * FFI's shared state. */
 struct Service {
     WsdbRefContext ctx;
@@ -101,7 +101,7 @@ struct Service {
 
     Service()
     {
-        auto init = call<wire::WsdbInitResponse>("WsdbInit", canonical_init(), "WsdbInitResponse");
+        auto init = call<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse");
         EXPECT_TRUE(std::holds_alternative<wire::WsdbInitResponse>(init));
     }
 
@@ -142,22 +142,22 @@ fr fr_of(const auto& w)
     return fr::serialize_from_buffer(w.data());
 }
 
-/** Init the FFI entry's shared world state at the canonical genesis (a later Init restarts it). */
+/** Init the FFI entry's shared world state at the test genesis (a later Init restarts it). */
 void init_ffi()
 {
-    ok(call_ffi<wire::WsdbInitResponse>("WsdbInit", canonical_init(), "WsdbInitResponse"));
+    ok(call_ffi<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse"));
 }
 
 } // namespace
 
-TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
+TEST(WsdbRef, FfiEntryServesTheTestGenesis)
 {
     init_ffi();
     auto archive =
         ok(call_ffi<wire::WsdbGetTreeInfoResponse>("WsdbGetTreeInfo",
                                                    wire::WsdbGetTreeInfo{ .treeId = 4, .revision = LATEST_COMMITTED },
                                                    "WsdbGetTreeInfoResponse"));
-    EXPECT_EQ(fr_of(archive.root), world_state::genesis_archive_root());
+    EXPECT_EQ(fr_of(archive.root), world_state::test_genesis_archive_root());
     EXPECT_EQ(archive.size, 1);
     EXPECT_EQ(archive.depth, ARCHIVE_HEIGHT);
 
@@ -166,7 +166,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
         wire::WsdbGetLeafValue{ .treeId = 4, .revision = LATEST_COMMITTED, .leafIndex = 0 },
         "WsdbGetLeafValueResponse"));
     ASSERT_TRUE(header.value.has_value());
-    EXPECT_EQ(fr_of(*header.value), world_state::genesis_block_header_hash());
+    EXPECT_EQ(fr_of(*header.value), world_state::test_genesis_block_header_hash());
 
     auto initial = ok(call_ffi<wire::WsdbGetInitialStateReferenceResponse>(
         "WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{}, "WsdbGetInitialStateReferenceResponse"));
@@ -175,7 +175,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
     for (const auto& tree : initial.state) {
         if (tree.treeId == 0) {
             saw_nullifier_tree = true;
-            EXPECT_EQ(fr_of(tree.root), world_state::genesis_nullifier_tree_root());
+            EXPECT_EQ(fr_of(tree.root), world_state::test_genesis_nullifier_tree_root());
             EXPECT_EQ(tree.size, 128);
         }
     }
@@ -322,7 +322,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
             "WsdbGetTreeInfoResponse"));
         return fr_of(info.root);
     };
-    EXPECT_EQ(nullifier_root(), world_state::genesis_nullifier_tree_root());
+    EXPECT_EQ(nullifier_root(), world_state::test_genesis_nullifier_tree_root());
     ok(service.call<wire::WsdbInitResponse>(
         "WsdbInit",
         wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
@@ -333,7 +333,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
                         .genesisTimestamp = 0,
                         .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
         "WsdbInitResponse"));
-    EXPECT_NE(nullifier_root(), world_state::genesis_nullifier_tree_root());
+    EXPECT_NE(nullifier_root(), world_state::test_genesis_nullifier_tree_root());
     auto slot = ok(service.call<wire::WsdbFindPublicDataLeafIndicesResponse>(
         "WsdbFindPublicDataLeafIndices",
         wire::WsdbFindPublicDataLeafIndices{ .revision = LATEST_COMMITTED,

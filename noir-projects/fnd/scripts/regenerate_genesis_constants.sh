@@ -10,9 +10,10 @@
 #        The @aztec-foundation/protocol-genesis package: the world state inputs (the nullifiers among them) and the
 #        nullifier tree root, genesis block header hash and archive root they produce. Every consumer reads the
 #        genesis from here; l1-contracts generates its test constant from genesis.json at build time.
-#   2. barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
-#      native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
-#        The same values for the C++ world-state tests, which build the canonical genesis from them.
+#   2. native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
+#        The same values for wsdb's tests, which check that the native world state reports the roots the reference
+#        world state measured. (barretenberg's own tests use a fixed synthetic genesis instead: bb is upstream of the
+#        protocol contracts, so nothing in it may depend on them.)
 #   3. l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json   (--fixtures)
 #        Checkpoint 1 of each family starts from the genesis archive; checkpoint 2 chains off checkpoint 1.
 #        Their producer picks a wall-clock timestamp and random coinbase/feeRecipient per run, so every
@@ -43,14 +44,13 @@ for arg in "$@"; do
   case "$arg" in
     --check) check_only=1 ;;
     --fixtures) with_fixtures=1 ;;
-    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
 
 genesis_pkg=protocol/genesis
 seeds_hpp=native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
-bb_seeds_hpp=barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
 helper=noir-projects/fnd/scripts/genesis_constants.mjs
 artifacts=(noir-projects/fnd/noir-contracts/target/{contract_instance_registry_contract-ContractInstanceRegistry,contract_class_registry_contract-ContractClassRegistry,fee_juice_contract-FeeJuice}.json)
 
@@ -104,8 +104,7 @@ echo "  block header hash   = $HEADER_HASH"
 echo "  archive root        = $ARCHIVE_ROOT"
 echo "  seeds               = $(echo "$SEEDS" | wc -w)"
 
-# The same values for two C++ trees: wsdb's (its own field type) and barretenberg's reference world state, whose
-# tests rebuild the canonical genesis from them.
+# The same values for wsdb's tests, which rebuild the canonical genesis in the native world state.
 function write_seeds_header {
   local file=$1 field_include=$2 namespace=$3 field=$4
   {
@@ -164,12 +163,10 @@ EOF
 # would write.
 node "$helper" write-package "$measurement_file" "$staging"
 write_seeds_header "$staging/wsdb_seeds.hpp" field/field_element.hpp azteclabs::wsdb::world_state fr
-write_seeds_header "$staging/bb_seeds.hpp" barretenberg/ecc/curves/bn254/fr.hpp bb::world_state bb::fr
 generated=(
   "$staging/genesis.json:$genesis_pkg/genesis.json"
   "$staging/index.js:$genesis_pkg/index.js"
   "$staging/wsdb_seeds.hpp:$seeds_hpp"
-  "$staging/bb_seeds.hpp:$bb_seeds_hpp"
 )
 
 if [ "$check_only" = 1 ]; then
@@ -207,11 +204,11 @@ if [ "$with_fixtures" = 1 ]; then
 fi
 
 phase "Stage"
-git add "$genesis_pkg/genesis.json" "$genesis_pkg/index.js" "$seeds_hpp" "$bb_seeds_hpp"
+git add "$genesis_pkg/genesis.json" "$genesis_pkg/index.js" "$seeds_hpp"
 if [ "$with_fixtures" = 1 ]; then git add l1-contracts/test/fixtures/; fi
 
 echo
-git --no-pager diff --cached --stat -- "$genesis_pkg" "$seeds_hpp" "$bb_seeds_hpp" l1-contracts/test/fixtures/
+git --no-pager diff --cached --stat -- "$genesis_pkg" "$seeds_hpp" l1-contracts/test/fixtures/
 echo
 if [ "$with_fixtures" = 1 ]; then
   echo "Done. Review the staged diff and commit."
