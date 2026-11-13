@@ -216,7 +216,11 @@ else
             aave_bridge)     EXAMPLES+=("aave_bridge") ;;
             recursive_verification) EXAMPLES+=("recursive_verification") ;;
             *)
-                if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
+                # A plain name only: a path would point setup and cleanup at files outside the examples.
+                if [[ ! "$arg" =~ ^[a-z0-9_]+$ ]]; then
+                    echo -e "${RED}Unknown example: $arg${NC}"
+                    exit 1
+                elif [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
                     EXAMPLES+=("aztecjs_$arg")
                 elif [ -d "$EXAMPLES_DIR/$arg" ]; then
                     EXAMPLES+=("$arg")
@@ -259,9 +263,9 @@ PASSED=0
 FAILED=0
 FAILED_EXAMPLES=()
 
-# Setup and run leave files in the example directories. Each example's are removed once it has run; this
-# removes the rest on exit, on an error, or on TERM or INT once the running command returns. A SIGKILL, as
-# when its container is stopped, skips it; --clean removes those files afterwards.
+# Setup and run leave files in the example directories; remove them on exit, on an error, or on TERM or
+# INT once the running command returns. A SIGKILL, as when its container is stopped, skips it: --clean
+# removes them afterwards.
 cleanup_all() {
     echo -e "${YELLOW}Cleaning up...${NC}"
     for example in "${EXAMPLES[@]}"; do
