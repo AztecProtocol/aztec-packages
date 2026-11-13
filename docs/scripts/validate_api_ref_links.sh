@@ -248,7 +248,7 @@ process_link() {
     return
   fi
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Version mismatch check: verify the link uses the expected API version
   if [[ -n "$expected_version" ]]; then
@@ -324,7 +324,7 @@ process_ts_api_link() {
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Check if the file exists under static/typescript-api/{version}/
   local full_path="$TS_STATIC_API_DIR/$expected_version/$file_path"
@@ -354,7 +354,7 @@ TS_JSX_HREF_PATTERN='href="/typescript-api/([^"]*)"'
 # Scan files for links
 for search_dir in "${SEARCH_DIRS[@]}"; do
   expected_version=$(get_expected_api_version "$search_dir")
-  rel_search_dir="${search_dir#$DOCS_ROOT/}"
+  rel_search_dir="${search_dir#"$DOCS_ROOT"/}"
   if [[ -n "$expected_version" ]]; then
     echo "  $rel_search_dir (expected API version: $expected_version)"
   else
@@ -366,6 +366,7 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
   # Find all .md and .mdx files
   while IFS= read -r -d '' file; do
     local_line_num=0
+    # shellcheck disable=SC2094 # the link checks only read "$file"
     while IFS= read -r line; do
       local_line_num=$((local_line_num + 1))
 
