@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: IlyasRidhuan <ilyasridhuan@gmail.com>
+Date: Fri, 13 Nov 2026 17:27:46 +0000
+Subject: [PATCH] feat(bb-prover): start verifier bb processes with
+ experimental optimizations off
+
+bb.js forwards the *_EXPERIMENTAL_OPTIMIZATIONS environment variables to
+every backend created without explicit options. A node that exports one
+for its prover would otherwise also run its proof verifiers with it.
+
+BBCircuitVerifier and BatchChonkVerifier now pass all three settings as
+false, so their verdict never depends on the experimental code paths.
+The prover keeps following the environment.
+
+diff --git a/yarn-project/bb-prover/src/bb/bb_js_backend.ts b/yarn-project/bb-prover/src/bb/bb_js_backend.ts
+index c04d980eea7e108a250a1bacf237f264b28841d2..f099419bd63d7de7b70f0c378dcab54991a78b9c 100644
+--- a/yarn-project/bb-prover/src/bb/bb_js_backend.ts
++++ b/yarn-project/bb-prover/src/bb/bb_js_backend.ts
+@@ -69,6 +69,17 @@ export interface BBJsApi {
+   destroy(): Promise<void>;
+ }
+ 
++/**
++ * Backend options that start bb with every experimental optimization off, whatever the node's environment says.
++ * For bb processes whose verdict is trusted (verifiers): bb.js otherwise forwards the `*_EXPERIMENTAL_OPTIMIZATIONS`
++ * environment variables an operator exported for the prover.
++ */
++export const EXPERIMENTAL_OPTIMIZATIONS_DISABLED = {
++  experimentalOptimizations: false,
++  rollupExperimentalOptimizations: false,
++  avmExperimentalOptimizations: false,
++} satisfies Partial<BackendOptions>;
++
+ /**
+  * Thin wrapper around a single Barretenberg instance.
+  * Each instance spawns its own bb process via the NativeUnixSocket backend.
+@@ -83,12 +94,19 @@ export class BBJsInstance implements BBJsApi {
+    * usable instead of failing every later call. Only safe where the instance holds no state between
+    * calls, since a replacement has no Chonk accumulation and no batch-verifier session.
+    */
+-  static async create(bbPath: string, logger?: LogFn, threads?: number, respawn?: boolean): Promise<BBJsInstance> {
++  static async create(
++    bbPath: string,
++    logger?: LogFn,
++    threads?: number,
++    respawn?: boolean,
++    disableExperimentalOptimizations?: boolean,
++  ): Promise<BBJsInstance> {
+     const options: BackendOptions = {
+       bbPath,
+       backend: BackendType.NativeUnixSocket,
+       logger,
+       respawn,
++      ...(disableExperimentalOptimizations ? EXPERIMENTAL_OPTIMIZATIONS_DISABLED : {}),
+     };
+     if (threads !== undefined) {
+       options.threads = threads;
+@@ -267,6 +285,8 @@ export interface BBJsFactoryOptions {
+   logger?: Logger;
+   threads?: number;
+   debugDir?: string;
++  /** Start every bb with experimental optimizations off, ignoring the environment. Set by verifiers. */
++  disableExperimentalOptimizations?: boolean;
+ }
+ 
+ /** A place in a {@link BBJsFactory} pool: empty until a borrower first starts a bb in it. */
+@@ -295,6 +315,7 @@ export class BBJsFactory {
+   private readonly threads?: number;
+   private readonly debugDir?: string;
+   private readonly respawn: boolean;
++  private readonly disableExperimentalOptimizations: boolean;
+ 
+   /** Slots not currently borrowed, when poolSize is set; otherwise undefined. */
+   private readonly slots?: FifoMemoryQueue<PoolSlot>;
+@@ -305,6 +326,7 @@ export class BBJsFactory {
+     options: BBJsFactoryOptions = {},
+   ) {
+     this.respawn = options.respawn ?? false;
++    this.disableExperimentalOptimizations = options.disableExperimentalOptimizations ?? false;
+     this.logger = options.logger;
+     this.threads = options.threads;
+     this.debugDir = options.debugDir;
+@@ -390,7 +412,13 @@ export class BBJsFactory {
+ 
+   protected async createInstance(): Promise<BBJsApi> {
+     const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
+-    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads, this.respawn);
++    const raw = await BBJsInstance.create(
++      this.bbPath,
++      logFn,
++      this.threads,
++      this.respawn,
++      this.disableExperimentalOptimizations,
++    );
+     return this.maybeWrapDebug(raw);
+   }
+ 
+diff --git a/yarn-project/bb-prover/src/verifier/batch_chonk_verifier.ts b/yarn-project/bb-prover/src/verifier/batch_chonk_verifier.ts
+index 6a69cfcfa1bc09ed7740bd6c9644bff22992edaa..7805a6636d79f271a9ada5264b2d450c09e2fea7 100644
+--- a/yarn-project/bb-prover/src/verifier/batch_chonk_verifier.ts
++++ b/yarn-project/bb-prover/src/verifier/batch_chonk_verifier.ts
+@@ -17,6 +17,7 @@ import * as os from 'node:os';
+ import * as path from 'node:path';
+ import { promisify } from 'node:util';
+ 
++import { EXPERIMENTAL_OPTIMIZATIONS_DISABLED } from '../bb/bb_js_backend.js';
+ import type { BBConfig } from '../config.js';
+ import { IVCVerifierMetrics } from './queued_chonk_verifier.js';
+ 
+@@ -134,6 +135,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
+       this.bb = await Barretenberg.new({
+         bbPath: this.config.bbBinaryPath,
+         backend: BackendType.NativeUnixSocket,
++        ...EXPERIMENTAL_OPTIMIZATIONS_DISABLED,
+       });
+       await this.bb.initSRSChonk();
+ 
+diff --git a/yarn-project/bb-prover/src/verifier/bb_verifier.ts b/yarn-project/bb-prover/src/verifier/bb_verifier.ts
+index a3cdebd3695a34a2982e8cae5d1c25b211a70e46..e580899faf50d2ac6a86982f0157e41e46383f92 100644
+--- a/yarn-project/bb-prover/src/verifier/bb_verifier.ts
++++ b/yarn-project/bb-prover/src/verifier/bb_verifier.ts
+@@ -51,6 +51,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
+         respawn: poolSize !== undefined,
+         logger,
+         debugDir: config.bbDebugOutputDir,
++        disableExperimentalOptimizations: true,
+       });
+   }
+ 
