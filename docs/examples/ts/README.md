@@ -35,12 +35,10 @@ The `aztecjs_runner/run.sh` script executes examples against a live local Aztec 
 In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. This is triggered by `docs/examples/bootstrap.sh execute` (called from `docs/bootstrap.sh ci`).
 
 ```bash
-# Run via bootstrap (recommended for CI)
 cd docs/examples && ./bootstrap.sh execute
-
-# Or invoke docker-compose directly
-cd docs/examples/ts && run_compose_test docs_examples docs-examples .
 ```
+
+Run the compose file only through `execute`: it exports the pinned `AZTEC_VERSION` and `BB_VERSION`, creates `~/.bb-crs` as your user, and passes your user and group as `DOCS_UID` and `DOCS_GID`, so the runner writes the checkout as you and leaves no root-owned files.
 
 ### Local Execution
 
@@ -89,15 +87,15 @@ The `AZTEC_NODE_URL` env var is used by the runner script and the example `index
 | `aztecjs_testing` | Test patterns: minting, transfers, revert testing |
 | `example_swap` | Cross-chain token swap via L1 uniswap portal (L2→L1→L2) |
 | `recursive_verification` | Recursive proof generation and onchain verification flow |
+| `bob_token_contract` | The token contract tutorial's custom contract: deploy, mint, transfer |
+| `token_bridge` | The NFT bridge tutorial: L1 portal, L2 bridge, deposit and withdrawal |
+| `aztecjs_kernelless_simulation` | Simulating a transaction without kernel circuits |
 
 ### Examples Not Executed (Type-Checked Only)
 
-These examples require additional infrastructure or custom contracts with verification keys:
-
 | Example | Reason |
 |---------|--------|
-| `bob_token_contract` | Custom contract requires verification keys |
-| `token_bridge` | Requires L1 contracts and bridge infrastructure |
+| `aave_bridge` | Disabled after timing out (~600s) waiting for a proven block |
 
 ## Adding New Examples
 

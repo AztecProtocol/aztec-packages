@@ -101,7 +101,7 @@ const promote = (tag: string, env: Record<string, string | undefined> = {}, endp
 
 const snapshot = (dir: string) =>
   Object.fromEntries(
-    MAIN_PATHS.flatMap((p) => {
+    MAIN_PATHS.flatMap((p): [string, string | null][] => {
       const full = path.join(dir, p);
       if (!fs.existsSync(full)) return [[p, null]];
       if (fs.statSync(full).isFile()) return [[p, fs.readFileSync(full, "utf8")]];

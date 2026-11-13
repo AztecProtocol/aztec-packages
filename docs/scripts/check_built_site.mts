@@ -41,7 +41,7 @@ export function expectedSections(model: Model): Section[] {
     const page = SAMPLE_PAGES[base];
     return { base, page, paths, urls: paths.map((p) => pageUrl(base, p, page)), rootUrl: rootUrl ? pageUrl(base, "", page) : null };
   };
-  const sections = instances.map((instance: { routeBasePath: string; versions: { path: string }[] }, i: number) =>
+  const sections = instances.map((instance: { routeBasePath: string; versions: { version: string; path: string }[] }, i: number) =>
     section(instance.routeBasePath, [...instance.versions.map((v) => v.path), ...networkDocs.historicalVersions(instance, cut[i])], true),
   );
   const lines = networkDocs
