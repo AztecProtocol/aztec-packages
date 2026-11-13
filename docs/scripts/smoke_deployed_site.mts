@@ -190,13 +190,12 @@ export const CHECKS: Check[] = [
       }
       const mainnet = folders.get("mainnet");
       if (!mainnet) return ["developer_version_config.json maps no mainnet version"];
-      // A network's URL redirects (302: the target moves at each release) to the same path in its version's folder.
+      // A network's URL redirects (302: the target moves at each release) to the same path in its version's folder;
+      // the rule's `/:splat` keeps its slash, so the bare folder lands on `<folder>/`.
       const lands = async (root: string, network: string, rest: string, type: string) => {
-        const expected = `/${root}/${folders.get(network)}${rest}`;
+        const expected = `/${root}/${folders.get(network)}/${rest.replace(/^\//, "")}`;
         if (!redirectTo(await get(`/${root}/${network}${rest}`, BROWSER_ACCEPT), expected, problems, 302)) return undefined;
-        let page = await get(expected, BROWSER_ACCEPT);
-        // A bare folder path may answer through the CDN's own redirect to its trailing-slash form.
-        if (page.status === 301 && new URL(page.header("location"), page.url).pathname === `${expected}/`) page = await get(`${expected}/`, BROWSER_ACCEPT);
+        const page = await get(expected, BROWSER_ACCEPT);
         if (page.status === 200 && isType(page, type)) return page;
         problems.push(`${expected}: got ${page.status} ${page.type}, expected 200 ${type}`);
         return undefined;
