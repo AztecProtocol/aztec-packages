@@ -1,5 +1,7 @@
 // The site footer's links and copyright: docusaurus.config.js serves them as themeConfig.footer, and
 // scripts/check_built_site.mts fails a build whose footer shows other links.
+// src/theme/Footer renders an `href` item as a same-tab link with the external-link icon, and a `to` item
+// through @docusaurus/Link, which opens an external URL in a new tab: external URLs go under `href`.
 
 module.exports = {
   style: "dark",
@@ -13,7 +15,7 @@ module.exports = {
         },
         {
           label: "Aztec.nr",
-          to: "https://github.com/aztec-labs-eng/aztec-nr",
+          href: "https://github.com/aztec-labs-eng/aztec-nr",
         },
       ],
     },
@@ -21,16 +23,8 @@ module.exports = {
       title: "Community",
       items: [
         {
-          label: "Support",
-          to: "/developers/support",
-        },
-        {
           label: "Forum",
           href: "https://forum.aztec.network",
-        },
-        {
-          label: "Discord",
-          href: "https://discord.gg/aztec",
         },
         {
           label: "Noir Discord",
@@ -51,18 +45,10 @@ module.exports = {
         },
         {
           label: "Awesome Aztec",
-          to: "https://github.com/AztecProtocol/awesome-aztec",
-        },
-        {
-          label: "Technical Whitepaper",
-          href: "https://aztec.network/technical-whitepaper",
-        },
-        {
-          label: "Economic Whitepaper",
-          href: "https://aztec.network/economic-whitepaper",
+          href: "https://github.com/AztecProtocol/awesome-aztec",
         },
       ],
     },
   ],
-  copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
+  copyright: `© ${new Date().getFullYear()} Aztec Labs. Freedom to move unseen.`,
 };
