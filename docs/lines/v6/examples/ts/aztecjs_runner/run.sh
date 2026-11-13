@@ -192,8 +192,7 @@ cleanup_project() {
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
-    # yarn init's files, which setup removes right after it: a stop in between leaves them. examples/ts/.gitignore
-    # ignores them in every example, so none is tracked.
+    # yarn init's files, which setup removes right after it: a stop in between leaves them. No example may track one.
     rm -rf "$project_dir/.git" "$project_dir/.gitignore" "$project_dir/.editorconfig" \
            "$project_dir/.gitattributes" "$project_dir/README.md"
     if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
