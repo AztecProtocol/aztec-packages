@@ -384,8 +384,9 @@ function test_cmds_wasm_threads {
 }
 
 function test_cmds_wasm {
-  # The AVM simulator's in-process service, from the single-threaded build bb-avm-sim.wasm comes from.
-  echo "$hash SINGLE_THREADED=1 barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm/bin/avm_ffi_tests"
+  # The AVM simulator's in-process service, from the single-threaded build bb-avm-sim.wasm comes from. It reads
+  # its fixture from the checkout, the directory wasmtime.sh preopens.
+  echo "$hash SINGLE_THREADED=1 AZTEC_REPO_ROOT=. barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm/bin/avm_ffi_tests"
 }
 
 function test_cmds_asan {

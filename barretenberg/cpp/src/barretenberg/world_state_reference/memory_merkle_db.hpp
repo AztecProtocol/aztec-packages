@@ -128,11 +128,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
         return GetLowIndexedLeafResponse(false, low_index);
     }
 
-    Leaf get_leaf_preimage(index_t leaf_index) const
-    {
-        BB_ASSERT_LT(leaf_index, leaves_.size(), "Leaf index out of bounds");
-        return leaves_[static_cast<size_t>(leaf_index)];
-    }
+    Leaf get_leaf_preimage(index_t leaf_index) const { return leaf_at(leaf_index); }
 
     FF get_leaf_value(index_t leaf_index) const { return tree_.get_node(0, leaf_index); }
 
@@ -149,7 +145,7 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
 
         FF key = leaf_to_insert.get_key();
         GetLowIndexedLeafResponse find_low_leaf_result = get_low_indexed_leaf(key);
-        Leaf& low_leaf = leaves_[static_cast<size_t>(find_low_leaf_result.index)];
+        Leaf& low_leaf = leaf_at(find_low_leaf_result.index);
 
         result.low_leaf_witness_data.emplace_back(
             low_leaf, find_low_leaf_result.index, tree_.get_sibling_path(find_low_leaf_result.index));
@@ -194,6 +190,19 @@ template <typename LeafType, typename HashingPolicy> class MemoryIndexedTree {
     }
 
   private:
+    // A leaf index is an index_t (64-bit, as a tree may hold up to 2^depth leaves), while leaves_ is indexed by
+    // size_t, which is 32-bit on wasm32. Every index into leaves_ is checked against its size before it narrows.
+    const Leaf& leaf_at(index_t leaf_index) const
+    {
+        BB_ASSERT_LT(leaf_index, leaves_.size(), "Leaf index out of bounds");
+        return leaves_[static_cast<size_t>(leaf_index)];
+    }
+    Leaf& leaf_at(index_t leaf_index)
+    {
+        BB_ASSERT_LT(leaf_index, leaves_.size(), "Leaf index out of bounds");
+        return leaves_[static_cast<size_t>(leaf_index)];
+    }
+
     SparseMemoryTree<HashingPolicy> tree_;
     std::vector<Leaf> leaves_;
 };

@@ -1,5 +1,6 @@
 #include "barretenberg/avm/generated/avm_ffi.hpp"
-#include "barretenberg/avm/minimal_tx_fixture.hpp"
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/test.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
@@ -14,7 +15,13 @@ using namespace bb::avm;
 
 namespace {
 
-const std::vector<uint8_t> MINIMAL_TX(std::begin(MINIMAL_TX_FIXTURE), std::end(MINIMAL_TX_FIXTURE));
+/** vm2's minimal transaction fixture, read from the checkout (see test_repo_root) on first use. */
+const std::vector<uint8_t>& minimal_tx()
+{
+    static const std::vector<uint8_t> fixture =
+        read_file(test_repo_root() / "barretenberg/cpp/src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
+    return fixture;
+}
 
 /** A decoded response frame: its tag, and the payload (or the service's error message). */
 struct Response {
@@ -59,14 +66,14 @@ Response call_ffi(const char* name, const auto& cmd)
 // them. A build where a wider type narrows (size_t is 32-bit on wasm32) gets them wrong.
 TEST(AvmFfi, SimulateWithHintsMatchesTheFixturesPublicInputs)
 {
-    auto response = call_ffi("AvmSimulateWithHints", wire::AvmSimulateWithHints{ .inputs = MINIMAL_TX });
+    auto response = call_ffi("AvmSimulateWithHints", wire::AvmSimulateWithHints{ .inputs = minimal_tx() });
     ASSERT_EQ(response.tag, "AvmSimulateWithHintsResponse") << response.error;
 
     avm2::TxSimulationResult result;
     msgpack::unpack(reinterpret_cast<const char*>(response.result.data()), response.result.size())
         .get()
         .convert(result);
-    auto expected = avm2::AvmProvingInputs::from(MINIMAL_TX).public_inputs;
+    auto expected = avm2::AvmProvingInputs::from(minimal_tx()).public_inputs;
     EXPECT_EQ(result.revert_code == avm2::RevertCode::OK, !expected.reverted);
     EXPECT_EQ(result.gas_used.total_gas, expected.end_gas_used);
     EXPECT_EQ(result.public_tx_effect.transaction_fee, expected.transaction_fee);
@@ -91,13 +98,13 @@ TEST(AvmFfi, MalformedInputsGetAnErrorAndTheEntryKeepsAnswering)
     EXPECT_EQ(bad.tag, "AvmErrorResponse");
     EXPECT_FALSE(bad.error.empty());
 
-    auto good = call_ffi("AvmSimulateWithHints", wire::AvmSimulateWithHints{ .inputs = MINIMAL_TX });
+    auto good = call_ffi("AvmSimulateWithHints", wire::AvmSimulateWithHints{ .inputs = minimal_tx() });
     EXPECT_EQ(good.tag, "AvmSimulateWithHintsResponse") << good.error;
 }
 
 TEST(AvmFfi, SimulateAnswersWithAnError)
 {
-    auto response = call_ffi("AvmSimulate", wire::AvmSimulate{ .inputs = MINIMAL_TX });
+    auto response = call_ffi("AvmSimulate", wire::AvmSimulate{ .inputs = minimal_tx() });
     EXPECT_EQ(response.tag, "AvmErrorResponse");
     EXPECT_NE(response.error.find("SimulateWithHints"), std::string::npos) << response.error;
 }

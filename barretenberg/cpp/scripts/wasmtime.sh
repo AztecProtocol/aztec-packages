@@ -19,6 +19,7 @@ exec wasmtime run \
   --env HOME \
   ${MAIN_ARGS:+--env MAIN_ARGS} \
   ${BB_BENCH:+--env BB_BENCH} \
+  ${AZTEC_REPO_ROOT:+--env AZTEC_REPO_ROOT} \
   --dir=$HOME/.bb-crs \
   --dir=. \
   "$@"
