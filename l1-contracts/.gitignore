@@ -17,6 +17,7 @@ release-out/
 
 /generated
 /src/core/libraries/ConstantsGen.sol
+/test/harnesses/GenesisGen.sol
 lcov.info
 
 # Local foundry env

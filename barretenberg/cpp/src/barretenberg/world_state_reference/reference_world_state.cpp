@@ -7,7 +7,6 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
-#include "barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp"
 
 namespace bb::world_state {
 
@@ -51,15 +50,6 @@ template <typename Tree, typename Payload> typename Tree::Leaf leaf_of(const Pay
 }
 
 } // namespace
-
-GenesisConfig GenesisConfig::canonical()
-{
-    GenesisConfig genesis;
-    for (const auto& nullifier : genesis_protocol_nullifiers()) {
-        genesis.prefilled_nullifiers.emplace_back(nullifier);
-    }
-    return genesis;
-}
 
 ReferenceWorldState::ReferenceWorldState(const GenesisConfig& genesis)
 {

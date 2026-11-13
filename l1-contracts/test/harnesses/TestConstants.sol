@@ -10,7 +10,7 @@ import {
   RewardConfig,
   EthPerFeeAssetE12
 } from "@aztec/core/interfaces/IRollup.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Genesis} from "@test/harnesses/GenesisGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -53,7 +53,7 @@ library TestConstants {
   uint256 internal constant EJECTION_THRESHOLD = 50e18;
 
   // Genesis state
-  bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+  bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Genesis.ARCHIVE_ROOT);
   bytes32 internal constant GENESIS_VK_TREE_ROOT = bytes32(0);
   bytes32 internal constant GENESIS_PROTOCOL_CONTRACTS_HASH = bytes32(0);
 

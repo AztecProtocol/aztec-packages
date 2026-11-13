@@ -1,0 +1,33 @@
+// GENERATED FILE - DO NOT EDIT.
+// Regenerate with noir-projects/fnd/scripts/regenerate_genesis_constants.sh.
+export const GENESIS = {
+  "inputs": {
+    "treeHeights": {
+      "nullifierTree": 42,
+      "noteHashTree": 42,
+      "publicDataTree": 40,
+      "l1ToL2MessageTree": 36,
+      "archive": 30
+    },
+    "treePrefill": {
+      "nullifierTree": 128,
+      "publicDataTree": 128
+    },
+    "initialHeaderGeneratorPoint": 4195546849,
+    "prefilledNullifiers": [
+      "0x04287df03953b0d68b0e83e08a89067afc602626defd6002277cd6df34696818",
+      "0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe",
+      "0x0eb50b367fb754d3a7d1238bfc105cc9b391a02e187be69038876ae9a502e877",
+      "0x16f917edd8e333013e5bb0633f7f484725bd19403854d6112992dccef4961e32",
+      "0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d",
+      "0x268b77cfa59397698ab19812d17573156d9a964fae96ab2d80929882f4a93837"
+    ],
+    "prefilledPublicData": [],
+    "genesisTimestamp": 0
+  },
+  "outputs": {
+    "nullifierTreeRoot": "0x238a0a0523fa750b77e243f8d6f485f03e90f1319fe76f5876f4af3d88b3fa89",
+    "blockHeaderHash": "0x0a72ed6f85f785d34e0a09a57c971b1623bb579531f3b85325e1d60f8209b3b8",
+    "archiveRoot": "0x1fdfe7b76afd4dc9b9b6bd09f5fd6fb354f22cf7055ef1f11490b55a4e197291"
+  }
+};

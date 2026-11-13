@@ -71,7 +71,7 @@ fast-foundation: barretenberg bb-tests \
 		noir-protocol-circuits noir-protocol-circuits-tests \
 		noir-protocol-circuits-variants \
 		protocol-contracts protocol-contracts-tests \
-		fnd-release-tests \
+		fnd-release-tests fnd-genesis-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
@@ -482,7 +482,7 @@ ci3-tests:
 LABS_DIR := $(ROOT)/labs
 
 # What the labs manifests portal into (barretenberg/ts/*, native-packages/{wsdb,kvdb}/ts, ipc-runtime/ts,
-# l1-contracts/l1-artifacts, protocol/constants-codegen, noir/packages/*) plus the
+# l1-contracts/l1-artifacts, protocol/constants-codegen, protocol/genesis, noir/packages/*) plus the
 # binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo, noir-execute, noir-profiler).
 # The artifacts packages' installable content is a dist/ assembled from the built circuits.
 # The release flow stages it before publishing; the labs use-local portals point at the same
@@ -610,6 +610,13 @@ fnd-release: noir-protocol-circuits mock-protocol-circuits protocol-contracts
 # surfaces on a PR rather than the first time it runs, on a release tag.
 fnd-release-tests: fnd-release
 	$(call test,$@,noir-projects/fnd,release)
+
+# Checks the committed genesis (protocol/genesis) against the protocol contracts it is derived from. The stem names
+# what the check measures with, so grind_test can rebuild it.
+fnd-genesis: protocol-contracts bb-ts bb-wsdb-ref constants-codegen
+
+fnd-genesis-tests: fnd-genesis
+	$(call test,$@,noir-projects/fnd,genesis)
 
 # These tests are not included in the dep tree.
 # Rather this target must be explicitly called by bootstrap.sh after it's started the txe's.

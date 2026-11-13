@@ -1,0 +1,24 @@
+{
+  "name": "@aztec-foundation/protocol-genesis",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "The canonical genesis of the Aztec protocol: the world state inputs and the roots they produce.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./genesis.json": "./genesis.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "genesis.json",
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
