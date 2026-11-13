@@ -3,21 +3,18 @@
 #
 # A production network's genesis world state seeds the protocol contracts' registration nullifiers. Those nullifiers
 # are derived from the protocol contract artifacts, so anything that rotates a protocol class id — a contract source
-# change, a compiler bump, a transpiler change — moves them, and with them the genesis roots. Several tracked files
-# record those values and must move together, or the tree is inconsistent and CI breaks late:
+# change, a compiler bump, a transpiler change — moves them, and with them the genesis roots. The package
+# protocol/genesis records them, in two generated files that must move together:
 #
-#   1. protocol/genesis/{genesis.json,index.js}
+#   protocol/genesis/{genesis.json,index.js}
 #        The @aztec-foundation/protocol-genesis package: the world state inputs (the nullifiers among them) and the
 #        nullifier tree root, genesis block header hash and archive root they produce. Every consumer reads the
-#        genesis from here; l1-contracts generates its test constant from genesis.json at build time.
-#   2. native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
-#        The same values for wsdb's tests, which check that the native world state reports the roots the reference
-#        world state measured. (barretenberg's own tests use a fixed synthetic genesis instead: bb is upstream of the
-#        protocol contracts, so nothing in it may depend on them.)
+#        genesis from here.
 #
-# Not touched either: the L1 checkpoint fixtures. They build on whatever archive root the tests deploy the rollup with,
-# which l1-contracts takes from the fixtures themselves, so they do not depend on the genesis
-# (l1-contracts/scripts/regenerate_checkpoint_fixtures.sh regenerates them when the checkpoint format changes).
+# Nothing else in the tree depends on the canonical genesis. barretenberg's and wsdb's world state tests use a fixed
+# synthetic genesis (test_genesis.hpp), and the L1 tests deploy the rollup with the archive root their checkpoint
+# fixtures build on (l1-contracts/scripts/regenerate_checkpoint_fixtures.sh regenerates those when the checkpoint
+# format changes), so neither moves when the genesis does.
 #
 # Deliberately NOT touched: the deployed-network pins in labs' mainnet_compatibility.test.ts and
 # testnet_compatibility.test.ts. Those record what a live network was deployed with. They change only at a governance
@@ -40,13 +37,12 @@ check_only=0
 for arg in "$@"; do
   case "$arg" in
     --check) check_only=1 ;;
-    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
 
 genesis_pkg=protocol/genesis
-seeds_hpp=native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
 helper=noir-projects/fnd/scripts/genesis_constants.mjs
 artifacts=(noir-projects/fnd/noir-contracts/target/{contract_instance_registry_contract-ContractInstanceRegistry,contract_class_registry_contract-ContractClassRegistry,fee_juice_contract-FeeJuice}.json)
 
@@ -95,71 +91,14 @@ eval "$measured"
 echo "  nullifier tree root = $NULLIFIER_ROOT"
 echo "  block header hash   = $HEADER_HASH"
 echo "  archive root        = $ARCHIVE_ROOT"
-echo "  seeds               = $(echo "$SEEDS" | wc -w)"
-
-# The same values for wsdb's tests, which rebuild the canonical genesis in the native world state.
-function write_seeds_header {
-  local file=$1 field_include=$2 namespace=$3 field=$4
-  {
-    cat <<EOF
-// GENERATED FILE - DO NOT EDIT.
-// Regenerate with noir-projects/fnd/scripts/regenerate_genesis_constants.sh.
-#pragma once
-
-#include "$field_include"
-
-#include <vector>
-
-namespace $namespace {
-
-/**
- * @brief The protocol contracts' registration nullifiers, seeded into the nullifier tree of a production genesis.
- *
- * Derived from the protocol contract artifacts: per protocol contract, the class registration nullifier siloed by
- * ContractClassRegistry and the instance publication nullifier siloed by ContractInstanceRegistry. Sorted ascending
- * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. A copy, for the tests, of
- * protocol/genesis/genesis.json, which the same script writes from the same measurement.
- */
-inline std::vector<$field> genesis_protocol_nullifiers()
-{
-    return {
-EOF
-    for seed in $SEEDS; do echo "        $field(\"$seed\"),"; done
-    cat <<EOF
-    };
-}
-
-/**
- * @brief The genesis roots the seed vector above produces, measured by the reference world state.
- */
-inline $field genesis_nullifier_tree_root()
-{
-    return $field("$NULLIFIER_ROOT");
-}
-
-inline $field genesis_block_header_hash()
-{
-    return $field("$HEADER_HASH");
-}
-
-inline $field genesis_archive_root()
-{
-    return $field("$ARCHIVE_ROOT");
-}
-
-} // namespace $namespace
-EOF
-  } >"$file"
-}
+echo "  nullifiers          = $(echo "$SEEDS" | wc -w)"
 
 # Every generated file is written to the staging directory first, so --check compares exactly what a regeneration
 # would write.
 node "$helper" write-package "$measurement_file" "$staging"
-write_seeds_header "$staging/wsdb_seeds.hpp" field/field_element.hpp azteclabs::wsdb::world_state fr
 generated=(
   "$staging/genesis.json:$genesis_pkg/genesis.json"
   "$staging/index.js:$genesis_pkg/index.js"
-  "$staging/wsdb_seeds.hpp:$seeds_hpp"
 )
 
 if [ "$check_only" = 1 ]; then
@@ -178,11 +117,10 @@ for pair in "${generated[@]}"; do
   cp "${pair%%:*}" "${pair#*:}"
 done
 
-
 phase "Stage"
-git add "$genesis_pkg/genesis.json" "$genesis_pkg/index.js" "$seeds_hpp"
+git add "$genesis_pkg/genesis.json" "$genesis_pkg/index.js"
 
 echo
-git --no-pager diff --cached --stat -- "$genesis_pkg" "$seeds_hpp"
+git --no-pager diff --cached --stat -- "$genesis_pkg"
 echo
 echo "Done. Review the staged diff and commit."

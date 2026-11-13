@@ -3,7 +3,7 @@
 #
 # The genesis nullifier tree is seeded with the protocol contracts' registration nullifiers, which are derived from
 # their class ids. A class id rotation therefore moves protocol/genesis/genesis.json (the nullifiers and the roots
-# they produce) and wsdb's C++ seed vector. CI catches it, but slowly.
+# they produce). CI catches it, but slowly.
 #
 # This is a reminder, not evidence of freshness. Deciding whether a class id actually moved means compiling the
 # contracts and computing the ids, which is far too slow for a commit hook, so the predicate below is a cheap and

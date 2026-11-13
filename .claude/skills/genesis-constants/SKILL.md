@@ -1,6 +1,6 @@
 ---
 name: genesis-constants
-description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root), and wsdb's C++ genesis seed vector. Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
+description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root). Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
 ---
 
 # Genesis constants
@@ -20,7 +20,7 @@ world state, rewrites every generated file from that one measurement, and stages
 
 | flag | effect |
 | --- | --- |
-| *(none)* | rewrites the genesis package and wsdb's seed vector |
+| *(none)* | rewrites the genesis package |
 | `--check` | measures and compares only, writes nothing, exits non-zero if anything is stale. CI runs it as `make fnd-genesis-tests` |
 
 ## Prerequisites
@@ -38,16 +38,15 @@ match is a hard error, because a half-applied regeneration leaves genesis values
 
 ## What it rewrites
 
-1. `protocol/genesis/genesis.json` and `index.js` — the `@aztec-foundation/protocol-genesis` package: the world
-   state inputs (tree heights, prefill sizes, the six nullifiers, no public data, timestamp 0) and the nullifier
-   tree root, genesis block header hash and archive root they produce. Labs reads the genesis from here, and
-   l1-contracts generates its test constant `GenesisGen.sol` from it at build time. It is deliberately not in
-   `constants.nr`: the protocol contracts are compiled against the constants, so the genesis derived from them
-   cannot feed back into the constants.
-2. `native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp` — the same values for wsdb's tests,
-   which check that the native world state reports the roots the reference world state measured. Barretenberg's
-   own world state tests deliberately use a fixed synthetic genesis (`world_state_reference/test_genesis.hpp`):
-   bb is upstream of the protocol contracts, so nothing in it may depend on them.
+`protocol/genesis/genesis.json` and `index.js` — the `@aztec-foundation/protocol-genesis` package: the world
+state inputs (tree heights, prefill sizes, the six nullifiers, no public data, timestamp 0) and the nullifier tree
+root, genesis block header hash and archive root they produce. Labs reads the genesis from here. It is deliberately
+not in `constants.nr`: the protocol contracts are compiled against the constants, so the genesis derived from them
+cannot feed back into the constants.
+
+Nothing else depends on the canonical genesis. Barretenberg's and wsdb's world state tests deliberately use a fixed
+synthetic genesis (`test_genesis.hpp` in each), which moves only if tree or header hashing does.
+
 The L1 checkpoint fixtures are not part of this. L1 only checks that each checkpoint builds on the rollup's tip, and
 its tests use a mock verifier, so the tests deploy the rollup with whatever archive root the fixtures build on
 (`l1-contracts/scripts/remake-constants.sh` reads it from them). They are regenerated only when the checkpoint format
@@ -65,9 +64,7 @@ upgrade. Never "fix" them by pasting in the new values; that silently claims the
 After regenerating, the tests that assert these values are:
 
 - `regenerate_genesis_constants.sh --check` (CI: `make fnd-genesis-tests`) — the drift detector: it re-derives the
-  genesis from the built protocol contracts and compares it with every generated file.
-- `world_state_tests` (wsdb) — the native world state builds the genesis from the seed vector and must report the
-  roots the reference world state measured.
+  genesis from the built protocol contracts and compares it with the package.
 - `world-state/src/testing.test.ts` (labs) — the native world state, started from the package's inputs, must report
   the package's archive root.
 
