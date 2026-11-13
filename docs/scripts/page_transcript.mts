@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { type Bound, blocks, TRANSCRIPTS, walk } from "./page_tests.mts";
+import { type Bound, blocks, type Step, TRANSCRIPTS, walk } from "./page_tests.mts";
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(import.meta.dirname, "../..");
@@ -21,6 +21,8 @@ export function locate(page: string): { root: string; key: string } {
 
 const quote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
 
+const skipReason = (step: Extract<Step, { skip: string }>) => ("runner" in step ? `the examples runner runs ${step.runner}` : step.why);
+
 /** The script: one shell, so a `cd` holds across blocks. It ends by writing $TRANSCRIPT_DONE, which a run that stops early never reaches. */
 export function script(page: string, bound: Bound[], examples: string): string {
   const out = ["set -euo pipefail", "STEP=start", `trap '[ $? -eq 0 ] || echo "transcript failed at $STEP" >&2' EXIT`];
@@ -31,20 +33,28 @@ export function script(page: string, bound: Bound[], examples: string): string {
     out.push(`${head} <<'${end}'`, ...body, end);
   };
   const dir = (to: string) => out.push(`mkdir -p -- "$(dirname -- ${quote(to)})"`);
+  const label = (at: string, what: string) => out.push(`STEP=${quote(`${page}:${at}: ${what}`)}`);
   for (const { step, block } of bound) {
-    const at = `${page}:${block?.line ?? "copy"}`;
-    if ("run" in step) out.push(`STEP=${quote(`${at}: ${step.run}`)}`, ...block!.body);
-    else if ("write" in step) {
-      out.push(`STEP=${quote(`${at}: write ${step.to}`)}`);
+    const at = String(block?.line ?? Object.keys(step)[0]);
+    if ("run" in step) {
+      label(at, step.run);
+      out.push(...block!.body);
+    } else if ("skip" in step) {
+      out.push(`echo ${quote(`skipped ${page}:${at}: ${block!.body[0]} (${skipReason(step)})`)} >&2`);
+    } else if ("write" in step) {
+      label(at, `write ${step.to}`);
       dir(step.to);
       heredoc(`cat > ${quote(step.to)}`, block!.body);
     } else if ("merge" in step) {
-      out.push(`STEP=${quote(`${at}: merge into ${step.into}`)}`);
+      label(at, `merge into ${step.into}`);
       heredoc(`node ${quote(import.meta.filename)} merge-toml ${quote(step.into)}`, block!.body);
-    } else {
-      out.push(`STEP=${quote(`${at}: ${step.copy} to ${step.to}`)}`);
+    } else if ("copy" in step) {
+      label(at, `${step.copy} to ${step.to}`);
       dir(step.to);
       out.push(`cp -- ${quote(path.join(examples, step.copy))} ${quote(step.to)}`);
+    } else {
+      label(at, `not on the page, ${step.why}`);
+      out.push(...step.check.split("\n"));
     }
   }
   out.push('printf done > "$TRANSCRIPT_DONE"');

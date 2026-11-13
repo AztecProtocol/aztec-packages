@@ -8,11 +8,21 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 
-// Each step but `copy` binds the next block after the previous step's that contains its text: `run` a
-// shell block, run as typed; `write` any other block, written to `to`; `merge` a TOML block, whose keys
-// the file `into` lacks are added (a page that replaces a section uses `write`). `copy` takes a file
-// from the line's examples/ that the page quotes in full, for the code a page assembles from regions.
-export type Step = { run: string } | { write: string; to: string } | { merge: string; into: string } | { copy: string; to: string };
+// Each step but `copy` and `check` binds the next block after the previous step's that contains its
+// text: `run` a shell block, run as typed; `skip` a shell block, not run; `write` any other block,
+// written to `to`; `merge` a TOML block, whose keys the file `into` lacks are added (a page that replaces
+// a section uses `write`). `copy` takes a file from the line's examples/ that the page quotes in full,
+// for the code a page assembles from regions. `check` runs a command the page does not type, labelled
+// so in the log. A skip names the example the examples runner runs in its place (`runner`), or why it
+// is not run, which leaves the page partly run unless it starts the local network.
+export type Step =
+  | { run: string }
+  | { skip: string; runner: string }
+  | { skip: string; why: string }
+  | { write: string; to: string }
+  | { merge: string; into: string }
+  | { copy: string; to: string }
+  | { check: string; why: string };
 export type Transcript = { runner: "test-first-project" | "test-fresh-clone" } | { steps: Step[] };
 export type Block = { line: number; info: string; body: string[] };
 export type Bound = { step: Step; block?: Block };
@@ -26,6 +36,43 @@ export const TRANSCRIPTS: Record<string, Transcript> = {
       { copy: "contracts/counter_contract/src/main.nr", to: "counter_contract/src/main.nr" },
       { run: "aztec compile" },
       { run: "aztec codegen" },
+    ],
+  },
+  "docs-developers/docs/tutorials/js_tutorials/token_bridge.md": {
+    steps: [
+      { run: "mkdir aztec-nft-bridge" },
+      { write: "package.json", to: "package.json" },
+      { write: ".yarnrc.yml", to: ".yarnrc.yml" },
+      { run: "yarn add hardhat" },
+      { run: "ln -sfn" },
+      { copy: "ts/token_bridge/hardhat.config.ts", to: "hardhat.config.ts" },
+      { copy: "ts/token_bridge/remappings.txt", to: "remappings.txt" },
+      { skip: "aztec start", why: "starts the local network, which only the script needs" },
+      { run: "aztec new contracts/aztec/nft" },
+      { run: "touch nft_contract/src/nft.nr" },
+      { copy: "contracts/nft/src/nft.nr", to: "nft_contract/src/nft.nr" },
+      { copy: "contracts/nft/src/main.nr", to: "nft_contract/src/main.nr" },
+      { write: "Tests are out of scope", to: "nft_test/src/lib.nr" },
+      { run: "aztec compile" },
+      { run: "aztec new nft_bridge" },
+      { merge: "NFTPunk", into: "nft_bridge_contract/Nargo.toml" },
+      { copy: "contracts/nft_bridge/src/main.nr", to: "nft_bridge_contract/src/main.nr" },
+      { write: "Tests are out of scope", to: "nft_bridge_test/src/lib.nr" },
+      { run: "aztec compile" },
+      { run: "aztec codegen target" },
+      { run: "touch contracts/SimpleNFT.sol" },
+      { copy: "ts/token_bridge/contracts/SimpleNFT.sol", to: "contracts/SimpleNFT.sol" },
+      { run: "touch contracts/NFTPortal.sol" },
+      { copy: "ts/token_bridge/contracts/NFTPortal.sol", to: "contracts/NFTPortal.sol" },
+      { run: "npx hardhat compile" },
+      { run: "mkdir -p scripts" },
+      { copy: "ts/token_bridge/scripts/index.ts", to: "scripts/index.ts" },
+      {
+        check:
+          "yarn add -D typescript@5.9.3\nnpx tsc --noEmit --target es2022 --module nodenext --moduleResolution nodenext --esModuleInterop --skipLibCheck --resolveJsonModule --lib dom,esnext scripts/index.ts",
+        why: "type-checks the script against the generated bindings and the Hardhat artifacts",
+      },
+      { skip: "npx tsx scripts/index.ts", runner: "token_bridge" },
     ],
   },
   "docs-developers/docs/tutorials/js_tutorials/first_full_project.md": { runner: "test-first-project" },
@@ -44,7 +91,6 @@ export const UNTESTED: Record<string, string> = {
     "installs with Yarn's default PnP linker and its script needs a running network",
   "docs-developers/docs/tutorials/js_tutorials/first_full_project.md":
     "its runner types its own copy of the commands, so a changed command is not run; `npm start` needs a running network",
-  "docs-developers/docs/tutorials/js_tutorials/token_bridge.md": "no transcript test yet",
   "docs-developers/docs/tutorials/js_tutorials/uniswap_swap.md":
     "the clone test does not run the npm install block; the network run needs a local network",
   "docs-developers/docs/tutorials/js_tutorials/wallet-extension/01-architecture.md":
@@ -108,11 +154,12 @@ export function unread(text: string): number[] {
   return [...new Set([...rows, ...included])].sort((x, y) => x - y);
 }
 
-const FITS = { run: isShell, write: (b: Block) => !isShell(b), merge: (b: Block) => /^toml\b/.test(b.info) };
+const FITS = { run: isShell, skip: isShell, write: (b: Block) => !isShell(b), merge: (b: Block) => /^toml\b/.test(b.info) };
 type Kind = keyof typeof FITS;
 
 function binding(step: Step): [Kind, string] | undefined {
   if ("run" in step) return ["run", step.run];
+  if ("skip" in step) return ["skip", step.skip];
   if ("write" in step) return ["write", step.write];
   if ("merge" in step) return ["merge", step.merge];
   return undefined;
@@ -123,6 +170,10 @@ function targetErrors(step: Step): string[] {
   const escapes = target.startsWith("/") || target.split("/").includes("..");
   return escapes ? [`${target}: a target is relative, without ..`] : [];
 }
+
+/** The reasons a spec's skips leave its page partly run: every skip but the runner's and the local network's. */
+export const partlyRun = (steps: Step[]): string[] =>
+  steps.flatMap((s) => ("skip" in s && "why" in s && !/^aztec start\b/.test(s.skip) ? [s.why] : []));
 
 const holds = (b: Block, kind: Kind, text: string) => b.body.join("\n").includes(text) || (kind === "write" && b.info.includes(text));
 
