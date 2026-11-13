@@ -170,6 +170,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         , pub_inputs_offset(precomputed.metadata.pub_inputs_offset)
     {
         CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+        // A verification key is only meaningful relative to the canonical SRS.
+        commitment_key.verify_srs_integrity();
         for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
             commitment = commitment_key.commit(polynomial);
         }

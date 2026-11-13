@@ -57,13 +57,18 @@ template <class Curve> class CommitmentKey {
         , srs_size(round_up_to_even(num_points))
     {}
     /**
+     * @brief Throw unless the SRS points are canonical. Called before computing a verification key.
+     */
+    void verify_srs_integrity() const { srs->verify_points_integrity(); }
+
+    /**
      * @brief Checks the commitment key is properly initialized.
      *
      * @return bool
      */
     bool initialized() const { return srs != nullptr; }
 
-    std::span<Commitment> get_monomial_points() const
+    std::span<const Commitment> get_monomial_points() const
     {
         BB_ASSERT(initialized(), "Commitment key is not initialized");
         return srs->get_monomial_points();
