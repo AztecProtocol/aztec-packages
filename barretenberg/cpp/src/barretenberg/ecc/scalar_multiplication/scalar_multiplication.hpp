@@ -414,6 +414,14 @@ namespace bb::scalar_multiplication {
 
 [[nodiscard]] bool use_legacy_msm() noexcept;
 
+/**
+ * @brief Precondition of every MSM entry point below: a scalar span with offset `start_index` and length `num_scalars`
+ * multiplies points[start_index, start_index + num_scalars), so `points` must hold at least that many.
+ * @details Calls throw_or_abort otherwise. The entry points check it once, before choosing a backend, so neither
+ * backend clamps or reads past `points`, and callers such as CommitmentKey rely on it instead of checking themselves.
+ */
+void check_msm_points_cover_scalars(size_t start_index, size_t num_scalars, size_t num_points);
+
 // `dedup_info` (and the per-poly entries of `dedup_infos`) encode the MSM dedup pre-pass hint:
 //   0  = off (no dedup);
 //   1  = hinted, no estimate (the poly is known to have duplicates, but no count is available);
@@ -422,30 +430,30 @@ template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   bool handle_edge_cases = true,
-                                  size_t dedup_info = 0) noexcept;
+                                  size_t dedup_info = 0);
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
-                                         size_t dedup_info = 0) noexcept;
+                                         size_t dedup_info = 0);
 
 extern template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points,
                                                               bool handle_edge_cases,
-                                                              size_t dedup_info) noexcept;
+                                                              size_t dedup_info);
 extern template curve::Grumpkin::Element pippenger<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     bool handle_edge_cases,
-    size_t dedup_info) noexcept;
+    size_t dedup_info);
 extern template curve::BN254::Element pippenger_unsafe<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    size_t dedup_info) noexcept;
+    size_t dedup_info);
 extern template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    size_t dedup_info) noexcept;
+    size_t dedup_info);
 
 template <typename Curve> class MSM {
   public:
@@ -456,12 +464,12 @@ template <typename Curve> class MSM {
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> scalars,
                              bool handle_edge_cases = false,
-                             size_t dedup_info = 0) noexcept;
+                             size_t dedup_info = 0);
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
                                                              std::span<PolynomialSpan<ScalarField>> scalars,
                                                              bool handle_edge_cases = true,
-                                                             std::span<const uint32_t> dedup_infos = {}) noexcept;
+                                                             std::span<const uint32_t> dedup_infos = {});
 };
 
 extern template class MSM<curve::BN254>;

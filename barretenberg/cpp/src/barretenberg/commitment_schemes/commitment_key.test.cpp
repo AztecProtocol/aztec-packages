@@ -223,6 +223,24 @@ TYPED_TEST(CommitmentKeyTest, RejectsUninitializedKey)
     ASSERT_THROW_OR_ABORT(key.get_monomial_size(), "Commitment key is not initialized");
 }
 
+TYPED_TEST(CommitmentKeyTest, RejectsPolynomialPastSrs)
+{
+    typename TestFixture::CK ck(16);
+    const size_t srs_size = ck.get_monomial_size();
+    typename TestFixture::Polynomial fits(2, srs_size, srs_size - 2);
+    typename TestFixture::Polynomial overruns(2, srs_size + 1, srs_size - 1);
+    fits.at(srs_size - 1) = TestFixture::Fr::random_element();
+    overruns.at(srs_size) = TestFixture::Fr::random_element();
+
+    EXPECT_EQ(ck.commit(fits), TestFixture::commit_naive(ck, fits));
+    EXPECT_THROW_OR_ABORT(ck.commit(overruns), "MSM needs");
+    std::vector<typename TestFixture::Polynomial> batch;
+    batch.push_back(fits.share());
+    batch.push_back(overruns.share());
+    RefVector<typename TestFixture::Polynomial> batch_refs(batch);
+    EXPECT_THROW_OR_ABORT(ck.batch_commit(batch_refs), "MSM needs");
+}
+
 TYPED_TEST(CommitmentKeyTest, CommitToZeroPoly)
 {
     TestFixture::test_commit_to_zero_poly();
