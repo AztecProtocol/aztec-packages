@@ -404,23 +404,27 @@ function test_cmds {
   local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
   echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
   # A clone block fetches its line's examples and Nargo.toml, and the aztec-node tag its page renders.
-  local tutorials=docs-developers/docs/tutorials/js_tutorials clone_pages=(webapp/index.md uniswap_swap.md)
+  # The pages come from docs/scripts/page_tests.mts, which its census test checks; a failed lookup
+  # fails here rather than dropping commands.
+  local tutorials=docs-developers/docs/tutorials/js_tutorials clone_pages lines
+  clone_pages=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-fresh-clone) || return 1
+  lines=$("${aztec_node[@]}" lines) || return 1
   local clone=("^docs/scripts/fresh_clone_test.sh" "${render[@]}")
   local clone_hash
   clone_hash=$(cache_content_hash .rebuild_patterns ^docs/Nargo.toml "^docs/$tutorials/" "${clone[@]}")
-  for page in "${clone_pages[@]}"; do
-    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$tutorials/$page"
+  for page in $clone_pages; do
+    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
   done
   # A line's TXE needs a port of its own: the test commands run in parallel.
   local line line_hash i=0
-  for line in $("${aztec_node[@]}" lines); do
+  for line in $lines; do
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/")
     echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
     echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
-    for page in "${clone_pages[@]}"; do
-      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$tutorials/$page"
+    for page in $clone_pages; do
+      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
     done
     i=$((i + 1))
   done

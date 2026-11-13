@@ -83,3 +83,14 @@ test("tsc rejects an implicit any under the scripts config, and accepts a typed 
   assert.deepEqual(rejected.output.match(/error TS\d+/g), ["error TS7006"], rejected.output);
   assert.deepEqual(check("export const id = (a: number) => a;\n"), { status: 0, output: "" });
 });
+
+test("shellcheck rejects an unquoted expansion, and accepts a quoted one", () => {
+  const check = (source: string) => {
+    const r = spawnSync(path.join(DOCS, "scripts/shellcheck.sh"), ["-"], { input: source, encoding: "utf8" });
+    return { status: r.status, output: r.stdout + r.stderr };
+  };
+  const rejected = check('#!/usr/bin/env bash\nrm $1\n');
+  assert.equal(rejected.status, 1, rejected.output);
+  assert.deepEqual([...new Set(rejected.output.match(/SC\d+/g))], ["SC2086"], rejected.output);
+  assert.deepEqual(check('#!/usr/bin/env bash\nrm "$1"\n'), { status: 0, output: "" });
+});

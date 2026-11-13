@@ -43,7 +43,7 @@ require_aztec_node "$LINE"
 echo "Extracting references from markdown files in $DOCS_DIR..."
 
 MAPPING_FILE=$(mktemp)
-trap "rm -f $MAPPING_FILE" EXIT
+trap 'rm -f "$MAPPING_FILE"' EXIT
 
 extract_references_mapping "$DOCS_DIR" "$MAPPING_FILE"
 
