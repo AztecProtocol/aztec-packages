@@ -12,7 +12,7 @@ set -euo pipefail
 
 docs=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$docs"
-# shellcheck source=docs/scripts/node_options.sh
+# shellcheck source=node_options.sh
 source "$docs/scripts/node_options.sh"
 
 echo "=== Fetching the pinned aztec-node checkout ==="
