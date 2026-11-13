@@ -50,7 +50,9 @@ async function getBalances(
 // docs:start:checkpoint_1
 async function main() {
   // Connect to local network
-  const node = createAztecNodeClient("http://localhost:8080");
+  const node = createAztecNodeClient(
+    process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+  );
 
   // `ephemeral: true` keeps PXE state in memory, so restarting the local
   // network won't leave this script pointing at stale block hashes.
@@ -120,5 +122,8 @@ async function main() {
   await getBalances(bobToken, aliceAddress, bobClinicAddress);
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
 // docs:end:checkpoint_2
