@@ -92,6 +92,7 @@ test("a copied file counts as quoted only where the page includes its regions", 
 test("a command block the census cannot read is found, and every shell info string counts", () => {
   const page = "> ```bash\n> false\n> ```\n#include_code run /x/run.sh bash\n#include_code main /x/main.rs rust\n<CodeBlock language=\"bash\">false</CodeBlock>\n```bash\ntrue\n```";
   assert.deepEqual(unread(page), [1, 3, 4, 6]);
+  assert.deepEqual(unread("- #include_code run /x/run.sh bash\n#include_code run /x/run.sh\nsh\n<!-- #include_code run /x/run.sh bash -->"), [1, 2]);
   assert.deepEqual(
     blocks("```powershell\na\n```\n```terminal\nb\n```\n```text\nc\n```").map(isShell),
     [true, true, false],

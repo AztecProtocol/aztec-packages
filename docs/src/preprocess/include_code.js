@@ -429,6 +429,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
 
 module.exports = {
   docsCommit,
+  includeCodeDirective: regex,
   preprocessIncludeCode,
   extractCodeSnippet,
   resolveSnippetSource,
