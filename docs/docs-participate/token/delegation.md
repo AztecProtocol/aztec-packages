@@ -66,7 +66,7 @@ Above the Token Vaults overview, select the **Stake** tab. You are presented wit
 
 ![Stake tab showing delegate and self-stake options](/img/stake-choice.png)
 
-With delegation, you pay a commission to a provider who runs a sequencer on your behalf. With self-stake, you run your own sequencer, pay no commission, and contribute directly to network decentralization. See the [Sequencer Setup Guide](/operate/operators/setup/sequencer_management) if you prefer self-staking.
+With delegation, you pay a commission to a provider who runs a sequencer on your behalf. With self-stake, you run your own sequencer, pay no commission, and contribute directly to network decentralization. See the [Sequencer Setup Guide](/operate/operators/solo-sequencer) if you prefer self-staking.
 
 :::note Transaction Queue
 The following steps add transactions to a queue — nothing is submitted to the chain until you reach [Step 9](#step-9-execute-batch). At that point, Gnosis Safe wallets execute everything as a single batched transaction, while EOA wallets submit each transaction one by one.
@@ -179,4 +179,4 @@ To maintain control over your votes:
 
 - [Learn about voting](/participate/token/voting) with your staked or delegated tokens
 - [Staking Tokens](/participate/token/staking) to understand slashing risks
-- [Run your own validator](/operate/operators/setup/sequencer_management) if you prefer direct control
+- [Run your own validator](/operate/operators/solo-sequencer) if you prefer direct control

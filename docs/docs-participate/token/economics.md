@@ -75,5 +75,5 @@ This design rewards long-term, consistent provers and discourages sporadic parti
 :::tip Learn More
 - [Staking Tokens](/participate/token/staking) - How to stake and earn rewards
 - [Governance](/participate/governance) - How protocol parameters (including rewards) can change
-- [Running a Prover](/operate/operators/setup/running_a_prover) - Technical setup for provers
+- [Running a Prover](/operate/operators/prover/overview) - Technical setup for provers
 :::

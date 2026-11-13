@@ -31,7 +31,7 @@ Building from source allows you to:
 
 This guide assumes you're using a standard Linux distribution such as Debian or Ubuntu. While other operating systems may work, these instructions are tested and optimized for Linux environments.
 
-These requirements are for building the software. Running a node has different requirements—see [Running a Full Node](./running-a-node.md).
+These requirements are for building the software. Running a node has different requirements: see [Full node overview](../full-node/overview.md).
 
 ## Build Steps
 
@@ -272,7 +272,7 @@ services:
     # ... rest of configuration
 ```
 
-See [Running a Full Node](./running-a-node.md) for complete setup instructions.
+See [Full node setup](../full-node/setup.md) for complete setup instructions.
 
 ### Using the CLI
 
@@ -319,7 +319,7 @@ The official CI pipeline follows a similar process. See `.github/workflows/relea
 
 ## Next Steps
 
-- Use your custom build to [run a full node](./running-a-node.md)
+- Use your custom build to [run a full node](../full-node/setup.md)
 - Set up [monitoring](../monitoring/index.md) for your node
 - Review the [CLI reference](../reference/cli-reference.md) for configuration options
 - Join the [Aztec Discord](https://discord.gg/aztec) to discuss development and customization

@@ -106,7 +106,7 @@ export const CHECKS: Check[] = [
     name: "splat redirect",
     run: async (get) => {
       const problems: string[] = [];
-      const target = redirectTo(await get("/network/operators/setup/running_a_node"), "/operate/operators/setup/running_a_node", problems);
+      const target = redirectTo(await get("/network/operators/full-node/setup"), "/operate/operators/full-node/setup", problems);
       if (!target) return problems;
       const destination = target.pathname + target.search;
       const page = await get(destination, BROWSER_ACCEPT);

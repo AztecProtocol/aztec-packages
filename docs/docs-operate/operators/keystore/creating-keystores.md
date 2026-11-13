@@ -222,7 +222,7 @@ Keep `key1_staker_output.json` on your local machine - you'll need it for regist
 
 ### Step 5: Start Your Node
 
-Start your sequencer node following the [Sequencer Setup guide](../setup/sequencer-setup.md).
+Start your sequencer node following the [solo sequencer guided setup](../solo-sequencer/index.mdx).
 
 When your node starts successfully, you'll see output similar to:
 
@@ -234,7 +234,7 @@ These are your validator attester addresses - they match the addresses shown whe
 
 ### Step 6: Register Your Validators
 
-Use the public keystore (`key1_staker_output.json`) to register your validators on the staking dashboard. See [Registering a Sequencer](../setup/registering-sequencer.md) for details.
+Use the public keystore (`key1_staker_output.json`) to register your validators on the staking dashboard. See [Register as sequencer](../solo-sequencer/register-sequencer.mdx) for details.
 
 ---
 
@@ -503,7 +503,7 @@ Now that you've created your keystores:
 ### For Sequencer Operators
 
 1. **Fund publisher addresses** - At least 0.1 ETH per validator
-2. **Set up your node** - See [Sequencer Management](../setup/sequencer-setup.md)
+2. **Set up your node** - See [Solo sequencer guided setup](../solo-sequencer/index.mdx)
 3. **Register validators** - Use the public keystore with the staking dashboard
 4. **Monitor operations** - Track attestations and publisher balance
 

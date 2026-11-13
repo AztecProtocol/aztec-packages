@@ -22,7 +22,7 @@ Before diving into the practical steps, you may want to understand the underlyin
 
 Before proceeding, you should:
 
-- Have a running sequencer node (see [Sequencer Setup Guide](../setup/sequencer-setup.md))
+- Have a running sequencer node (see [Sequencer Setup Guide](../solo-sequencer/index.mdx))
 - Understand [how governance works](/participate/governance)
 
 ## Understanding Governance Components
@@ -417,5 +417,5 @@ As a sequencer participating in governance:
 
 ## Next Steps
 
-- Learn about [sequencer setup](../setup/sequencer-setup.md) for operating your node
+- Learn about [sequencer setup](../solo-sequencer/index.mdx) for operating your node
 - Join the [Aztec Discord](https://discord.gg/aztec) to participate in governance discussions and stay informed about upcoming proposals

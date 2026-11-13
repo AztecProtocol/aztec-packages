@@ -399,7 +399,7 @@
 # =============================================================================
 [[redirects]]
     from = "/run_node/*"
-    to = "/operate/operators/setup/running_a_node"
+    to = "/operate/operators/full-node/overview"
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
@@ -575,15 +575,15 @@
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
-    to = "/operate/operators/setup/running_a_prover"
+    to = "/operate/operators/prover/overview"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_full_node"
-    to = "/operate/operators/setup/running_a_node"
+    to = "/operate/operators/full-node/overview"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes"
-    to = "/operate/operators/setup/running_a_node"
+    to = "/operate/operators/full-node/overview"
 
 [[redirects]]
     from = "/the_aztec_network/reference/operator_faq"
@@ -595,7 +595,7 @@
 
 [[redirects]]
     from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
-    to = "/operate/operators/setup/become_a_staking_provider"
+    to = "/operate/operators/provider"
 
 # Network docs wildcard redirect - catches remaining /the_aztec_network paths
 # This MUST come AFTER specific path redirects above
@@ -705,6 +705,39 @@
 [[redirects]]
     from = "/operate/prerequisites"
     to = "/operate/operators/prerequisites"
+    status = 301
+
+# --- Retired setup pages → guided setups ---
+# No force: a released version that still ships one of these pages keeps serving its own copy.
+
+[[redirects]]
+    from = "/operate/operators/setup/running_a_node"
+    to = "/operate/operators/full-node/overview"
+    status = 301
+
+[[redirects]]
+    from = "/operate/operators/setup/running_a_prover"
+    to = "/operate/operators/prover/overview"
+    status = 301
+
+[[redirects]]
+    from = "/operate/operators/setup/registering_sequencer"
+    to = "/operate/operators/solo-sequencer/register-sequencer"
+    status = 301
+
+[[redirects]]
+    from = "/operate/operators/setup/sequencer_management"
+    to = "/operate/operators/solo-sequencer"
+    status = 301
+
+[[redirects]]
+    from = "/operate/operators/setup/become_a_staking_provider"
+    to = "/operate/operators/provider"
+    status = 301
+
+[[redirects]]
+    from = "/operate/reference/changelog/v4"
+    to = "/operate/operators/reference/changelog/v4"
     status = 301
 
 # =============================================================================

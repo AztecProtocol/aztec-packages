@@ -363,7 +363,7 @@ export function generateDocument(allMethods: Map<string, MethodInfo>, schemaMeth
   // Next steps
   lines.push('## Next steps');
   lines.push('');
-  lines.push('- [How to Run a Sequencer Node](../setup/sequencer-setup.md) - Set up a node');
+  lines.push('- [How to Run a Sequencer Node](../solo-sequencer/index.mdx) - Set up a node');
   lines.push('- [Ethereum RPC Calls Reference](./ethereum-rpc-reference.md) - L1 RPC usage');
   lines.push('- [CLI Reference](./cli-reference.md) - Command-line options');
   lines.push('- [Aztec Discord](https://discord.gg/aztec) - Developer support');

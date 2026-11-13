@@ -21,7 +21,7 @@ export type Hit = { url: string; tags: string[] };
 export const PROBES: Probe[] = [
   { query: "getting started", plugin: "developer", paths: ["getting_started_on_testnet"] },
   { query: "deploy contract", plugin: "developer", paths: ["docs/aztec-js/how_to_deploy_contract"] },
-  { query: "run a node", plugin: "network", paths: ["operators/setup/running_a_node", "operators/full-node/setup"] },
+  { query: "run a node", plugin: "network", paths: ["operators", "operators/setup/running_a_node", "operators/full-node/setup"] },
   { query: "PrivateSet", plugin: "api", paths: ["noir_aztec/state_vars/struct.PrivateSet"] },
 ];
 const RETRIEVAL = 10;
