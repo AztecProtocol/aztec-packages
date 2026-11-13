@@ -78,7 +78,7 @@ size_t round_up_to_chunk_boundary(size_t num_points)
  * default trust model assumes whatever populated the cache (`download_bn254_g1_data`, the
  * `barretenberg/crs/bootstrap.sh` script, an AMI/container preseed, or a `CRS_PATH` mount) is
  * the operator's responsibility to ensure correct. Operators who want per-load verification opt
- * in via `BB_VERIFY_CRS=1` or invoke `bb verify-crs` out-of-band. WASM (`bbapi::SrsInitSrs`)
+ * in via `BB_VERIFY_CRS=1` or invoke `bb verify-crs` out-of-band. WASM (the `SrsInitSrs` command)
  * receives bytes that bb.js fetched over HTTPS; `MemBn254Crs` is built in-process from
  * already-validated points.
  */

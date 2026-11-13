@@ -507,13 +507,16 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
             ? `wire::${cmd.name} wire_cmd; payload.convert(wire_cmd);`
             : `wire::${cmd.name} wire_cmd;`;
 
+        // Decoding happens inside the try: a payload that doesn't fit the command (wrong type,
+        // wrong length) is the client's error to hear about, not an exception for the server.
         return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload, RawRespond raw_respond) {
-                ${deserialize}
                 Responder<wire::${cmd.responseType}> responder(std::move(raw_respond), "${cmd.responseType}");
 #ifdef BB_NO_EXCEPTIONS
+                ${deserialize}
                 handle_${method}(ctx, std::move(wire_cmd), responder);
 #else
                 try {
+                    ${deserialize}
                     handle_${method}(ctx, std::move(wire_cmd), responder);
                 } catch (const std::exception& e) {
                     responder.error(e.what());
@@ -617,8 +620,17 @@ ${handlerEntries},
     };
 
     return [&ctx](std::span<const uint8_t> raw_request, RawRespond raw_respond) {
-        auto unpacked = msgpack::unpack(
-            reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+        msgpack::object_handle unpacked;
+#ifdef BB_NO_EXCEPTIONS
+        unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+#else
+        try {
+            unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+        } catch (const std::exception& e) {
+            raw_respond(detail::make_error(std::string("malformed request: ") + e.what()));
+            return;
+        }
+#endif
         auto obj = unpacked.get();
 
         if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
@@ -642,9 +654,9 @@ ${handlerEntries},
             return;
         }
         // The entry decodes the payload synchronously (while the unpacked zone is
-        // alive), then runs or defers the handler. Synchronous handler throws
-        // become error frames inside the entry; a deferred handler owns its errors
-        // via Responder::error.
+        // alive), then runs or defers the handler. Decode failures and synchronous
+        // handler throws become error frames inside the entry; a deferred handler
+        // owns its errors via Responder::error.
         it->second(ctx, cmd_payload, std::move(raw_respond));
     };
 }
@@ -797,10 +809,10 @@ IPC_FFI_EXPORT void ${free}(void* ptr)
 IPC_FFI_EXPORT void ${entry}(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len)
 {
     std::vector<uint8_t> response;
-    // The dispatch answers a malformed envelope, an unknown command and a throwing
-    // handler with an error frame, but an unpack or convert failure still escapes
-    // it. An exception cannot cross an FFI boundary, so anything reaching here has
-    // to become a response.
+    // The dispatch answers undecodable requests, unknown commands and throwing
+    // handlers with an error frame. An exception cannot cross an FFI boundary, so
+    // anything that still escapes it (e.g. allocation failure) has to become a
+    // response here.
 #ifdef BB_NO_EXCEPTIONS
     ${ns}::ipc_ffi_dispatcher()(std::span<const uint8_t>(input, input_len),
                                 [&response](std::vector<uint8_t> frame) { response = std::move(frame); });

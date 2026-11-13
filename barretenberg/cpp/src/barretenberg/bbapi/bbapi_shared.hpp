@@ -77,9 +77,6 @@ struct CircuitInputNoVK {
      * is determined by examining the first byte of the bytecode.
      */
     std::vector<uint8_t> bytecode;
-
-    SERIALIZATION_FIELDS(name, bytecode);
-    bool operator==(const CircuitInputNoVK& other) const = default;
 };
 
 /**
@@ -108,9 +105,6 @@ struct CircuitInput {
      * time. As well, this guards against unexpected changes in the verification key.
      */
     std::vector<uint8_t> verification_key;
-
-    SERIALIZATION_FIELDS(name, bytecode, verification_key);
-    bool operator==(const CircuitInput& other) const = default;
 };
 
 struct ProofSystemSettings {
@@ -136,9 +130,6 @@ struct ProofSystemSettings {
 
     // TODO(md): remove this once considered stable
     bool optimized_solidity_verifier = false;
-
-    SERIALIZATION_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
-    bool operator==(const ProofSystemSettings& other) const = default;
 };
 
 /**
@@ -174,44 +165,10 @@ struct BBApiRequest {
     CircuitKind loaded_circuit_kind = CircuitKind::None;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
-    // Error message - empty string means no error
-    std::string error_message;
 #ifdef BB_HAS_BATCH_VERIFIER_SERVICE
     // Batch verifier service instance (persists across RPC calls)
     std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
 #endif
-};
-
-/**
- * @brief Error response returned when a command fails
- */
-struct ErrorResponse {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
-    std::string message;
-    SERIALIZATION_FIELDS(message);
-    bool operator==(const ErrorResponse&) const = default;
-};
-
-/**
- * @brief Macro to set error in BBApiRequest and return default response
- */
-#define BBAPI_ERROR(request, msg)                                                                                      \
-    do {                                                                                                               \
-        (request).error_message = (msg);                                                                               \
-        return {};                                                                                                     \
-    } while (0)
-
-struct Shutdown {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
-    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ShutdownResponse";
-        // Empty response - success indicated by no exception
-        void msgpack(auto&& pack_fn) { pack_fn(); }
-        bool operator==(const Response&) const = default;
-    };
-    void msgpack(auto&& pack_fn) { pack_fn(); }
-    Response execute(const BBApiRequest&) && { return {}; }
-    bool operator==(const Shutdown&) const = default;
 };
 
 /**

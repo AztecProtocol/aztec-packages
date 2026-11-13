@@ -1,42 +1,15 @@
-#include "barretenberg/bbapi/generated/bb_ffi.hpp"
-#include "barretenberg/bbapi/generated/bb_types.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_adaptor.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_include.hpp"
-#include <cstdlib>
+#include "barretenberg/bbapi/ffi_test_dispatch.hpp"
 #include <gtest/gtest.h>
 #include <string>
-#include <vector>
 
 using namespace bb::bbapi;
+using bb::bbapi::ffi_test::ffi_call;
 
 namespace {
 
-// Call the FFI entrypoint with a wire command and return the response's
-// named-union tag ([type_name, payload]).
-template <typename Cmd> std::string ffi_response_type(const char* name, const Cmd& cmd)
+std::string ffi_response_type(const char* name, const auto& cmd)
 {
-    // Request framing: [[CommandName, payload]] — the named-union pair inside
-    // a one-element argument array.
-    msgpack::sbuffer buf;
-    msgpack::packer<msgpack::sbuffer> pk(buf);
-    pk.pack_array(1);
-    pk.pack_array(2);
-    pk.pack(std::string(name));
-    pk.pack(cmd);
-
-    uint8_t* out = nullptr;
-    size_t out_len = 0;
-    bb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
-
-    auto oh = msgpack::unpack(reinterpret_cast<const char*>(out), out_len);
-    bb_ipc_ffi_free(out);
-    auto arr = oh.get().via.array;
-    EXPECT_EQ(arr.size, 2U);
-    auto type = arr.ptr[0].as<std::string>();
-    if (type == "BbErrorResponse") {
-        std::cout << "error payload: " << arr.ptr[1] << '\n';
-    }
-    return type;
+    return ffi_call(cmd, name).type;
 }
 
 } // namespace
