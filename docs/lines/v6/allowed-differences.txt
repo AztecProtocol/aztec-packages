@@ -13,4 +13,3 @@ examples/bootstrap.sh: Main's examples tooling, which also builds the line's exa
 examples/ts/README.md: Documents main's examples tooling, which also builds the line's examples.
 examples/ts/bootstrap.sh: Main's examples tooling, which also builds the line's examples (examples/bootstrap.sh --line v6).
 examples/ts/docker-compose.yml: Runs main's TypeScript examples against a local network; a line's run only at its release cut.
-examples/ts/precommit.sh: Main's pre-commit check for its examples' empty lockfiles.

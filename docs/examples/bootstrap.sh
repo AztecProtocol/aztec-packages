@@ -16,14 +16,8 @@ unset AZTEC_NODE_DIR
 # DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
 DOCS_LINE= STAGE= DOCS_ROOT=
 
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
 # Set before staging, so a failed copy also removes the stage.
 function on_exit {
-  if [ -n "$DOCS_ROOT" ]; then
-    for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
-  fi
   if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
 }
 trap on_exit EXIT
@@ -380,6 +374,11 @@ function test-fresh-clone {
   "$REPO_ROOT/docs/scripts/fresh_clone_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-fresh-clone <page>}"
 }
 
+function test-page-transcript {
+  pin_toolchain
+  "$REPO_ROOT/docs/scripts/page_transcript_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-page-transcript <page>}"
+}
+
 # Every line's checkout and toolchain, installed before test commands that share them run in parallel.
 function pin_toolchains {
   pin_toolchain
@@ -394,7 +393,9 @@ function test_cmds {
   # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
   # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
   # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
-  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
+  # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
+  # the whole group reaches it, so that its exit trap takes the compose project down.
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.
@@ -413,6 +414,13 @@ function test_cmds {
   for page in $clone_pages; do
     echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
   done
+  # A transcript's reader runs in a session of its own, which the runner stops when the timeout
+  # signals its group: no ONLY_TERM_PARENT.
+  local transcripts transcript=("^docs/scripts/page_t" "${render[@]}")
+  transcripts=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-page-transcript) || return 1
+  for page in $transcripts; do
+    echo "$(cache_content_hash .rebuild_patterns "^docs/$page" "${transcript[@]}"):TIMEOUT=15m docs/examples/bootstrap.sh test-page-transcript docs/$page"
+  done
   # A line's TXE needs a port of its own: the test commands run in parallel.
   local line line_hash i=0
   for line in $lines; do
@@ -423,6 +431,10 @@ function test_cmds {
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
     for page in $clone_pages; do
       echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
+    done
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${transcript[@]}")
+    for page in $transcripts; do
+      echo "$line_hash:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-page-transcript docs/lines/$line/$page"
     done
     i=$((i + 1))
   done
@@ -530,6 +542,9 @@ case "$cmd" in
     ;;
   test-fresh-clone)
     test-fresh-clone "$@"
+    ;;
+  test-page-transcript)
+    test-page-transcript "$@"
     ;;
   *)
     default_cmd_handler "$@"

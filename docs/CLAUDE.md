@@ -230,6 +230,8 @@ Tutorials that build an example where it sits (webapp, wallet extension, uniswap
 
 `scripts/page_tests.mts` names, for every tutorial and getting-started page with a shell block, the test that runs its commands (`TRANSCRIPTS`) or why none does (`UNTESTED`); `scripts/__tests__/page_tests.test.mts` fails on a page in neither and on a stale entry. The list only shrinks: never add a page to `UNTESTED`, or a reason to a page, to get a failing test green. A version a page types (`hardhat@…`, `yarn@…`) must equal the one the example it quotes installs (`page_versions.test.mts`).
 
+A page with steps in `TRANSCRIPTS` is run by `examples/bootstrap.sh [--line <line>] test-page-transcript <page>` (`scripts/page_transcript_test.sh`): every shell block in page order, as the site renders it, in an empty folder, with the files the steps name. A shell block added to such a page fails the census until a step runs it.
+
 **Execution (runtime testing)**: TypeScript examples in `examples/ts/` are executed against a live Aztec network via Docker Compose. The `examples/ts/docker-compose.yml` spins up Anvil (L1 fork), an Aztec local network, and a runner service that executes the examples.
 
 - **CI**: `docs/bootstrap.sh ci` calls `examples/bootstrap.sh execute`, which uses `run_compose_test` from `ci3/`
@@ -238,7 +240,7 @@ Tutorials that build an example where it sits (webapp, wallet extension, uniswap
 
 When adding new TypeScript examples:
 
-1. Create a directory under `examples/ts/` with `index.ts`, `config.yaml`, and empty `yarn.lock`
+1. Create a directory under `examples/ts/` with `index.ts` and `config.yaml` (no `yarn.lock`: the install creates an empty, gitignored one)
 2. Use `process.env.AZTEC_NODE_URL ?? "http://localhost:8080"` for the node URL
 3. Add the example to the list in `examples/ts/aztecjs_runner/run.sh` if it should be executed at runtime
 
