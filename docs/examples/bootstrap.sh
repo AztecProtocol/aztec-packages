@@ -410,12 +410,13 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # The examples run in two halves (run.sh HALF_1, HALF_2), each against a network of its own.
-  # PROVISIONAL-LIMITS: replaced by the measured numbers before review.
+  # 15m: with both halves at once under load, a green half took 320 to 413 s, and a half with a failing
+  # example (five attempts) 449 s. Re-measure when an example is added, and rebalance the halves
+  # (run.sh HALF_1, HALF_2) before raising a limit.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
   # the whole group reaches it, so that its exit trap takes the compose project down.
-  echo "$hash:TIMEOUT=25m docs/examples/bootstrap.sh execute 1"
-  echo "$hash:TIMEOUT=25m docs/examples/bootstrap.sh execute 2"
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 1"
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 2"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.

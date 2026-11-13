@@ -33,7 +33,7 @@ The `aztecjs_runner/run.sh` script executes examples against a live local Aztec 
 
 ### CI Execution (Docker Compose)
 
-In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. Full CI runs `docs/examples/bootstrap.sh execute 1` and `execute 2` at once, one compose project per half; `execute` with no half runs every example. Two `execute` calls started by hand at the same moment on a stale toolchain can break each other, since each reinstalls the shared CLI; `docs/examples/bootstrap.sh test` installs it once before it starts them.
+In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. Full CI runs `docs/examples/bootstrap.sh execute 1` and `execute 2` at once, one compose project per half; `execute` with no half runs every example. Two `execute` calls started by hand at the same moment on a stale checkout or toolchain can break each other, since each updates the submodules and reinstalls the shared CLI; `docs/examples/bootstrap.sh test` does both once before it starts them.
 
 ```bash
 cd docs/examples && ./bootstrap.sh execute
