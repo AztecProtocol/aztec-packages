@@ -102,9 +102,10 @@ function generate_wsdb_ref_package {
     --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm"
 }
 
-# bb-avm-sim, cdb, bb.js-api and wsdb-ref are gitignored workspaces declared in package.json, so
-# `yarn install --immutable` fails against the committed lockfile unless all exist.
-# Generate them together before installing, whichever one we're about to build.
+# bb.js-api, bb-avm-sim, cdb and wsdb-ref are gitignored workspaces of the one yarn workspace declared in package.json,
+# so `yarn install --immutable` fails against the committed lockfile unless all exist. They are generated, installed
+# and compiled together: in CI an install replaces node_modules wholesale, so a build installs once, never once per
+# package (and never while something else runs out of node_modules).
 function generate_packages {
   generate_bb_avm_sim_package
   generate_cdb_package
@@ -112,125 +113,67 @@ function generate_packages {
   generate_wsdb_ref_package
 }
 
-function copy_bb_js_api_native {
-  local target_dir="bb.js-api/build/$(arch)-$(os)"
-  mkdir -p "$target_dir"
-  cp "$ROOT/barretenberg/cpp/build/bin/dist/bb" "$target_dir/bb"
-}
-
-function copy_bb_js_api_cross {
-  if [ -n "${1:-}" ]; then
-    local cross_arch="$1"
-    mkdir -p "bb.js-api/build/$cross_arch"
-    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/dist/bb" "bb.js-api/build/$cross_arch/bb"
-  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
-    for cross_arch in arm64-linux amd64-macos arm64-macos; do
-      mkdir -p "bb.js-api/build/$cross_arch"
-      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/dist/bb" "bb.js-api/build/$cross_arch/bb"
-    done
-  else
-    echo "This task is expected to be run with an explicit arch or in an x86 release context."
-  fi
-}
-
-function prepare_bb_js_api_arch_packages {
-  yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "$@"
-}
-
-# Generate + compile the package bb.js compiles against, without bb binaries (enough for
-# type-checking, formatting and lint). Generation installs the wasm modules, so they must be
-# built first. Not cached: it is a few seconds of tsc.
-function build_bb_js_api_ts {
-  generate_packages
+function install_and_compile_packages {
   npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_JS_API_PACKAGE" build
+  yarn workspaces foreach -A -p -t \
+    --include "$BB_JS_API_PACKAGE" --include "$BB_AVM_SIM_PACKAGE" \
+    --include "$CDB_PACKAGE" --include "$WSDB_REF_PACKAGE" run build
 }
 
-# The full package: compiled TS plus the wasm modules and this machine's bb binary. bb.js
-# runs these at test time, so it stages them even when its own build is cached.
-function build_bb_js_api {
-  echo_header "bb.js-api package build"
-  build_bb_js_api_ts
-  copy_bb_js_api_native
-  prepare_bb_js_api_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/bb"
+# The C++ build directories whose binaries the packages ship, as <platform>=<build dir> lines: this machine's own
+# build, or the cross builds (every one on an amd64 release, which stages them all before publishing).
+function native_build_dirs {
+  echo "$(arch)-$(os)=build"
 }
 
-function copy_bb_avm_sim_native {
-  local target_dir="bb-avm-sim/build/$(arch)-$(os)"
-  mkdir -p "$target_dir"
-  cp "$ROOT/barretenberg/cpp/build/bin/$BB_AVM_SIM_BINARY" "$target_dir/$BB_AVM_SIM_BINARY"
-}
-
-function copy_bb_avm_sim_cross {
-  if [ -n "${1:-}" ]; then
-    local cross_arch="$1"
-    mkdir -p "bb-avm-sim/build/$cross_arch"
-    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
-      "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
-  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
-    for cross_arch in arm64-linux amd64-macos arm64-macos; do
-      mkdir -p "bb-avm-sim/build/$cross_arch"
-      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$BB_AVM_SIM_BINARY" \
-        "bb-avm-sim/build/$cross_arch/$BB_AVM_SIM_BINARY"
-    done
+function cross_build_dirs {
+  if semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
+    local cross_arch
+    for cross_arch in arm64-linux amd64-macos arm64-macos; do echo "$cross_arch=build-$cross_arch"; done
   else
-    echo "This task is expected to be run with an explicit arch or in an x86 release context."
+    echo "Staging no cross builds: they are staged only in an amd64 release context." >&2
   fi
 }
 
-function prepare_bb_avm_sim_arch_packages {
-  yarn workspace "$BB_AVM_SIM_PACKAGE" run prepare_arch_packages "$@"
+# Stages the per-platform packages of bb.js-api (bb), bb-avm-sim and wsdb-ref (its binary and Node-API addon) from
+# the C++ build directories on stdin (<platform>=<build dir> lines). The packages' prepare_arch_packages copies each
+# file from where the build left it; every one must exist.
+function stage_arch_packages {
+  local cpp=$ROOT/barretenberg/cpp platform dir file
+  local bb_js_api=() bb_avm_sim=() wsdb_ref=()
+  while IFS== read -r platform dir; do
+    [ -n "$platform" ] || continue
+    for file in "$dir/bin/dist/bb" "$dir/bin/$BB_AVM_SIM_BINARY" "$dir/bin/$WSDB_REF_BINARY" "$dir/lib/$WSDB_REF_ADDON"; do
+      [ -f "$cpp/$file" ] || { echo "stage_arch_packages: barretenberg/cpp/$file is not built" >&2; return 1; }
+    done
+    bb_js_api+=("$platform=$cpp/$dir/bin/dist/bb")
+    bb_avm_sim+=("$platform=$cpp/$dir/bin/$BB_AVM_SIM_BINARY")
+    wsdb_ref+=("$platform=$cpp/$dir/bin/$WSDB_REF_BINARY" "$platform:$WSDB_REF_ADDON=$cpp/$dir/lib/$WSDB_REF_ADDON")
+  done
+  [ ${#bb_js_api[@]} -gt 0 ] || return 0
+  yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "${bb_js_api[@]}"
+  yarn workspace "$BB_AVM_SIM_PACKAGE" run prepare_arch_packages "${bb_avm_sim[@]}"
+  yarn workspace "$WSDB_REF_PACKAGE" run prepare_arch_packages "${wsdb_ref[@]}"
+}
+
+# Generate + compile the packages, without bb's binaries (enough for type-checking, formatting and lint).
+# Generation installs the wasm modules, so they must be built first. Not cached: it is a few seconds of tsc.
+function build_packages_ts {
+  generate_packages
+  install_and_compile_packages
+}
+
+# The generated packages in full: compiled TS plus the wasm modules and this machine's bb, bb-avm-sim and wsdb-ref.
+# bb.js and the packages' tests run these, so they are staged even when nothing else changed.
+function build_packages {
+  echo_header "barretenberg/ts generated packages build"
+  generate_packages
+  install_and_compile_packages
+  native_build_dirs | stage_arch_packages
 }
 
 function build_bb_js {
   (cd bb.js && ./bootstrap.sh)
-}
-
-function copy_wsdb_ref_native {
-  local target_dir="wsdb-ref/build/$(arch)-$(os)"
-  mkdir -p "$target_dir"
-  cp "$ROOT/barretenberg/cpp/build/lib/$WSDB_REF_ADDON" "$target_dir/$WSDB_REF_ADDON"
-  cp "$ROOT/barretenberg/cpp/build/bin/$WSDB_REF_BINARY" "$target_dir/$WSDB_REF_BINARY"
-}
-
-function copy_wsdb_ref_cross {
-  if [ -n "${1:-}" ]; then
-    local cross_arch="$1"
-    mkdir -p "wsdb-ref/build/$cross_arch"
-    cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
-    cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$WSDB_REF_BINARY" "wsdb-ref/build/$cross_arch/$WSDB_REF_BINARY"
-  elif semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
-    for cross_arch in arm64-linux amd64-macos arm64-macos; do
-      mkdir -p "wsdb-ref/build/$cross_arch"
-      cp "$ROOT/barretenberg/cpp/build-$cross_arch/lib/$WSDB_REF_ADDON" "wsdb-ref/build/$cross_arch/$WSDB_REF_ADDON"
-      cp "$ROOT/barretenberg/cpp/build-$cross_arch/bin/$WSDB_REF_BINARY" \
-        "wsdb-ref/build/$cross_arch/$WSDB_REF_BINARY"
-    done
-  else
-    echo "This task is expected to be run with an explicit arch or in an x86 release context."
-  fi
-}
-
-function prepare_wsdb_ref_arch_packages {
-  yarn workspace "$WSDB_REF_PACKAGE" run prepare_arch_packages "$@"
-}
-
-function build_wsdb_ref {
-  echo_header "wsdb-ref package build"
-  generate_packages
-  copy_wsdb_ref_native
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$WSDB_REF_PACKAGE" build
-  prepare_wsdb_ref_arch_packages
-}
-
-function build_bb_avm_sim {
-  echo_header "bb-avm-sim package build"
-  generate_packages
-  copy_bb_avm_sim_native
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_AVM_SIM_PACKAGE" build
-  prepare_bb_avm_sim_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$BB_AVM_SIM_BINARY"
 }
 
 # The bb and bb-avm binaries as npm packages: a meta package per binary (@aztec-foundation/bb,
@@ -271,18 +214,9 @@ function release_bb_bin {
   done
 }
 
-function build_cdb {
-  echo_header "cdb package build"
-  generate_packages
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$CDB_PACKAGE" build
-}
-
 function build {
-  build_bb_js_api
+  build_packages
   build_bb_js
-  build_bb_avm_sim
-  build_cdb
 }
 
 # `test_cmds bb_avm_sim` and `test_cmds wsdb_ref` list those packages' tests alone: they need their
@@ -312,31 +246,6 @@ function test {
   (cd bb.js && ./bootstrap.sh test)
 }
 
-# bb.js ships no native artifacts of its own; the bb binary it runs through comes from bb.js-api.
-function cross_copy_bb_js {
-  cross_copy_bb_js_api "$@"
-}
-
-function cross_copy_wsdb_ref {
-  generate_packages
-  copy_wsdb_ref_cross "$@"
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$WSDB_REF_PACKAGE" build
-  prepare_wsdb_ref_arch_packages
-}
-
-function cross_copy_bb_avm_sim {
-  generate_packages
-  copy_bb_avm_sim_cross "$@"
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_AVM_SIM_PACKAGE" build
-  prepare_bb_avm_sim_arch_packages
-}
-
-function cross_copy {
-  cross_copy_bb_js "$@"
-}
-
 function get_projects {
   echo "$PWD/bb.js"
   if [ -d bb.js-api ]; then
@@ -362,26 +271,25 @@ function get_projects {
   fi
 }
 
-function release_bb_avm_sim {
-  generate_packages
-  copy_bb_avm_sim_native
-  copy_bb_avm_sim_cross
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_AVM_SIM_PACKAGE" build
-  prepare_bb_avm_sim_arch_packages
+function deploy_bb_js_api {
+  for package_dir in bb.js-api/packages/*; do
+    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
+  done
+  (cd bb.js-api && retry "deploy_npm ${REF_NAME#v}")
+}
+
+function deploy_bb_avm_sim {
   for package_dir in bb-avm-sim/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
   (cd bb-avm-sim && retry "deploy_npm ${REF_NAME#v}")
 }
 
-function release_wsdb_ref {
-  generate_packages
-  copy_wsdb_ref_native
-  copy_wsdb_ref_cross
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$WSDB_REF_PACKAGE" build
-  prepare_wsdb_ref_arch_packages
+function deploy_cdb {
+  (cd cdb && retry "deploy_npm ${REF_NAME#v}")
+}
+
+function deploy_wsdb_ref {
   local package_dir
   for package_dir in wsdb-ref/packages/*; do
     # A platform whose addon was not built has only the generated manifest: nothing to publish.
@@ -391,48 +299,24 @@ function release_wsdb_ref {
   (cd wsdb-ref && retry "deploy_npm ${REF_NAME#v}")
 }
 
-function release_cdb {
-  generate_packages
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$CDB_PACKAGE" build
-  (cd cdb && retry "deploy_npm ${REF_NAME#v}")
-}
-
-function cross_copy_bb_js_api {
-  generate_packages
-  copy_bb_js_api_cross "$@"
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_JS_API_PACKAGE" build
-  prepare_bb_js_api_arch_packages
-}
-
-# bb.js depends on bb.js-api, so it is published first, with its arch packages.
-function release_bb_js_api {
-  generate_packages
-  copy_bb_js_api_native
-  copy_bb_js_api_cross
-  npm_install_deps "$IPC_RUNTIME_PKG"
-  yarn workspace "$BB_JS_API_PACKAGE" build
-  prepare_bb_js_api_arch_packages
-  for package_dir in bb.js-api/packages/*; do
-    (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
-  done
-  (cd bb.js-api && retry "deploy_npm ${REF_NAME#v}")
-}
-
+# Every platform's binaries staged into the generated packages, installed and compiled once, then published. bb.js
+# depends on bb.js-api, so bb.js-api is published first, with its arch packages.
 function release {
-  release_bb_js_api
+  generate_packages
+  install_and_compile_packages
+  { native_build_dirs; cross_build_dirs; } | stage_arch_packages
+  deploy_bb_js_api
   (cd bb.js && ./bootstrap.sh release)
-  release_bb_avm_sim
-  release_cdb
-  release_wsdb_ref
+  deploy_bb_avm_sim
+  deploy_cdb
+  deploy_wsdb_ref
   release_bb_bin
 }
 
-export -f generate_bb_avm_sim_package copy_bb_avm_sim_native copy_bb_avm_sim_cross generate_cdb_package generate_packages
-export -f generate_bb_js_api_package copy_bb_js_api_native copy_bb_js_api_cross prepare_bb_js_api_arch_packages build_bb_js_api_ts build_bb_js_api
-export -f build_bb_js build_bb_avm_sim build_cdb build cross_copy_bb_js cross_copy_bb_avm_sim cross_copy_bb_js_api release release_cdb release_bb_js_api
-export -f generate_wsdb_ref_package copy_wsdb_ref_native copy_wsdb_ref_cross prepare_wsdb_ref_arch_packages build_wsdb_ref cross_copy_wsdb_ref release_wsdb_ref
+export -f generate_bb_avm_sim_package generate_cdb_package generate_bb_js_api_package generate_wsdb_ref_package
+export -f generate_packages install_and_compile_packages native_build_dirs cross_build_dirs stage_arch_packages
+export -f build_packages_ts build_packages build_bb_js build
+export -f release deploy_bb_js_api deploy_bb_avm_sim deploy_cdb deploy_wsdb_ref
 
 case "$cmd" in
   "")

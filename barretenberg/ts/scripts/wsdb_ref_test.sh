@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the @aztec-foundation/wsdb-ref package tests against one backend: process-uds, process-shm, napi or wasm.
-# Needs the package built (make bb-wsdb-ref, or ./bootstrap.sh build_wsdb_ref here).
+# Needs the package built (make bb-ts-packages, or ./bootstrap.sh build_packages here).
 set -euo pipefail
 backend=${1:?usage: wsdb_ref_test.sh <process-uds|process-shm|napi|wasm>}
 cd "$(dirname "$0")/.."

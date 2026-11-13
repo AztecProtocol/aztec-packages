@@ -56,7 +56,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts lmdblib kvdb wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts lmdblib kvdb wsdb
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -71,7 +71,7 @@ fast-foundation: barretenberg bb-tests \
 		noir-protocol-circuits noir-protocol-circuits-tests \
 		noir-protocol-circuits-variants \
 		protocol-contracts protocol-contracts-tests \
-		fnd-release-tests \
+		fnd-release-tests fnd-genesis-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
@@ -104,7 +104,8 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release-foundation: fast-foundation bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy bb-wsdb-ref-cross-copy bb-bin-cross-copy ipc-runtime-cross
+# barretenberg/ts stages every platform's binaries into its packages in its own release step, so no cross copy here.
+release-foundation: fast-foundation bb-cpp-release-dir bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -143,7 +144,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-avm-sim bb-cdb bb-wsdb-ref bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts-packages bb-ts bb-bin bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -258,46 +259,16 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
 
-# The generated @aztec-foundation/bb.js-api package, with bb's wasm modules and this machine's bb.
-bb-js-api: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
-	$(call build,$@,barretenberg/ts,build_bb_js_api)
+# The generated barretenberg/ts packages: @aztec-foundation/bb.js-api, bb-avm-sim, cdb and wsdb-ref. They are
+# workspaces of one yarn workspace, so one target generates them, installs node_modules once and compiles them
+# together. Generation copies in bb's wasm modules (single- and multi-threaded), and the packages ship this machine's
+# bb, bb-avm-sim and wsdb-ref.
+bb-ts-packages: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
+	$(call build,$@,barretenberg/ts,build_packages)
 
-# BB TypeScript - TypeScript bindings
-bb-ts: bb-js-api
+# BB TypeScript - TypeScript bindings, over bb.js-api.
+bb-ts: bb-ts-packages
 	$(call build,$@,barretenberg/ts,build_bb_js)
-
-# Copies the cross-compiled bb binaries into bb.js-api, which bb.js runs through. Ordered after
-# bb-ts: both install into the same barretenberg/ts node_modules.
-bb-ts-cross-copy: bb-ts bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
-
-# Ordered after bb-ts for the same reason bb-cdb is ordered after this: they install into
-# the same barretenberg/ts node_modules. bb-ts additionally emits the bb.js test commands,
-# which the test engine runs concurrently with the rest of the build out of that same tree,
-# so an unordered npm_install_deps here swaps files under a running node (SIGBUS).
-bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-ts
-	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
-
-# Ordered after bb-cdb (and after bb-ts-cross-copy, which builds bb.js-api's cross copies)
-# for the same reason bb-cdb is ordered after bb-avm-sim: they all regenerate the same
-# barretenberg/ts workspaces and install into the same node_modules.
-bb-avm-sim-cross-copy: bb-avm-sim bb-cdb bb-ts-cross-copy bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
-
-# Generated @aztec-foundation/cdb server bindings. Ordered after bb-avm-sim rather than run
-# alongside it: both regenerate the same barretenberg/ts workspaces and install
-# into the same node_modules.
-bb-cdb: ipc-codegen ipc-runtime bb-avm-sim
-	$(call build,$@,barretenberg/ts,build_cdb)
-
-# @aztec-foundation/wsdb-ref: the in-memory reference world state, run in-process through its
-# wasm module or its Node-API addon. Ordered after bb-cdb because every barretenberg/ts target
-# regenerates the same workspaces and installs into the same node_modules.
-bb-wsdb-ref: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cdb
-	$(call build,$@,barretenberg/ts,build_wsdb_ref)
-
-bb-wsdb-ref-cross-copy: bb-wsdb-ref bb-avm-sim-cross-copy bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy_wsdb_ref)
 
 # bb and bb-avm as npm packages (meta + one package per platform).
 bb-bin: bb-cpp-native
@@ -351,12 +322,10 @@ bb-acir-tests: bb-acir
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
 
-# After bb-cdb, the last of the barretenberg/ts targets to install into node_modules, which the
-# tests run out of.
-bb-avm-sim-tests: bb-avm-sim bb-cdb
+bb-avm-sim-tests: bb-ts-packages
 	$(call test,$@,barretenberg/ts,bb_avm_sim)
 
-bb-wsdb-ref-tests: bb-wsdb-ref
+bb-wsdb-ref-tests: bb-ts-packages
 	$(call test,$@,barretenberg/ts,wsdb_ref)
 
 bb-sol-tests: bb-sol
@@ -482,7 +451,7 @@ ci3-tests:
 LABS_DIR := $(ROOT)/labs
 
 # What the labs manifests portal into (barretenberg/ts/*, native-packages/{wsdb,kvdb}/ts, ipc-runtime/ts,
-# l1-contracts/l1-artifacts, protocol/constants-codegen, noir/packages/*) plus the
+# l1-contracts/l1-artifacts, protocol/constants-codegen, protocol/genesis, noir/packages/*) plus the
 # binaries labs-aztec-toolchain symlinks (bb, bb-avm, nargo, noir-execute, noir-profiler).
 # The artifacts packages' installable content is a dist/ assembled from the built circuits.
 # The release flow stages it before publishing; the labs use-local portals point at the same
@@ -490,7 +459,7 @@ LABS_DIR := $(ROOT)/labs
 fnd-artifacts-stage: noir-projects-fnd
 	$(call build,$@,noir-projects/fnd,stage_packages)
 
-labs-deps: bb-ts l1-contracts wsdb kvdb bb-avm-sim bb-cdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+labs-deps: bb-ts l1-contracts wsdb kvdb constants-codegen noir-projects-fnd fnd-artifacts-stage
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.
@@ -610,6 +579,13 @@ fnd-release: noir-protocol-circuits mock-protocol-circuits protocol-contracts
 # surfaces on a PR rather than the first time it runs, on a release tag.
 fnd-release-tests: fnd-release
 	$(call test,$@,noir-projects/fnd,release)
+
+# Checks the committed genesis (protocol/genesis) against the protocol contracts it is derived from. The stem names
+# what the check measures with, so grind_test can rebuild it.
+fnd-genesis: protocol-contracts bb-ts-packages constants-codegen
+
+fnd-genesis-tests: fnd-genesis
+	$(call test,$@,noir-projects/fnd,genesis)
 
 # These tests are not included in the dep tree.
 # Rather this target must be explicitly called by bootstrap.sh after it's started the txe's.

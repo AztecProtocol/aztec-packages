@@ -28,7 +28,6 @@ import {
   CommitteeAttestation,
   CommitteeAttestations
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
@@ -252,7 +251,7 @@ contract Tmnt207Test is RollupBase {
   function getCheckpoint() internal returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
-    bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archiveRoot = TestConstants.GENESIS_ARCHIVE_ROOT;
 
     ProposedHeader memory header = full.checkpoint.header;
 

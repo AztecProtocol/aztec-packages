@@ -9,7 +9,6 @@ import {DecoderBase} from "../base/DecoderBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
   AttestationLib,
   Signature,
@@ -143,7 +142,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   function getCheckpoint() internal view returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
-    bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archiveRoot = TestConstants.GENESIS_ARCHIVE_ROOT;
 
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
     address[] memory signers = new address[](0);

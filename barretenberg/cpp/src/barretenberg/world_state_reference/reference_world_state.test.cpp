@@ -1,6 +1,7 @@
 #include "barretenberg/world_state_reference/reference_world_state.hpp"
 
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/world_state_reference/test_genesis.hpp"
 
 #include <gtest/gtest.h>
 
@@ -15,6 +16,15 @@ namespace {
 constexpr uint64_t CANONICAL = 0;
 const WorldStateRevision LATEST_UNCOMMITTED{ .includeUncommitted = true };
 const WorldStateRevision LATEST_COMMITTED{ .includeUncommitted = false };
+
+GenesisConfig test_genesis()
+{
+    GenesisConfig genesis;
+    for (const auto& nullifier : test_genesis_nullifiers()) {
+        genesis.prefilled_nullifiers.emplace_back(nullifier);
+    }
+    return genesis;
+}
 
 WorldStateRevision at_block(block_number_t block)
 {
@@ -57,18 +67,18 @@ void sync_block(ReferenceWorldState& ws, FF note_hash, FF nullifier)
 
 } // namespace
 
-TEST(ReferenceWorldState, CanonicalGenesisMatchesProtocolConstants)
+TEST(ReferenceWorldState, TestGenesisMatchesRecordedRoots)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
 
     auto nullifiers = ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::NULLIFIER_TREE);
-    EXPECT_EQ(nullifiers.root, FF(GENESIS_NULLIFIER_TREE_ROOT));
+    EXPECT_EQ(nullifiers.root, test_genesis_nullifier_tree_root());
     EXPECT_EQ(nullifiers.size, ReferenceWorldState::INDEXED_TREE_INITIAL_SIZE);
 
     auto archive = ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::ARCHIVE);
-    EXPECT_EQ(archive.root, FF(GENESIS_ARCHIVE_ROOT));
+    EXPECT_EQ(archive.root, test_genesis_archive_root());
     EXPECT_EQ(archive.size, 1);
-    EXPECT_EQ(ws.get_leaf_value(LATEST_COMMITTED, MerkleTreeId::ARCHIVE, 0), FF(GENESIS_BLOCK_HEADER_HASH));
+    EXPECT_EQ(ws.get_leaf_value(LATEST_COMMITTED, MerkleTreeId::ARCHIVE, 0), test_genesis_block_header_hash());
     EXPECT_EQ(ws.latest_block_number(), 0);
 }
 
@@ -94,7 +104,7 @@ TEST(ReferenceWorldState, EmptyGenesisMatchesEmptyWorldStateRoots)
             break;
         case MerkleTreeId::NULLIFIER_TREE:
             EXPECT_EQ(tree.size, 128);
-            EXPECT_NE(tree.root, FF(GENESIS_NULLIFIER_TREE_ROOT));
+            EXPECT_NE(tree.root, test_genesis_nullifier_tree_root());
             break;
         default:
             ADD_FAILURE() << "unexpected tree in state reference";
@@ -135,7 +145,7 @@ TEST(ReferenceWorldState, GenesisPrefillValidation)
 
 TEST(ReferenceWorldState, CommittedReadsSeeTheLastBlockUncommittedSeeCurrent)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     const std::vector<FF> note_hashes{ FF(11), FF(22), FF(33) };
     ws.append_leaves(CANONICAL, MerkleTreeId::NOTE_HASH_TREE, note_hashes);
 
@@ -164,7 +174,7 @@ TEST(ReferenceWorldState, CommittedReadsSeeTheLastBlockUncommittedSeeCurrent)
 
 TEST(ReferenceWorldState, ForksAreIsolatedAndCommittedReadsSeeTheirBlock)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     sync_block(ws, FF(1), FF(0x1001));
     sync_block(ws, FF(2), FF(0x1002));
     ASSERT_EQ(ws.latest_block_number(), 2);
@@ -195,7 +205,7 @@ TEST(ReferenceWorldState, ForksAreIsolatedAndCommittedReadsSeeTheirBlock)
 
 TEST(ReferenceWorldState, SyncBlockChecksTheStateAndCommitsNothingOnFailure)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     std::vector<FF> notes{ FF(5) };
     auto initial = ws.get_state_reference(LATEST_COMMITTED);
     // The block claims the state before its own effects, so the result does not match it.
@@ -214,7 +224,7 @@ TEST(ReferenceWorldState, SyncBlockChecksTheStateAndCommitsNothingOnFailure)
 
 TEST(ReferenceWorldState, UnwindDropsBlocksAndTheirForks)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     sync_block(ws, FF(1), FF(0x1001));
     sync_block(ws, FF(2), FF(0x1002));
     sync_block(ws, FF(3), FF(0x1003));
@@ -241,7 +251,7 @@ TEST(ReferenceWorldState, UnwindDropsBlocksAndTheirForks)
 
 TEST(ReferenceWorldState, RemovingHistoryStopsReadsOfOldBlocks)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     EXPECT_EQ(ws.status().oldest_historical_block, 0);
     for (int i = 1; i <= 4; ++i) {
         sync_block(ws, FF(i), FF(0x1000 + i));
@@ -258,7 +268,7 @@ TEST(ReferenceWorldState, RemovingHistoryStopsReadsOfOldBlocks)
 
 TEST(ReferenceWorldState, SequentialNullifierWitnessesAreConsistent)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     const FF nullifier(0x1234);
     auto low = ws.find_low_leaf(LATEST_UNCOMMITTED, MerkleTreeId::NULLIFIER_TREE, nullifier);
     EXPECT_FALSE(low.is_already_present);
@@ -287,14 +297,14 @@ TEST(ReferenceWorldState, SequentialNullifierWitnessesAreConsistent)
     FF root = ws.get_tree_info(LATEST_UNCOMMITTED, MerkleTreeId::NULLIFIER_TREE).root;
     EXPECT_THROW(ws.sequential_insert_nullifiers(CANONICAL, leaves), std::runtime_error);
     EXPECT_EQ(ws.get_tree_info(LATEST_UNCOMMITTED, MerkleTreeId::NULLIFIER_TREE).root, root);
-    EXPECT_EQ(ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::NULLIFIER_TREE).root, FF(GENESIS_NULLIFIER_TREE_ROOT));
+    EXPECT_EQ(ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::NULLIFIER_TREE).root, test_genesis_nullifier_tree_root());
 }
 
 TEST(ReferenceWorldState, BatchInsertionTakesOneSlotPerValue)
 {
     // A batch takes one slot per value at the value's own position, a zero value's left empty, and links
     // the values in key order, updating low leaves in descending key order.
-    ReferenceWorldState batch;
+    ReferenceWorldState batch(test_genesis());
     std::vector<NullifierLeafValue> leaves{ NullifierLeafValue(FF(0x3000)),
                                             NullifierLeafValue(FF(0)),
                                             NullifierLeafValue(FF(0x1000)),
@@ -335,7 +345,7 @@ TEST(ReferenceWorldState, BatchInsertionTakesOneSlotPerValue)
 
 TEST(ReferenceWorldState, PublicDataUpdatesInPlace)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     ws.sequential_insert_public_data(CANONICAL, std::vector{ PublicDataLeafValue(FF(5000), FF(1)) });
     auto size_after_insert = size_of(ws, LATEST_UNCOMMITTED, MerkleTreeId::PUBLIC_DATA_TREE);
     auto update = ws.sequential_insert_public_data(CANONICAL, std::vector{ PublicDataLeafValue(FF(5000), FF(2)) });
@@ -349,7 +359,7 @@ TEST(ReferenceWorldState, PublicDataUpdatesInPlace)
 
 TEST(ReferenceWorldState, CheckpointsRevertAndCommit)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     ws.create_checkpoint(CANONICAL);
     ws.append_leaves(CANONICAL, MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ FF(1) });
     ws.create_checkpoint(CANONICAL);
@@ -373,7 +383,7 @@ TEST(ReferenceWorldState, CheckpointsRevertAndCommit)
 
 TEST(ReferenceWorldState, UpdateArchiveRequiresTheCurrentState)
 {
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     ws.append_leaves(CANONICAL, MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ FF(7) });
     auto current = ws.get_state_reference(LATEST_UNCOMMITTED);
     EXPECT_THROW(ws.update_archive(CANONICAL, ws.get_initial_state_reference(), FF(99)), std::runtime_error);

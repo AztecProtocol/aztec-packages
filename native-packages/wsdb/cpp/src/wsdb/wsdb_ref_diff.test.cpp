@@ -16,7 +16,7 @@
 #include "common/aztec_constants.hpp"
 #include "field/field_element.hpp"
 #include "ipc_runtime/ipc_client.hpp"
-#include "world_state/genesis_protocol_nullifiers.hpp"
+#include "world_state/test_genesis.hpp"
 #include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
 
@@ -112,7 +112,7 @@ std::vector<std::string> aztec_wsdb_command(const std::string& binary,
     std::filesystem::create_directories(dir / "data");
     std::ostringstream nullifiers;
     nullifiers << "[";
-    auto seeds = world_state::genesis_protocol_nullifiers();
+    auto seeds = world_state::test_genesis_nullifiers();
     for (size_t i = 0; i < seeds.size(); ++i) {
         std::ostringstream hex;
         hex << seeds[i];
@@ -429,7 +429,7 @@ class DiffRun {
                                 .prefilledNullifiers = {},
                                 .genesisTimestamp = 0,
                                 .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
-        for (const auto& seed : world_state::genesis_protocol_nullifiers()) {
+        for (const auto& seed : world_state::test_genesis_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
         auto request = encode_request("WsdbInit", genesis);

@@ -1,0 +1,216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 11:22:08 +0000
+Subject: [PATCH] refactor(stdlib): keep the TS contract class derivation in
+ its own folder, checked against barretenberg
+
+The artifact hash and the contract class derivation from an artifact move to
+stdlib/src/contract/derivation. They stay in TS so a TS consumer can derive a class
+without barretenberg's AztecContractClass. bb_parity.test.ts derives the class of
+each fixture artifact both ways and requires the id, artifact hash, private
+functions, private functions root and public bytecode commitment to match.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/stdlib/src/contract/contract_class_id.test.ts b/yarn-project/stdlib/src/contract/contract_class_id.test.ts
+index 23c57bec059a72d6f7c005265e97874003e4a107..836fe73da2dae2f6c14c4e402a37b4459c3b726b 100644
+--- a/yarn-project/stdlib/src/contract/contract_class_id.test.ts
++++ b/yarn-project/stdlib/src/contract/contract_class_id.test.ts
+@@ -5,8 +5,8 @@ import { Buffer } from 'buffer';
+ 
+ import { FunctionSelector } from '../abi/function_selector.js';
+ import { getBenchmarkContractArtifact, getTestContractArtifact, getTokenContractArtifact } from '../tests/fixtures.js';
+-import { getContractClassFromArtifact } from './contract_class.js';
+ import { computeContractClassId } from './contract_class_id.js';
++import { getContractClassFromArtifact } from './derivation/contract_class.js';
+ import type { ContractClass } from './interfaces/contract_class.js';
+ 
+ describe('ContractClass', () => {
+diff --git a/yarn-project/stdlib/src/contract/contract_instance.ts b/yarn-project/stdlib/src/contract/contract_instance.ts
+index 2de932a4cdb09d448a116ca1ddd17b726de4201d..53b41b793d352e52adc8d2a65d3c01c8c3041a97 100644
+--- a/yarn-project/stdlib/src/contract/contract_instance.ts
++++ b/yarn-project/stdlib/src/contract/contract_instance.ts
+@@ -11,13 +11,13 @@ import {
+   getDefaultInitializer,
+ } from '../abi/index.js';
+ import { AztecAddress } from '../aztec-address/index.js';
+-import { getContractClassFromArtifact } from '../contract/contract_class.js';
+ import { PublicKeys } from '../keys/public_keys.js';
+ import {
+   computeContractAddressFromInstance,
+   computeInitializationHash,
+   computeInitializationHashFromEncodedArgs,
+ } from './contract_address.js';
++import { getContractClassFromArtifact } from './derivation/contract_class.js';
+ import type {
+   ContractInstance,
+   ContractInstancePreimage,
+diff --git a/yarn-project/stdlib/src/contract/artifact_hash.test.ts b/yarn-project/stdlib/src/contract/derivation/artifact_hash.test.ts
+similarity index 89%
+rename from yarn-project/stdlib/src/contract/artifact_hash.test.ts
+rename to yarn-project/stdlib/src/contract/derivation/artifact_hash.test.ts
+index 9b29f6cd71a4be3af0826b63be469f0f18c50e13..42965f2ba72a9f8d5935e706594c26b2ec461ac8 100644
+--- a/yarn-project/stdlib/src/contract/artifact_hash.test.ts
++++ b/yarn-project/stdlib/src/contract/derivation/artifact_hash.test.ts
+@@ -1,6 +1,6 @@
+-import type { AbiType, ContractArtifact } from '../abi/index.js';
+-import { getTestContractArtifact } from '../tests/fixtures.js';
+-import { DEV_VERSION } from '../update-checker/dev_version.js';
++import type { AbiType, ContractArtifact } from '../../abi/index.js';
++import { getTestContractArtifact } from '../../tests/fixtures.js';
++import { DEV_VERSION } from '../../update-checker/dev_version.js';
+ import { computeArtifactHash, computeFunctionMetadataHash } from './artifact_hash.js';
+ 
+ describe('ArtifactHash', () => {
+diff --git a/yarn-project/stdlib/src/contract/artifact_hash.ts b/yarn-project/stdlib/src/contract/derivation/artifact_hash.ts
+similarity index 99%
+rename from yarn-project/stdlib/src/contract/artifact_hash.ts
+rename to yarn-project/stdlib/src/contract/derivation/artifact_hash.ts
+index 708e64bea568af57028ea001a7c3df6652114b5e..d06785243b0302c1b481604e3aa19acc115d5aa2 100644
+--- a/yarn-project/stdlib/src/contract/artifact_hash.ts
++++ b/yarn-project/stdlib/src/contract/derivation/artifact_hash.ts
+@@ -12,7 +12,7 @@ import {
+   FunctionSelector,
+   FunctionType,
+   getFunctionReturnType,
+-} from '../abi/index.js';
++} from '../../abi/index.js';
+ 
+ const VERSION = 1;
+ 
+diff --git a/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..13de6cae6994d2cd98eec15fade4aed68c6b64e5
+--- /dev/null
++++ b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
+@@ -0,0 +1,44 @@
++import { BarretenbergSync } from '@aztec-foundation/bb.js';
++
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { readFileSync } from 'fs';
++
++import { FunctionSelector, loadContractArtifact } from '../../abi/index.js';
++import type { NoirCompiledContract } from '../../noir/index.js';
++import { getPathToFixture } from '../../tests/fixtures.js';
++import { getContractClassFromArtifact } from './contract_class.js';
++
++// Barretenberg's AztecContractClass derives a contract class from the artifact nargo writes. This TS derivation must
++// agree with it, so a TS consumer can derive classes without barretenberg and get the class ids the rest of the stack
++// computes.
++describe('contract class derivation matches barretenberg', () => {
++  beforeAll(async () => {
++    await BarretenbergSync.initSingleton();
++  });
++
++  it.each(['Benchmarking.test.json', 'Test.test.json', 'Token.test.json'])('%s', async fixture => {
++    const raw = readFileSync(getPathToFixture(fixture));
++    const fromBb = BarretenbergSync.getSingleton().aztecContractClass({ artifact: raw });
++    const fromTs = await getContractClassFromArtifact(
++      loadContractArtifact(JSON.parse(raw.toString()) as NoirCompiledContract),
++    );
++
++    const toFr = (bytes: Uint8Array) => Fr.fromBuffer(Buffer.from(bytes));
++    expect({
++      id: fromTs.id,
++      artifactHash: fromTs.artifactHash,
++      privateFunctionsRoot: fromTs.privateFunctionsRoot,
++      publicBytecodeCommitment: fromTs.publicBytecodeCommitment,
++      privateFunctions: fromTs.privateFunctions,
++    }).toEqual({
++      id: toFr(fromBb.id),
++      artifactHash: toFr(fromBb.artifactHash),
++      privateFunctionsRoot: toFr(fromBb.privateFunctionsRoot),
++      publicBytecodeCommitment: toFr(fromBb.publicBytecodeCommitment),
++      privateFunctions: fromBb.privateFunctions.map(fn => ({
++        selector: FunctionSelector.fromField(new Fr(fn.selector)),
++        vkHash: toFr(fn.vkHash),
++      })),
++    });
++  });
++});
+diff --git a/yarn-project/stdlib/src/contract/contract_class.test.ts b/yarn-project/stdlib/src/contract/derivation/contract_class.test.ts
+similarity index 89%
+rename from yarn-project/stdlib/src/contract/contract_class.test.ts
+rename to yarn-project/stdlib/src/contract/derivation/contract_class.test.ts
+index fb990a63ed6fcafc7e2e67a1def461c4f6be4da7..8851c4d866281d1e60d5da64b11cd124c9476ff9 100644
+--- a/yarn-project/stdlib/src/contract/contract_class.test.ts
++++ b/yarn-project/stdlib/src/contract/derivation/contract_class.test.ts
+@@ -1,5 +1,5 @@
+-import { FunctionSelector, FunctionType } from '../abi/index.js';
+-import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
++import { FunctionSelector, FunctionType } from '../../abi/index.js';
++import { getBenchmarkContractArtifact } from '../../tests/fixtures.js';
+ import { getContractClassFromArtifact } from './contract_class.js';
+ 
+ describe('ContractClass', () => {
+diff --git a/yarn-project/stdlib/src/contract/contract_class.ts b/yarn-project/stdlib/src/contract/derivation/contract_class.ts
+similarity index 92%
+rename from yarn-project/stdlib/src/contract/contract_class.ts
+rename to yarn-project/stdlib/src/contract/derivation/contract_class.ts
+index 829739b14c1d056770789c55b021b52987fe5cad..9b892bb9572cac6ed90075be13be927f04c0a7ca 100644
+--- a/yarn-project/stdlib/src/contract/contract_class.ts
++++ b/yarn-project/stdlib/src/contract/derivation/contract_class.ts
+@@ -4,11 +4,11 @@ import { vkAsFields } from '@aztec-labs/foundation/crypto/keys';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { Buffer } from 'buffer';
+ 
+-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
+-import { hashVK } from '../hash/hash.js';
++import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../../abi/index.js';
++import { hashVK } from '../../hash/hash.js';
++import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from '../contract_class_id.js';
++import type { ContractClass, ContractClassWithId } from '../interfaces/index.js';
+ import { computeArtifactHash } from './artifact_hash.js';
+-import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
+-import type { ContractClass, ContractClassWithId } from './interfaces/index.js';
+ 
+ /** Contract artifact including its artifact hash */
+ export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
+diff --git a/yarn-project/stdlib/src/contract/derivation/index.ts b/yarn-project/stdlib/src/contract/derivation/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b4336197c8681506450979856c2d6af261bfbce
+--- /dev/null
++++ b/yarn-project/stdlib/src/contract/derivation/index.ts
+@@ -0,0 +1,2 @@
++export * from './artifact_hash.js';
++export * from './contract_class.js';
+diff --git a/yarn-project/stdlib/src/contract/index.ts b/yarn-project/stdlib/src/contract/index.ts
+index 18320ec544b789ec1115fa01d15157775c0b9e38..f5b58db7907423ba881d59bbcb53fad18767a99e 100644
+--- a/yarn-project/stdlib/src/contract/index.ts
++++ b/yarn-project/stdlib/src/contract/index.ts
+@@ -1,6 +1,5 @@
+-export * from './artifact_hash.js';
+ export * from './contract_address.js';
+-export * from './contract_class.js';
++export * from './derivation/index.js';
+ export * from './contract_class_id.js';
+ export * from './contract_deployment_data.js';
+ export * from './contract_instance.js';
+diff --git a/yarn-project/stdlib/src/interfaces/archiver.test.ts b/yarn-project/stdlib/src/interfaces/archiver.test.ts
+index 483206cb1fb2f3f9646ea130fc1ff5e1ccf3ddce..06d909959c48558eed7efb512146a2bdc97db661 100644
+--- a/yarn-project/stdlib/src/interfaces/archiver.test.ts
++++ b/yarn-project/stdlib/src/interfaces/archiver.test.ts
+@@ -37,7 +37,7 @@ import type { ValidateCheckpointResult } from '../block/validate_block_result.js
+ import { Checkpoint } from '../checkpoint/checkpoint.js';
+ import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+ import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+-import { getContractClassFromArtifact } from '../contract/contract_class.js';
++import { getContractClassFromArtifact } from '../contract/derivation/contract_class.js';
+ import {
+   type ContractClassPublic,
+   type ContractInstanceWithAddress,
+diff --git a/yarn-project/stdlib/src/tests/mocks.ts b/yarn-project/stdlib/src/tests/mocks.ts
+index b8eeace7a6c8e8d46c2b5d04a0326d2cde25c606..34278bc33d447a7f1e784f2ab4d30a2599a6ead3 100644
+--- a/yarn-project/stdlib/src/tests/mocks.ts
++++ b/yarn-project/stdlib/src/tests/mocks.ts
+@@ -32,8 +32,8 @@ import { L2Block } from '../block/index.js';
+ import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
+ import { Checkpoint } from '../checkpoint/checkpoint.js';
+ import { computeContractAddressFromInstance } from '../contract/contract_address.js';
+-import { getContractClassFromArtifact } from '../contract/contract_class.js';
+ import { SerializableContractInstance } from '../contract/contract_instance.js';
++import { getContractClassFromArtifact } from '../contract/derivation/contract_class.js';
+ import type { ContractInstanceWithAddress } from '../contract/index.js';
+ import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
+ import { Gas } from '../gas/gas.js';

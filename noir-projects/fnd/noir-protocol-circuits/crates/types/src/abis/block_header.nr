@@ -3,10 +3,7 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
         state_reference::StateReference,
     },
-    constants::{
-        BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HEADER_HASH, GENESIS_BLOCK_HEADER_HASH,
-        GENESIS_NULLIFIER_TREE_ROOT,
-    },
+    constants::{BLOCK_HEADER_LENGTH, DOM_SEP__BLOCK_HEADER_HASH},
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
 };
@@ -87,6 +84,8 @@ fn serialization_of_empty() {
     assert(header.eq(deserialized));
 }
 
+// A fixed vector taken from one canonical genesis, checking that Noir hashes a populated header as the world state
+// does. It does not track the current genesis, which lives in protocol/genesis/genesis.json.
 #[test]
 fn hash_of_genesis_block_header() {
     let mut header = BlockHeader::empty();
@@ -95,14 +94,15 @@ fn hash_of_genesis_block_header() {
         0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a;
     header.state.partial.note_hash_tree.root =
         0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6;
-    header.state.partial.nullifier_tree.root = GENESIS_NULLIFIER_TREE_ROOT;
+    header.state.partial.nullifier_tree.root =
+        0x238a0a0523fa750b77e243f8d6f485f03e90f1319fe76f5876f4af3d88b3fa89;
     header.state.partial.nullifier_tree.next_available_leaf_index = 128;
     header.state.partial.public_data_tree.root =
         0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084;
     header.state.partial.public_data_tree.next_available_leaf_index = 128;
 
     let hash = header.hash();
-    assert_eq(hash, GENESIS_BLOCK_HEADER_HASH);
+    assert_eq(hash, 0x0a72ed6f85f785d34e0a09a57c971b1623bb579531f3b85325e1d60f8209b3b8);
 }
 
 #[test]

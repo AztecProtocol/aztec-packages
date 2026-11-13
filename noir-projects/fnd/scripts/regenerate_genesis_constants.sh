@@ -1,235 +1,126 @@
 #!/usr/bin/env bash
-# Regenerate the canonical genesis constants, in one shot. This script is the single source of truth.
+# Regenerate the canonical genesis, in one shot. This script is the single source of truth.
 #
 # A production network's genesis world state seeds the protocol contracts' registration nullifiers. Those nullifiers
 # are derived from the protocol contract artifacts, so anything that rotates a protocol class id — a contract source
-# change, a compiler bump, a transpiler change — moves them, and with them the genesis roots. Several tracked files
-# record those values and must move together, or the tree is inconsistent and CI breaks late:
+# change, a compiler bump, a transpiler change — moves them, and with them the genesis roots. The package
+# protocol/genesis records them, in two generated files that must move together:
 #
-#   1. noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
-#        GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH, GENESIS_ARCHIVE_ROOT.
-#        Source of truth: aztec_constants.hpp, ConstantsGen.sol and labs' constants.gen.ts all derive from it.
-#   2. barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
-#      native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
-#        The seed vector the C++ world-state test builds its genesis from.
-#   3. l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json   (--fixtures)
-#        Checkpoint 1 of each family starts from the genesis archive; checkpoint 2 chains off checkpoint 1.
-#        Their producer picks a wall-clock timestamp and random coinbase/feeRecipient per run, so every
-#        regeneration rewrites all six whether or not the genesis moved. Only `lastArchiveRoot` is stable, which
-#        is what --check keys on. Do not run --fixtures unless the genesis actually moved.
+#   protocol/genesis/{genesis.json,index.js}
+#        The @aztec-foundation/protocol-genesis package: the world state inputs (the nullifiers among them) and the
+#        nullifier tree root, genesis block header hash and archive root they produce. Every consumer reads the
+#        genesis from here.
+#
+# Nothing else in the tree depends on the canonical genesis. barretenberg's and wsdb's world state tests use a fixed
+# synthetic genesis (test_genesis.hpp), and the L1 tests deploy the rollup with the archive root their checkpoint
+# fixtures build on (l1-contracts/scripts/regenerate_checkpoint_fixtures.sh regenerates those when the checkpoint
+# format changes), so neither moves when the genesis does.
 #
 # Deliberately NOT touched: the deployed-network pins in labs' mainnet_compatibility.test.ts and
 # testnet_compatibility.test.ts. Those record what a live network was deployed with. They change only at a governance
 # upgrade, never as a side effect of regeneration; if they start failing, that is a release decision for a human.
 #
 # Usage:
-#   noir-projects/fnd/scripts/regenerate_genesis_constants.sh [--check] [--fixtures]
+#   noir-projects/fnd/scripts/regenerate_genesis_constants.sh [--check]
 #
-#   --check      measure and compare only; write nothing. Exits non-zero if anything is stale.
-#   --fixtures   also regenerate the six L1 checkpoint fixtures. Needs anvil on PATH, and takes a few minutes.
+#   --check      measure and compare only; write nothing. Exits non-zero if anything is stale. CI runs this.
 #
 # The script edits and `git add`s files; it does not commit, branch, or push. Unlike the Noir bump script it does not
 # degrade to best-effort: a missing dependency, a failed measurement or a replacement that did not match is a hard
-# failure, because a half-applied regeneration produces a tree whose constants disagree with each other.
+# failure, because a half-applied regeneration produces a tree whose genesis values disagree with each other.
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
 check_only=0
-with_fixtures=0
 for arg in "$@"; do
   case "$arg" in
     --check) check_only=1 ;;
-    --fixtures) with_fixtures=1 ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
 
-constants_nr=noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
-seeds_hpp=native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp
-bb_seeds_hpp=barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp
-cpp_constants=barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp
-sol_constants=l1-contracts/src/core/libraries/ConstantsGen.sol
-ts_constants=labs/yarn-project/constants/src/constants.gen.ts
-cli_entry=labs/yarn-project/aztec/dest/bin/index.js
+genesis_pkg=protocol/genesis
 helper=noir-projects/fnd/scripts/genesis_constants.mjs
+artifacts=(noir-projects/fnd/noir-contracts/target/{contract_instance_registry_contract-ContractInstanceRegistry,contract_class_registry_contract-ContractClassRegistry,fee_juice_contract-FeeJuice}.json)
 
 function die { echo "regenerate-genesis-constants: $*" >&2; exit 1; }
 function phase { echo; echo "==> $*"; }
 
 phase "Preflight"
-[ -f "$constants_nr" ] || die "missing $constants_nr"
+[ -d "$genesis_pkg" ] || die "missing $genesis_pkg"
 [ -f "$helper" ] || die "missing $helper"
-[ -f "$cli_entry" ] || die "$cli_entry is not built. Run 'make labs-yarn-project' first."
-if [ "$with_fixtures" = 1 ] && ! command -v anvil >/dev/null; then
-  die "--fixtures needs anvil on PATH"
-fi
-# The measurement reflects the protocol contract artifacts the built client bundles, so a stale build yields stale
-# numbers. Warn rather than abort: mtimes are only a proxy, and the fnd precommit hook rewrites every protocol
-# contract .nr through `nargo fmt` on any commit that stages one, which moves their mtimes without changing content.
-newest_source=$(find noir-projects/fnd/noir-contracts/contracts/protocol -name '*.nr' -newer "$cli_entry" -print -quit)
+for artifact in "${artifacts[@]}"; do
+  [ -f "$artifact" ] || die "$artifact is not built. Run 'make noir-projects-fnd' first."
+done
+for package in bb.js-api wsdb-ref; do
+  [ -f "barretenberg/ts/$package/dest/index.js" ] ||
+    die "barretenberg/ts/$package is not built. Run 'make bb-ts bb-wsdb-ref' first."
+done
+# The measurement reflects the built protocol contract artifacts, so a stale build yields stale numbers. Warn rather
+# than abort: mtimes are only a proxy, and the fnd precommit hook rewrites every protocol contract .nr through
+# `nargo fmt` on any commit that stages one, which moves their mtimes without changing content.
+newest_source=$(find noir-projects/fnd/noir-contracts/contracts/protocol -name '*.nr' -newer "${artifacts[0]}" -print -quit)
 if [ -n "$newest_source" ]; then
   echo "  warning: protocol contract sources are newer than the build ($newest_source)."
-  echo "           If you changed them, run 'make labs-yarn-project' first or the measurement below is stale."
+  echo "           If you changed them, run 'make noir-projects-fnd' first or the measurement below is stale."
 fi
 
 phase "Measure the canonical genesis"
-measurement_file=$(mktemp)
-trap 'rm -f "$measurement_file"' EXIT
-node "$cli_entry" compute-genesis-values | sed -n '/^{/,$p' >"$measurement_file" ||
-  die "compute-genesis-values failed"
-[ -s "$measurement_file" ] || die "compute-genesis-values produced no JSON"
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+measurement_file=$staging/measurement.json
+# The tree parameters come straight from constants.nr, through the same codegen every consumer uses, so the
+# measurement never reads a stale or missing generated header.
+echo '["NULLIFIER_TREE_HEIGHT", "NOTE_HASH_TREE_HEIGHT", "PUBLIC_DATA_TREE_HEIGHT", "L1_TO_L2_MSG_TREE_HEIGHT",
+  "ARCHIVE_HEIGHT", "MAX_NULLIFIERS_PER_TX", "MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX",
+  "DOM_SEP__BLOCK_HEADER_HASH"]' >"$staging/selection.json"
+protocol/constants-codegen/scripts/generate.sh --cpp "$staging/constants.hpp" --selection "$staging/selection.json" ||
+  die "generating the tree parameters from constants.nr failed"
+node "$helper" measure "$repo_root" "$staging/constants.hpp" "${artifacts[@]}" >"$measurement_file" ||
+  die "measuring the genesis failed"
+[ -s "$measurement_file" ] || die "measuring the genesis produced no JSON"
 
 phase "Validate"
 # Assigned separately so a helper failure aborts here; `eval "$(...)"` would swallow its exit status.
 measured=$(node "$helper" parse "$measurement_file") || die "measurement failed validation"
 eval "$measured"
 
-echo "  GENESIS_NULLIFIER_TREE_ROOT = $NULLIFIER_ROOT"
-echo "  GENESIS_BLOCK_HEADER_HASH   = $HEADER_HASH"
-echo "  GENESIS_ARCHIVE_ROOT        = $ARCHIVE_ROOT"
-echo "  seeds                       = $(echo "$SEEDS" | wc -w)"
+echo "  nullifier tree root = $NULLIFIER_ROOT"
+echo "  block header hash   = $HEADER_HASH"
+echo "  archive root        = $ARCHIVE_ROOT"
+echo "  nullifiers          = $(echo "$SEEDS" | wc -w)"
 
-# The same seed vector for two C++ trees: wsdb's (its own field type) and barretenberg's reference world
-# state, whose tests rebuild the canonical genesis from it.
-function write_seeds_header {
-  local file=$1 field_include=$2 namespace=$3 field=$4
-  {
-    cat <<EOF
-// GENERATED FILE - DO NOT EDIT.
-// Regenerate with noir-projects/fnd/scripts/regenerate_genesis_constants.sh.
-#pragma once
-
-#include "$field_include"
-
-#include <vector>
-
-namespace $namespace {
-
-/**
- * @brief The protocol contracts' registration nullifiers, seeded into the nullifier tree of a production genesis.
- *
- * Derived from the protocol contract artifacts: per protocol contract, the class registration nullifier siloed by
- * ContractClassRegistry and the instance publication nullifier siloed by ContractInstanceRegistry. Sorted ascending
- * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine the
- * three roots below, and GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT in
- * constants.nr, so all of them are rewritten together and never on their own.
- */
-inline std::vector<$field> genesis_protocol_nullifiers()
-{
-    return {
-EOF
-    for seed in $SEEDS; do echo "        $field(\"$seed\"),"; done
-    cat <<EOF
-    };
-}
-
-/**
- * @brief The genesis roots the seed vector above produces.
- *
- * Measured from the protocol contract artifacts together with the seeds, so that this package can check its tree
- * implementation against them without reaching for the protocol constants: the GENESIS_* macros in
- * common/aztec_constants.hpp come from the release named in foundation.pin, which lags this tree whenever the genesis
- * moves. constants.nr remains the protocol's source of truth, and is held to this same measurement by the script that
- * writes this file.
- */
-inline $field genesis_nullifier_tree_root()
-{
-    return $field("$NULLIFIER_ROOT");
-}
-
-inline $field genesis_block_header_hash()
-{
-    return $field("$HEADER_HASH");
-}
-
-inline $field genesis_archive_root()
-{
-    return $field("$ARCHIVE_ROOT");
-}
-
-} // namespace $namespace
-EOF
-  } >"$file"
-}
+# Every generated file is written to the staging directory first, so --check compares exactly what a regeneration
+# would write.
+node "$helper" write-package "$measurement_file" "$staging"
+generated=(
+  "$staging/genesis.json:$genesis_pkg/genesis.json"
+  "$staging/index.js:$genesis_pkg/index.js"
+)
 
 if [ "$check_only" = 1 ]; then
   phase "Check"
   stale=0
-  for pair in "GENESIS_NULLIFIER_TREE_ROOT $NULLIFIER_ROOT" "GENESIS_BLOCK_HEADER_HASH $HEADER_HASH" \
-              "GENESIS_ARCHIVE_ROOT $ARCHIVE_ROOT"; do
-    set -- $pair
-    grep -q "$2" "$constants_nr" || { echo "  stale: $1 in $constants_nr"; stale=1; }
+  for pair in "${generated[@]}"; do
+    cmp -s "${pair%%:*}" "${pair#*:}" || { echo "  stale: ${pair#*:}"; stale=1; }
   done
-  for seed in $SEEDS; do
-    for header in "$seeds_hpp" "$bb_seeds_hpp"; do
-      grep -q "$seed" "$header" || { echo "  stale: $seed missing from $header"; stale=1; }
-    done
-  done
-  for root in "$NULLIFIER_ROOT" "$HEADER_HASH" "$ARCHIVE_ROOT"; do
-    for header in "$seeds_hpp" "$bb_seeds_hpp"; do
-      grep -q "$root" "$header" || { echo "  stale: $root missing from $header"; stale=1; }
-    done
-  done
-  grep -q "$ARCHIVE_ROOT" l1-contracts/test/fixtures/empty_checkpoint_1.json ||
-    { echo "  stale: l1-contracts/test/fixtures/*_checkpoint_*.json (rerun with --fixtures)"; stale=1; }
-  [ "$stale" = 0 ] || die "genesis constants are stale; rerun without --check"
-  echo "  genesis constants are up to date"
+  [ "$stale" = 0 ] || die "the genesis is stale; run noir-projects/fnd/scripts/regenerate_genesis_constants.sh"
+  echo "  the genesis is up to date"
   exit 0
 fi
 
-phase "Update the pinned sources"
-node "$helper" write-constants "$constants_nr" "$NULLIFIER_ROOT" "$HEADER_HASH" "$ARCHIVE_ROOT"
-write_seeds_header "$seeds_hpp" field/field_element.hpp azteclabs::wsdb::world_state fr
-write_seeds_header "$bb_seeds_hpp" barretenberg/ecc/curves/bn254/fr.hpp bb::world_state bb::fr
-
-phase "Regenerate the derived constants"
-# constants-codegen embeds constants.nr at build time, so it must be rebuilt before the remake scripts run, or they
-# will cheerfully reproduce the previous values.
-make constants-codegen
-./barretenberg/cpp/scripts/remake-constants.sh
-./l1-contracts/scripts/remake-constants.sh
-if [ -x labs/yarn-project/constants/scripts/remake-constants.sh ]; then
-  (cd labs && ./yarn-project/constants/scripts/remake-constants.sh)
-fi
-
-phase "Verify the derived constants picked up the new values"
-grep -q "$NULLIFIER_ROOT" "$cpp_constants" || die "$cpp_constants did not pick up the new nullifier root"
-grep -q "$ARCHIVE_ROOT" "$cpp_constants" || die "$cpp_constants did not pick up the new archive root"
-# Solidity groups digits with underscores; TypeScript emits a plain bigint literal.
-tr -d '_' <"$sol_constants" | grep -q "$ARCHIVE_ROOT_DEC" || die "$sol_constants did not pick up the new archive root"
-if [ -f "$ts_constants" ]; then
-  grep -q "$ARCHIVE_ROOT_DEC" "$ts_constants" || die "$ts_constants did not pick up the new archive root"
-fi
-
-if [ "$with_fixtures" = 1 ]; then
-  phase "Regenerate the L1 checkpoint fixtures"
-  (
-    cd labs/yarn-project/sequencer-client
-    AZTEC_GENERATE_TEST_DATA=1 \
-    AZTEC_L1_FIXTURES_DIR="$repo_root/l1-contracts/test/fixtures" \
-    NODE_NO_WARNINGS=1 \
-      node --experimental-vm-modules ../node_modules/.bin/jest \
-        src/publisher/l1_publisher.integration.test.ts -t 'bloated txs building on each other' --maxWorkers=1
-  ) || die "fixture regeneration failed"
-  # The producer writes one fixture per block it builds; only checkpoints 1 and 2 are consumed by the Foundry tests.
-  rm -f l1-contracts/test/fixtures/*_checkpoint_[3-9].json
-  grep -q "$ARCHIVE_ROOT" l1-contracts/test/fixtures/empty_checkpoint_1.json ||
-    die "regenerated fixtures do not carry the new archive root"
-fi
+phase "Update the generated files"
+for pair in "${generated[@]}"; do
+  cp "${pair%%:*}" "${pair#*:}"
+done
 
 phase "Stage"
-git add "$constants_nr" "$seeds_hpp" "$bb_seeds_hpp"
-if [ "$with_fixtures" = 1 ]; then git add l1-contracts/test/fixtures/; fi
+git add "$genesis_pkg/genesis.json" "$genesis_pkg/index.js"
 
 echo
-git --no-pager diff --cached --stat -- "$constants_nr" "$seeds_hpp" "$bb_seeds_hpp" l1-contracts/test/fixtures/
+git --no-pager diff --cached --stat -- "$genesis_pkg"
 echo
-if [ "$with_fixtures" = 1 ]; then
-  echo "Done. Review the staged diff and commit."
-else
-  echo "Roots updated; L1 checkpoint fixtures are OUTSTANDING."
-  echo "Rerun with --fixtures (needs anvil), or the Foundry checkpoint tests will fail."
-fi
+echo "Done. Review the staged diff and commit."
