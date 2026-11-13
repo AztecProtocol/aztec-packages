@@ -35,7 +35,6 @@ function folderProblems({ staticDir, served, versions, standIns, listed }: Tree)
   return problems;
 }
 
-// Network URLs reach their version's folder through netlify.toml: netlify_redirects.test.mts.
 test("static/ holds the API reference folder of every served docs version, and no other", () => {
   const config = JSON.parse(read("developer_version_config.json"));
   const cut: string[] = JSON.parse(read("developer_versions.json"));

@@ -488,7 +488,8 @@ const config = {
     [
       "./src/plugins/pagefind",
       {
-        // The API reference each network's docs version links to, as llms.txt lists it.
+        // Only the folders a network reads: API pages share the `default` search tag, so a historical folder
+        // would duplicate every item in every search context.
         apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
