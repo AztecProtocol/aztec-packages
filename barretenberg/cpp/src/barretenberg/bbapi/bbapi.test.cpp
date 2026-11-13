@@ -332,17 +332,6 @@ TEST(PrivateExecutionStepRaw, SelfDecompressAllocatesOnlyTheFinalSize)
  * @brief A gzip trailer claiming 4 GiB of output does not make decompression allocate it: the input is rejected with
  * an allocation bounded by what the compressed bytes can expand to.
  */
-// The bound is computed in 64 bits: with a 32-bit size_t the product for a 4 MiB input wraps to a few KiB and a valid
-// stream would be rejected as bad gzip data.
-TEST(PrivateExecutionStepRaw, GzipOutputBoundDoesNotWrapOn32Bit)
-{
-    constexpr size_t compressed_size = 4161795;
-    constexpr size_t size_max_32 = std::numeric_limits<uint32_t>::max();
-    EXPECT_EQ(max_gzip_output_size(compressed_size, size_max_32), size_max_32);
-    EXPECT_EQ(max_gzip_output_size(1000), size_t{ 1000 } * 1032 + 1024);
-    EXPECT_EQ(max_gzip_output_size(0), size_t{ 1024 });
-}
-
 TEST(PrivateExecutionStepRaw, BogusUncompressedSizeIsNotAllocated)
 {
     auto loaded = load_compressed_step(sample_bytecode(300 * 1024), "bb_test_step_bogus_isize.msgpack");

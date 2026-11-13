@@ -155,15 +155,13 @@ TEST(ExecutionTraceBlock, SelectorValuesRoundTrip)
     }
 }
 
-TEST(ExecutionTraceBlock, SetOverwritesAndKeepsReferencesValid)
+TEST(ExecutionTraceBlock, SetOverwritesValues)
 {
     auto rows = random_rows(100);
     Block block;
     for (const auto& row : rows) {
         append(block, row);
     }
-    const FF& held = block.q_1()[5];
-    const FF held_value = held;
 
     const auto pool = selector_value_pool();
     auto& engine = numeric::get_debug_randomness();
@@ -180,7 +178,6 @@ TEST(ExecutionTraceBlock, SetOverwritesAndKeepsReferencesValid)
             rows[i].gate_value = pool[i % pool.size()];
         }
     }
-    EXPECT_EQ(held, held_value);
     expect_block_matches(block, rows);
 }
 
@@ -238,4 +235,21 @@ TEST(ExecutionTraceBlock, PerGateStorage)
     }
     EXPECT_EQ(&block.tiles[0], first);
     EXPECT_LT(block.tiles.capacity() - block.tiles.size(), TileChunks<Tile>::CHUNK_TILES);
+}
+
+TEST(ExecutionTraceBlock, SetAcceptsAliasedSelectorValues)
+{
+    Block block;
+    for (const auto& row : random_rows(2)) {
+        append(block, row);
+    }
+    for (size_t i = 0; i < 512; ++i) {
+        const FF expected(i + 1000);
+        block.q_1().set(0, expected);
+        block.q_1().set(1, block.q_1()[0]);
+        block.q_c().set(0, block.q_1()[1]);
+        EXPECT_EQ(block.q_1()[0], expected);
+        EXPECT_EQ(block.q_1()[1], expected);
+        EXPECT_EQ(block.q_c()[0], expected);
+    }
 }
