@@ -132,6 +132,7 @@ const essentialsCategory = {
   collapsible: true,
   collapsed: true,
   items: [
+    "operators/prerequisites",
     "operators/concepts/identity-model",
     "operators/concepts/hardware",
     "operators/concepts/l1-rpc",
@@ -151,6 +152,8 @@ const topologyCategory = {
     "operators/setup/high_availability_sequencers",
     "operators/setup/bootnode_operation",
     "operators/setup/syncing_best_practices",
+    "operators/setup/blob_storage",
+    "operators/setup/blob_upload",
     "operators/setup/building_from_source",
   ],
 };

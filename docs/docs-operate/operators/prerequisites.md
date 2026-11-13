@@ -2,7 +2,7 @@
 title: Prerequisites
 description: Common prerequisites and requirements for running nodes on the Aztec network, including hardware, software, and network configuration.
 displayed_sidebar: operatorsSidebar
-references: ["labs/yarn-project/ethereum/src/config.ts", "labs/yarn-project/p2p/src/config.ts", "labs/yarn-project/cli/src/cmds/validator_keys/*"]
+references: ["labs/yarn-project/ethereum/src/config.ts", "labs/yarn-project/p2p/src/config.ts", "labs/yarn-project/cli/src/cmds/validator_keys/*", "labs/aztec-up/bin/*"]
 ---
 
 ## Overview
@@ -54,13 +54,11 @@ The Aztec toolchain provides CLI utilities for key generation, validator registr
 - Generating validator keystores and creating staking registration data (`aztec validator-keys`)
 - Registering sequencers on L1 (`aztec add-l1-validator`)
 
-The toolchain requires Node.js 20.10 or later. Nodes themselves do not need Node.js on the host, since they run in Docker containers. Install Node.js using [nvm](https://github.com/nvm-sh/nvm):
+The toolchain runs on Node.js. Nodes themselves do not need Node.js on the host, since they run in Docker containers. The installer needs the Node.js version that its release lists. If [nvm](https://github.com/nvm-sh/nvm) is installed, the installer installs that version itself; otherwise it stops and prints the `nvm install` command to run. Install nvm first:
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install --lts
-nvm alias default node
 ```
 
 Install the Aztec toolchain using the official installer:
@@ -139,6 +137,6 @@ If port forwarding isn't properly configured, your node may not be able to parti
 
 Once you have met the prerequisites, proceed to set up your desired node type:
 
-- [Run a Full Node →](./setup/running-a-node.md)
-- [Run a Sequencer Node →](./setup/sequencer-setup.md)
-- [Run a Prover Node →](./setup/running-a-prover.md)
+- [Run a Full Node →](./full-node/overview.md)
+- [Run a Sequencer Node →](./solo-sequencer/index.mdx)
+- [Run a Prover Node →](./prover/overview.md)
