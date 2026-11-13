@@ -8,10 +8,6 @@ All the packages that make up the [Aztec](https://docs.aztec.network) protocol.
 
 Additionally, the [**`labs`**](https://github.com/aztec-labs-eng/aztec-node) repository is linked as a submodule. Go there for the aztec node, client, Aztec.nr, docs, and deployment infrastructure.
 
-## Learn
-
-- [Persistent treap forks](barretenberg/cpp/src/barretenberg/wsdb_ref/treap_forks.html): an interactive explainer of how wsdb-ref's reference world state forks and checkpoints for the cost of a pointer copy. Download it and open it in a browser.
-
 ## Releases
 
 The projects in this repo are released via npm ([@aztec-foundation](https://www.npmjs.com/org/aztec-foundation)) and Github releases.
