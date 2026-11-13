@@ -7,8 +7,7 @@
 //   - One unified sidebar (operatorsSidebar) is used everywhere under /operate.
 //     "Guided setup" lists all four roles as subsections so an operator can
 //     switch roles from any page in one click.
-//   - Prerequisites no longer live at the sidebar root; each role's first
-//     setup page covers them.
+//   - Prerequisites sits first in Essentials, not at the sidebar root.
 
 const dividerHtml = {
   type: "html",

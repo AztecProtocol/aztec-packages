@@ -107,6 +107,9 @@ BLOB_FILE_STORE_URLS=gs://my-snapshots/
 # Try multiple sources in order
 BLOB_FILE_STORE_URLS=gs://primary-bucket/,s3://backup-bucket/
 
+# Try file stores before L1 consensus
+BLOB_PREFER_FILESTORES=true
+
 # L1 consensus fallback
 L1_CONSENSUS_HOST_URLS=https://beacon1.example.com,https://beacon2.example.com
 
@@ -117,7 +120,7 @@ BLOB_ARCHIVE_API_URL=https://api.blobscan.com
 ### Cloudflare R2 configuration
 
 ```bash
-BLOB_FILE_STORE_URLS=s3://my-bucket/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com
+BLOB_FILE_STORE_URLS=s3://my-bucket/blobs/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com
 ```
 
 Replace `[ACCOUNT_ID]` with your Cloudflare account ID.
