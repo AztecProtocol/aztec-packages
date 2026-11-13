@@ -95,14 +95,6 @@ async function main() {
   // docs:end:checkpoint_1
 
   // docs:start:checkpoint_2
-  await bobToken.methods
-    .mint_public(aliceAddress, 100n)
-    .send({ from: giggleAddress });
-  await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-  await bobToken.methods
-    .transfer_public(bobClinicAddress, 10n)
-    .send({ from: aliceAddress });
   await getBalances(bobToken, aliceAddress, bobClinicAddress);
 
   await bobToken.methods.public_to_private(90n).send({ from: aliceAddress });
