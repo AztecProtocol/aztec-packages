@@ -17,6 +17,7 @@
 
 import { createHash } from "crypto";
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   readFileSync,
@@ -39,7 +40,9 @@ import {
 } from "./schema_visitor.ts";
 import { TypeScriptCodegen } from "./typescript_codegen.ts";
 import {
+  ARCH_PACKAGES,
   defaultBinaryEnvVar,
+  packageStem,
   TypeScriptPackageCodegen,
   TypeScriptServerPackageCodegen,
 } from "./typescript_package_codegen.ts";
@@ -79,6 +82,8 @@ interface Args {
   packageWasmThreadsModule: string;
   packageWasmWideModule: string;
   packageWasmWideThreadsModule: string;
+  packageNatives: string[];
+  packageEveryPlatform: boolean;
   ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
@@ -127,6 +132,15 @@ Optional:
   --package-napi-addon <file>
                            napi transport: file name of the Node-API addon built from
                            the C++ --napi output, shipped in the arch packages
+  --package-native <platform>=<path>, --package-native <platform>:<file>=<path>
+                           Copy a built native file into the package's per-platform
+                           package (repeatable). <platform> is linux-x64, linux-arm64,
+                           darwin-x64 or darwin-arm64, or the build directory name
+                           (amd64-linux, arm64-linux, amd64-macos, arm64-macos). The
+                           bare form names the binary, or the napi addon in a package
+                           without one; <file> picks the addon in one with both
+  --package-every-platform Fail unless every platform gets every native file, as a
+                           release that publishes all of them requires
   --package-napi-addon-env-var <name>
                            napi transport: env var overriding the addon path
                            (default: <ADDON_STEM>_PATH)
@@ -172,6 +186,8 @@ function parseArgs(argv: string[]): Args {
     packageWasmThreadsModule: "",
     packageWasmWideModule: "",
     packageWasmWideThreadsModule: "",
+    packageNatives: [],
+    packageEveryPlatform: false,
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
@@ -235,6 +251,12 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--package-napi-addon-env-var":
         args.packageNapiAddonEnvVar = takeValue();
+        break;
+      case "--package-native":
+        args.packageNatives.push(takeValue());
+        break;
+      case "--package-every-platform":
+        args.packageEveryPlatform = true;
         break;
       case "--package-wasm-module":
         args.packageWasmModule = takeValue();
@@ -502,6 +524,74 @@ function packageWasmModule(
   return { name, source, memory: readMemoryImport(readFileSync(source)) };
 }
 
+/**
+ * The `--package-native` arguments as the files to copy into the per-platform packages, keyed by
+ * the package-relative destination. Exits on anything malformed, unbuilt or, with
+ * `--package-every-platform`, missing: a published platform package without its files would
+ * install and then fail to resolve.
+ */
+function packageNatives(
+  args: Args,
+  packageName: string,
+  files: string[],
+): Map<string, string> {
+  const fail = (message: string): never => {
+    console.error(`--package-native: ${message}`);
+    process.exit(1);
+  };
+  if (files.length === 0) {
+    if (args.packageNatives.length > 0 || args.packageEveryPlatform) {
+      fail(`${packageName} has no native files (no uds/shm or napi transport)`);
+    }
+    return new Map();
+  }
+  const stem = packageStem(packageName);
+  const destination = (suffix: string, file: string) =>
+    join("packages", `${stem}-${suffix}`, file);
+  const copies = new Map<string, string>();
+  for (const value of args.packageNatives) {
+    const eq = value.indexOf("=");
+    if (eq <= 0) {
+      fail(`takes <platform>=<path> or <platform>:<file>=<path>, got ${value}`);
+    }
+    const target = value.slice(0, eq);
+    const colon = target.indexOf(":");
+    const platform = colon < 0 ? target : target.slice(0, colon);
+    const file = colon < 0 ? files[0]! : target.slice(colon + 1);
+    const arch = ARCH_PACKAGES.find(
+      (p) => p.suffix === platform || p.buildDir === platform,
+    );
+    if (!arch) {
+      fail(
+        `unknown platform ${platform} (known: ${ARCH_PACKAGES.map((p) => p.suffix).join(", ")})`,
+      );
+    }
+    if (!files.includes(file)) {
+      fail(
+        `${packageName} ships no native file ${file} (it has: ${files.join(", ")})`,
+      );
+    }
+    const source = resolve(value.slice(eq + 1));
+    if (!existsSync(source)) {
+      fail(`no ${file} at ${source}; build it before generating the package`);
+    }
+    copies.set(destination(arch!.suffix, file), source);
+  }
+  if (args.packageEveryPlatform) {
+    const missing = ARCH_PACKAGES.flatMap(({ suffix }) =>
+      files
+        .filter((file) => !copies.has(destination(suffix, file)))
+        .map((file) => `${suffix}:${file}`),
+    );
+    if (missing.length > 0) {
+      fail(
+        `--package-every-platform, but nothing given for ${missing.join(", ")}`,
+      );
+    }
+  }
+  return copies;
+}
+
 function generate(args: Args) {
   const absSchema = resolve(args.schema);
   const absOut = resolve(args.out);
@@ -579,6 +669,12 @@ function generate(args: Args) {
           console.log(`  ${path} (package)`);
         };
         if (serverPackage) {
+          if (args.packageNatives.length > 0 || args.packageEveryPlatform) {
+            console.error(
+              "--package-native: a server binding package has no native files",
+            );
+            process.exit(1);
+          }
           const schemaFileName = basename(absSchema);
           const packageGen = new TypeScriptServerPackageCodegen({
             prefix,
@@ -707,6 +803,21 @@ function generate(args: Args) {
           }
           for (const manifest of packageGen.generateArchPackageManifests()) {
             writePackage(manifest.path, manifest.content);
+          }
+          // Recorded like everything else generated, so a run that is not given a platform's
+          // files removes the copies an earlier run left.
+          for (const [name, source] of packageNatives(
+            args,
+            packageName,
+            packageGen.nativeFiles,
+          )) {
+            const path = join(packageDir, name);
+            const tmpPath = `${path}.${process.pid}.tmp`;
+            copyFileSync(source, tmpPath);
+            chmodSync(tmpPath, 0o755);
+            renameSync(tmpPath, path);
+            written.push(path);
+            console.log(`  ${path} (from ${source})`);
           }
         }
       }

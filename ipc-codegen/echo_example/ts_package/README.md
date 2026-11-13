@@ -44,12 +44,14 @@ node (`default`) has every backend above; browsers (`browser`) have the wasm mod
 
 ## Build
 
-The package shell (package.json, tsconfig, `src/*.ts`, scripts/) is
+The package shell (package.json, tsconfig, `src/*.ts`, `packages/`) is
 generated; build through the owning project's `./bootstrap.sh`, which
 regenerates and then runs `npm install --omit=optional && npm run build`.
 
-To prepare per-architecture binary packages:
+The per-architecture packages under `packages/` carry `echo_server`; the generator copies them in from their builds, one argument per platform and file:
 
 ```sh
-npm run prepare_arch_packages -- linux-x64=/path/to/echo_server
+--package-native linux-x64=/path/to/echo_server
 ```
+
+With `--package-every-platform`, a platform or file not given is an error, as publishing every per-architecture package requires.

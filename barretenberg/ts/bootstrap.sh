@@ -37,7 +37,8 @@ function generate_bb_avm_sim_package {
     --strip-method-prefix \
     --package-transports uds,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
-    --package-wasm-module "bb-avm-sim.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm"
+    --package-wasm-module "bb-avm-sim.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm" \
+    "$@"
 }
 
 # Server binding package for the AVM CDB protocol: generated wire types +
@@ -80,7 +81,8 @@ function generate_bb_js_api_package {
     --package-transports uds,shm,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-wasm-module "barretenberg.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" \
-    --package-wasm-threads-module "barretenberg-threads.wasm=$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm"
+    --package-wasm-threads-module "barretenberg-threads.wasm=$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" \
+    "$@"
 }
 
 # The in-memory reference world state over the node world state's contract, fully generated: a spawned
@@ -99,20 +101,42 @@ function generate_wsdb_ref_package {
     --binary-name "$WSDB_REF_BINARY" \
     --package-napi-addon "$WSDB_REF_ADDON" \
     --package-napi-addon-env-var WSDB_REF_NAPI_PATH \
-    --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm"
+    --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm" \
+    "$@"
+}
+
+# The cross builds of an amd64 release, as <platform>=<build dir>: with this machine's own build, every platform the
+# native packages ship for.
+CROSS_BUILD_DIRS=(arm64-linux=build-arm64-linux amd64-macos=build-amd64-macos arm64-macos=build-arm64-macos)
+
+# Generates every package. The wasm modules are copied in from their builds, and the native packages' per-platform
+# binaries (bb, bb-avm-sim, wsdb-ref and its Node-API addon) from the barretenberg/cpp build directories given as
+# <platform>=<build dir> arguments; without any, the packages ship no native files (enough for type-checking and lint).
+# --every-platform makes a platform not given an error, as publishing requires.
+function generate_packages {
+  local cpp=$ROOT/barretenberg/cpp every=() bb_js_api=() bb_avm_sim=() wsdb_ref=() arg platform dir
+  for arg in "$@"; do
+    if [ "$arg" == --every-platform ]; then
+      every=(--package-every-platform)
+      continue
+    fi
+    platform=${arg%%=*}
+    dir=$cpp/${arg#*=}
+    bb_js_api+=(--package-native "$platform=$dir/bin/dist/bb")
+    bb_avm_sim+=(--package-native "$platform=$dir/bin/$BB_AVM_SIM_BINARY")
+    wsdb_ref+=(--package-native "$platform=$dir/bin/$WSDB_REF_BINARY")
+    wsdb_ref+=(--package-native "$platform:$WSDB_REF_ADDON=$dir/lib/$WSDB_REF_ADDON")
+  done
+  generate_bb_avm_sim_package "${every[@]}" "${bb_avm_sim[@]}"
+  generate_cdb_package
+  generate_bb_js_api_package "${every[@]}" "${bb_js_api[@]}"
+  generate_wsdb_ref_package "${every[@]}" "${wsdb_ref[@]}"
 }
 
 # bb.js-api, bb-avm-sim, cdb and wsdb-ref are gitignored workspaces of the one yarn workspace declared in package.json,
 # so `yarn install --immutable` fails against the committed lockfile unless all exist. They are generated, installed
 # and compiled together: in CI an install replaces node_modules wholesale, so a build installs once, never once per
 # package (and never while something else runs out of node_modules).
-function generate_packages {
-  generate_bb_avm_sim_package
-  generate_cdb_package
-  generate_bb_js_api_package
-  generate_wsdb_ref_package
-}
-
 function install_and_compile_packages {
   npm_install_deps "$IPC_RUNTIME_PKG"
   yarn workspaces foreach -A -p -t \
@@ -120,44 +144,8 @@ function install_and_compile_packages {
     --include "$CDB_PACKAGE" --include "$WSDB_REF_PACKAGE" run build
 }
 
-# The C++ build directories whose binaries the packages ship, as <platform>=<build dir> lines: this machine's own
-# build, or the cross builds (every one on an amd64 release, which stages them all before publishing).
-function native_build_dirs {
-  echo "$(arch)-$(os)=build"
-}
-
-function cross_build_dirs {
-  if semver check "${REF_NAME:-}" && [ "$(arch)" == "amd64" ]; then
-    local cross_arch
-    for cross_arch in arm64-linux amd64-macos arm64-macos; do echo "$cross_arch=build-$cross_arch"; done
-  else
-    echo "Staging no cross builds: they are staged only in an amd64 release context." >&2
-  fi
-}
-
-# Stages the per-platform packages of bb.js-api (bb), bb-avm-sim and wsdb-ref (its binary and Node-API addon) from
-# the C++ build directories on stdin (<platform>=<build dir> lines). The packages' prepare_arch_packages copies each
-# file from where the build left it; every one must exist.
-function stage_arch_packages {
-  local cpp=$ROOT/barretenberg/cpp platform dir file
-  local bb_js_api=() bb_avm_sim=() wsdb_ref=()
-  while IFS== read -r platform dir; do
-    [ -n "$platform" ] || continue
-    for file in "$dir/bin/dist/bb" "$dir/bin/$BB_AVM_SIM_BINARY" "$dir/bin/$WSDB_REF_BINARY" "$dir/lib/$WSDB_REF_ADDON"; do
-      [ -f "$cpp/$file" ] || { echo "stage_arch_packages: barretenberg/cpp/$file is not built" >&2; return 1; }
-    done
-    bb_js_api+=("$platform=$cpp/$dir/bin/dist/bb")
-    bb_avm_sim+=("$platform=$cpp/$dir/bin/$BB_AVM_SIM_BINARY")
-    wsdb_ref+=("$platform=$cpp/$dir/bin/$WSDB_REF_BINARY" "$platform:$WSDB_REF_ADDON=$cpp/$dir/lib/$WSDB_REF_ADDON")
-  done
-  [ ${#bb_js_api[@]} -gt 0 ] || return 0
-  yarn workspace "$BB_JS_API_PACKAGE" run prepare_arch_packages "${bb_js_api[@]}"
-  yarn workspace "$BB_AVM_SIM_PACKAGE" run prepare_arch_packages "${bb_avm_sim[@]}"
-  yarn workspace "$WSDB_REF_PACKAGE" run prepare_arch_packages "${wsdb_ref[@]}"
-}
-
 # Generate + compile the packages, without bb's binaries (enough for type-checking, formatting and lint).
-# Generation installs the wasm modules, so they must be built first. Not cached: it is a few seconds of tsc.
+# Generation copies in the wasm modules, so they must be built first. Not cached: it is a few seconds of tsc.
 function build_packages_ts {
   generate_packages
   install_and_compile_packages
@@ -167,9 +155,8 @@ function build_packages_ts {
 # bb.js and the packages' tests run these, so they are staged even when nothing else changed.
 function build_packages {
   echo_header "barretenberg/ts generated packages build"
-  generate_packages
+  generate_packages "$(arch)-$(os)=build"
   install_and_compile_packages
-  native_build_dirs | stage_arch_packages
 }
 
 function build_bb_js {
@@ -292,19 +279,16 @@ function deploy_cdb {
 function deploy_wsdb_ref {
   local package_dir
   for package_dir in wsdb-ref/packages/*; do
-    # A platform whose addon was not built has only the generated manifest: nothing to publish.
-    [ -f "$package_dir/$WSDB_REF_ADDON" ] || continue
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
   (cd wsdb-ref && retry "deploy_npm ${REF_NAME#v}")
 }
 
-# Every platform's binaries staged into the generated packages, installed and compiled once, then published. bb.js
+# The packages generated with every platform's binaries, installed and compiled once, then published. bb.js
 # depends on bb.js-api, so bb.js-api is published first, with its arch packages.
 function release {
-  generate_packages
+  generate_packages --every-platform "$(arch)-$(os)=build" "${CROSS_BUILD_DIRS[@]}"
   install_and_compile_packages
-  { native_build_dirs; cross_build_dirs; } | stage_arch_packages
   deploy_bb_js_api
   (cd bb.js && ./bootstrap.sh release)
   deploy_bb_avm_sim
@@ -314,7 +298,7 @@ function release {
 }
 
 export -f generate_bb_avm_sim_package generate_cdb_package generate_bb_js_api_package generate_wsdb_ref_package
-export -f generate_packages install_and_compile_packages native_build_dirs cross_build_dirs stage_arch_packages
+export -f generate_packages install_and_compile_packages
 export -f build_packages_ts build_packages build_bb_js build
 export -f release deploy_bb_js_api deploy_bb_avm_sim deploy_cdb deploy_wsdb_ref
 

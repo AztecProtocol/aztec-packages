@@ -1,6 +1,5 @@
 node_modules/
 dest/
-build/
 packages/
 package-lock.json
 package.json

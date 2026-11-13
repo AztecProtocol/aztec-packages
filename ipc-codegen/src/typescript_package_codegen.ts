@@ -45,7 +45,7 @@ function envName(binaryName: string): string {
   return `${binaryName.replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase()}_PATH`;
 }
 
-function packageStem(packageName: string): string {
+export function packageStem(packageName: string): string {
   return packageName.startsWith("@") ? packageName.split("/")[1]! : packageName;
 }
 
@@ -58,7 +58,8 @@ function archPackageNames(packageName: string): Record<string, string> {
   };
 }
 
-const ARCH_PACKAGES = [
+/** The platforms a package's native files ship for, each as one optional per-platform package. */
+export const ARCH_PACKAGES = [
   { buildDir: "amd64-linux", suffix: "linux-x64", os: "linux", cpu: "x64" },
   { buildDir: "arm64-linux", suffix: "linux-arm64", os: "linux", cpu: "arm64" },
   { buildDir: "amd64-macos", suffix: "darwin-x64", os: "darwin", cpu: "x64" },
@@ -228,10 +229,11 @@ export class TypeScriptPackageCodegen {
     return this.opts.binaryName || packageStem(this.opts.packageName);
   }
 
-  private get nativeFiles(): string[] {
+  /** The files each per-platform package carries: the spawned binary and/or the napi addon. */
+  get nativeFiles(): string[] {
     return [
       this.process ? this.opts.binaryName : "",
-      this.napi ? this.opts.napiAddon ?? "" : "",
+      this.napi ? (this.opts.napiAddon ?? "") : "",
     ].filter(Boolean);
   }
 
@@ -258,9 +260,6 @@ export { SyncApi } from './generated/sync.js';
       // longer emits, and these packages are a couple of seconds to compile.
       build: "rm -rf dest .tsbuildinfo && tsc -p tsconfig.json",
     };
-    if (this.native) {
-      scripts.prepare_arch_packages = "ipc-runtime-prepare-arch-packages";
-    }
     const entry = (name: string) => ({
       types: `./dest/${name}.d.ts`,
       default: `./dest/${name}.js`,
@@ -297,11 +296,6 @@ export { SyncApi } from './generated/sync.js';
       },
       files: ["dest/", ...(this.wasm ? ["wasm/"] : []), "README.md"],
       scripts,
-      // Read by ipc-runtime-prepare-arch-packages: native files the arch packages carry besides
-      // the `bin` binary (the napi transport's addon).
-      ...(this.napi
-        ? { ipcRuntime: { nativeFiles: [this.opts.napiAddon] } }
-        : {}),
       dependencies: {
         "@aztec-foundation/ipc-runtime": this.opts.ipcRuntimeDependency,
         msgpackr: "^1.11.2",
@@ -1132,17 +1126,19 @@ ${hosts}.
 
 ## Build
 
-The package shell (package.json, tsconfig, \`src/*.ts\`, scripts/) is
+The package shell (package.json, tsconfig, \`src/*.ts\`, \`packages/\`) is
 generated; build through the owning project's \`./bootstrap.sh\`, which
 regenerates and then runs \`npm install --omit=optional && npm run build\`.
 
 ${
   this.native
-    ? `To prepare per-architecture ${this.napi ? "packages" : "binary packages"}${this.napi ? ` (${this.nativeFiles.map((f) => `\`${f}\``).join(" and ")})` : ""}:
+    ? `The per-architecture packages under \`packages/\` carry ${this.nativeFiles.map((f) => `\`${f}\``).join(" and ")}; the generator copies them in from their builds, one argument per platform and file:
 
 \`\`\`sh
-npm run prepare_arch_packages -- ${this.nativeFiles.length === 1 && this.process ? `linux-x64=/path/to/${this.opts.binaryName}` : this.nativeFiles.map((f) => `linux-x64:${f}=/path/to/${f}`).join(" ")}
+${this.nativeFiles.map((f, i) => `--package-native linux-x64${i === 0 ? "" : `:${f}`}=/path/to/${f}`).join(" ")}
 \`\`\`
+
+With \`--package-every-platform\`, a platform or file not given is an error, as publishing every per-architecture package requires.
 `
     : ""
 }`;
