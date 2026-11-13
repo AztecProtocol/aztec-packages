@@ -13,7 +13,7 @@ Once your sequencer is running, you need to manage its ongoing operations. This 
 
 Before proceeding, you should:
 
-- Have a running sequencer node (see [Sequencer Setup Guide](../setup/sequencer-setup.md))
+- Have a running sequencer node (see [Sequencer Setup Guide](../solo-sequencer/index.mdx))
 - Be familiar with basic sequencer operations
 - Have access to Foundry's `cast` tool for contract queries
 - Understand your sequencer's role in the network
@@ -56,7 +56,7 @@ If you're operating a sequencer with delegated stake:
 - Updating provider configuration and commission rates
 - Monitoring delegator relationships
 
-See [Becoming a Staking Provider](../setup/staking-provider.md) for setup instructions.
+See [Becoming a Staking Provider](../provider/index.mdx) for setup instructions.
 
 ### 3. Claiming rewards
 
@@ -98,7 +98,7 @@ Start with the [Useful Commands](./useful-commands.md) guide to learn how to que
 
 If you're participating in governance, review the [Governance Participation](./governance-participation.md) guide to understand how to signal, vote, and execute proposals.
 
-For operators running with delegated stake, the [Becoming a Staking Provider](../setup/staking-provider.md) guide walks you through provider registration and management.
+For operators running with delegated stake, the [Becoming a Staking Provider](../provider/index.mdx) guide walks you through provider registration and management.
 
 ## Best practices
 

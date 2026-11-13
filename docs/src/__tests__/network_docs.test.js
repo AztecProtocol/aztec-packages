@@ -170,7 +170,7 @@ describe("Start here", () => {
 
   it("links the version production serves at each root", () => {
     const links = urls(true, "https://docs.aztec.network");
-    assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/full-node/setup.md");
     assert.strictEqual(links["Testing contracts"], "https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts.md");
     assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt");
     assert.strictEqual(
@@ -182,7 +182,7 @@ describe("Start here", () => {
   it("follows a preview's host and layout, where the networks' operator docs are at /operate/alpha", () => {
     const siteUrl = llmsSiteUrl({ CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://preview.example/" });
     const links = urls(false, siteUrl);
-    assert.strictEqual(links["Running a full node"], "https://preview.example/operate/alpha/operators/setup/running_a_node.md");
+    assert.strictEqual(links["Running a full node"], "https://preview.example/operate/alpha/operators/full-node/setup.md");
     assert.strictEqual(links["Getting started"], "https://preview.example/developers/getting_started_on_local_network.md");
   });
 

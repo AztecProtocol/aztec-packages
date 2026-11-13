@@ -1489,7 +1489,7 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
 
 ## Next steps
 
-- [How to Run a Sequencer Node](../setup/sequencer-setup.md) - Set up a node
+- [How to Run a Sequencer Node](../solo-sequencer/index.mdx) - Set up a node
 - [Ethereum RPC Calls Reference](./ethereum-rpc-reference.md) - L1 RPC usage
 - [CLI Reference](./cli-reference.md) - Command-line options
 - [Aztec Discord](https://discord.gg/aztec) - Developer support

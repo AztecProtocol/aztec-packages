@@ -226,8 +226,11 @@ services:
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}
       PROVER_BROKER_HOST: ${PROVER_BROKER_HOST}
       PROVER_ID: ${PROVER_ID}
+    stop_grace_period: 300s
     restart: unless-stopped
 ```
+
+Docker sends `SIGKILL` when a container has not stopped before its grace period expires. Docker defaults this period to 10 seconds, which may interrupt an in-flight proof before the agent can drain it. Keep `stop_grace_period` long enough for the agent to finish its current proof; this example uses 300 seconds, matching the prover agent shutdown allowance in the Spartan deployment. If a job exceeds the broker's timeout, the broker re-enqueues it for another attempt.
 
 #### Step 4: Start Agent
 

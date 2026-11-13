@@ -296,7 +296,7 @@ const START_HERE = [
   { title: "Testing with aztec.js", task: "test an app end to end", docs: "developers", page: "docs/aztec-js/how_to_test" },
   { title: "Counter contract tutorial", task: "build a first contract end to end", docs: "developers", page: "docs/tutorials/contract_tutorials/counter_contract" },
   { title: "Getting started on testnet", task: "deploy to testnet", docs: "developers", page: "getting_started_on_testnet" },
-  { title: "Running a full node", task: "run a node", docs: "operate", page: "operators/setup/running_a_node" },
+  { title: "Running a full node", task: "run a node", docs: "operate", page: "operators/full-node/setup" },
   { title: "Hardware spec", task: "size a node, sequencer or prover", docs: "operate", page: "operators/concepts/hardware" },
   { title: "Aztec.nr API reference", task: "look up an Aztec.nr struct, trait or function signature", api: "aztec-nr-api" },
   { title: "TypeScript API reference", task: "look up an aztec.js, accounts, wallet or PXE class, function or type", api: "typescript-api" },

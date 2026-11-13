@@ -14,7 +14,7 @@ This guide explains how the Aztec network's slashing mechanism works and how you
 
 Before proceeding, you should:
 
-- Have a running sequencer node (see [Sequencer Setup Guide](../setup/sequencer-setup.md))
+- Have a running sequencer node (see [Sequencer Setup Guide](../solo-sequencer/index.mdx))
 - Understand that slashing actions are executed automatically when you propose blocks
 - Have the Sentinel enabled if you want to detect inactivity offenses
 

@@ -185,13 +185,23 @@ Takes effect immediately for **new** delegations. Existing Split contracts conti
 
 ### Rotate provider admin
 
+Rotation takes two transactions. First, the current admin nominates the new admin:
+
 <ConfigCode language="bash">{`cast send {{STAKING_REGISTRY_ADDR}} \\
   "updateProviderAdmin(uint256,address)" \\
   {{PROVIDER_ID}} <new-admin> \\
   --rpc-url {{ETH_RPC}} \\
   --private-key <current-admin-private-key>`}</ConfigCode>
 
-Use this for cold-storage rotation, multisig handoff, or compromise recovery. **The new admin is the only one who can subsequently call `addKeysToProvider` and the other update functions.**
+Then the new admin accepts:
+
+<ConfigCode language="bash">{`cast send {{STAKING_REGISTRY_ADDR}} \\
+  "acceptProviderAdmin(uint256)" \\
+  {{PROVIDER_ID}} \\
+  --rpc-url {{ETH_RPC}} \\
+  --private-key <new-admin-private-key>`}</ConfigCode>
+
+Until the new admin accepts, the current admin keeps control and `pendingProviderAdmins` returns the nominee. Use this for cold-storage rotation, multisig handoff, or compromise recovery. **Once accepted, the new admin is the only one who can call `addKeysToProvider` and the other update functions.**
 
 ## Read your full provider state
 
@@ -212,3 +222,29 @@ cast call {{STAKING_REGISTRY_ADDR}} \\
   "pendingProviderAdmins(uint256)(address)" \\
   {{PROVIDER_ID}} \\
   --rpc-url {{ETH_RPC}}`}</ConfigCode>
+
+## Troubleshooting
+
+### Registration fails
+
+- Fund the signing address for gas.
+- Check the Staking Registry address for your network in [L1 contract addresses](/networks#l1-contract-addresses).
+- Pass the commission in basis points, at most 10,000, and non-zero admin and rewards-recipient addresses: the registry rejects anything else.
+- Read the revert reason for the transaction in a block explorer.
+
+### `addKeysToProvider` fails
+
+- Send it from the provider admin address: the registry rejects any other caller, and rejects an unknown provider ID the same way.
+- If it runs out of gas, add fewer keystores per call.
+
+### No delegators
+
+- Confirm your metadata pull request is merged and your provider is listed on the staking dashboard (see [Submit your provider metadata](./register-sequencer#3-submit-your-provider-metadata)).
+- Keep keystores in your queue (see [Queue management](#queue-management)).
+- Keep your commission competitive and your sequencers attesting.
+
+### Commission not received
+
+- Check the rewards recipient in your [provider state](#read-your-full-provider-state).
+- In the default flow, check that each delegated attester's coinbase is its Split contract (see [Configure environment](./configure-environment#after-delegation-set-coinbase-to-the-split-contract)).
+- Split rewards are pulled, not pushed: someone must call `distribute()` on the Split, then each recipient calls `withdraw()` on the Splits warehouse (see [Claim rewards](./day-2-essentials#3-claim-rewards)).

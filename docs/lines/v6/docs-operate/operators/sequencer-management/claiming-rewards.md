@@ -12,7 +12,7 @@ Sequencer rewards accumulate in the Rollup contract but are not automatically di
 
 Before proceeding, you should:
 
-- Have a running sequencer that earned rewards (see [Sequencer Setup Guide](../setup/sequencer-setup.md))
+- Have a running sequencer that earned rewards (see [Sequencer Setup Guide](../solo-sequencer/index.mdx))
 - Have Foundry installed with the `cast` command available ([installation guide](https://book.getfoundry.sh/getting-started/installation))
 - Know your Rollup contract address (see [Useful Commands](./useful-commands.md#get-the-rollup-contract-address))
 - Have your sequencer's coinbase address
@@ -212,6 +212,6 @@ cast call $ROLLUP_ADDRESS "getSequencerRewards(address)" [COINBASE_ADDRESS] --rp
 ## Next Steps
 
 - Set up [monitoring](../monitoring/index.md) to track reward accumulation automatically
-- Learn about [becoming a staking provider](../setup/staking-provider.md) if operating with delegators
+- Learn about [becoming a staking provider](../provider/index.mdx) if operating with delegators
 - Review [useful commands](./useful-commands.md) for other sequencer queries
 - Join the [Aztec Discord](https://discord.gg/aztec) for operator support and community discussions
