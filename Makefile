@@ -104,7 +104,7 @@ bench-labs: labs-bench
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-# barretenberg/ts stages every platform's binaries into its packages in its own release step, so no cross copy here.
+# barretenberg/ts generates its packages with every platform's binaries in its own release step, so no cross copy here.
 release-foundation: fast-foundation bb-cpp-release-dir bb-bin-cross-copy ipc-runtime-cross
 
 release-labs: fast-labs
@@ -261,8 +261,8 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 
 # The generated barretenberg/ts packages: @aztec-foundation/bb.js-api, bb-avm-sim, cdb and wsdb-ref. They are
 # workspaces of one yarn workspace, so one target generates them, installs node_modules once and compiles them
-# together. Generation copies in bb's wasm modules (single- and multi-threaded), and the packages ship this machine's
-# bb, bb-avm-sim and wsdb-ref.
+# together. Generation copies in bb's wasm modules (single- and multi-threaded) and this machine's bb, bb-avm-sim and
+# wsdb-ref.
 bb-ts-packages: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
 	$(call build,$@,barretenberg/ts,build_packages)
 
