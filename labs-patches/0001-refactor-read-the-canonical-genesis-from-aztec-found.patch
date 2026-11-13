@@ -1,0 +1,827 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 11:22:01 +0000
+Subject: [PATCH] refactor: read the canonical genesis from
+ @aztec-foundation/protocol-genesis
+
+The canonical genesis (its inputs and the roots they produce) is published by the
+protocol release as @aztec-foundation/protocol-genesis, measured by barretenberg's
+reference world state. Labs reads every genesis value from it:
+
+- protocol-contracts takes DEFAULT_GENESIS_DATA's prefilled nullifiers, public data
+  and timestamp from the package's inputs; the generator no longer computes them.
+- world-state builds its Init message (tree heights, prefill sizes, header
+  generator point) from the package's inputs.
+- stdlib exports GENESIS_BLOCK_HEADER_HASH, GENESIS_NULLIFIER_TREE_ROOT and
+  GENESIS_ARCHIVE_ROOT from the package's outputs. @aztec-labs/constants no longer
+  carries them; they are no longer protocol constants.
+
+genesis_data.test.ts now checks the package's nullifiers against a TS derivation
+from the bundled protocol artifacts.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
+index e7e33f141494c4d7d58693133412283e23257db8..a0e4aa0c5d36e34adb50b0fd93db5c49fcdec0be 100755
+--- a/labs-aztec-toolchain/pins.mjs
++++ b/labs-aztec-toolchain/pins.mjs
+@@ -91,6 +91,7 @@ const LOCAL_PACKAGES = {
+     "portal:noir-projects/fnd/protocol-circuits-artifacts/dist",
+   "@aztec-foundation/protocol-contracts-artifacts":
+     "portal:noir-projects/fnd/protocol-contracts-artifacts/dist",
++  "@aztec-foundation/protocol-genesis": "portal:protocol/genesis",
+   "@aztec-labs/wsdb": "portal:native-packages/wsdb/ts",
+   "@aztec-labs/wsdb-darwin-arm64":
+     "portal:native-packages/wsdb/ts/packages/wsdb-darwin-arm64",
+diff --git a/yarn-project/archiver/src/archiver-misc.test.ts b/yarn-project/archiver/src/archiver-misc.test.ts
+index 677cde8259fe5cdfac2a8aee0513856b4fe44350..33103017293489a80630f612582bb6e7484f6016 100644
+--- a/yarn-project/archiver/src/archiver-misc.test.ts
++++ b/yarn-project/archiver/src/archiver-misc.test.ts
+@@ -1,5 +1,4 @@
+ import type { BlobClientInterface } from '@aztec-labs/blob-client/client';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
+ import type { OutboxContract, RollupContract } from '@aztec-labs/ethereum/contracts';
+ import type { ViemPublicClient } from '@aztec-labs/ethereum/types';
+@@ -15,6 +14,7 @@ import type { L1RollupConstants } from '@aztec-labs/stdlib/epoch-helpers';
+ import { TestRollupFeeConfigProvider } from '@aztec-labs/stdlib/gas';
+ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import { BlockHeader } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { getTelemetryClient } from '@aztec-labs/telemetry-client';
+ import { jest } from '@jest/globals';
+ import { EventEmitter } from 'events';
+@@ -47,7 +47,7 @@ describe('Archiver misc', () => {
+       ethereumSlotDuration: ETH_SLOT_DURATION,
+       proofSubmissionEpochs: 1,
+       targetCommitteeSize: 48,
+-      genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
++      genesisArchiveRoot: GENESIS_ARCHIVE_ROOT,
+     };
+ 
+     synchronizer = mock<ArchiverL1Synchronizer>();
+diff --git a/yarn-project/archiver/src/archiver-sync.test.ts b/yarn-project/archiver/src/archiver-sync.test.ts
+index 01e564068cb575065e45a9e5195767690f9e3685..c77cd30217c5b312c600ac3f07e797bae9e8bacd 100644
+--- a/yarn-project/archiver/src/archiver-sync.test.ts
++++ b/yarn-project/archiver/src/archiver-sync.test.ts
+@@ -1,6 +1,5 @@
+ import type { BlobClientInterface } from '@aztec-labs/blob-client/client';
+ import { makeRandomBlob } from '@aztec-labs/blob-lib/testing';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import type { EpochCache } from '@aztec-labs/epoch-cache';
+ import { makeCommitteeLookup } from '@aztec-labs/epoch-cache/test';
+ import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
+@@ -46,6 +45,7 @@ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import { mockCheckpointAndMessages } from '@aztec-labs/stdlib/testing';
+ import { ConsensusTimetable } from '@aztec-labs/stdlib/timetable';
+ import { BlockHeader } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { getTelemetryClient } from '@aztec-labs/telemetry-client';
+ import { jest } from '@jest/globals';
+ import assert from 'assert';
+@@ -83,7 +83,7 @@ describe('Archiver Sync', () => {
+   let syncLogger: Logger;
+   let now: number;
+ 
+-  const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT);
++  const GENESIS_ROOT = GENESIS_ARCHIVE_ROOT;
+ 
+   // Builds a standalone archiver (with its own store) over the shared L1/fake mocks. Used by the
+   // beforeEach default instance and by tests that need a second archiver with a different config.
+diff --git a/yarn-project/archiver/src/l1/data_retrieval.test.ts b/yarn-project/archiver/src/l1/data_retrieval.test.ts
+index 1d82813c06b8a3aed7886acfb905b04266e0853f..f9ae366902d0c25f51b49ede4f50b85d7ae36c95 100644
+--- a/yarn-project/archiver/src/l1/data_retrieval.test.ts
++++ b/yarn-project/archiver/src/l1/data_retrieval.test.ts
+@@ -1,5 +1,4 @@
+ import { type BlockBlobData, type CheckpointBlobData, makeBlockEndBlobData } from '@aztec-labs/blob-lib/encoding';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import type { InboxContract, MessageSentLog } from '@aztec-labs/ethereum/contracts';
+ import { BlockNumber, CheckpointNumber } from '@aztec-labs/foundation/branded-types';
+ import { Buffer32 } from '@aztec-labs/foundation/buffer';
+@@ -11,6 +10,7 @@ import { L1PublishedData } from '@aztec-labs/stdlib/checkpoint';
+ import { updateInboxRollingHash } from '@aztec-labs/stdlib/messaging';
+ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import { computeTxEffectsTreeData } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { mock } from 'jest-mock-extended';
+ 
+ import type { ArchiverInstrumentation } from '../modules/instrumentation.js';
+@@ -158,7 +158,7 @@ describe('data_retrieval', () => {
+   describe('retrieveCheckpointCalldataFromRollup', () => {
+     it('returns checkpoints proposed in the same L1 block in log order when a later one is fetched first', async () => {
+       const fake = new FakeL1State({
+-        genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
++        genesisArchiveRoot: GENESIS_ARCHIVE_ROOT,
+         l1StartBlock: 0n,
+         l1GenesisTime: BigInt(Math.floor(Date.now() / 1000)),
+         ethereumSlotDuration: 12,
+diff --git a/yarn-project/archiver/src/store/block_store.test.ts b/yarn-project/archiver/src/store/block_store.test.ts
+index 995555e7e2cb7f388819eba9548715b5c7987a92..b5d258f35545ec36e204ed7fcd6c8fb863bbfd88 100644
+--- a/yarn-project/archiver/src/store/block_store.test.ts
++++ b/yarn-project/archiver/src/store/block_store.test.ts
+@@ -1,4 +1,4 @@
+-import { GENESIS_ARCHIVE_ROOT, INITIAL_CHECKPOINT_NUMBER } from '@aztec-labs/constants';
++import { INITIAL_CHECKPOINT_NUMBER } from '@aztec-labs/constants';
+ import type { ViemCommitteeAttestations } from '@aztec-labs/ethereum/contracts';
+ import {
+   BlockNumber,
+@@ -24,6 +24,7 @@ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import '@aztec-labs/stdlib/testing/jest';
+ import { AppendOnlyTreeSnapshot } from '@aztec-labs/stdlib/trees';
+ import { type IndexedTxEffect, TxHash, computeTxEffectLeaves } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { mkdtemp, rm } from 'node:fs/promises';
+ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+@@ -356,7 +357,7 @@ describe('BlockStore', () => {
+ 
+     it('accepts blocks that properly cross checkpoint boundaries', async () => {
+       // Checkpoint 1: blocks 1-2, Checkpoint 2: blocks 3-4 — proper boundary crossing
+-      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), TreeLeafIndex(1));
++      const genesisArchive = new AppendOnlyTreeSnapshot(GENESIS_ARCHIVE_ROOT, TreeLeafIndex(1));
+       const checkpoints = await makeChainedCheckpoints(2, {
+         previousArchive: genesisArchive,
+         blocksPerCheckpoint: 2,
+diff --git a/yarn-project/archiver/src/test/mock_l2_block_source.ts b/yarn-project/archiver/src/test/mock_l2_block_source.ts
+index 6cc44c9450eec8cf26158b4d79334c02d46cd6e3..ddbc4dd4188a302b9321c3a96ef27d8c67cd22bb 100644
+--- a/yarn-project/archiver/src/test/mock_l2_block_source.ts
++++ b/yarn-project/archiver/src/test/mock_l2_block_source.ts
+@@ -1,4 +1,3 @@
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { DefaultL1ContractsConfig } from '@aztec-labs/ethereum/config';
+ import {
+   BlockNumber,
+@@ -48,6 +47,7 @@ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ import { AppendOnlyTreeSnapshot } from '@aztec-labs/stdlib/trees';
+ import { BlockHeader, TxHash } from '@aztec-labs/stdlib/tx';
+ import type { UInt64 } from '@aztec-labs/stdlib/types';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ 
+ /**
+  * A mocked implementation of L2BlockSource to be used in tests.
+@@ -495,7 +495,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
+   }
+ 
+   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+-    return Promise.resolve({ genesisArchiveRoot: this.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT) });
++    return Promise.resolve({ genesisArchiveRoot: this.genesisArchiveRoot ?? GENESIS_ARCHIVE_ROOT });
+   }
+ 
+   getL1Timestamp(): Promise<bigint> {
+diff --git a/yarn-project/aztec/src/local-network/local-network.ts b/yarn-project/aztec/src/local-network/local-network.ts
+index 6c1f8e942ffe78007cfb0a420d378850ca7775e2..45b0673949b15862805dc03c89c89a9ed25f9340 100644
+--- a/yarn-project/aztec/src/local-network/local-network.ts
++++ b/yarn-project/aztec/src/local-network/local-network.ts
+@@ -5,7 +5,6 @@ import { type AztecNodeConfig, getConfigEnvVars } from '@aztec-labs/aztec-node/c
+ import { Fr } from '@aztec-labs/aztec.js/fields';
+ import { createLogger } from '@aztec-labs/aztec.js/log';
+ import { type BlobClientInterface, createBlobClient } from '@aztec-labs/blob-client/client';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { waitForPublicClient } from '@aztec-labs/ethereum/client';
+ import { getL1ContractsConfigEnvVars } from '@aztec-labs/ethereum/config';
+ import { NULL_KEY } from '@aztec-labs/ethereum/constants';
+@@ -22,6 +21,7 @@ import { AztecAddress } from '@aztec-labs/stdlib/aztec-address';
+ import type { ProvingJobBroker } from '@aztec-labs/stdlib/interfaces/server';
+ import { TxStatus } from '@aztec-labs/stdlib/tx';
+ import type { GenesisData } from '@aztec-labs/stdlib/world-state';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import {
+   type TelemetryClient,
+   getConfigEnvVars as getTelemetryClientConfig,
+@@ -70,7 +70,7 @@ export async function deployContractsToL1(
+     ...aztecNodeConfig,
+     vkTreeRoot: getVKTreeRoot(),
+     protocolContractsHash,
+-    genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
++    genesisArchiveRoot: opts.genesisArchiveRoot ?? GENESIS_ARCHIVE_ROOT,
+     feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+     aztecTargetCommitteeSize: 0, // no committee in local network
+     slasherEnabled: false, // no slashing in local network
+diff --git a/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts b/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
+index f6ca0913d128ffaa4e7cb7c29b14bfd0a3ea4a0c..ffa0fb469dcc0c9d195dc7c48327e287ee94f11e 100644
+--- a/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
++++ b/yarn-project/cli/src/cmds/l1/compute_genesis_values.ts
+@@ -1,23 +1,20 @@
+ import { getInitialTestAccountsData } from '@aztec-labs/accounts/testing';
+ import type { LogFn } from '@aztec-labs/foundation/log';
+ import { protocolContractsHash } from '@aztec-labs/protocol-contracts';
+-import { getGenesisValues, measureCanonicalGenesis } from '@aztec-labs/world-state/testing';
++import { getGenesisValues } from '@aztec-labs/world-state/testing';
+ 
+ import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
+ 
+ /**
+  * Computes and prints genesis values needed for L1 contract deployment.
+  *
+- * `genesisArchiveRoot` is this deployment's root, which depends on the accounts it prefunds. The `canonical` block is
+- * the prefunding-free genesis that the `GENESIS_*` protocol constants record, and is what
+- * `noir-projects/fnd/scripts/regenerate_genesis_constants.sh` reads to refresh them.
++ * `genesisArchiveRoot` is this deployment's root, which depends on the accounts it prefunds.
+  */
+ export async function computeGenesisValuesCmd(testAccounts: boolean, sponsoredFPC: boolean, log: LogFn) {
+   const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
+   const sponsoredFPCAddresses = sponsoredFPC ? await getSponsoredFPCAddress() : [];
+   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddresses);
+   const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+-  const canonical = await measureCanonicalGenesis();
+ 
+   const { getVKTreeRoot } = await import('@aztec-labs/noir-protocol-circuits-types/vk-tree');
+   const vkTreeRoot = getVKTreeRoot();
+@@ -28,12 +25,6 @@ export async function computeGenesisValuesCmd(testAccounts: boolean, sponsoredFP
+         vkTreeRoot: vkTreeRoot.toString(),
+         protocolContractsHash: protocolContractsHash.toString(),
+         genesisArchiveRoot: genesisArchiveRoot.toString(),
+-        canonical: {
+-          prefilledNullifiers: canonical.prefilledNullifiers.map(n => n.toString()),
+-          nullifierTreeRoot: canonical.nullifierTreeRoot.toString(),
+-          blockHeaderHash: canonical.blockHeaderHash.toString(),
+-          archiveRoot: canonical.archiveRoot.toString(),
+-        },
+       },
+       null,
+       2,
+diff --git a/yarn-project/constants/src/constants.ts b/yarn-project/constants/src/constants.ts
+index 4997a4cf1f27d509b28dd744d9a7314e0ccdad7a..f6208ce4481cfb014ecfa1ad37c7a1e68a4f9fa6 100644
+--- a/yarn-project/constants/src/constants.ts
++++ b/yarn-project/constants/src/constants.ts
+@@ -1,11 +1,9 @@
+ import { BlockNumber, CheckpointNumber } from '@aztec-labs/foundation/branded-types';
+-import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ 
+ // Re-export L2 block number constants with proper BlockNumber type
+ // Note: The generated constants are plain numbers, but we provide typed versions here
+ import {
+   DA_GAS_PER_FIELD,
+-  GENESIS_BLOCK_HEADER_HASH as GENESIS_BLOCK_HEADER_HASH_BIGINT,
+   INITIAL_CHECKPOINT_NUMBER as INITIAL_CHECKPOINT_NUM_RAW,
+   INITIAL_L2_BLOCK_NUM as INITIAL_L2_BLOCK_NUM_RAW,
+   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT as MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT_RAW,
+@@ -48,10 +46,6 @@ export const INITIAL_L2_BLOCK_NUM: BlockNumber = BlockNumber(INITIAL_L2_BLOCK_NU
+ // eslint-disable-next-line import-x/export
+ export const INITIAL_CHECKPOINT_NUMBER: CheckpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUM_RAW);
+ 
+-/** The block header hash for the genesis block 0. */
+-// eslint-disable-next-line import-x/export
+-export const GENESIS_BLOCK_HEADER_HASH = new Fr(GENESIS_BLOCK_HEADER_HASH_BIGINT);
+-
+ /**
+  * The RAW DA capacity of a checkpoint's blobs: `BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD`.
+  * This value is NOT attainable by transactions. The blob encoding reserves overhead fields that no tx pays
+diff --git a/yarn-project/package.json b/yarn-project/package.json
+index cf4f34386e75ca04cdc4704c529cdb69b2c4fb69..550e8aa383c890771a872aa9fcb0fb089f30f4a9 100644
+--- a/yarn-project/package.json
++++ b/yarn-project/package.json
+@@ -102,6 +102,7 @@
+     "@aztec-foundation/mock-protocol-circuits-artifacts": "7.0.0-nightly.20261110",
+     "@aztec-foundation/protocol-circuits-artifacts": "7.0.0-nightly.20261110",
+     "@aztec-foundation/protocol-contracts-artifacts": "7.0.0-nightly.20261110",
++    "@aztec-foundation/protocol-genesis": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb-darwin-arm64": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb-darwin-x64": "7.0.0-nightly.20261110",
+diff --git a/yarn-project/protocol-contracts/package.json b/yarn-project/protocol-contracts/package.json
+index fd851270734204c1efd5bf11afd1049ae39a06a8..67544ffac816e99265580a99789496d77ccf7360 100644
+--- a/yarn-project/protocol-contracts/package.json
++++ b/yarn-project/protocol-contracts/package.json
+@@ -73,6 +73,7 @@
+     ]
+   },
+   "dependencies": {
++    "@aztec-foundation/protocol-genesis": "0.1.0-dummy",
+     "@aztec-labs/constants": "workspace:^",
+     "@aztec-labs/foundation": "workspace:^",
+     "@aztec-labs/stdlib": "workspace:^",
+diff --git a/yarn-project/protocol-contracts/src/genesis_data.test.ts b/yarn-project/protocol-contracts/src/genesis_data.test.ts
+index 17aab4167420709743263d54ffdd7ff5a8f3647c..335200b8927ccf916a62bc6b43490fee2b8d3839 100644
+--- a/yarn-project/protocol-contracts/src/genesis_data.test.ts
++++ b/yarn-project/protocol-contracts/src/genesis_data.test.ts
+@@ -7,11 +7,9 @@ import { ProtocolContractAddress, protocolContractNames } from './protocol_contr
+ import { ProtocolContractArtifact } from './provider/bundle.js';
+ 
+ describe('DEFAULT_GENESIS_DATA', () => {
+-  // Recomputed from the bundled artifacts rather than read back from the generator's output, so a stale
+-  // `protocol_contract_data.ts` or a mistake in its generator fails here. This does not catch a class id rotation:
+-  // the generated file is rebuilt from the same artifacts, so both sides move together. What catches that is the
+-  // pinned-root assertion in world-state's `testing.test.ts`, which compares a live genesis against
+-  // `GENESIS_ARCHIVE_ROOT`.
++  // The nullifiers come from @aztec-foundation/protocol-genesis, which barretenberg measured from the protocol
++  // contracts it was built with. Recomputing them in TS from the artifacts bundled here catches a package that does
++  // not match those artifacts, and a TS class derivation that has drifted from barretenberg's.
+   it('seeds exactly the registration nullifiers the bundled protocol artifacts imply', async () => {
+     const expected: Fr[] = [];
+     for (const name of protocolContractNames) {
+diff --git a/yarn-project/protocol-contracts/src/genesis_data.ts b/yarn-project/protocol-contracts/src/genesis_data.ts
+index ebaf09433576bc298b0c8ab3869dc6f23b3a919b..b5ba0268849aaaa0fb0d2eb7c54854a5f1b6746f 100644
+--- a/yarn-project/protocol-contracts/src/genesis_data.ts
++++ b/yarn-project/protocol-contracts/src/genesis_data.ts
+@@ -1,17 +1,27 @@
++import { GENESIS } from '@aztec-foundation/protocol-genesis';
++
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { PublicDataTreeLeaf } from '@aztec-labs/stdlib/trees';
+ import type { GenesisData } from '@aztec-labs/stdlib/world-state';
+ 
+-import { ProtocolContractGenesisNullifiers } from './protocol_contract_data.js';
++/**
++ * The siloed registration nullifiers the protocol contracts would emit if they were published on-chain, as the
++ * protocol release's genesis records them.
++ */
++export const ProtocolContractGenesisNullifiers: Fr[] = GENESIS.inputs.prefilledNullifiers.map(n => Fr.fromHexString(n));
+ 
+ /**
+- * Canonical genesis data for a production network. Seeds the protocol contract registration nullifiers
+- * ({@link ProtocolContractGenesisNullifiers}) into the genesis nullifier tree, so that an on-chain re-publish of a
+- * bundled protocol class id pushes an already-existing nullifier and the transaction is rejected as a duplicate
+- * nullifier before it ever reaches the archiver. The `GENESIS_BLOCK_HEADER_HASH` and `GENESIS_ARCHIVE_ROOT` constants
+- * are derived from this genesis, so production world-state callers must build on top of it rather than on
+- * `EMPTY_GENESIS_DATA`, or their roots diverge from the deployed rollup.
++ * Canonical genesis data for a production network, from `@aztec-foundation/protocol-genesis`. Seeds the protocol
++ * contract registration nullifiers ({@link ProtocolContractGenesisNullifiers}) into the genesis nullifier tree, so that
++ * an on-chain re-publish of a bundled protocol class id pushes an already-existing nullifier and the transaction is
++ * rejected as a duplicate nullifier before it ever reaches the archiver. The `GENESIS_BLOCK_HEADER_HASH` and
++ * `GENESIS_ARCHIVE_ROOT` constants are the roots this genesis produces, so production world-state callers must build on
++ * top of it rather than on `EMPTY_GENESIS_DATA`, or their roots diverge from the deployed rollup.
+  */
+ export const DEFAULT_GENESIS_DATA: GenesisData = {
+-  prefilledPublicData: [],
++  prefilledPublicData: GENESIS.inputs.prefilledPublicData.map(
++    ({ slot, value }) => new PublicDataTreeLeaf(Fr.fromHexString(slot), Fr.fromHexString(value)),
++  ),
+   prefilledNullifiers: ProtocolContractGenesisNullifiers,
+-  genesisTimestamp: 0n,
++  genesisTimestamp: BigInt(GENESIS.inputs.genesisTimestamp),
+ };
+diff --git a/yarn-project/protocol-contracts/src/scripts/generate_data.ts b/yarn-project/protocol-contracts/src/scripts/generate_data.ts
+index 8af98302da42b6da2e26f274e4571984f628af33..0901a731d94705d762235cbc6a44dc93e920ad02 100644
+--- a/yarn-project/protocol-contracts/src/scripts/generate_data.ts
++++ b/yarn-project/protocol-contracts/src/scripts/generate_data.ts
+@@ -20,7 +20,7 @@ import {
+   computeInitializationHash,
+   getContractClassFromArtifact,
+ } from '@aztec-labs/stdlib/contract';
+-import { computeSiloedPrivateLogFirstField, siloNullifier } from '@aztec-labs/stdlib/hash';
++import { computeSiloedPrivateLogFirstField } from '@aztec-labs/stdlib/hash';
+ import { PublicKeys } from '@aztec-labs/stdlib/keys';
+ import { type NoirCompiledContract } from '@aztec-labs/stdlib/noir';
+ import { ProtocolContracts } from '@aztec-labs/stdlib/tx';
+@@ -211,42 +211,6 @@ async function generateProtocolContractsList(names: string[], contractData: Cont
+   `;
+ }
+ 
+-// Generates the siloed registration nullifiers that the protocol contracts would emit if they were published on-chain,
+-// so that world-state genesis can pre-insert them into the nullifier tree. With these present from genesis, an on-chain
+-// re-publish of a bundled protocol class id pushes an already-existing nullifier, making that transaction invalid
+-// (duplicate nullifier) before it ever reaches the archiver. For each protocol contract we seed:
+-//   - the class nullifier: siloNullifier(ContractClassRegistry, classId) — what ContractClassRegistry.publish emits;
+-//   - the instance nullifier: siloNullifier(ContractInstanceRegistry, magicAddress) — the magic protocol address
+-//     (1/2/3) rather than the derived address, matching the node's block-0 protocol contract preload. No on-chain
+-//     deployment can produce a magic address, so this entry is unreachable from a publish; it exists so that genesis
+-//     reflects the canonical protocol deployment.
+-// The list is sorted ascending because the indexed nullifier tree requires its prefilled leaves to be unique and
+-// strictly increasing.
+-async function generateGenesisNullifiers(names: string[], contractData: ContractData[]) {
+-  const classRegistry = AztecAddress.fromBigIntUnsafe(BigInt(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
+-  const instanceRegistry = AztecAddress.fromBigIntUnsafe(BigInt(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS));
+-
+-  const nullifiers: Fr[] = [];
+-  for (let i = 0; i < names.length; i++) {
+-    const magicAddress = AztecAddress.fromBigIntUnsafe(BigInt(contractAddressMapping[names[i]]));
+-    nullifiers.push(await siloNullifier(classRegistry, contractData[i].classId));
+-    nullifiers.push(await siloNullifier(instanceRegistry, magicAddress.toField()));
+-  }
+-  nullifiers.sort((a, b) => (a.toBigInt() < b.toBigInt() ? -1 : 1));
+-
+-  for (let i = 1; i < nullifiers.length; i++) {
+-    if (nullifiers[i].toBigInt() === nullifiers[i - 1].toBigInt()) {
+-      throw new Error(`Duplicate protocol contract genesis nullifier: ${nullifiers[i].toString()}`);
+-    }
+-  }
+-
+-  return `
+-    export const ProtocolContractGenesisNullifiers: Fr[] = [
+-      ${nullifiers.map(n => `Fr.fromString('${n.toString()}')`).join(',\n')}
+-    ];
+-  `;
+-}
+-
+ // Generate the siloed log tags for events emitted via private logs.
+ async function generateLogTags() {
+   return `
+@@ -277,8 +241,6 @@ async function generateOutputFile(names: string[], contractData: ContractData[])
+ 
+     ${await generateProtocolContractsList(names, contractData)}
+ 
+-    ${await generateGenesisNullifiers(names, contractData)}
+-
+     ${await generateLogTags()}
+   `;
+   await fs.writeFile(outputFilePath, content);
+diff --git a/yarn-project/sequencer-client/src/publisher/l1_publisher.integration.test.ts b/yarn-project/sequencer-client/src/publisher/l1_publisher.integration.test.ts
+index 40a4c21ad10f2197f841bf50966c970fefa2867c..43710630e663ad6c8b9c87af6e8f29f2704775e3 100644
+--- a/yarn-project/sequencer-client/src/publisher/l1_publisher.integration.test.ts
++++ b/yarn-project/sequencer-client/src/publisher/l1_publisher.integration.test.ts
+@@ -11,7 +11,6 @@ import {
+   getPrefixedEthBlobCommitments,
+ } from '@aztec-labs/blob-lib';
+ import {
+-  GENESIS_ARCHIVE_ROOT,
+   MAX_L1_TO_L2_MSGS_PER_CHECKPOINT,
+   MAX_NULLIFIERS_PER_TX,
+   MAX_PROCESSABLE_L2_GAS,
+@@ -105,6 +104,7 @@ import {
+   GlobalVariables,
+   type ProcessedTx,
+ } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { NativeWorldStateService, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec-labs/world-state';
+ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+ import { type MockProxy, mock } from 'jest-mock-extended';
+@@ -285,7 +285,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+       ...getL1ContractsConfigEnvVars(),
+       vkTreeRoot: getVKTreeRoot(),
+       protocolContractsHash,
+-      genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
++      genesisArchiveRoot: deployL1ContractsArgs.genesisArchiveRoot ?? GENESIS_ARCHIVE_ROOT,
+       aztecTargetCommitteeSize: 0,
+       slasherEnabled: false,
+       ...deployL1ContractsArgs,
+@@ -314,7 +314,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+     const initialHeader = builderDb.getInitialHeader();
+     const initialHeaderHash = (await initialHeader.hash()).toString();
+     const genesisArchiveSnapshot = new AppendOnlyTreeSnapshot(
+-      deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
++      deployL1ContractsArgs.genesisArchiveRoot ?? GENESIS_ARCHIVE_ROOT,
+       TreeLeafIndex(1),
+     );
+     const genesisBlock = new L2Block(
+@@ -603,7 +603,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+ 
+     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
+       const archiveInRollup_ = await rollup.archive();
+-      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
++      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(GENESIS_ARCHIVE_ROOT.toBuffer());
+ 
+       const l1BlockNumber = await l1Client.getBlockNumber();
+ 
+@@ -861,7 +861,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
+       const attestations = orderAttestations(checkpointAttestations, committee!);
+ 
+-      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
++      const canPropose = await publisher.canProposeAt(GENESIS_ARCHIVE_ROOT, proposer!);
+       expect(canPropose?.slot).toEqual(block.header.getSlot());
+       await publisher.validateCheckpointHeaderAndInbox(checkpoint.header, preflightInboxArgs(checkpoint));
+ 
+@@ -907,7 +907,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+       const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
+       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
+ 
+-      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
++      const canPropose = await publisher.canProposeAt(GENESIS_ARCHIVE_ROOT, proposer!);
+       expect(canPropose?.slot).toEqual(block.header.getSlot());
+       await publisher.validateCheckpointHeaderAndInbox(checkpoint.header, preflightInboxArgs(checkpoint));
+ 
+@@ -936,7 +936,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
+       const attestations = orderAttestations(checkpointAttestations, committee!);
+ 
+-      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
++      const canPropose = await publisher.canProposeAt(GENESIS_ARCHIVE_ROOT, proposer!);
+       expect(canPropose?.slot).toEqual(block.header.getSlot());
+       await publisher.validateCheckpointHeaderAndInbox(checkpoint.header, preflightInboxArgs(checkpoint));
+ 
+@@ -974,7 +974,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
+       const attestations = orderAttestations(checkpointAttestations, committee!);
+ 
+-      const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
++      const canPropose = await publisher.canProposeAt(GENESIS_ARCHIVE_ROOT, proposer!);
+       expect(canPropose?.slot).toEqual(block.header.getSlot());
+       await publisher.validateCheckpointHeaderAndInbox(checkpoint.header, preflightInboxArgs(checkpoint));
+ 
+@@ -1058,7 +1058,7 @@ describeAcrossL1Forks('L1Publisher integration', () => {
+         .build();
+ 
+       // We cannot propose directly, we need to assume the previous checkpoint is invalidated
+-      const genesis = new Fr(GENESIS_ARCHIVE_ROOT);
++      const genesis = GENESIS_ARCHIVE_ROOT;
+       logger.warn(`Checking can propose at next eth block on top of genesis ${genesis}`);
+       expect(await publisher.canProposeAt(genesis, proposer!)).toBeUndefined();
+       const canPropose = await publisher.canProposeAt(genesis, proposer!, invalidationSimulationOverridesPlan);
+diff --git a/yarn-project/stdlib/package.json b/yarn-project/stdlib/package.json
+index 466f6231ae3c18efb10d691359c9d951e2e81b58..4c238d3fc62bd02cd472dadde9913a9e3b7b9e5c 100644
+--- a/yarn-project/stdlib/package.json
++++ b/yarn-project/stdlib/package.json
+@@ -94,6 +94,7 @@
+     "@aws-sdk/client-s3": "^3.892.0",
+     "@aztec-foundation/bb.js": "0.1.0-dummy",
+     "@aztec-foundation/noir-noirc_abi": "0.1.0-dummy",
++    "@aztec-foundation/protocol-genesis": "0.1.0-dummy",
+     "@aztec-labs/blob-lib": "workspace:^",
+     "@aztec-labs/constants": "workspace:^",
+     "@aztec-labs/ethereum": "workspace:^",
+diff --git a/yarn-project/stdlib/src/block/block_hash.ts b/yarn-project/stdlib/src/block/block_hash.ts
+index 44ff6c058aa1ccc69f049046fddd7c7093192735..09ba6396fca0fc6ceaab4bc042ffff51357cc1b8 100644
+--- a/yarn-project/stdlib/src/block/block_hash.ts
++++ b/yarn-project/stdlib/src/block/block_hash.ts
+@@ -1,4 +1,5 @@
+-import { GENESIS_BLOCK_HEADER_HASH as GENESIS_BLOCK_HEADER_HASH_FR } from '@aztec-labs/constants';
++import { GENESIS } from '@aztec-foundation/protocol-genesis';
++
+ import { BaseFr, Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { inspect } from '@aztec-labs/foundation/inspect';
+ import type { ZodFor } from '@aztec-labs/foundation/schemas';
+@@ -47,5 +48,5 @@ export class BlockHash extends BaseFr {
+   }
+ }
+ 
+-/** The block header hash for the genesis block (block 0). */
+-export const GENESIS_BLOCK_HEADER_HASH: BlockHash = new BlockHash(GENESIS_BLOCK_HEADER_HASH_FR);
++/** The block header hash for the canonical genesis block (block 0), from `@aztec-foundation/protocol-genesis`. */
++export const GENESIS_BLOCK_HEADER_HASH: BlockHash = BlockHash.fromString(GENESIS.outputs.blockHeaderHash);
+diff --git a/yarn-project/stdlib/src/block/l2_block.test.ts b/yarn-project/stdlib/src/block/l2_block.test.ts
+index 7029ff5450faee83aecbf4f974503436a5b76db9..46a5f549c5e26f821a3b90c7f54a3da1bb3fb6cc 100644
+--- a/yarn-project/stdlib/src/block/l2_block.test.ts
++++ b/yarn-project/stdlib/src/block/l2_block.test.ts
+@@ -1,9 +1,9 @@
+-import { GENESIS_NULLIFIER_TREE_ROOT } from '@aztec-labs/constants';
+ import { BlockNumber, TreeLeafIndex } from '@aztec-labs/foundation/branded-types';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { jsonStringify } from '@aztec-labs/foundation/json-rpc';
+ 
+ import { BlockHeader } from '../tx/block_header.js';
++import { GENESIS_NULLIFIER_TREE_ROOT } from '../world-state/index.js';
+ import { GENESIS_BLOCK_HEADER_HASH } from './block_hash.js';
+ import { L2Block } from './l2_block.js';
+ 
+@@ -32,7 +32,7 @@ describe('L2Block', () => {
+     emptyBlockHeader.state.partial.noteHashTree.root = Fr.fromString(
+       '0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6',
+     );
+-    emptyBlockHeader.state.partial.nullifierTree.root = new Fr(GENESIS_NULLIFIER_TREE_ROOT);
++    emptyBlockHeader.state.partial.nullifierTree.root = GENESIS_NULLIFIER_TREE_ROOT;
+     emptyBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex = TreeLeafIndex(128);
+     emptyBlockHeader.state.partial.publicDataTree.root = Fr.fromString(
+       '0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084',
+diff --git a/yarn-project/stdlib/src/world-state/genesis_data.ts b/yarn-project/stdlib/src/world-state/genesis_data.ts
+index d6f80eba64c7f1f2710f194285952b29f24f473d..4fd4dbe02cafd369f27d0e020d2b12c03e68f061 100644
+--- a/yarn-project/stdlib/src/world-state/genesis_data.ts
++++ b/yarn-project/stdlib/src/world-state/genesis_data.ts
+@@ -1,4 +1,6 @@
+-import type { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { GENESIS } from '@aztec-foundation/protocol-genesis';
++
++import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ 
+ import type { PublicDataTreeLeaf } from '../trees/index.js';
+ 
+@@ -44,3 +46,12 @@ export function isGenesisData(obj: any): obj is GenesisData {
+     typeof obj.genesisTimestamp === 'bigint'
+   );
+ }
++
++/** The root of the canonical genesis nullifier tree, from `@aztec-foundation/protocol-genesis`. */
++export const GENESIS_NULLIFIER_TREE_ROOT = Fr.fromHexString(GENESIS.outputs.nullifierTreeRoot);
++
++/**
++ * The root of the canonical genesis archive, from `@aztec-foundation/protocol-genesis`. A network that prefunds
++ * accounts starts from a different one (see `getGenesisValues` in `@aztec-labs/world-state/testing`).
++ */
++export const GENESIS_ARCHIVE_ROOT = Fr.fromHexString(GENESIS.outputs.archiveRoot);
+diff --git a/yarn-project/txe/src/state_machine/archiver.ts b/yarn-project/txe/src/state_machine/archiver.ts
+index d20311f4728f0c09d5e5ba8ca4500ba3ef53508e..5143027ee4a86d6a497727c3d5b87385f9694dec 100644
+--- a/yarn-project/txe/src/state_machine/archiver.ts
++++ b/yarn-project/txe/src/state_machine/archiver.ts
+@@ -1,5 +1,4 @@
+ import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, createArchiverDataStores } from '@aztec-labs/archiver';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec-labs/foundation/branded-types';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import type { EthAddress } from '@aztec-labs/foundation/eth-address';
+@@ -17,6 +16,7 @@ import type { PublishedCheckpoint } from '@aztec-labs/stdlib/checkpoint';
+ import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec-labs/stdlib/epoch-helpers';
+ import { TestRollupFeeConfigProvider } from '@aztec-labs/stdlib/gas';
+ import { BlockHeader } from '@aztec-labs/stdlib/tx';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ 
+ /**
+  * TXE Archiver implementation.
+@@ -32,7 +32,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
+       undefined,
+       BlockHeader.empty(),
+       GENESIS_BLOCK_HEADER_HASH,
+-      new Fr(GENESIS_ARCHIVE_ROOT),
++      GENESIS_ARCHIVE_ROOT,
+     );
+   }
+ 
+@@ -55,7 +55,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
+   }
+ 
+   public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+-    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
++    return Promise.resolve({ genesisArchiveRoot: GENESIS_ARCHIVE_ROOT });
+   }
+ 
+   public getL1Timestamp(): Promise<bigint | undefined> {
+diff --git a/yarn-project/validator-client/src/validator.test.ts b/yarn-project/validator-client/src/validator.test.ts
+index b3efd76781147abb2cd0a75f0dcfefb991348009..1d73848a94fe851b86a96113d04cecec3e80a05a 100644
+--- a/yarn-project/validator-client/src/validator.test.ts
++++ b/yarn-project/validator-client/src/validator.test.ts
+@@ -1,5 +1,4 @@
+ import type { BlobClientInterface } from '@aztec-labs/blob-client/client';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import type { EpochCache } from '@aztec-labs/epoch-cache';
+ import {
+   makeEscapeHatchLookup,
+@@ -65,6 +64,7 @@ import {
+ import { AppendOnlyTreeSnapshot } from '@aztec-labs/stdlib/trees';
+ import { BlockHeader, GlobalVariables, TX_ERROR_INVALID_PROOF, type Tx, TxEffect, TxHash } from '@aztec-labs/stdlib/tx';
+ import { AttestationTimeoutError, InvalidBlockProposalTxsError } from '@aztec-labs/stdlib/validators';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { describe, expect, it, jest } from '@jest/globals';
+ import { Buffer } from 'buffer';
+ import { type MockProxy, mock } from 'jest-mock-extended';
+@@ -604,7 +604,7 @@ describe('ValidatorClient', () => {
+         Promise.resolve('number' in query ? undefined : parentBlockData),
+       );
+ 
+-      blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
++      blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: GENESIS_ARCHIVE_ROOT });
+       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
+ 
+       // Resolve every Inbox query to the empty prefix, so streaming checks accept with an empty bundle.
+diff --git a/yarn-project/world-state/package.json b/yarn-project/world-state/package.json
+index e93a2a54788579e46eb2cc3c4ae080fb8acf631e..ee0598b98ff83abfefd6cfc96bd1e3b4722f1a02 100644
+--- a/yarn-project/world-state/package.json
++++ b/yarn-project/world-state/package.json
+@@ -64,6 +64,7 @@
+     ]
+   },
+   "dependencies": {
++    "@aztec-foundation/protocol-genesis": "0.1.0-dummy",
+     "@aztec-labs/constants": "workspace:^",
+     "@aztec-labs/foundation": "workspace:^",
+     "@aztec-labs/protocol-contracts": "workspace:^",
+diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+index 2ff91463b74748f81cf75f246eae19fca335d491..0fc4a3c704172100faf36313552b5175540c331e 100644
+--- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
++++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+@@ -1,15 +1,6 @@
+ import { IpcProcessExitedError } from '@aztec-foundation/ipc-runtime';
++import { GENESIS } from '@aztec-foundation/protocol-genesis';
+ 
+-import {
+-  ARCHIVE_HEIGHT,
+-  DomainSeparator,
+-  L1_TO_L2_MSG_TREE_HEIGHT,
+-  MAX_NULLIFIERS_PER_TX,
+-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+-  NOTE_HASH_TREE_HEIGHT,
+-  NULLIFIER_TREE_HEIGHT,
+-  PUBLIC_DATA_TREE_HEIGHT,
+-} from '@aztec-labs/constants';
+ import type { BlockNumber } from '@aztec-labs/foundation/branded-types';
+ import { getEnv } from '@aztec-labs/foundation/config/env';
+ import type { Fr } from '@aztec-labs/foundation/curves/bn254';
+@@ -849,15 +840,15 @@ export function getWsdbOptions(
+ } {
+   return {
+     treeHeights: {
+-      [MerkleTreeId.NULLIFIER_TREE]: NULLIFIER_TREE_HEIGHT,
+-      [MerkleTreeId.NOTE_HASH_TREE]: NOTE_HASH_TREE_HEIGHT,
+-      [MerkleTreeId.PUBLIC_DATA_TREE]: PUBLIC_DATA_TREE_HEIGHT,
+-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: L1_TO_L2_MSG_TREE_HEIGHT,
+-      [MerkleTreeId.ARCHIVE]: ARCHIVE_HEIGHT,
++      [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treeHeights.nullifierTree,
++      [MerkleTreeId.NOTE_HASH_TREE]: GENESIS.inputs.treeHeights.noteHashTree,
++      [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treeHeights.publicDataTree,
++      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: GENESIS.inputs.treeHeights.l1ToL2MessageTree,
++      [MerkleTreeId.ARCHIVE]: GENESIS.inputs.treeHeights.archive,
+     },
+     treePrefill: {
+-      [MerkleTreeId.NULLIFIER_TREE]: 2 * MAX_NULLIFIERS_PER_TX,
+-      [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
++      [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treePrefill.nullifierTree,
++      [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treePrefill.publicDataTree,
+     },
+     mapSizes: {
+       [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
+@@ -866,6 +857,6 @@ export function getWsdbOptions(
+       [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: wsTreeMapSizes.messageTreeMapSizeKb,
+       [MerkleTreeId.ARCHIVE]: wsTreeMapSizes.archiveTreeMapSizeKb,
+     },
+-    initialHeaderGeneratorPoint: DomainSeparator.BLOCK_HEADER_HASH,
++    initialHeaderGeneratorPoint: GENESIS.inputs.initialHeaderGeneratorPoint,
+   };
+ }
+diff --git a/yarn-project/world-state/src/test/integration.test.ts b/yarn-project/world-state/src/test/integration.test.ts
+index 0fc650319d15938008548d16ea957501a5cf11a2..42d048e5942dc5b45bae6168005f9f155ccdaa90 100644
+--- a/yarn-project/world-state/src/test/integration.test.ts
++++ b/yarn-project/world-state/src/test/integration.test.ts
+@@ -1,5 +1,4 @@
+ import { MockArchiver, MockPrefilledArchiver } from '@aztec-labs/archiver/test';
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { BlockNumber, CheckpointNumber } from '@aztec-labs/foundation/branded-types';
+ import { timesAsync } from '@aztec-labs/foundation/collection';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+@@ -11,6 +10,7 @@ import { Timer } from '@aztec-labs/foundation/timer';
+ import type { Checkpoint } from '@aztec-labs/stdlib/checkpoint';
+ import type { DataStoreConfig } from '@aztec-labs/stdlib/kv-store';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
++import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/stdlib/world-state';
+ import { describe, jest } from '@jest/globals';
+ 
+ import { NativeWorldStateService } from '../native/native_world_state.js';
+@@ -61,7 +61,7 @@ describe('world-state integration', () => {
+ 
+     db = (await createWorldState(config)) as NativeWorldStateService;
+     await archiver.setInitialHeader(db.getInitialHeader());
+-    archiver.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
++    archiver.setGenesisArchiveRoot(GENESIS_ARCHIVE_ROOT);
+     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
+     log.info(`Created synchronizer`);
+   }, 30_000);
+@@ -254,7 +254,7 @@ describe('world-state integration', () => {
+     it('retains complete checkpoints before and after a future pin is reached', async () => {
+       const source = new MultiBlockArchiver();
+       await source.setInitialHeader(db.getInitialHeader());
+-      source.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
++      source.setGenesisArchiveRoot(GENESIS_ARCHIVE_ROOT);
+       const fork = await db.fork(BlockNumber.ZERO);
+       for (let i = 0; i < 7; i++) {
+         const { checkpoint, messages } = await mockCheckpoint(CheckpointNumber(i + 1), fork, {
+diff --git a/yarn-project/world-state/src/testing.test.ts b/yarn-project/world-state/src/testing.test.ts
+index 55db72edd6ab2bb59b091d4245e057c5075f5cb8..8f00a825f172359a3b7fb6f9bd7a1b619c85ea6f 100644
+--- a/yarn-project/world-state/src/testing.test.ts
++++ b/yarn-project/world-state/src/testing.test.ts
+@@ -1,8 +1,7 @@
+-import { GENESIS_ARCHIVE_ROOT } from '@aztec-labs/constants';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { DEFAULT_GENESIS_DATA, ProtocolContractGenesisNullifiers } from '@aztec-labs/protocol-contracts';
+ import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec-labs/stdlib/trees';
+-import { EMPTY_GENESIS_DATA, type GenesisData } from '@aztec-labs/stdlib/world-state';
++import { EMPTY_GENESIS_DATA, GENESIS_ARCHIVE_ROOT, type GenesisData } from '@aztec-labs/stdlib/world-state';
+ import { jest } from '@jest/globals';
+ 
+ import { NativeWorldStateService } from './native/index.js';
+@@ -60,12 +59,12 @@ describe('genesis prefilled nullifiers', () => {
+   it('the default genesis archive root matches the pinned GENESIS_ARCHIVE_ROOT constant', async () => {
+     const ws = await NativeWorldStateService.ephemeral(DEFAULT_GENESIS_DATA);
+     try {
+-      expect(await archiveRoot(ws)).toEqual(new Fr(GENESIS_ARCHIVE_ROOT));
++      expect(await archiveRoot(ws)).toEqual(GENESIS_ARCHIVE_ROOT);
+     } finally {
+       await ws.close();
+     }
+     const { genesisArchiveRoot } = await getGenesisValues([]);
+-    expect(genesisArchiveRoot).toEqual(new Fr(GENESIS_ARCHIVE_ROOT));
++    expect(genesisArchiveRoot).toEqual(GENESIS_ARCHIVE_ROOT);
+   });
+ 
+   it('an explicitly empty genesis seeds no protocol nullifiers and yields a different root', async () => {
+@@ -73,7 +72,7 @@ describe('genesis prefilled nullifiers', () => {
+     try {
+       const indices = await nullifierIndices(ws, ProtocolContractGenesisNullifiers);
+       expect(indices.every(index => index === undefined)).toBe(true);
+-      expect(await archiveRoot(ws)).not.toEqual(new Fr(GENESIS_ARCHIVE_ROOT));
++      expect(await archiveRoot(ws)).not.toEqual(GENESIS_ARCHIVE_ROOT);
+     } finally {
+       await ws.close();
+     }
+diff --git a/yarn-project/world-state/src/testing.ts b/yarn-project/world-state/src/testing.ts
+index be193f30666200500d199805ccd86c759aa93666..5cd9a352e684c11b1004a3dea76ae971e10ee267 100644
+--- a/yarn-project/world-state/src/testing.ts
++++ b/yarn-project/world-state/src/testing.ts
+@@ -22,30 +22,6 @@ async function generateGenesisValues(genesis: GenesisData) {
+   }
+ }
+ 
+-/**
+- * Measures every value the canonical genesis pins, from one world state.
+- *
+- * Canonical means {@link DEFAULT_GENESIS_DATA} exactly: the protocol contracts' registration nullifiers, no prefunded
+- * public data and timestamp 0. That is what `GENESIS_NULLIFIER_TREE_ROOT`, `GENESIS_BLOCK_HEADER_HASH` and
+- * `GENESIS_ARCHIVE_ROOT` in `constants.nr` record, so this is the measurement
+- * `noir-projects/fnd/scripts/regenerate_genesis_constants.sh` writes back into them. A deployment that prefunds
+- * accounts gets a different archive root and must use {@link getGenesisValues} instead.
+- */
+-export async function measureCanonicalGenesis() {
+-  const ws = await NativeWorldStateService.ephemeral(DEFAULT_GENESIS_DATA);
+-  try {
+-    const committed = ws.getCommitted();
+-    return {
+-      prefilledNullifiers: DEFAULT_GENESIS_DATA.prefilledNullifiers,
+-      nullifierTreeRoot: new Fr((await committed.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root),
+-      blockHeaderHash: await ws.getInitialHeader().hash(),
+-      archiveRoot: new Fr((await committed.getTreeInfo(MerkleTreeId.ARCHIVE)).root),
+-    };
+-  } finally {
+-    await ws.close();
+-  }
+-}
+-
+ export const defaultInitialAccountFeeJuice = new Fr(10n ** 22n);
+ 
+ /**
