@@ -10,6 +10,7 @@
 
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
@@ -401,14 +402,31 @@ class RollupIO {
      */
     static void add_default(Builder& builder)
     {
+        const auto [ipa_polynomial, ipa_challenge] = IPA<grumpkin<Builder>>::sample_random_opening();
+        add_default(builder, ipa_polynomial, ipa_challenge);
+    };
+
+    /**
+     * @brief Add default public inputs, with the IPA claim opening ipa_polynomial at ipa_challenge
+     * @details Lets a caller draw the opening (IPA::sample_random_opening) separately from building the circuit.
+     */
+    static void add_default(Builder& builder, const bb::Polynomial<bb::fq>& ipa_polynomial, const bb::fq& ipa_challenge)
+    {
         RollupIO inputs;
         inputs.pairing_inputs = PairingInputs::construct_default();
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
+        auto [stdlib_opening_claim, ipa_proof_task] =
+            IPA<grumpkin<Builder>>::create_valid_ipa_claim_deferred(builder, ipa_polynomial, ipa_challenge);
+        if (!bb::rollup_experimental_optimizations_enabled()) {
+            inputs.ipa_claim = stdlib_opening_claim;
+            builder.ipa_proof = ipa_proof_task.prove();
+            inputs.set_public();
+            return;
+        }
+        auto ipa_proof = std::move(ipa_proof_task).launch();
         inputs.ipa_claim = stdlib_opening_claim;
         inputs.set_public();
 
-        builder.ipa_proof = ipa_proof;
+        builder.set_pending_ipa_proof(std::move(ipa_proof));
     };
 };
 } // namespace bb::stdlib::recursion::honk

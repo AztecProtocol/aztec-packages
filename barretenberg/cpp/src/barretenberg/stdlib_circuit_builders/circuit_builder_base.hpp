@@ -10,8 +10,11 @@
 #include <utility>
 
 #include <algorithm>
+#include <cstddef>
+#include <numeric>
 #include <span>
 #include <unordered_map>
+#include <vector>
 
 namespace bb {
 static constexpr uint32_t DEFAULT_TAG = 0;
@@ -63,6 +66,56 @@ template <typename FF_> class CircuitBuilderBase {
      * @return The index of the first variable in the same class as the submitted index
      */
     uint32_t get_first_variable_in_class(uint32_t index) const;
+
+    /**
+     * @brief Append `count` variables, each its own real variable carrying `tag`.
+     * @details Leaves the state of `count` calls of CircuitBuilderBase::add_variable, each followed by setting the tag
+     * of the new variable to `tag`, where the i-th call adds the value `write_values` assigns to `values[i]`. The
+     * per-variable vectors also end with the capacities those calls would give them. `write_values(values)` is called
+     * once with the value slots of the new variables, zero-initialized, and must assign each of them. The virtual
+     * add_variable is not called.
+     * @return The index of the first new variable; the others follow it consecutively.
+     */
+    template <typename WriteValues>
+    uint32_t add_tagged_variables(const size_t count, const uint32_t tag, const WriteValues& write_values)
+    {
+        const size_t first = variables.size();
+        const size_t new_size = first + count;
+        reserve_as_appends(variables, new_size);
+        reserve_as_appends(real_variable_index, new_size);
+        reserve_as_appends(next_var_index, new_size);
+        reserve_as_appends(prev_var_index, new_size);
+        reserve_as_appends(real_variable_tags, new_size);
+        variables.resize(new_size);
+        write_values(std::span<FF>(variables).subspan(first));
+        real_variable_index.resize(new_size);
+        std::iota(real_variable_index.begin() + static_cast<std::ptrdiff_t>(first),
+                  real_variable_index.end(),
+                  static_cast<uint32_t>(first));
+        next_var_index.resize(new_size, REAL_VARIABLE);
+        prev_var_index.resize(new_size, FIRST_VARIABLE_IN_CLASS);
+        real_variable_tags.resize(new_size, tag);
+        return static_cast<uint32_t>(first);
+    }
+
+    /**
+     * @brief Give `vec` the capacity that appending one element at a time up to `size` elements would give it.
+     * @details Appends double a full vector's capacity (one element for an empty one), saturating at max_size(), under
+     * libc++ and libstdc++, and `reserve` allocates exactly the requested capacity. A `size` above max_size() makes
+     * `reserve` throw std::length_error, as the append reaching it would.
+     */
+    template <typename T> static void reserve_as_appends(std::vector<T>& vec, const size_t size)
+    {
+        size_t capacity = vec.capacity();
+        if (capacity >= size) {
+            return;
+        }
+        const size_t max_size = vec.max_size();
+        while (capacity < size && capacity < max_size) {
+            capacity = capacity == 0 ? 1 : (capacity > max_size / 2 ? max_size : 2 * capacity);
+        }
+        vec.reserve(std::max(capacity, size));
+    }
 
     /**
      * @brief Check whether each variable index points to a witness value in the variables array

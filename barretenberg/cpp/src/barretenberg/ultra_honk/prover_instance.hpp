@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/deferred_value.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
@@ -42,6 +43,8 @@ template <typename Flavor_> class ProverInstance_ {
     std::vector<FF> gate_challenges;
 
     HonkProof ipa_proof; // utilized for rollup proofs (IO::HasIPA)
+    // An IPA proof still being computed, held instead of ipa_proof until resolve_ipa_proof().
+    DeferredValue<HonkProof> pending_ipa_proof;
 
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
@@ -61,6 +64,13 @@ template <typename Flavor_> class ProverInstance_ {
                   "final_active_wire_idx has not been initialized");
         return final_active_wire_idx;
     }
+
+    bool has_ipa_proof() const { return !ipa_proof.empty() || pending_ipa_proof.valid(); }
+
+    /**
+     * @brief The IPA proof, after waiting for a pending one. Rethrows what computing a pending proof threw.
+     */
+    const HonkProof& resolve_ipa_proof() { return resolve_into(ipa_proof, pending_ipa_proof); }
 
     Flavor::PrecomputedData get_precomputed()
     {

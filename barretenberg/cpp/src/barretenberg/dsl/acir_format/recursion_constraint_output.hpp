@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
@@ -58,10 +59,11 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 
   private:
     /**
-     * @brief Accumulate the IPA claims and proofs held in this output
+     * @brief Accumulate the IPA claims and proofs held in this output into one claim, returned with the task that
+     * computes its native opening proof
      */
     [[nodiscard("IPA claim should be accumulated, IPA proof should be propagated")]] std::
-        pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof>
+        pair<OpeningClaim<stdlib::grumpkin<Builder>>, IpaOpeningProofTask<>>
         perform_IPA_accumulation(Builder& builder) const;
 
     /**

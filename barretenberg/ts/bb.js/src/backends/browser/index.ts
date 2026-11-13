@@ -1,13 +1,17 @@
-import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { createBackend, createBackendSync, sharedMemoryAvailable } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 
+import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { BackendOptions, BackendType } from '../index.js';
 
 /** Resolve experimental options once, including before a backend fallback. */
 export function resolveExperimentalOptions(options: BackendOptions): BackendOptions {
   const env = experimentalEnvironment(options);
-  return { ...options, experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1' };
+  return {
+    ...options,
+    experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1',
+    rollupExperimentalOptimizations: env.ROLLUP_EXPERIMENTAL_OPTIMIZATIONS === '1',
+  };
 }
 
 /** There is no bb binary in a browser; the node build's counterpart locates the packaged one. */

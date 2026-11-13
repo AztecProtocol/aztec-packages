@@ -1,11 +1,13 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/deferred_value.hpp"
 #include "barretenberg/honk/execution_trace/generated/ultra_execution_trace_generated.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
 #include "circuit_builder_base.hpp"
 #include "rom_ram_logic.hpp"
+#include <atomic>
 #include <deque>
 #include <optional>
 #include <unordered_set>
@@ -195,7 +197,29 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         UltraCircuitBuilderData::cached_partial_non_native_field_multiplication;
 
   private:
+    // One registration body for arbitrary witnesses and exact native sub-limbs. The empty source tag
+    // lets the public entry point delegate without preparing field temporaries or native-value arguments.
+    struct RangeWitnessValue {};
+    template <typename ValueSource>
+    void register_small_range_constraint(uint32_t variable_index,
+                                         uint64_t target_range,
+                                         ValueSource value_source,
+                                         std::string_view msg);
+
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
+    void append_lookup_gate(uint32_t key_idx,
+                            uint32_t val1_idx,
+                            uint32_t val2_idx,
+                            plookup::BasicTable& table,
+                            const plookup::BasicTable::LookupEntry& entry,
+                            const FF& table_index_selector,
+                            const FF& column_1_step_size,
+                            const FF& column_2_step_size,
+                            const FF& column_3_step_size)
+        requires(ExecutionTrace::has_gate_kind(GateKind::Lookup));
+    RangeList& get_or_create_range_list(uint64_t target_range);
+    void register_new_variable_range_constraint(
+        uint32_t variable_index, uint64_t target_range, uint64_t value, RangeList*& list, std::string_view msg);
     std::deque<plookup::BasicTable> lookup_tables;
 
   public:
@@ -220,6 +244,22 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     std::vector<fr> ipa_proof;
+    // An IPA proof still being computed, held instead of ipa_proof until resolve_ipa_proof().
+    DeferredValue<std::vector<fr>> pending_ipa_proof;
+
+    /**
+     * @brief Hand over an IPA proof that is still being computed; it replaces any proof set before.
+     */
+    void set_pending_ipa_proof(DeferredValue<std::vector<fr>> proof)
+    {
+        ipa_proof.clear();
+        pending_ipa_proof = std::move(proof);
+    }
+
+    /**
+     * @brief The IPA proof, after waiting for a pending one. Rethrows what computing a pending proof threw.
+     */
+    const std::vector<fr>& resolve_ipa_proof() { return resolve_into(ipa_proof, pending_ipa_proof); }
 
     void populate_public_inputs_block();
 
@@ -575,6 +615,15 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void process_range_list(RangeList& list);
     void process_range_lists();
 
+  private:
+    // One bit per variable; every bit is clear between range lists.
+    using VariableBitmap = std::vector<std::atomic<uint64_t>>;
+    // process_range_list with a bitmap that is kept, all clear, for the next list.
+    void process_range_list(RangeList& list, VariableBitmap& real_variables);
+    // One delta-range row per `NUM_WIRES` consecutive entries of `variable_indices`.
+    void append_delta_range_rows(const std::vector<uint32_t>& variable_indices);
+
+  public:
     /**
      * Custom Gate Selectors
      **/

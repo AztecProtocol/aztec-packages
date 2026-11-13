@@ -16,6 +16,9 @@ export type BackendOptions = {
   /** Enable experimental shared BB arithmetic and native scheduling. Defaults to OFF. */
   experimentalOptimizations?: boolean;
 
+  /** Enable experimental rollup construction and IPA optimizations. Defaults to OFF. */
+  rollupExperimentalOptimizations?: boolean;
+
   /** @description Number of threads to run the backend worker on */
   threads?: number;
 
