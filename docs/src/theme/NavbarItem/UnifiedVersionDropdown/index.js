@@ -1,4 +1,3 @@
-// biome-ignore-all lint/correctness/useHookAtTopLevel: baselined 2026-11-12: UnifiedVersionDropdown returns early before most of its hooks; splitting it into an outer and an inner component fixes every one
 import { useLocation } from '@docusaurus/router';
 import {
   useActivePlugin,
@@ -63,15 +62,28 @@ function useDisplayedVersion(pluginId, versions) {
 }
 
 /**
+ * One docs instance's versions, active doc context, preferred-version setter and displayed version
+ */
+function useSection(pluginId) {
+  const versions = useVersions(pluginId);
+  return {
+    versions,
+    context: useActiveDocContext(pluginId),
+    savePreferred: useDocsPreferredVersion(pluginId).savePreferredVersionName,
+    displayed: useDisplayedVersion(pluginId, versions),
+  };
+}
+
+/**
  * Build dropdown items for a set of versions
  */
-function buildVersionItems(versions, activeDocContext, savePreferred, search, hash) {
+function buildVersionItems({ versions, context, savePreferred }, search, hash) {
   return versions.map((version) => {
-    const targetDoc = getVersionTargetDoc(version, activeDocContext);
+    const targetDoc = getVersionTargetDoc(version, context);
     return {
       label: version.label,
       to: `${targetDoc.path}${search}${hash}`,
-      isActive: () => version === activeDocContext?.activeVersion,
+      isActive: () => version === context?.activeVersion,
       onClick: () => savePreferred(version.name),
     };
   });
@@ -88,9 +100,38 @@ function createSectionHeader(label) {
   };
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
-export default function UnifiedVersionDropdown({ mobile, ...props }) {
+/**
+ * The menu on one section's pages: only its versions, labelled with the displayed one. A mobile
+ * menu with several versions is labelled "Versions" and has no link of its own.
+ */
+function sectionMenu(section, mobile, search, hash) {
+  const items = buildVersionItems(section, search, hash);
+  const collapsed = mobile && items.length > 1;
+  return {
+    items,
+    label: collapsed ? 'Versions' : `${section.displayed?.label ?? 'Latest'}`,
+    to: collapsed ? undefined : getVersionTargetDoc(section.displayed, section.context)?.path,
+  };
+}
+
+/** The menu on other pages: both sections' versions, grouped under headers. */
+function groupedMenu(developer, operate, search, hash) {
+  return {
+    items: [
+      createSectionHeader('Developer Docs'),
+      ...buildVersionItems(developer, search, hash),
+      createSectionHeader('Operate Docs'),
+      ...buildVersionItems(operate, search, hash),
+    ],
+    label: 'Versions',
+    to: undefined,
+  };
+}
+
+// The route decides whether the menu shows, and it can change while the navbar stays mounted (a
+// client-side navigation inside one docs instance), so every other hook lives in VersionDropdown,
+// which React mounts and unmounts as a whole.
+export default function UnifiedVersionDropdown(props) {
   const { pathname } = useLocation();
   const line = lineOfPlugin(useActivePlugin()?.pluginId);
 
@@ -99,118 +140,31 @@ export default function UnifiedVersionDropdown({ mobile, ...props }) {
   if (line || pathname === '/' || pathname === '/networks' || pathname.startsWith('/participate')) {
     return null;
   }
+  return <VersionDropdown {...props} />;
+}
 
+function VersionDropdown({ mobile, ...props }) {
   const search = useHistorySelector((history) => history.location.search);
   const hash = useHistorySelector((history) => history.location.hash);
-
   const currentSection = useCurrentDocsSection();
-
-  // Get versions for both plugins
-  const developerVersions = useVersions(DEVELOPER_PLUGIN_ID);
-  const operateVersions = useVersions(OPERATE_PLUGIN_ID);
-
-  // Get active contexts for both plugins
-  const developerContext = useActiveDocContext(DEVELOPER_PLUGIN_ID);
-  const operateContext = useActiveDocContext(OPERATE_PLUGIN_ID);
-
-  // Get preferred version handlers
-  const { savePreferredVersionName: saveDeveloperPreferred } =
-    useDocsPreferredVersion(DEVELOPER_PLUGIN_ID);
-  const { savePreferredVersionName: saveOperatePreferred } =
-    useDocsPreferredVersion(OPERATE_PLUGIN_ID);
-
-  // Get displayed versions for label
-  const displayedDeveloperVersion = useDisplayedVersion(DEVELOPER_PLUGIN_ID, developerVersions);
-  const displayedOperateVersion = useDisplayedVersion(OPERATE_PLUGIN_ID, operateVersions);
-
-  // Build items and label based on current section
-  let items = [];
-  let dropdownLabel = 'Versions';
-  let dropdownTo;
-
-  if (currentSection === DEVELOPER_PLUGIN_ID) {
-    // On developer pages: show only developer versions
-    items = buildVersionItems(
-      developerVersions,
-      developerContext,
-      saveDeveloperPreferred,
-      search,
-      hash
-    );
-    dropdownLabel = mobile && items.length > 1
-      ? 'Versions'
-      : `${displayedDeveloperVersion?.label ?? 'Latest'}`;
-    if (!mobile || items.length <= 1) {
-      const targetDoc = getVersionTargetDoc(displayedDeveloperVersion, developerContext);
-      dropdownTo = targetDoc?.path;
-    }
-  } else if (currentSection === OPERATE_PLUGIN_ID) {
-    // On operate pages: show only operate versions
-    items = buildVersionItems(
-      operateVersions,
-      operateContext,
-      saveOperatePreferred,
-      search,
-      hash
-    );
-    dropdownLabel = mobile && items.length > 1
-      ? 'Versions'
-      : `${displayedOperateVersion?.label ?? 'Latest'}`;
-    if (!mobile || items.length <= 1) {
-      const targetDoc = getVersionTargetDoc(displayedOperateVersion, operateContext);
-      dropdownTo = targetDoc?.path;
-    }
-  } else {
-    // On other pages (home, etc.): show all versions grouped
-    const developerItems = buildVersionItems(
-      developerVersions,
-      developerContext,
-      saveDeveloperPreferred,
-      search,
-      hash
-    );
-    const operateItems = buildVersionItems(
-      operateVersions,
-      operateContext,
-      saveOperatePreferred,
-      search,
-      hash
-    );
-
-    items = [
-      createSectionHeader('Developer Docs'),
-      ...developerItems,
-      createSectionHeader('Operate Docs'),
-      ...operateItems,
-    ];
-    dropdownLabel = 'Versions';
-  }
+  const developer = useSection(DEVELOPER_PLUGIN_ID);
+  const operate = useSection(OPERATE_PLUGIN_ID);
 
   // Don't render if no versions available
-  if (developerVersions.length === 0 && operateVersions.length === 0) {
+  if (developer.versions.length === 0 && operate.versions.length === 0) {
     return null;
   }
+
+  const section = { [DEVELOPER_PLUGIN_ID]: developer, [OPERATE_PLUGIN_ID]: operate }[currentSection];
+  const { items, label, to } = section
+    ? sectionMenu(section, mobile, search, hash)
+    : groupedMenu(developer, operate, search, hash);
 
   // If only one item (excluding headers), render as simple link
   const nonHeaderItems = items.filter(item => item.type !== 'html');
   if (nonHeaderItems.length <= 1 && nonHeaderItems.length > 0) {
-    return (
-      <DefaultNavbarItem
-        {...props}
-        mobile={mobile}
-        label={dropdownLabel}
-        to={dropdownTo}
-      />
-    );
+    return <DefaultNavbarItem {...props} mobile={mobile} label={label} to={to} />;
   }
 
-  return (
-    <DropdownNavbarItem
-      {...props}
-      mobile={mobile}
-      label={dropdownLabel}
-      to={dropdownTo}
-      items={items}
-    />
-  );
+  return <DropdownNavbarItem {...props} mobile={mobile} label={label} to={to} items={items} />;
 }

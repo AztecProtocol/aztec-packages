@@ -32,7 +32,6 @@
       "src/preprocess/include_version.js": 1,
       "src/preprocess/index.js": 1,
       "src/theme/Footer/index.js": 1,
-      "src/theme/NavbarItem/UnifiedVersionDropdown/index.js": 1,
       "src/theme/SearchBar/index.js": 3
     },
     "biome-ignore lint/complexity/noExcessiveLinesPerFunction": {
@@ -45,7 +44,6 @@
       "src/components/NPSWidget/index.tsx": 1,
       "src/components/OperatorConfig/ProverRewardClaimer.js": 1,
       "src/components/OperatorConfig/PublisherFundingCalculator.js": 2,
-      "src/theme/NavbarItem/UnifiedVersionDropdown/index.js": 1,
       "src/theme/SearchBar/index.js": 1
     },
     "biome-ignore lint/correctness/noSwitchDeclarations": {
@@ -100,9 +98,6 @@
     },
     "biome-ignore lint/suspicious/noTsIgnore": {
       "docusaurus.config.js": 3
-    },
-    "biome-ignore-all lint/correctness/useHookAtTopLevel": {
-      "src/theme/NavbarItem/UnifiedVersionDropdown/index.js": 1
     }
   }
 }
