@@ -60,5 +60,6 @@ target_sources(bbapi_objects PRIVATE ${BB_GEN_DIR}/bb_ffi.cpp)
 
 # bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references
 if(NOT WASM AND NOT FUZZING)
+    add_dependencies(bbapi_test_objects bb_ipc_generated)
     target_link_libraries(bbapi_tests PRIVATE vm2_stub)
 endif()
