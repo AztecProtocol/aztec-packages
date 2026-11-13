@@ -27,7 +27,7 @@ const metaContent = (html, name) =>
  *
  * @param {string} rel path relative to the build directory, `/`-separated
  * @param {string} html the page as built
- * @param {string[]} apiDirs the API trees to index, e.g. `aztec-nr-api/mainnet/`
+ * @param {string[]} apiDirs the API trees to index, e.g. `aztec-nr-api/v6.0.0/`
  * @returns {{tag: string, body: "article" | "main", weight?: string} | null} null when not indexed
  */
 function classifyPage(rel, html, apiDirs) {

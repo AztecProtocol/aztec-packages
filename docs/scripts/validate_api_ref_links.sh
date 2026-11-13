@@ -95,7 +95,7 @@ api_reference_folder() {
 }
 
 # Resolve a link path to a file in static/, case-insensitively.
-# Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
+# Args: $1 = path relative to static/ (e.g., aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.publicmutable)
 # Outputs: the matched filesystem path (if found), empty string if not
 # Returns: 0 if found, 1 if not
 resolve_static_path() {
@@ -276,10 +276,6 @@ process_ts_api_link() {
   # Check if the file exists under static/typescript-api/{version}/
   local full_path="$TS_STATIC_API_DIR/$expected_version/$file_path"
   if [[ ! -f "$full_path" ]]; then
-    # Also try "nightly" as fallback since that's the only generated output currently
-    if [[ "$expected_version" != "nightly" ]] && [[ -f "$TS_STATIC_API_DIR/nightly/$file_path" ]]; then
-      return
-    fi
     resolves_api_index "/typescript-api/$expected_version/$file_path" && return
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
     BROKEN_DETAILS+=("$rel_source:$line_num -> typescript-api/$expected_version/$file_path")

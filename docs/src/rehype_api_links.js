@@ -14,7 +14,7 @@ function markdownTarget(href, prefixes) {
  * Rehype plugin: rewrites root-relative links into the given reference folders (`/x.html`, `/x`,
  * `/dir/`) to their `.md` page. Other links are untouched.
  *
- * @param {{dirs?: string[]}} options folders under the site root, e.g. `aztec-nr-api/mainnet`
+ * @param {{dirs?: string[]}} options folders under the site root, e.g. `aztec-nr-api/v6.0.0`
  */
 function rehypeApiLinks({ dirs = [] } = {}) {
   const prefixes = dirs.map((dir) => `/${dir}/`);
