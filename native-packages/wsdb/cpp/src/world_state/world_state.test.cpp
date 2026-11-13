@@ -6,7 +6,7 @@
 #include "merkle_tree/response.hpp"
 #include "merkle_tree/tree_meta.hpp"
 #include "world_state/fork.hpp"
-#include "world_state/genesis_protocol_nullifiers.hpp"
+#include "world_state/test_genesis.hpp"
 #include "world_state/types.hpp"
 #include <array>
 #include <cstdint>
@@ -170,10 +170,9 @@ void assert_fork_state_unchanged(const WorldState& ws,
 
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 {
-    // The canonical genesis of a production network: the protocol contracts' registration nullifiers seeded into an
-    // otherwise empty world state. The roots asserted below are measured from the same artifacts as the seeds and
-    // travel with them in genesis_protocol_nullifiers.hpp, so the two cannot drift apart.
-    std::vector<fr> prefilled_nullifiers = genesis_protocol_nullifiers();
+    // A genesis with prefilled nullifiers: the roots below are the ones barretenberg's reference world state reports
+    // for the same seeds (test_genesis.hpp).
+    std::vector<fr> prefilled_nullifiers = test_genesis_nullifiers();
     WorldState ws(thread_pool_size,
                   data_dir,
                   map_size,
@@ -189,7 +188,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         // appended, so the tree size stays 128 while the root reflects the seeded values.
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-        EXPECT_EQ(info.meta.root, genesis_nullifier_tree_root());
+        EXPECT_EQ(info.meta.root, test_genesis_nullifier_tree_root());
     }
 
     {
@@ -218,10 +217,10 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         EXPECT_EQ(info.meta.size, 1);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::ARCHIVE));
         // this is the expected archive tree root at genesis
-        EXPECT_EQ(info.meta.root, genesis_archive_root());
+        EXPECT_EQ(info.meta.root, test_genesis_archive_root());
 
         // The leaf at index 0 is the genesis block hash.
-        assert_leaf_value(ws, committed_revision(), MerkleTreeId::ARCHIVE, 0, genesis_block_header_hash());
+        assert_leaf_value(ws, committed_revision(), MerkleTreeId::ARCHIVE, 0, test_genesis_block_header_hash());
     }
 }
 

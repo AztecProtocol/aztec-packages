@@ -63,14 +63,13 @@ function test_cmds {
     return
   fi
   if [ "${1:-}" = genesis ]; then
-    # The committed genesis (protocol/genesis and its C++ test copies) is derived from the protocol contracts with
+    # The committed genesis (protocol/genesis) is derived from the protocol contracts with
     # barretenberg and the reference world state, so it goes stale when any of them moves. Consumers read it rather
     # than deriving it, so this is the check that it still matches the contracts.
     local genesis_hash
     genesis_hash=$(hash_str "${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}" "$(cache_content_hash \
       "^noir-projects/fnd/" \
       "^protocol/" \
-      "^native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers\.hpp$" \
       ../../avm-transpiler/.rebuild_patterns \
       ../../barretenberg/cpp/.rebuild_patterns \
       ../../barretenberg/ts/.rebuild_patterns)")
