@@ -214,30 +214,28 @@ template <typename Tile, size_t ChunkShift = 8> class TileChunks {
  * @brief Dedup table of one selector column's values: each distinct value is stored once and gates store its id.
  * @details Selector values are circuit structure drawn from a small set (0, ±1, small integers, ACIR coefficients), so
  * gates store a uint32 id into the column's value table. Id 0 is always zero, so a zero-initialized tile reads as all
- * selectors zero. Values live in chunked storage so the references Selector::operator[] returns stay valid as the table
- * grows;
- * the index is open-addressed over ids and hashes the reduced value, matching field equality.
+ * selectors zero. The index is open-addressed over ids and hashes the reduced value, matching field equality.
  */
 template <typename FF> class SelectorValueTable {
   public:
-    SelectorValueTable() { values_.emplace_back() = FF(0); }
+    SelectorValueTable() { values_.emplace_back(0); }
 
     uint32_t intern(const FF& value)
     {
         if (value.is_zero()) {
             return 0;
         }
+        const FF reduced = value.reduce_once();
         if (2 * values_.size() >= slots_.size()) {
             grow();
         }
-        const FF reduced = value.reduce_once();
         const size_t mask = slots_.size() - 1;
         for (size_t slot = std::hash<FF>{}(reduced)&mask;; slot = (slot + 1) & mask) {
             const uint32_t id = slots_[slot];
             if (id == EMPTY_SLOT) {
                 BB_ASSERT_LT(values_.size(), static_cast<size_t>(EMPTY_SLOT), "SelectorValueTable: too many values");
                 const auto new_id = static_cast<uint32_t>(values_.size());
-                values_.emplace_back() = reduced;
+                values_.push_back(reduced);
                 slots_[slot] = new_id;
                 return new_id;
             }
@@ -247,6 +245,7 @@ template <typename FF> class SelectorValueTable {
         }
     }
 
+    /** @brief Get a value; the reference is valid until the next intern or clear. */
     const FF& operator[](uint32_t id) const { return values_[id]; }
 
     /** @brief Number of distinct values, zero included. */
@@ -274,8 +273,7 @@ template <typename FF> class SelectorValueTable {
         }
     }
 
-    // 16 values per chunk: most tables hold a handful of values, and a block has one table per selector column.
-    TileChunks<FF, 4> values_;
+    std::vector<FF> values_;
     std::vector<uint32_t> slots_;
 };
 
@@ -347,12 +345,12 @@ template <typename FF> class Selector {
     virtual void set(size_t idx, const FF& value) = 0;
 
     /**
-     * @brief Get value at specified index.
+     * @brief Get value at specified index. The reference is valid until the next set or append on the block.
      */
     virtual const FF& operator[](size_t index) const = 0;
 
     /**
-     * @brief Get the last value in the selector.
+     * @brief Get the last value in the selector. The reference is valid until the next set or append on the block.
      */
     virtual const FF& back() const = 0;
 

@@ -6,11 +6,33 @@
 #include <algorithm>
 #include <fstream>
 #include <libdeflate.h>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 
 namespace bb {
+namespace {
+
+/**
+ * @brief Upper bound on the decompressed size of a gzip stream of compressed_size bytes, saturating at size_max.
+ * @details Deflate expands its input by at most 1032:1. Computed in 64 bits: on a 32-bit target the product wraps for
+ * inputs of a few MiB and the wrapped bound would reject valid data.
+ */
+constexpr size_t max_gzip_output_size(size_t compressed_size, size_t size_max = std::numeric_limits<size_t>::max())
+{
+    constexpr uint64_t MAX_DEFLATE_RATIO = 1032;
+    constexpr uint64_t GZIP_HEADER_SLACK = 1024;
+    const uint64_t bound = (static_cast<uint64_t>(compressed_size) * MAX_DEFLATE_RATIO) + GZIP_HEADER_SLACK;
+    return bound > size_max ? size_max : static_cast<size_t>(bound);
+}
+
+static_assert(max_gzip_output_size(4161795, std::numeric_limits<uint32_t>::max()) ==
+              std::numeric_limits<uint32_t>::max());
+static_assert(max_gzip_output_size(1000) == size_t{ 1000 } * 1032 + 1024);
+static_assert(max_gzip_output_size(0) == 1024);
+
+} // namespace
 
 /**
  * @brief Save modified ivc-inputs.msgpack when VKs are rewritten.
