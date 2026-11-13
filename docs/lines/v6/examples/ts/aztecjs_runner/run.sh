@@ -77,6 +77,9 @@ setup_project() {
     # Clean up any previous setup (include codegenCache.json so codegen re-generates artifacts/)
     rm -rf node_modules .yarn package.json tsconfig.json artifacts codegenCache.json 2>/dev/null || true
     if is_hardhat_project; then clean_hardhat_project; fi
+    # An empty yarn.lock makes the example a Yarn project of its own, not part of docs/'s. Truncated
+    # rather than created, so a lockfile an interrupted run filled starts over.
+    : > yarn.lock
 
     # Run codegen for custom contracts if specified in config.yaml
     local contract_count
@@ -198,12 +201,11 @@ cleanup_project() {
            "$project_dir/package.json" \
            "$project_dir/tsconfig.json" \
            "$project_dir/.yarnrc.yml" \
+           "$project_dir/yarn.lock" \
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
     if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
-    # Keep yarn.lock empty
-    > "$project_dir/yarn.lock"
 }
 
 # Determine which examples to run

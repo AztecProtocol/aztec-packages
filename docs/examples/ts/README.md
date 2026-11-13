@@ -7,7 +7,8 @@ This directory contains TypeScript examples used in the Aztec documentation. Eac
 Each example directory contains:
 - `index.ts` - The example code with `docs:start:` and `docs:end:` markers for inclusion in documentation
 - `config.yaml` - Specifies dependencies and any custom contract artifacts needed
-- `yarn.lock` - Empty file to prevent yarn from using parent monorepo's yarn.lock
+
+Validation and the runner create an empty, gitignored `yarn.lock` in each example before installing, so Yarn treats it as a project of its own instead of part of `docs/`'s.
 
 The bridge tutorials' examples (`token_bridge`, `aave_bridge`) are Hardhat projects in the reader's layout instead: `scripts/index.ts`, `contracts/*.sol`, `hardhat.config.ts` and `remappings.txt`. For them, validation and the runner link `l1-contracts` to the `@aztec-foundation/l1-artifacts` sources the remappings name, run `npx hardhat compile`, and write the Aztec bindings to `contracts/aztec/artifacts/`.
 
@@ -114,9 +115,8 @@ dependencies:
   - "@aztec-labs/noir-contracts.js"
 ```
 
-4. Create empty `yarn.lock` file
-5. Run `./bootstrap.sh your_example_name` to validate
-6. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
+4. Run `./bootstrap.sh your_example_name` to validate
+5. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
 
 ## File Management
 
@@ -125,6 +125,5 @@ The validation and runner scripts generate temporary files during execution. The
 ```bash
 # In each example directory
 rm -rf node_modules .yarn artifacts package.json tsconfig.json .yarnrc.yml
-rm -f .editorconfig .gitattributes .gitignore README.md codegenCache.json
-> yarn.lock  # Keep empty
+rm -f .editorconfig .gitattributes .gitignore README.md codegenCache.json yarn.lock
 ```

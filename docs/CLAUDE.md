@@ -236,7 +236,7 @@ Tutorials that build an example where it sits (webapp, wallet extension, uniswap
 
 When adding new TypeScript examples:
 
-1. Create a directory under `examples/ts/` with `index.ts`, `config.yaml`, and empty `yarn.lock`
+1. Create a directory under `examples/ts/` with `index.ts` and `config.yaml` (no `yarn.lock`: the install creates an empty, gitignored one)
 2. Use `process.env.AZTEC_NODE_URL ?? "http://localhost:8080"` for the node URL
 3. Add the example to the list in `examples/ts/aztecjs_runner/run.sh` if it should be executed at runtime
 

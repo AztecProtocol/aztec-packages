@@ -16,14 +16,8 @@ unset AZTEC_NODE_DIR
 # DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
 DOCS_LINE= STAGE= DOCS_ROOT=
 
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
 # Set before staging, so a failed copy also removes the stage.
 function on_exit {
-  if [ -n "$DOCS_ROOT" ]; then
-    for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
-  fi
   if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
 }
 trap on_exit EXIT
