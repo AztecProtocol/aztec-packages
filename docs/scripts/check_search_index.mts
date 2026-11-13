@@ -52,7 +52,7 @@ function latestVersions(docsDir: string): Record<Plugin, string> {
   const [developer, network] = networkDocs
     .docsInstances(config("developer"), config("network"), process.env.CONTEXT === "production")
     .map((instance: { versions: { version: string; path: string }[] }) =>
-      instance.versions.find((v) => v.path === "")?.version);
+      instance.versions.find((v) => v.path === "")?.version as string);
   return { developer, network };
 }
 

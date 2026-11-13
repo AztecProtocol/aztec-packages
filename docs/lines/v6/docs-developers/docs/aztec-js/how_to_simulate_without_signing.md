@@ -83,6 +83,10 @@ A simulation with the stub override active will reach `#[authorize_once]` call s
 
 The example below uses the canonical contract-mediated pattern: Alice calls `Crowdfunding.donate(amount)`, which internally calls `transfer_in_private(alice, crowdfunding, amount, 0)` with `msg_sender = crowdfunding`. The token's `#[authorize_once]` macro requires an authwit from Alice authorizing the crowdfunding contract. Because Alice is the transaction sender, her PXE already has her notes and nullifier key, so the simulation can run end-to-end against her own state without any cross-wallet state sharing.
 
+`donate` checks its deadline through the standard PublicChecks contract, which a local network does not publish. On a local network, publish and register it first, with `@aztec-labs/standard-contracts`:
+
+#include_code publish-public-checks /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript
+
 Run the simulation and filter the offchain effects by the `CallAuthorizationRequest` selector:
 
 #include_code simulate-and-collect-effects /docs/lines/v6/examples/ts/aztecjs_kernelless_simulation/index.ts typescript

@@ -12,7 +12,8 @@
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
 #
-# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification
+# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification,
+# or any example directory's name (bob_token_contract, token_bridge, kernelless_simulation, ...)
 
 set -euo pipefail
 
@@ -206,12 +207,10 @@ cleanup_project() {
 }
 
 # Determine which examples to run
-# Note: bob_token_contract and other custom contract examples require verification keys
-# which aren't generated during docs compilation, so they're not included by default
 if [ $# -eq 0 ]; then
     # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
     # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof")
+    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof" "bob_token_contract" "token_bridge" "aztecjs_kernelless_simulation")
 else
     EXAMPLES=()
     for arg in "$@"; do
@@ -246,6 +245,18 @@ PASSED=0
 FAILED=0
 FAILED_EXAMPLES=()
 
+# Setup and run leave files in the example directories; remove them on exit, on an error, or on TERM or
+# INT once the running command returns. A SIGKILL skips it.
+cleanup_all() {
+    echo -e "${YELLOW}Cleaning up...${NC}"
+    for example in "${EXAMPLES[@]}"; do
+        cleanup_project "$example"
+    done
+}
+trap cleanup_all EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
 # Setup all projects first
 echo -e "${YELLOW}Setting up projects...${NC}"
 for example in "${EXAMPLES[@]}"; do
@@ -261,13 +272,6 @@ for example in "${EXAMPLES[@]}"; do
         FAILED=$((FAILED + 1))
         FAILED_EXAMPLES+=("$example")
     fi
-done
-
-# Cleanup
-echo ""
-echo -e "${YELLOW}Cleaning up...${NC}"
-for example in "${EXAMPLES[@]}"; do
-    cleanup_project "$example"
 done
 
 # Summary
