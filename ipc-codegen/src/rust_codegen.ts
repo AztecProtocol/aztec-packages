@@ -30,6 +30,8 @@ export interface RustCodegenOptions {
   typesDocComment?: string;
   /** Module doc comment for api file */
   apiDocComment?: string;
+  /** The name the FFI symbols carry (`<ffiName>_ipc_ffi_entry`); defaults to the prefix in snake_case. */
+  ffiName?: string;
 }
 
 export class RustCodegen {
@@ -60,6 +62,7 @@ export class RustCodegen {
       prefix,
       stripMethodPrefix: options?.stripMethodPrefix ?? false,
       stripTypePrefix: options?.stripTypePrefix ?? false,
+      ffiName: options?.ffiName ?? toSnakeCase(prefix),
       apiStructName: options?.apiStructName ?? `${name}Api`,
       backendImport: options?.backendImport ?? "super::backend::Backend",
       errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
@@ -927,8 +930,7 @@ pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8
    * can be linked into one binary. A schema with no service/prefix keeps the bare names.
    */
   private ffiSymbol(name: string): string {
-    const prefix = this.opts.prefix ? `${toSnakeCase(this.opts.prefix)}_` : "";
-    return `${prefix}${name}`;
+    return this.opts.ffiName ? `${this.opts.ffiName}_${name}` : name;
   }
 
   /**

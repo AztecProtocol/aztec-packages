@@ -62,9 +62,9 @@ template <typename Resp> Result<Resp> call_ffi(const char* name, const auto& cmd
     auto request = encode_request(name, cmd);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ipc_ffi_entry(request.data(), request.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_entry(request.data(), request.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
-    wsdb_ipc_ffi_free(output);
+    wsdb_ref_ipc_ffi_free(output);
     return decode_response<Resp>(frame, expected);
 }
 
@@ -193,9 +193,9 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
     pk.pack_map(0);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
-    wsdb_ipc_ffi_free(output);
+    wsdb_ref_ipc_ffi_free(output);
     EXPECT_EQ(error_of(decode_response<wire::WsdbGetTreeInfoResponse>(frame, "")),
               "unknown command: WsdbNoSuchCommand");
 

@@ -93,6 +93,7 @@ function generate_wsdb_ref_package {
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/wsdb-ref" \
+    --ffi-name wsdb_ref \
     --package-name "$WSDB_REF_PACKAGE" \
     --package-transports uds,shm,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \

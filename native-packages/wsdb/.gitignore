@@ -1,5 +1,6 @@
 ts/
 cpp/build/
+cpp/build-*/
 # ipc-codegen emits the server dispatch into a generated/ subdir at build time.
 **/generated/
 .yarn/*

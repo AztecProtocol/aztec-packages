@@ -10,17 +10,13 @@ WSDB_BINARY=aztec-wsdb
 # from once native-packages leaves aztec-packages.
 WSDB_SCHEMA="$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc"
 
-# Everything outside this package comes from the release pinned in foundation.pin (see
-# cpp/CMakeLists.txt), so the build's identity is this package plus the lmdblib sibling.
-hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# While wsdb lives in aztec-packages it builds against this checkout's barretenberg (its static
+# library), ipc-runtime and ipc-codegen (see cpp/CMakeLists.txt), so the build follows their hashes.
+hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(../../barretenberg/cpp/bootstrap.sh hash) \
+  $(../../ipc-codegen/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-# ipc-codegen from the sparse clone cpp/CMakeLists.txt makes at configure time.
-IPC_CODEGEN_DIR="$PKG/cpp/build/_deps/aztec-packages-src/ipc-codegen"
+IPC_CODEGEN_DIR="$ROOT/ipc-codegen"
 
-# Note this runs the codegen from the pinned release, not the working tree, so its flags must be
-# what that release accepts. --client and --out are implied by --package in later versions and are
-# still accepted there, but the pinned one requires --out; do not drop them until foundation.pin
-# moves past the release that made them optional.
 function generate_ts_package {
   node --experimental-strip-types --no-warnings \
     "$IPC_CODEGEN_DIR/src/generate.ts" \
@@ -35,7 +31,7 @@ function generate_ts_package {
     --package-ipc-path-args 'msgpack,run,--input,{path}'
 }
 
-# Build the standalone aztec-wsdb binary against the release pinned in foundation.pin.
+# Build the standalone aztec-wsdb binary against this checkout's barretenberg build.
 function build_native {
   local build_dir="cpp/build"
   CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
@@ -43,6 +39,16 @@ function build_native {
   local target_dir="ts/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
   cp "$build_dir/bin/$WSDB_BINARY" "$target_dir/$WSDB_BINARY"
+}
+
+# Cross-compile aztec-wsdb for a non-host release platform with zig (cpp/CMakePresets.json), against
+# barretenberg's build of libwsdb-ref.a for that platform.
+function build_cross {
+  local platform=$1
+  echo_header "wsdb build_cross $platform"
+  (cd cpp && cmake --preset "$platform" >/dev/null && cmake --build --preset "$platform")
+  mkdir -p "ts/build/$platform"
+  cp "cpp/build-$platform/bin/$WSDB_BINARY" "ts/build/$platform/$WSDB_BINARY"
 }
 
 function build {
@@ -82,11 +88,14 @@ function test {
 }
 
 function clean {
-  rm -rf ts node_modules cpp/build
+  rm -rf ts node_modules cpp/build cpp/build-*
 }
 
 function release {
   build_native
+  for platform in arm64-linux amd64-macos arm64-macos; do
+    build_cross $platform
+  done
   generate_ts_package
   npm_install_deps
   yarn build
@@ -97,7 +106,7 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f generate_ts_package build_native build test_cmds test bench_cmds bench clean release
+export -f generate_ts_package build_native build_cross build test_cmds test bench_cmds bench clean release
 
 case "$cmd" in
   "")

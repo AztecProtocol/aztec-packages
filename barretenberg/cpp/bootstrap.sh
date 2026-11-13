@@ -274,10 +274,10 @@ function build_release_dir {
   release_tar build-release/barretenberg-avm-arm64-linux.tar.gz build-arm64-linux/bin bb-avm
 
   # Package static libraries for FFI bindings (stripped at build time via CMake POST_BUILD).
-  tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-amd64-macos/lib libbb-external.a
-  tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-arm64-macos/lib libbb-external.a
+  tar -czf build-release/barretenberg-static-amd64-linux.tar.gz -C $native_build_dir/lib libbb-external.a libwsdb-ref.a
+  tar -czf build-release/barretenberg-static-arm64-linux.tar.gz -C build-arm64-linux/lib libbb-external.a libwsdb-ref.a
+  tar -czf build-release/barretenberg-static-amd64-darwin.tar.gz -C build-amd64-macos/lib libbb-external.a libwsdb-ref.a
+  tar -czf build-release/barretenberg-static-arm64-darwin.tar.gz -C build-arm64-macos/lib libbb-external.a libwsdb-ref.a
   tar -czf build-release/barretenberg-static-amd64-windows.tar.gz -C build-amd64-windows/lib libbb-external.a
   tar -czf build-release/barretenberg-static-arm64-ios.tar.gz -C build-arm64-ios/lib libbb-external.a
   tar -czf build-release/barretenberg-static-arm64-ios-sim.tar.gz -C build-arm64-ios-sim/lib libbb-external.a
