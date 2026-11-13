@@ -108,8 +108,12 @@ export const SMOKES: Smoke[] = [
     run: async (open, requested) => {
       const page = await open("/developers/docs/foundational-topics/advanced/storage/indexed_merkle_tree");
       const site = new URL(page.url()).origin;
-      const offSite = requested.filter((url) => /katex/i.test(url) && new URL(url).origin !== site);
-      if (offSite.length) throw new Error(`KaTeX loaded from another host: ${offSite[0]}`);
+      const noKatexOffSite = () => {
+        const offSite = requested.filter((url) => /katex/i.test(url) && new URL(url).origin !== site);
+        if (offSite.length) throw new Error(`KaTeX loaded from another host: ${offSite[0]}`);
+      };
+      // Once now for the stylesheet, which loads with the page, and again after the font waits.
+      noKatexOffSite();
       await expect("rendered math", page.locator(".katex-html").first().waitFor());
       // katex.css hides the MathML copy by clipping, not display:none, so screen readers still read it.
       await expect(
@@ -121,12 +125,15 @@ export const SMOKES: Smoke[] = [
       );
       // A synchronous predicate: waitForFunction treats a returned promise as truthy.
       await expect(
-        "the KaTeX_Main font loaded",
+        "the regular KaTeX_Main font loaded",
         page.waitForFunction(() => {
           void document.fonts.load("1em KaTeX_Main");
-          return [...document.fonts].some((face) => face.family.replace(/"/g, "") === "KaTeX_Main" && face.status === "loaded");
+          return [...document.fonts].some(
+            (face) => face.family.replace(/"/g, "") === "KaTeX_Main" && face.style === "normal" && face.weight === "400" && face.status === "loaded",
+          );
         }),
       );
+      noKatexOffSite();
     },
   },
 ];
