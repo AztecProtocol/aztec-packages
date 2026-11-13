@@ -26,6 +26,7 @@ namespace bb {
  *  await fs.writeFile(path, encode(executionSteps.map(stepToStruct)));
  *  See format notes below.
  */
+
 struct PrivateExecutionStepRaw {
     // Represents bincode.
     std::vector<uint8_t> bytecode;

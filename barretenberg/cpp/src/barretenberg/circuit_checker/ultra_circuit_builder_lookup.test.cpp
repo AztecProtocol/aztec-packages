@@ -190,7 +190,7 @@ TEST_F(UltraCircuitBuilderLookup, NoKeyBIndex)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that lookup entries are recorded in the table's lookup_gates vector
+// Verifies that every lookup gate records the table row it reads
 TEST_F(UltraCircuitBuilderLookup, LookupEntriesRecorded)
 {
     Builder builder;
@@ -213,7 +213,7 @@ TEST_F(UltraCircuitBuilderLookup, LookupEntriesRecorded)
     for (const auto& table_id : multi_table.basic_table_ids) {
         if (initial_sizes.find(table_id) == initial_sizes.end()) {
             auto& table = builder.get_table(table_id);
-            initial_sizes[table_id] = table.lookup_gates.size();
+            initial_sizes[table_id] = table.lookup_gate_rows.size();
             expected_additions[table_id] = 0;
         }
         expected_additions[table_id]++;
@@ -224,7 +224,7 @@ TEST_F(UltraCircuitBuilderLookup, LookupEntriesRecorded)
     // Check that each unique table received the correct number of new lookup entries
     for (const auto& [table_id, initial_size] : initial_sizes) {
         auto& table = builder.get_table(table_id);
-        EXPECT_EQ(table.lookup_gates.size(), initial_size + expected_additions[table_id]);
+        EXPECT_EQ(table.lookup_gate_rows.size(), initial_size + expected_additions[table_id]);
     }
 
     EXPECT_TRUE(CircuitChecker::check(builder));

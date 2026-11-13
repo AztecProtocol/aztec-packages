@@ -33,6 +33,8 @@ struct MemOp {
     AccessType access_type;
     uint32_t index;
     uint32_t value;
+
+    friend bool operator==(MemOp const& lhs, MemOp const& rhs) = default;
 };
 
 enum BlockType : std::uint8_t {
@@ -56,6 +58,8 @@ struct BlockConstraint {
     std::vector<MemOp> trace;
     BlockType type;
     CallDataType calldata_id;
+
+    friend bool operator==(BlockConstraint const& lhs, BlockConstraint const& rhs) = default;
 };
 
 template <typename Builder> void create_block_constraints(Builder& builder, const BlockConstraint& constraint);

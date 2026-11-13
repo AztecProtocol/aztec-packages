@@ -50,18 +50,10 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit)
 {
-    // loop over all tables used in the circuit; each table contains data about the lookups made on it
+    // loop over all tables used in the circuit; each table records the row read by every lookup gate made on it
     size_t table_offset = circuit.blocks.lookup.trace_offset();
     for (auto& table : circuit.get_lookup_tables()) {
-        table.initialize_index_map();
-
-        for (auto& gate_data : table.lookup_gates) {
-            // convert lookup gate data to an array of three field elements, one for each of the 3 columns
-            auto table_entry = gate_data.to_table_components(table.use_twin_keys);
-
-            // find the index of the entry in the table
-            auto index_in_table = table.index_map[table_entry];
-
+        for (const uint32_t index_in_table : table.lookup_gate_rows) {
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
             read_counts.at(index_in_poly)++;
