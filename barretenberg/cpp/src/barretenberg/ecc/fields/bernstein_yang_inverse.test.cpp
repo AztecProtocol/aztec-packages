@@ -148,3 +148,61 @@ TEST(BernsteinYang, FermatFallback_Secp256r1_Fr)
     auto a = bb::secp256r1::fr::random_element();
     EXPECT_EQ(a * a.invert(), bb::secp256r1::fr::one());
 }
+
+namespace {
+
+template <int Batch> void check_batched_divsteps()
+{
+    using namespace bb::bernstein_yang;
+    auto& random = bb::numeric::get_debug_randomness();
+    for (size_t iteration = 0; iteration < 20000; ++iteration) {
+        u64 f = random.get_random_uint64() | 1;
+        u64 g = iteration < 64 ? u64{ 1 } << iteration : random.get_random_uint64();
+        if (iteration == 64) {
+            g = 0;
+        }
+        i64 expected_delta = static_cast<i64>(iteration % 125) - 62;
+        i64 delta = expected_delta;
+        const auto actual = compute_divsteps_vartime<Batch>(delta, f, g);
+        u64 u = 1, v = 0, q = 0, r = 1;
+        for (int step = 0; step < Batch; ++step) {
+            if ((g & 1) && expected_delta > 0) {
+                const u64 next_g = (g - f) >> 1;
+                f = g;
+                g = next_g;
+                const u64 next_u = q << 1, next_v = r << 1;
+                q -= u;
+                r -= v;
+                u = next_u;
+                v = next_v;
+                expected_delta = 1 - expected_delta;
+            } else {
+                if (g & 1) {
+                    g += f;
+                    q += u;
+                    r += v;
+                }
+                g >>= 1;
+                u <<= 1;
+                v <<= 1;
+                ++expected_delta;
+            }
+        }
+        ASSERT_EQ(delta, expected_delta);
+        ASSERT_EQ(actual.u, static_cast<i64>(u));
+        ASSERT_EQ(actual.v, static_cast<i64>(v));
+        ASSERT_EQ(actual.q, static_cast<i64>(q));
+        ASSERT_EQ(actual.r, static_cast<i64>(r));
+    }
+}
+
+} // namespace
+
+TEST(BernsteinYang, BatchedDivstepsNative)
+{
+    check_batched_divsteps<62>();
+}
+TEST(BernsteinYang, BatchedDivstepsWasm)
+{
+    check_batched_divsteps<58>();
+}

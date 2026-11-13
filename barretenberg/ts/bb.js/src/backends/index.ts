@@ -13,6 +13,9 @@ export enum BackendType {
 }
 
 export type BackendOptions = {
+  /** Enable experimental shared BB arithmetic and native scheduling. Defaults to OFF. */
+  experimentalOptimizations?: boolean;
+
   /** @description Number of threads to run the backend worker on */
   threads?: number;
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
@@ -11,7 +12,10 @@
 #include <bit>
 #include <cstddef>
 #include <cstring>
+#include <memory>
+#include <new>
 #include <utility>
+#include <vector>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 #include <backward.hpp>
@@ -183,6 +187,165 @@ inline constexpr std::array NON_GATE_SELECTORS{
 };
 
 /**
+ * @brief Store gate tiles in a vector or, with experimental optimizations enabled, in growing chunks.
+ * @details Chunk `c` holds `FIRST_CHUNK_TILES << c` tiles. When the last chunk fills, appending allocates a new chunk
+ * with twice as many slots. Existing tiles keep their addresses. Appending value-initializes each new tile.
+ */
+template <typename Tile> class TileStore {
+  public:
+    static constexpr size_t FIRST_CHUNK_SHIFT = 5;
+    static constexpr size_t FIRST_CHUNK_TILES = size_t{ 1 } << FIRST_CHUNK_SHIFT;
+
+    TileStore() = default;
+    TileStore(const TileStore& other)
+        : experimental_(other.experimental_)
+    {
+        append_copies_of(other);
+    }
+    TileStore& operator=(const TileStore& other)
+    {
+        if (this != &other) {
+            clear();
+            experimental_ = other.experimental_;
+            append_copies_of(other);
+        }
+        return *this;
+    }
+    TileStore(TileStore&& other) noexcept
+        : baseline_tiles_(std::move(other.baseline_tiles_))
+        , experimental_(other.experimental_)
+        , chunks_(std::move(other.chunks_))
+        , size_(std::exchange(other.size_, 0))
+        , capacity_(std::exchange(other.capacity_, 0))
+    {}
+    TileStore& operator=(TileStore&& other) noexcept
+    {
+        if (this != &other) {
+            clear();
+            baseline_tiles_ = std::move(other.baseline_tiles_);
+            experimental_ = other.experimental_;
+            chunks_ = std::move(other.chunks_);
+            size_ = std::exchange(other.size_, 0);
+            capacity_ = std::exchange(other.capacity_, 0);
+        }
+        return *this;
+    }
+    ~TileStore() { clear(); }
+
+    Tile& operator[](size_t t)
+    {
+        if (!experimental_) {
+            return baseline_tiles_[t];
+        }
+        const auto [chunk, slot] = locate(t);
+        return chunks_[chunk].get()[slot];
+    }
+    const Tile& operator[](size_t t) const
+    {
+        if (!experimental_) {
+            return baseline_tiles_[t];
+        }
+        const auto [chunk, slot] = locate(t);
+        return chunks_[chunk].get()[slot];
+    }
+
+    size_t size() const { return experimental_ ? size_ : baseline_tiles_.size(); }
+
+    Tile& emplace_back()
+    {
+        if (!experimental_) {
+            return baseline_tiles_.emplace_back();
+        }
+        if (size_ == capacity_) {
+            const size_t chunk_tiles = FIRST_CHUNK_TILES << chunks_.size();
+            chunks_.emplace_back(allocate_chunk(chunk_tiles));
+            capacity_ += chunk_tiles;
+        }
+        Tile* tile = new (&(*this)[size_]) Tile{};
+        ++size_;
+        return *tile;
+    }
+
+    void reserve(size_t num_tiles)
+    {
+        if (!experimental_) {
+            baseline_tiles_.reserve(num_tiles);
+        }
+    }
+
+    /**
+     * @brief Destroy all tiles and release all chunks.
+     */
+    void clear()
+    {
+        if (!experimental_) {
+            baseline_tiles_.clear();
+            return;
+        }
+        for (size_t t = 0; t < size_; ++t) {
+            (*this)[t].~Tile();
+        }
+        size_ = 0;
+        capacity_ = 0;
+        chunks_.clear();
+    }
+
+    void shrink_to_fit()
+    {
+        if (experimental_) {
+            chunks_.shrink_to_fit();
+        } else {
+            baseline_tiles_.shrink_to_fit();
+        }
+    }
+
+    bool operator==(const TileStore& other) const
+    {
+        if (size() != other.size()) {
+            return false;
+        }
+        for (size_t t = 0; t < size(); ++t) {
+            if (!((*this)[t] == other[t])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+  private:
+    struct ChunkDeleter {
+        void operator()(Tile* chunk) const { ::operator delete(chunk, std::align_val_t{ alignof(Tile) }); }
+    };
+    using Chunk = std::unique_ptr<Tile, ChunkDeleter>;
+
+    static Chunk allocate_chunk(size_t num_tiles)
+    {
+        return Chunk(static_cast<Tile*>(::operator new(sizeof(Tile) * num_tiles, std::align_val_t{ alignof(Tile) })));
+    }
+
+    // Chunk c covers tiles [FIRST_CHUNK_TILES * (2^c - 1), FIRST_CHUNK_TILES * (2^(c+1) - 1)).
+    static std::pair<size_t, size_t> locate(size_t t)
+    {
+        const size_t chunk = static_cast<size_t>(std::bit_width((t >> FIRST_CHUNK_SHIFT) + 1)) - 1;
+        const size_t slot = t - (((size_t{ 1 } << chunk) - 1) << FIRST_CHUNK_SHIFT);
+        return { chunk, slot };
+    }
+
+    void append_copies_of(const TileStore& other)
+    {
+        for (size_t t = 0; t < other.size(); ++t) {
+            emplace_back() = other[t];
+        }
+    }
+
+    std::vector<Tile> baseline_tiles_;
+    bool experimental_ = bb::experimental_optimizations_enabled();
+    std::vector<Chunk> chunks_;
+    size_t size_ = 0;
+    size_t capacity_ = 0;
+};
+
+/**
  * @brief Read (and targeted-write) interface over one selector column.
  * @details Columns are views into the row-major gate storage; appending happens exclusively through
  * ExecutionTraceBlock::append_gate, so this interface deliberately has no append or resize —
@@ -234,7 +397,7 @@ template <typename FF> class Selector {
 template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<FF> {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
+    using Tiles = TileStore<Tile>;
     using Field = std::array<FF, GATE_TILE_SIZE> Tile::*;
 
     SelectorColumn(Tiles* tiles, const size_t* num_rows, Field field)
@@ -286,7 +449,7 @@ template <typename FF, size_t NUM_WIRES> class SelectorColumn : public Selector<
 template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selector<FF> {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
+    using Tiles = TileStore<Tile>;
 
     GateSelectorColumn(Tiles* tiles, const size_t* num_rows, GateKind kind)
         : tiles_(tiles)
@@ -356,7 +519,7 @@ template <typename FF, size_t NUM_WIRES> class GateSelectorColumn : public Selec
 template <typename FF, size_t NUM_WIRES> class WireColumn {
   public:
     using Tile = GateTile<FF, NUM_WIRES>;
-    using Tiles = std::vector<Tile>;
+    using Tiles = TileStore<Tile>;
 
     WireColumn(Tiles* tiles, const size_t* num_rows, size_t wire_idx)
         : tiles_(tiles)
@@ -598,6 +761,9 @@ template <typename FF> class ExecutionTraceBlockStorage {
      */
     void free_data()
     {
+        if (data_freed_) {
+            return;
+        }
         cached_size_ = num_rows_;
         data_freed_ = true;
         tiles.clear();
@@ -619,7 +785,7 @@ template <typename FF> class ExecutionTraceBlockStorage {
     SelectorColumn<FF, NUM_WIRES>& q_4() { return columns_[5]; };
     SelectorColumn<FF, NUM_WIRES>& q_5() { return columns_[6]; };
 
-    std::vector<Tile> tiles;
+    TileStore<Tile> tiles;
     size_t num_rows_ = 0;
 
     // Wire column views; rebound on copy/move alongside the selector views.

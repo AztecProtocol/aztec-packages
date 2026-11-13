@@ -27,7 +27,7 @@ target_sources(
 function(barretenberg_module_with_sources MODULE_NAME)
     # Parse named arguments for SOURCE_FILES and HEADER_FILES
     # All remaining arguments are treated as dependencies
-    set(options "")
+    set(options "SKIP_EXPERIMENTAL_INITIALIZATION")
     set(oneValueArgs "")
     set(multiValueArgs SOURCE_FILES HEADER_FILES TEST_SOURCE_FILES BENCH_SOURCE_FILES FUZZERS_SOURCE_FILES DEPENDENCIES)
     cmake_parse_arguments(PARSE_ARGV 1 ARG "${options}" "${oneValueArgs}" "${multiValueArgs}")
@@ -142,6 +142,11 @@ function(barretenberg_module_with_sources MODULE_NAME)
             ${MODULE_NAME}_tests
             $<TARGET_OBJECTS:${MODULE_NAME}_test_objects>
         )
+        if(NOT ARG_SKIP_EXPERIMENTAL_INITIALIZATION)
+            target_sources(${MODULE_NAME}_tests PRIVATE
+                ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../test/experimental_optimizations.cpp)
+            target_link_libraries(${MODULE_NAME}_tests PRIVATE common)
+        endif()
         list(APPEND exe_targets ${MODULE_NAME}_tests)
 
         if(ENABLE_STACKTRACES)

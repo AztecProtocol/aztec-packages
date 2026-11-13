@@ -197,6 +197,7 @@ endif()
 include(cmake/backward-cpp.cmake)
 
 add_subdirectory(src)
+add_subdirectory(test)
 
 # Generate fuzzer manifest after all modules have been processed
 if(FUZZING)

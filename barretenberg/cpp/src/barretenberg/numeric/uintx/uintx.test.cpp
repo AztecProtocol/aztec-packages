@@ -348,3 +348,31 @@ TEST(uintx, BarrettReductionRegression)
     EXPECT_EQ(quotient_result, quotient_expected);
     EXPECT_EQ(remainder_result, remainder_expected);
 }
+
+TEST(uintx, Bn254DivisionAtReciprocalBoundary)
+{
+    const uint1024_t modulus(uint256_t("0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47"));
+    const uint1024_t boundary = uint1024_t(1) << 576;
+    const std::array<uint1024_t, 9> values{ uint1024_t(0),    modulus - 1, modulus,      modulus + 1,
+                                            boundary - 1,     boundary,    boundary + 1, (uint1024_t(1) << 1023) - 1,
+                                            uint1024_t(0) - 1 };
+    for (const auto& value : values) {
+        const auto expected = value.divmod_base(modulus);
+        const auto actual = value.divmod(modulus);
+        EXPECT_EQ(actual.first, expected.first);
+        EXPECT_EQ(actual.second, expected.second);
+    }
+}
+
+TEST(uintx, NarrowExtendedMultiplicationPreservesHighHalf)
+{
+    const uint512_t a = (uint512_t(1) << 511) + 1;
+    const uint512_t b = (uint512_t(1) << 510) + 3;
+    const uint1024_t wide_a(a);
+    const uint1024_t wide_b(b);
+    const auto [low, high] = wide_a.mul_extended(wide_b);
+    const uint1024_t expected = (uint1024_t(1) << 1021) + (uint1024_t(3) << 511) + (uint1024_t(1) << 510) + 3;
+    EXPECT_EQ(low, expected);
+    EXPECT_EQ(high, uint1024_t(0));
+    EXPECT_EQ(wide_a * wide_b, expected);
+}

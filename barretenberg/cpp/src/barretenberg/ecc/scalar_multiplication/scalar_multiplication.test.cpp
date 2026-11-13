@@ -540,6 +540,12 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             sizes.push_back(boundary * 2);
         }
         const size_t num_msms = sizes.size();
+        const size_t required_points = *std::max_element(sizes.begin(), sizes.end());
+        std::vector<AffineElement> dispatch_generators(generators);
+        dispatch_generators.reserve(required_points);
+        while (dispatch_generators.size() < required_points) {
+            dispatch_generators.emplace_back(Group::one * ScalarField::random_element(&engine));
+        }
 
         const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
         std::vector<AffineElement> expected(num_msms);
@@ -567,13 +573,14 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 // Alternate measured-count and bare (no-estimate) hints through the channel.
                 dedup_infos[k] = (k % 2 == 0) ? dup_count : uint32_t{ 1 };
             }
-            std::span<const AffineElement> pts(&generators[0], n);
+            ASSERT_LE(n, dispatch_generators.size());
+            std::span<const AffineElement> pts(dispatch_generators.data(), n);
             batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
             expected[k] = naive_msm(batch_scalars[k], pts);
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
+            dispatch_generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
 
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";

@@ -327,6 +327,13 @@ function runs_nightly_only {
 
 function test_cmds_native {
   local mode=${1:-per_merge}
+  local bb_experimental=${BB_EXPERIMENTAL_OPTIMIZATIONS-0}
+  if [[ "$bb_experimental" != 0 && "$bb_experimental" != 1 ]]; then
+    echo "BB_EXPERIMENTAL_OPTIMIZATIONS must be 0 or 1" >&2
+    return 1
+  fi
+  local test_hash=$(hash_str "$hash" "BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental")
+  local experimental_env="BB_EXPERIMENTAL_OPTIMIZATIONS=$bb_experimental"
   if [ "$mode" = per_merge ]; then
     local flavor_codegen_hash
     flavor_codegen_hash=$(cache_content_hash scripts/flavor-codegen \
@@ -352,26 +359,26 @@ function test_cmds_native {
         fi
         if runs_nightly_only "$test"; then
           if [ "$mode" == nightly ]; then
-            echo -e "$hash:CPUS=16:MEM=32g:TIMEOUT=60m barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+            echo -e "$test_hash:CPUS=16:MEM=32g:TIMEOUT=60m $experimental_env barretenberg/cpp/scripts/run_test.sh $bin_name $test"
           fi
           continue
         fi
         if [ "$mode" == nightly ]; then
           continue
         fi
-        local prefix=$hash
+        local prefix=$test_hash
         # Heavy provers get more cores/memory so they finish within the default per-test timeout;
         # these circuits parallelize, so more cores lowers wall-time.
         if [[ "$test" =~ ^(AcirAvmRecursionConstraint|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
           # IPARecursiveTests fails with 2 threads.
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
-        echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+        echo -e "$prefix $experimental_env barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
   if [ "$mode" != nightly ]; then
-    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+    echo "$test_hash:CPUS=8:MEM=32g:TIMEOUT=20m $experimental_env barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
     echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
     echo "$hash bash barretenberg/cpp/scripts/tests/chonk_inputs_test.sh"
   fi

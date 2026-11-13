@@ -1,3 +1,4 @@
+import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { createBackend, createBackendSync } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import * as os from 'os';
@@ -9,6 +10,12 @@ export { findBbBinary } from '@aztec-foundation/bb.js-api';
 // Shared-memory rings sized for bb's payloads (witnesses, proofs); the async backend pipelines, so
 // it gets a response ring of the same size.
 const SHM_RING_SIZE = 1024 * 1024 * 4;
+
+/** Resolve experimental options once, including before a backend fallback. */
+export function resolveExperimentalOptions(options: BackendOptions): BackendOptions {
+  const env = experimentalEnvironment(options, process.env);
+  return { ...options, experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1' };
+}
 
 /**
  * An idle bb never keeps the caller's process alive: it dies with its parent anyway, since
@@ -29,6 +36,8 @@ export async function createAsyncBackend(
 ): Promise<IpcClientAsync> {
   const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
+  const env = experimentalEnvironment(options, process.env);
+
   switch (type) {
     case BackendType.NativeUnixSocket:
       logger('Using native Unix socket backend');
@@ -37,7 +46,13 @@ export async function createAsyncBackend(
         // If threads not set use num cpu cores, max 16.
         threads: options.threads ?? Math.min(16, os.cpus().length),
         logger: options.logger,
-        process: { binaryPath: options.bbPath, transport: 'uds', respawn: options.respawn, ...BB_PROCESS_LIFETIME },
+        process: {
+          env,
+          binaryPath: options.bbPath,
+          transport: 'uds',
+          respawn: options.respawn,
+          ...BB_PROCESS_LIFETIME,
+        },
       });
 
     case BackendType.NativeSharedMemory:
@@ -47,6 +62,7 @@ export async function createAsyncBackend(
         threads: options.threads ?? 16,
         logger: options.logger,
         process: {
+          env,
           binaryPath: options.bbPath,
           transport: 'shm',
           clientId: 0,
@@ -67,7 +83,7 @@ export async function createAsyncBackend(
         threads: options.threads,
         logger: options.logger,
         unref: options.unref,
-        wasm: { module: wasmPath, memory: options.memory, worker },
+        wasm: { env, module: wasmPath, memory: options.memory, worker },
       });
     }
 
@@ -86,6 +102,8 @@ export async function createSyncBackend(
 ): Promise<IpcClientSync> {
   const wasmPath = options.wasmPath ?? process.env.BB_WASM_PATH;
 
+  const env = experimentalEnvironment(options, process.env);
+
   switch (type) {
     case BackendType.NativeSharedMemory:
       logger('Using native shared memory backend');
@@ -95,6 +113,7 @@ export async function createSyncBackend(
         threads: options.threads ?? 1,
         logger: options.logger,
         process: {
+          env,
           binaryPath: options.bbPath,
           transport: 'shm',
           napiPath: options.napiPath,
@@ -109,7 +128,7 @@ export async function createSyncBackend(
         backend: 'wasm',
         logger: options.logger,
         unref: options.unref,
-        wasm: { module: wasmPath, memory: options.memory },
+        wasm: { env, module: wasmPath, memory: options.memory },
       });
 
     default:

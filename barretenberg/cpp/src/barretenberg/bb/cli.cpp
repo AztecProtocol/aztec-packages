@@ -27,6 +27,7 @@
 #include "barretenberg/bbapi/bbapi_schema.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -825,6 +826,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
               flags.disable_zk,
               ", ipa_accumulation=",
               flags.ipa_accumulation);
+    }
+
+    try {
+        initialize_experimental_optimizations();
+    } catch (std::runtime_error const& error) {
+#ifndef BB_NO_EXCEPTIONS
+        info(error.what());
+        return 1;
+#endif
     }
 
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any

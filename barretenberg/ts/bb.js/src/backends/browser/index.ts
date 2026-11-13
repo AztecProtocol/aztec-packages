@@ -1,7 +1,14 @@
+import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { createBackend, createBackendSync, sharedMemoryAvailable } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 
 import { BackendOptions, BackendType } from '../index.js';
+
+/** Resolve experimental options once, including before a backend fallback. */
+export function resolveExperimentalOptions(options: BackendOptions): BackendOptions {
+  const env = experimentalEnvironment(options);
+  return { ...options, experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1' };
+}
 
 /** There is no bb binary in a browser; the node build's counterpart locates the packaged one. */
 export function findBbBinary(_customPath?: string): string | null {
@@ -16,6 +23,8 @@ export async function createAsyncBackend(
   options: BackendOptions,
   logger: (msg: string) => void,
 ): Promise<IpcClientAsync> {
+  const env = experimentalEnvironment(options);
+
   switch (type) {
     case BackendType.Wasm:
     case BackendType.WasmWorker: {
@@ -27,7 +36,7 @@ export async function createAsyncBackend(
         // module, whatever thread count was asked for.
         threads: sharedMemoryAvailable() ? options.threads : 1,
         logger,
-        wasm: { module: options.wasmPath, memory: options.memory, worker },
+        wasm: { env, module: options.wasmPath, memory: options.memory, worker },
       });
     }
 
@@ -44,13 +53,15 @@ export async function createSyncBackend(
   options: BackendOptions,
   logger: (msg: string) => void,
 ): Promise<IpcClientSync> {
+  const env = experimentalEnvironment(options);
+
   switch (type) {
     case BackendType.Wasm:
       logger('Using WASM backend');
       return await createBackendSync({
         backend: 'wasm',
         logger,
-        wasm: { module: options.wasmPath, memory: options.memory },
+        wasm: { env, module: options.wasmPath, memory: options.memory },
       });
 
     default:
