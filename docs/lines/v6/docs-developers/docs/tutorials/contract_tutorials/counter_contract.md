@@ -23,6 +23,7 @@ Run this to create a new contract project:
 
 ```bash
 aztec new counter
+cd counter
 ```
 
 Your structure should look like this:
@@ -47,8 +48,8 @@ Add the following dependency to `counter_contract/Nargo.toml` under the existing
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="#include_aztec_version", directory="aztec" }
-balance_set = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="#include_aztec_version", directory="balance-set" }
+aztec = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="#include_aztec_version", directory="aztec" }
+balance_set = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="#include_aztec_version", directory="balance-set" }
 ```
 
 ## Define the functions
