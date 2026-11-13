@@ -1,5 +1,5 @@
 // Checks in headless Chromium what renders only in the browser (OperatorConfig, search, the version
-// switch), so no HTML check can see it. Every host but the loopback copy of the build is blocked, so
+// switch, KaTeX's stylesheet and fonts), so no HTML check can see it. Every host but the loopback copy of the build is blocked, so
 // analytics and CDNs cannot slow or flake it.
 //
 //   node scripts/browser_smoke.mts <build-dir>
@@ -36,7 +36,8 @@ async function serve(root: string): Promise<{ origin: string; close: () => void 
   return { origin: `http://127.0.0.1:${(server.address() as { port: number }).port}`, close: () => server.close() };
 }
 
-type Smoke = { id: string; name: string; run: (open: (path: string) => Promise<Page>) => Promise<void> };
+/** `requested` holds every URL the smoke's pages requested, blocked ones included, from before the first navigation. */
+type Smoke = { id: string; name: string; run: (open: (path: string) => Promise<Page>, requested: string[]) => Promise<void> };
 
 const firstLine = (error: unknown) => (error instanceof Error ? error.message : String(error)).split("\n")[0];
 
@@ -101,12 +102,41 @@ export const SMOKES: Smoke[] = [
       await expect(`the page at ${href}`, menu.locator(`a.dropdown__link--active[href="${href}"]`).waitFor({ state: "attached" }));
     },
   },
+  {
+    id: "C5",
+    name: "math renders with the site's own KaTeX stylesheet and fonts",
+    run: async (open, requested) => {
+      const page = await open("/developers/docs/foundational-topics/advanced/storage/indexed_merkle_tree");
+      const site = new URL(page.url()).origin;
+      const offSite = requested.filter((url) => /katex/i.test(url) && new URL(url).origin !== site);
+      if (offSite.length) throw new Error(`KaTeX loaded from another host: ${offSite[0]}`);
+      await expect("rendered math", page.locator(".katex-html").first().waitFor());
+      // katex.css hides the MathML copy by clipping, not display:none, so screen readers still read it.
+      await expect(
+        "the MathML copy clipped by katex.css",
+        page.waitForFunction(() => {
+          const style = getComputedStyle(document.querySelector(".katex-mathml") as Element);
+          return style.position === "absolute" && style.clip === "rect(1px, 1px, 1px, 1px)" && style.overflow === "hidden";
+        }),
+      );
+      // A synchronous predicate: waitForFunction treats a returned promise as truthy.
+      await expect(
+        "the KaTeX_Main font loaded",
+        page.waitForFunction(() => {
+          void document.fonts.load("1em KaTeX_Main");
+          return [...document.fonts].some((face) => face.family.replace(/"/g, "") === "KaTeX_Main" && face.status === "loaded");
+        }),
+      );
+    },
+  },
 ];
 
 async function runSmoke(browser: Browser, origin: string, smoke: Smoke): Promise<string[]> {
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
   await context.route((url) => url.origin !== origin, (route) => route.abort());
+  const requested: string[] = [];
+  context.on("request", (request) => requested.push(request.url()));
   const errors: string[] = [];
   const open = async (p: string) => {
     const page = await context.newPage();
@@ -122,7 +152,7 @@ async function runSmoke(browser: Browser, origin: string, smoke: Smoke): Promise
     return page;
   };
   try {
-    await smoke.run(open);
+    await smoke.run(open, requested);
   } catch (error) {
     errors.push(firstLine(error));
   } finally {

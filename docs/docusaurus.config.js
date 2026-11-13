@@ -14,6 +14,7 @@ import katex from "rehype-katex";
 // @ts-ignore
 const path = require("path");
 const macros = require("./src/katex-macros.js");
+const { createRequire } = require("module");
 const {
   apiReferenceDirs,
   aztecNrApiFolders,
@@ -224,6 +225,9 @@ const rehypePlugins = [
     },
   ],
 ];
+// KaTeX's stylesheet must match the KaTeX that renders the markup, so it comes from rehype-katex's own
+// katex dependency; the bundler serves it and its fonts from the site.
+const katexCss = createRequire(require.resolve("rehype-katex")).resolve("katex/dist/katex.min.css");
 
 const config = {
   title: SITE_TITLE,
@@ -309,7 +313,7 @@ const config = {
         docs: false,
         blog: false,
         theme: {
-          customCss: require.resolve("./src/css/custom.css"),
+          customCss: [katexCss, require.resolve("./src/css/custom.css")],
         },
         // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
@@ -322,15 +326,6 @@ const config = {
         },
       },
     ],
-  ],
-  stylesheets: [
-    {
-      href: "https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css",
-      type: "text/css",
-      integrity:
-        "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
-      crossorigin: "anonymous",
-    },
   ],
   plugins: [
     // Developer docs instance - mainnet/testnet versions
