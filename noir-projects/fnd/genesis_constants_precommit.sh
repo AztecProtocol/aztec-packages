@@ -3,7 +3,7 @@
 #
 # The genesis nullifier tree is seeded with the protocol contracts' registration nullifiers, which are derived from
 # their class ids. A class id rotation therefore moves protocol/genesis/genesis.json (the nullifiers and the roots
-# they produce), the C++ seed vector, and the L1 checkpoint fixtures. CI catches it, but slowly.
+# they produce) and wsdb's C++ seed vector. CI catches it, but slowly.
 #
 # This is a reminder, not evidence of freshness. Deciding whether a class id actually moved means compiling the
 # contracts and computing the ids, which is far too slow for a commit hook, so the predicate below is a cheap and
@@ -33,8 +33,8 @@ echo ""
 echo -e "\033[33mReminder:\033[0m these staged changes can rotate a protocol contract class id:"
 printf '%s\n' "$watched" | sed 's/^/  - /'
 echo ""
-echo "  If a class id moved, the genesis and the L1 checkpoint fixtures moved with it. Regenerate with:"
-echo "    noir-projects/fnd/scripts/regenerate_genesis_constants.sh --fixtures"
+echo "  If a class id moved, the genesis moved with it. Regenerate with:"
+echo "    noir-projects/fnd/scripts/regenerate_genesis_constants.sh"
 echo "  Or check without writing anything:"
 echo "    noir-projects/fnd/scripts/regenerate_genesis_constants.sh --check"
 echo ""
