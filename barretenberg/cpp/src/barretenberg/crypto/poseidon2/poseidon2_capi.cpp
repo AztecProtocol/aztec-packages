@@ -31,7 +31,10 @@ __attribute__((visibility("default"))) void bb_poseidon2_hash(const uint8_t* ele
 
 // Hash { separator, lhs, rhs } — matches Poseidon2HashPolicy::hash_pair_with_separator,
 // the domain-separated internal-node hash used by the Aztec merkle trees.
-__attribute__((visibility("default"))) void bb_poseidon2_hash_pair_with_separator(uint64_t separator, const uint8_t* lhs, const uint8_t* rhs, uint8_t* out)
+__attribute__((visibility("default"))) void bb_poseidon2_hash_pair_with_separator(uint64_t separator,
+                                                                                  const uint8_t* lhs,
+                                                                                  const uint8_t* rhs,
+                                                                                  uint8_t* out)
 {
     std::vector<FF> inputs{ FF(separator), FF::serialize_from_buffer(lhs), FF::serialize_from_buffer(rhs) };
     FF::serialize_to_buffer(Poseidon2Bn254::hash(inputs), out);
