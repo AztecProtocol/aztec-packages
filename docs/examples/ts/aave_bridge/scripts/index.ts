@@ -268,7 +268,13 @@ if (!exitReceipt.blockNumber) {
 const exitBlockNumber = exitReceipt.blockNumber;
 console.log("Waiting for block to be proven...");
 let provenBlockNumber = await node.getBlockNumber("proven");
+const provenDeadline = Date.now() + 10 * 60 * 1000;
 while (provenBlockNumber < exitBlockNumber) {
+  if (Date.now() > provenDeadline) {
+    throw new Error(
+      `Block ${exitBlockNumber} was not proven within 10 minutes (proven: ${provenBlockNumber})`,
+    );
+  }
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitBlockNumber})`,
   );

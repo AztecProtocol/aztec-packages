@@ -208,9 +208,7 @@ cleanup_project() {
 
 # Determine which examples to run
 if [ $# -eq 0 ]; then
-    # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
-    # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof" "bob_token_contract" "token_bridge" "aztecjs_kernelless_simulation")
+    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof" "bob_token_contract" "token_bridge" "aave_bridge" "aztecjs_kernelless_simulation")
 else
     EXAMPLES=()
     for arg in "$@"; do
