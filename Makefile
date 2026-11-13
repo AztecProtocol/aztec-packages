@@ -427,7 +427,7 @@ ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-a
 lmdblib:
 	$(call build,$@,native-packages/lmdblib)
 
-kvdb: lmdblib
+kvdb:
 	$(call build,$@,native-packages/kvdb)
 
 # wsdb links the working tree's barretenberg static library (see native-packages/wsdb/README.md).
