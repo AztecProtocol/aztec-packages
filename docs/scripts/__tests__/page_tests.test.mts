@@ -60,15 +60,44 @@ function specErrors(line: string, key: string, steps: Step[]): string[] {
   ];
 }
 
-// The examples the runner (examples/ts/aztecjs_runner/run.sh) runs by default on one line.
-function runnerExamples(line: string): Set<string> {
+// HALF_1 and HALF_2 of the examples runner (examples/ts/aztecjs_runner/run.sh) on one line.
+function runnerHalves(line: string): string[][] {
   const sh = fs.readFileSync(path.join(docs, line, "examples/ts/aztecjs_runner/run.sh"), "utf8");
-  return new Set([...(sh.match(/^\s*EXAMPLES=\(([^)]*)\)/m)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+  return ["HALF_1", "HALF_2"].map((half) =>
+    [...(sh.match(new RegExp(`^${half}=\\(([^)]*)\\)`, "m"))?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]),
+  );
 }
+
+// The examples the runner runs by default on one line: both halves.
+const runnerExamples = (line: string) => new Set(runnerHalves(line).flat());
 
 // The entry the examples runner runs for an example (examples/ts/lib.sh project_entry).
 const entry = (line: string, example: string) =>
   fs.existsSync(path.join(docs, line, "examples/ts", example, "hardhat.config.ts")) ? "scripts/index.ts" : "index.ts";
+
+// An example is a folder examples/ts/bootstrap.sh validates: a config.yaml and the entry the runner runs.
+// aztecjs_runner is the runner itself.
+test("every TypeScript example runs in exactly one half of the examples run, on every line", () => {
+  const wrong = lines.flatMap((line) => {
+    const root = path.join(docs, line, "examples/ts");
+    const examples = fs
+      .readdirSync(root, { withFileTypes: true })
+      .map((d) => d.name)
+      .filter((name) => name !== "aztecjs_runner" && fs.existsSync(path.join(root, name, "config.yaml")))
+      .filter((name) => fs.existsSync(path.join(root, name, entry(line, name))));
+    const halves = runnerHalves(line);
+    const listed = halves.flat();
+    return [
+      ...halves.flatMap((h, i) => (h.length ? [] : [`${line}HALF_${i + 1} is empty`])),
+      ...examples.flatMap((name) => {
+        const n = listed.filter((l) => l === name).length;
+        return n === 1 ? [] : [`${line}${name}: ${n ? `listed ${n} times` : "in no half"}`];
+      }),
+      ...[...new Set(listed)].filter((name) => !examples.includes(name)).map((name) => `${line}${name}: no such example`),
+    ];
+  });
+  assert.deepEqual(wrong, [], "list each example in exactly one of run.sh's HALF_1 and HALF_2");
+});
 
 test("a skip the examples runner covers is that runner's own run of the example the page builds, on every line", () => {
   const skips = Object.values(TRANSCRIPTS)
