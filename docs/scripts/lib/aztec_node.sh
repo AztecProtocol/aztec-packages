@@ -5,8 +5,6 @@
 # exports AZTEC_NODE_DIR: for main, docs/.aztec-node/tree unless already set; for a line,
 # docs/lines/<line>/.aztec-node/tree always. Scripts read aztec-node code there, never in the labs/
 # submodule, which the foundation moves on its own.
-#
-# api_reference_folder [version] names the API reference folder a generator writes.
 
 require_aztec_node() {
   local docs line=${1:-}
