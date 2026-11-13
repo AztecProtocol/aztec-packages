@@ -10,13 +10,16 @@ const repoRoot = path.dirname(docsDir);
 const GUIDES = ["CLAUDE.md", "README.md", "HOW_WE_WRITE_DOCS.md", "CONTRIBUTING.md"];
 const CHECKOUT = "docs/.aztec-node/tree";
 
-// Paths the guides name on purpose that a build, an install or the reader creates, so they and the paths under them
-// are not checked. An entry no guide names fails.
+// Paths the guides name on purpose that a build, an install, a fetch or the reader creates, so they and the paths under
+// them are not checked. An entry no guide names fails. Paths inside main's checkout (`labs/…`, `.aztec-node/tree/…`)
+// are not affected: the last test checks them against the checkout.
 const OUTPUTS: Record<string, string> = {
   "docs/processed-docs": "preprocessing output",
   "docs/build": "site build output",
   "docs/node_modules": "yarn install output, absent when ./bootstrap.sh check runs",
   "docs/.env": "the reader makes it from .env.template",
+  "docs/.aztec-node": "node scripts/aztec_node.mts fetch output, absent until the first fetch",
+  "docs/lines/v6/.aztec-node": "the same fetch's output for the v6 line: its checkout and l1-artifacts",
 };
 // Path-like tokens that name no file of this repository, with the reason. An entry no guide uses fails.
 const NOT_PATHS: Record<string, string> = {
@@ -124,7 +127,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
       "Pages: `docs-network/`, `docs-developers/`, `versioned_docs/`; versions in `./versions.json`; `docs/migration_notes.md`.",
       "Run `yarn dev`, `yarn build`, `yarn install` and `yarn docusaurus docs:version:developer v1`.",
       "Not ours: `https://example.com/x`, `@aztec-labs/aztec.js`, `origin/next`, `$AZTEC_NODE_DIR/x`, `docs:start:hello`, `.md`.",
-      "Checkout: `labs/yarn-project/stdlib/a.ts`, `labs/yarn-project/gone.ts`, `.aztec-node/tree/yarn-project/stdlib/`.",
+      "Checkout: `labs/yarn-project/stdlib/a.ts`, `labs/yarn-project/gone.ts`, `.aztec-node/tree/yarn-project/stdlib/`, `.aztec-node/tree`, `.aztec-node/tree/yarn-project/gone.ts`.",
       "Outputs: `processed-docs/x.md`. Patterns: `lines/<line>/allowed-differences.txt`, `lines/<line>/gone.json`, `sidebars-*.js`, `sidebars-*.ts`. Dotfiles: `.nvmrc`, `.nvmmrc`.",
       "Links: [rules](./CONTRIBUTING.md), [gone](./GONE.md#usage). Fragment: `scripts/gone.mts#usage`. Ellipsis: `docs-developers/...`.",
       "```bash",
@@ -135,7 +138,8 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
       "```",
     ].join("\n");
     const used = new Set<string>();
-    const found = problems(root, "docs/README.md", mentions("docs/README.md", text), new Set(["build"]), { "docs/processed-docs": "x" }, used);
+    const outputs = { "docs/processed-docs": "x", "docs/.aztec-node": "x" };
+    const found = problems(root, "docs/README.md", mentions("docs/README.md", text), new Set(["build"]), outputs, used);
     assert.deepEqual(
       found.map((p) => p.split(": ").slice(0, 2).join(": ")),
       [
@@ -145,6 +149,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
         "docs/README.md:1: docs/migration_notes.md",
         "docs/README.md:2: yarn dev",
         "docs/README.md:4: labs/yarn-project/gone.ts",
+        "docs/README.md:4: .aztec-node/tree/yarn-project/gone.ts",
         "docs/README.md:5: lines/<line>/gone.json",
         "docs/README.md:5: sidebars-*.ts",
         "docs/README.md:5: .nvmmrc",
@@ -153,7 +158,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
         "docs/README.md:8: scripts/gone.mts",
       ],
     );
-    assert.deepEqual([...used], ["docs/processed-docs"]);
+    assert.deepEqual([...used], ["docs/.aztec-node", "docs/processed-docs"]);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
