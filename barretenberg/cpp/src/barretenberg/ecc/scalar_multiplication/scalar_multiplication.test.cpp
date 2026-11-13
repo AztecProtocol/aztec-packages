@@ -639,6 +639,33 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         EXPECT_EQ(result, Group::affine_point_at_infinity);
     }
 
+    void test_msm_rejects_too_few_points()
+    {
+        constexpr size_t n = 8;
+        std::span<const AffineElement> points(generators.data(), n);
+        std::span<const AffineElement> short_points = points.first(n - 1);
+        std::span<ScalarField> member_scalars(scalars.data(), n);
+
+        PolynomialSpan<const ScalarField> fits(0, member_scalars);
+        PolynomialSpan<const ScalarField> offset_fits(1, member_scalars.first(n - 1));
+        PolynomialSpan<const ScalarField> offset_overruns(2, member_scalars.first(n - 1));
+        EXPECT_EQ(scalar_multiplication::MSM<Curve>::msm(points, offset_fits),
+                  naive_msm(member_scalars.first(n - 1), points.subspan(1)));
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::pippenger<Curve>(fits, short_points), "MSM needs");
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::pippenger_unsafe<Curve>(fits, short_points), "MSM needs");
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::MSM<Curve>::msm(points, offset_overruns), "MSM needs");
+
+        // One member that fits and one that needs a point past the end: the whole batch is rejected rather than
+        // the second member being cut short.
+        std::vector<PolynomialSpan<ScalarField>> batch{ PolynomialSpan<ScalarField>(0, member_scalars.first(n - 1)),
+                                                        PolynomialSpan<ScalarField>(0, member_scalars) };
+        for (const bool handle_edge_cases : { false, true }) {
+            EXPECT_THROW_OR_ABORT(
+                scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(short_points, batch, handle_edge_cases),
+                "MSM needs");
+        }
+    }
+
     void test_scalars_unchanged_after_msm()
     {
         const size_t num_pts = 100;
@@ -1974,6 +2001,11 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
 {
     this->test_msm_empty_polynomial();
 }
+TYPED_TEST(ScalarMultiplicationTest, MSMRejectsTooFewPoints)
+{
+    this->test_msm_rejects_too_few_points();
+}
+
 TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
 {
     this->test_scalars_unchanged_after_msm();
