@@ -10,6 +10,7 @@ import {
   expectedSections,
   hasFooter,
   hasSearchTrigger,
+  MATH_PAGES,
   main,
   type Model,
   pageUrl,
@@ -110,8 +111,10 @@ function fixtureBuild(): { dir: string; write: (url: string, html: string) => vo
   write(`/operate/${opPage}`, shell(dropdown(items(opLinks))) + config);
   write(`/operate/v5.2.0/${opPage}`, shell("") + config);
   for (const v of ["", "v5.2.0/"]) write(`/operate/${v}operators/solo-sequencer/install-toolchain`, shell("") + "<code>v6.0.0</code>");
+  for (const page of MATH_PAGES) write(`/developers/${page}`, shell("") + math);
   return { dir, write };
 }
+const math = "<p>rollup <span class=katex><span class=katex-html aria-hidden=true>n</span></span></p>";
 
 const model: Model = {
   configs: { developer: { mainnet: "v6.0.0" }, network: { mainnet: "v6.0.0" } },
@@ -152,6 +155,12 @@ test("main passes a healthy build and names each regression it is for", () => {
     ],
     ["search bar gone", (b) => b.write("/404", `<nav></nav>${footer}`), /\/404: no search button/],
     ["footer gone", (b) => b.write("/participate", `<nav>${search}</nav>`), /\/participate: no site footer/],
+    ["math outside MATH_PAGES", (b) => b.write("/participate/get-started", `<nav>${search}</nav>${math}${footer}`), /\/participate\/get-started: renders math/],
+    [
+      "stale MATH_PAGES entry",
+      (b) => fs.rmSync(path.join(b.dir, `developers/${MATH_PAGES[1]}.html`)),
+      /MATH_PAGES docs\/foundational-topics\/ethereum-aztec-messaging: no built page renders math there/,
+    ],
   ];
   for (const [name, breakIt, expected] of breaks) {
     const b = fixtureBuild();

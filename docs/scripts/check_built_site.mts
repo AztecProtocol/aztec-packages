@@ -17,6 +17,13 @@ export const SAMPLE_PAGES: Record<string, string> = {
 const TOOLCHAIN_PAGE = "operators/solo-sequencer/install-toolchain";
 const OTHER_PAGES = ["/", "/404", "/participate"];
 const TEMPLATE_TOKEN = /\{\{[A-Z][A-Z0-9_]*\}\}/;
+/**
+ * The pages meant to render math, by path under a version or line root, so every copy matches. Two unescaped `$` in
+ * one paragraph or table cell render as math, so KaTeX output on any other page fails; an entry no page matches fails.
+ */
+export const MATH_PAGES = ["docs/foundational-topics/advanced/storage/indexed_merkle_tree", "docs/foundational-topics/ethereum-aztec-messaging"];
+// Generated API reference pages: thousands of files, and no Docusaurus page among them.
+const GENERATED_REFERENCE = ["aztec-nr-api/**", "typescript-api/**"];
 
 export type Model = {
   configs: { developer: Record<string, string>; network: Record<string, string> };
@@ -97,6 +104,25 @@ export const hasFooter = (html: string) => startTags(html, "footer").some((tag) 
 export const hasSearchTrigger = (html: string) =>
   startTags(html, "button").some((tag) => attr(tag, "aria-label")?.startsWith("Search ("));
 
+const rendersMath = (html: string) => html.includes("katex-html") && startTags(html, "span").some((tag) => classList(tag).includes("katex"));
+
+/** A problem for each built page outside MATH_PAGES that renders math, and for each entry no such page matches. */
+function mathProblems(buildDir: string): string[] {
+  const problems: string[] = [];
+  const matched = new Set<string>();
+  for (const file of fs.globSync("**/*.html", { cwd: buildDir, exclude: GENERATED_REFERENCE })) {
+    const page = file.split(path.sep).join("/").replace(/\.html$/, "").replace(/(^|\/)index$/, "");
+    if (!rendersMath(fs.readFileSync(path.join(buildDir, file), "utf8"))) continue;
+    const entry = MATH_PAGES.find((p) => page === p || page.endsWith(`/${p}`));
+    if (entry) matched.add(entry);
+    else problems.push(`/${page}: renders math; write a literal $ in prose as \\$, or add the page to MATH_PAGES if the math is meant`);
+  }
+  for (const p of MATH_PAGES) {
+    if (!matched.has(p)) problems.push(`MATH_PAGES ${p}: no built page renders math there; fix the path or remove the entry`);
+  }
+  return problems;
+}
+
 function readPage(buildDir: string, url: string): string | null {
   const p = url.slice(1);
   for (const file of p ? [`${p}.html`, `${p}/index.html`] : ["index.html"]) {
@@ -172,6 +198,7 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     ];
     for (const dir of leaks) problems.push(`${dir}: served by production, which serves released docs only`);
   }
+  problems.push(...mathProblems(buildDir));
 
   for (const problem of problems) log(problem);
   const layout = model.production ? "production" : "non-production";

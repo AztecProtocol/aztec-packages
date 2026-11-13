@@ -86,7 +86,7 @@ Read [Staying safe](/participate/safety) for the full list of official links and
 | **Note** | A piece of private state, like a private "coin" only you can see and spend |
 | **PXE** | Private eXecution Environment: the part of your wallet that runs private transactions and generates proofs on your device |
 | **Mana** | Aztec's unit of computational work, like Ethereum's gas |
-| **$AZTEC / Fee Juice** | $AZTEC is the network's token on Ethereum, used for fees, staking, and governance. Fee Juice is the non-transferable fee asset created on Aztec by bridging $AZTEC |
+| **$AZTEC / Fee Juice** | \$AZTEC is the network's token on Ethereum, used for fees, staking, and governance. Fee Juice is the non-transferable fee asset created on Aztec by bridging \$AZTEC |
 | **Sequencer** | A network operator that orders transactions into blocks |
 | **Prover** | A network operator that generates the proofs posted to Ethereum |
 | **Bridge / portal** | The mechanism that moves assets between Ethereum and Aztec |

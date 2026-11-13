@@ -34,6 +34,7 @@ A docs pull request meets two gates before it merges: `./bootstrap.sh check` in 
 - `lines/v6/allowed-differences.txt`, `UNLISTED` in `scripts/__tests__/operate_sidebar.test.mts` and `ALLOWED` in `scripts/__tests__/snapshot_hygiene.test.mts`: each entry carries its reason, and an entry nothing matches fails.
 - `snapshots/published-urls.txt`: a published URL must keep answering. Removing or renaming a page needs a `netlify.toml` redirect; the orphaned-URL check reads the base branch's copy, so editing the file in the same pull request does not help.
 - `PROBES` in `scripts/check_search_index.mts` and `SAMPLE_PAGES` in `scripts/check_built_site.mts` name pages by path: moving one of those pages fails the build until the list follows.
+- `MATH_PAGES` in `scripts/check_built_site.mts` names the pages meant to render math, in every copy. Two unescaped `$` in one paragraph or table cell render as math: the build fails on any other page that does, so write a literal `$` as `\$`. An entry no page matches fails.
 - The four contributor guides write repo paths in full, from `docs/` or the repository root: `scripts/__tests__/contributor_guides.test.mts` fails on one that does not exist. A path-like token that is not a repo path goes into its `NOT_PATHS`, with the reason.
 
 ## Moving a pin
