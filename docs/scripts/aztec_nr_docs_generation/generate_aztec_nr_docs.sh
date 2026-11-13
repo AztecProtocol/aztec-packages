@@ -7,7 +7,7 @@
 #
 # Examples:
 #   ./generate_aztec_nr_docs.sh           # Generates docs for "next" version
-#   ./generate_aztec_nr_docs.sh v1.0.0    # Generates docs for v1.0.0
+#   ./generate_aztec_nr_docs.sh v1.0.0    # Generates docs for v1.0.0, into static/aztec-nr-api/v1.0.0/
 
 set -euo pipefail
 
@@ -25,25 +25,7 @@ AZTEC_NR_DIR="$BUILD_DIR/noir-projects/aztec-nr"
 
 # Version defaults to "next" if not provided
 VERSION="${1:-next}"
-
-# Determine output folder name - use stable paths for nightly/devnet/testnet/mainnet
-# RELEASE_TYPE env var takes precedence for explicit mapping (e.g., when version string
-# doesn't self-identify its release type, like v4.2.0-aztecnr-rc.2 for mainnet)
-if [[ -n "${RELEASE_TYPE:-}" ]]; then
-    OUTPUT_FOLDER="$RELEASE_TYPE"
-elif [[ "$VERSION" == *"nightly"* ]]; then
-    OUTPUT_FOLDER="nightly"
-elif [[ "$VERSION" == *"devnet"* ]]; then
-    OUTPUT_FOLDER="devnet"
-elif [[ "$VERSION" == *"mainnet"* ]]; then
-    OUTPUT_FOLDER="mainnet"
-elif [[ "$VERSION" == *"testnet"* ]]; then
-    OUTPUT_FOLDER="testnet"
-elif [[ "$VERSION" == *"rc"* ]]; then
-    OUTPUT_FOLDER="testnet"
-else
-    OUTPUT_FOLDER="$VERSION"
-fi
+OUTPUT_FOLDER=$(api_reference_folder "${1:-}")
 
 OUTPUT_DIR="$DOCS_ROOT/static/aztec-nr-api/$OUTPUT_FOLDER"
 

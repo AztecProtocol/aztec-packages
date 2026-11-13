@@ -3,9 +3,11 @@
 # netlify.toml redirect matches its percent-encoded URL; other sites embed these URLs.
 #
 # Append-only: scripts/refresh_url_snapshot.sh adds the files each release serves. Delete a line
-# only for a file that never reached production. The generated API references
-# (aztec-nr-api/, typescript-api/) are not listed.
+# only for a file that never reached production. Of the generated API references
+# (aztec-nr-api/, typescript-api/) only each folder's landing page is listed.
 .nojekyll
+aztec-nr-api/mainnet/index.html
+aztec-nr-api/v6.0.0/index.html
 font/Oracle-Book.woff2
 google699cae1d0c589fd1.html
 img/Aztec Symbol_Light.png
@@ -124,3 +126,5 @@ robots.txt
 scripts/add-keys-to-provider.sh
 scripts/aztec-monitoring.sh
 scripts/check-attester.sh
+typescript-api/mainnet/aztec.js.md
+typescript-api/v6.0.0/aztec.js.md

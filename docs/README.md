@@ -101,8 +101,8 @@ Build variables: `RELEASE_TYPE` (default `mainnet`); `DOCS_COMMIT`, required whe
 
 | Reference | Command | Source | Output | Needs |
 | --- | --- | --- | --- | --- |
-| Aztec.nr API | `yarn generate:aztec-nr-api [<version>]` | `labs/noir-projects/aztec-nr/` | `static/aztec-nr-api/<folder>/` (dev: `next`, gitignored, previews only) | `node scripts/aztec_node.mts provision nargo` |
-| TypeScript API | `yarn generate:typescript-api [<version>]` | the packages in `scripts/typescript_api_generation/config.json` | `static/typescript-api/<folder>/` | the checkout's `yarn-project` built, outside `docs/` |
+| Aztec.nr API | `yarn generate:aztec-nr-api [<version>]` | `labs/noir-projects/aztec-nr/` | `static/aztec-nr-api/<version>/`; without a version `next` (gitignored, previews only) | `node scripts/aztec_node.mts provision nargo` |
+| TypeScript API | `yarn generate:typescript-api [<version>]` | the packages in `scripts/typescript_api_generation/config.json` | `static/typescript-api/<version>/`; without a version `next` | the checkout's `yarn-project` built, outside `docs/` |
 | Aztec.js reference page | `yarn generate:aztecjs-reference` | `labs/yarn-project/aztec.js/src/` | `docs-developers/docs/aztec-js/aztec_js_reference.md` | `node`, `python3` |
 | Node JSON-RPC API | `yarn generate:node-api-reference [--target-dir <dir>]` | `labs/yarn-project/stdlib/src/interfaces/` | `docs-operate/operators/reference/node-api-reference.md` | `yarn install` |
 | Operator CLI | `yarn generate:operator-cli-reference` | the installed aztec CLI's `aztec start --help` | `docs-operate/operators/reference/cli-reference.md` | the aztec CLI |

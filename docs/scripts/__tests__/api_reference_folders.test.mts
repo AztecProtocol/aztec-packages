@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -53,5 +54,17 @@ test("a missing file, an unlinked folder and a stand-in for a retired version ea
     ]);
   } finally {
     fs.rmSync(staticDir, { recursive: true, force: true });
+  }
+});
+
+const generatorFolder = (...args: string[]) =>
+  spawnSync("bash", ["-c", 'source scripts/lib/aztec_node.sh && api_reference_folder "$@"', "_", ...args], { cwd: docs, encoding: "utf8" });
+
+test("a generator writes its version's folder, next without one, and refuses a network name or a path", () => {
+  assert.deepEqual([[], ["v6.1.0"], ["v7.0.0-rc.1"]].map((args) => generatorFolder(...args).stdout), ["next\n", "v6.1.0\n", "v7.0.0-rc.1\n"]);
+  for (const bad of ["mainnet", "devnet", "6.1.0", "v6.1.0/../../docs"]) {
+    const run = generatorFolder(bad);
+    assert.equal(run.status, 1, bad);
+    assert.match(run.stderr, /expected a docs version such as v6\.1\.0/, bad);
   }
 });
