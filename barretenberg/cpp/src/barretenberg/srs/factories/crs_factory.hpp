@@ -33,7 +33,7 @@ template <> class Crs<curve::BN254> {
     /**
      *  @brief Returns the monomial points in a form to be consumed by scalar_multiplication pippenger algorithm.
      */
-    virtual std::span<Curve::AffineElement> get_monomial_points() = 0;
+    virtual std::span<const Curve::AffineElement> get_monomial_points() = 0;
     virtual size_t get_monomial_size() const = 0;
 
     /**
@@ -48,6 +48,14 @@ template <> class Crs<curve::BN254> {
     virtual bb::pairing::miller_lines const* get_precomputed_g2_lines() const = 0;
 
     virtual Curve::G2AffineElement get_g2x() const = 0;
+
+    /**
+     * @brief Throw unless the monomial points are a prefix of the canonical SRS (see `srs::verify_bn254_g1_points`).
+     * @details Called before committing the precomputed polynomials of a verification key, which is only meaningful
+     * relative to the canonical SRS. Proving and verifying do not need it. The result is cached after the first
+     * success.
+     */
+    virtual void verify_points_integrity() = 0;
 };
 
 // Crs specialization for Grumpkin
@@ -66,7 +74,7 @@ template <> class Crs<curve::Grumpkin> {
     /**
      *  @brief Returns the monomial points in a form to be consumed by scalar_multiplication pippenger algorithm.
      */
-    virtual std::span<Curve::AffineElement> get_monomial_points() = 0;
+    virtual std::span<const Curve::AffineElement> get_monomial_points() = 0;
     virtual size_t get_monomial_size() const = 0;
 
     /**
@@ -74,6 +82,10 @@ template <> class Crs<curve::Grumpkin> {
      * commtiment.
      */
     virtual Curve::AffineElement get_g1_identity() const = 0;
+
+    /** @brief Nothing to do: Grumpkin points are checked when the CRS is constructed, as the IPA verifier reads them.
+     */
+    virtual void verify_points_integrity() = 0;
 };
 
 /**
@@ -92,5 +104,10 @@ template <typename Curve> class CrsFactory {
     virtual std::shared_ptr<bb::srs::factories::Crs<Curve>> get_crs(size_t) = 0;
     std::shared_ptr<bb::srs::factories::Crs<Curve>> get_verifier_crs() { return get_crs(1); };
 };
+
+/**
+ * @brief The BN254 verifier needs only [1]_1, [1]_2 and [x]_2, which are compiled in: no G1 points are loaded.
+ */
+template <> std::shared_ptr<Crs<curve::BN254>> CrsFactory<curve::BN254>::get_verifier_crs();
 
 } // namespace bb::srs::factories
