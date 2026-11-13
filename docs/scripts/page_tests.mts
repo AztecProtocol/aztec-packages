@@ -75,6 +75,28 @@ export const TRANSCRIPTS: Record<string, Transcript> = {
       { skip: "npx tsx scripts/index.ts", runner: "token_bridge" },
     ],
   },
+  "docs-developers/docs/tutorials/contract_tutorials/token_contract.md": {
+    steps: [
+      { run: "aztec new bob_token" },
+      { write: "Tests are out of scope", to: "bob_token_test/src/lib.nr" },
+      { merge: "bob_token_contract", into: "bob_token_contract/Nargo.toml" },
+      { skip: "aztec compile", why: "the first build, of the contract's public half, which no example file holds" },
+      { skip: "aztec codegen target --outdir artifacts", why: "the bindings of that public half" },
+      { skip: "aztec start --local-network", why: "starts the local network, which only the script needs" },
+      { skip: "npx tsx index.ts", runner: "bob_token_contract" },
+      { merge: "balance_set", into: "bob_token_contract/Nargo.toml" },
+      { copy: "contracts/bob_token_contract/src/main.nr", to: "bob_token_contract/src/main.nr" },
+      { run: "aztec compile" },
+      { skip: "aztec start --local-network", why: "starts the local network, which only the script needs" },
+      { copy: "ts/bob_token_contract/index.ts", to: "index.ts" },
+      {
+        check:
+          "yarn add -D typescript@5.9.3\nnpx tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --skipLibCheck --lib dom,esnext index.ts",
+        why: "type-checks the script against the generated bindings and the packages the page installs",
+      },
+      { skip: "npx tsx index.ts", runner: "bob_token_contract" },
+    ],
+  },
   "docs-developers/docs/tutorials/js_tutorials/first_full_project.md": { runner: "test-first-project" },
   "docs-developers/docs/tutorials/js_tutorials/webapp/index.md": { runner: "test-fresh-clone" },
   "docs-developers/docs/tutorials/js_tutorials/uniswap_swap.md": { runner: "test-fresh-clone" },
@@ -85,7 +107,8 @@ export const TRANSCRIPTS: Record<string, Transcript> = {
 export const UNTESTED: Record<string, string> = {
   "docs-developers/docs/tutorials/contract_tutorials/recursive_verification.md":
     "needs aztec-nargo from the installer, proof generation and a running network",
-  "docs-developers/docs/tutorials/contract_tutorials/token_contract.md": "no transcript test yet",
+  "docs-developers/docs/tutorials/contract_tutorials/token_contract.md":
+    "its first build, of the contract's public half, is not run: no example file holds that half",
   "docs-developers/docs/tutorials/js_tutorials/aave_bridge.md": "no transcript test yet",
   "docs-developers/docs/tutorials/js_tutorials/aztecjs-getting-started.md":
     "installs with Yarn's default PnP linker and its script needs a running network",
