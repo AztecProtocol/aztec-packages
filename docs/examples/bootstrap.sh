@@ -410,7 +410,7 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # 15m: with both halves at once under load, a green half took 294 to 413 s, and a half with a failing
+  # 15m: with both halves at once under load, a green half took 294 to 421 s, and a half with a failing
   # example (five attempts) 449 s. Re-measure when an example is added, and rebalance the halves
   # (run.sh HALF_1, HALF_2) before raising a limit.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
