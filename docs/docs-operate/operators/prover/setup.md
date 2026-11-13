@@ -230,7 +230,7 @@ services:
     restart: unless-stopped
 ```
 
-Docker sends `SIGKILL` when a container has not stopped before its grace period expires. Docker defaults this period to 10 seconds, which may interrupt an in-flight proof before the agent can drain it. Keep `stop_grace_period` long enough for the agent to finish its current proof; this example uses 300 seconds, matching the prover agent shutdown allowance in the Spartan deployment. If a job exceeds the broker's timeout, the broker re-enqueues it for another attempt.
+Docker sends `SIGKILL` when a container has not stopped before its grace period expires. Docker defaults this period to 10 seconds, which may interrupt an in-flight proof before the agent can drain it. Keep `stop_grace_period` long enough for the agent to finish its current proof; this example uses 300 seconds, matching the prover agent shutdown allowance in the Spartan deployment. If a job exceeds the broker's timeout, the broker re-enqueues it while retries remain and the job is not stale.
 
 #### Step 4: Start Agent
 

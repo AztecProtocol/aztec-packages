@@ -96,7 +96,7 @@ echo "Queue length: $QUEUE_LENGTH"
 
 if [ "$QUEUE_LENGTH" -lt "$THRESHOLD" ]; then
   echo "WARNING: only $QUEUE_LENGTH keystores left in the provider queue."
-  # Slack or Discord webhook:
+  # Slack webhook (for Discord, append /slack to the webhook URL):
   # curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" \
   #   -d "{\"text\":\"Keystore queue low: $QUEUE_LENGTH remaining (threshold: $THRESHOLD)\"}"
   # Email:
