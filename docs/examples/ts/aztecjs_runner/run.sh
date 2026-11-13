@@ -104,9 +104,9 @@ setup_project() {
         ls -la "$(codegen_dir)/" 2>/dev/null || echo -e "${RED}  ERROR: $(codegen_dir)/ does not exist after codegen${NC}"
     fi
 
-    # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
-    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created,
-    # even when it fails: its install step runs after it writes them.
+    # Initialize yarn. `yarn init` also runs `git init` and writes the files below into the mounted checkout, where they
+    # would stay as a nested repository and untracked files. Remove them even when it fails: its install step runs after
+    # it writes them.
     local init_file created_files=() init_status=0
     for init_file in .gitignore .editorconfig .gitattributes README.md; do
         [ -e "$init_file" ] || created_files+=("$init_file")
