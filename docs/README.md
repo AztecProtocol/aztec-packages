@@ -11,7 +11,7 @@ The source of https://docs.aztec.network: a Docusaurus 3 site, hosted on Netlify
 | `lines/v6/` | The v6 dev line: the same set, its pin, and `lines/v6/allowed-differences.txt` | no; previews serve it at `/developers-v6/` and `/operate-v6/`, marked noindex and left out of search, `llms.txt` and the sitemap |
 | `docs-participate/` | Unversioned participation pages | yes |
 | `developer_versioned_docs/`, `network_versioned_docs/` and their `*_versioned_sidebars/` | Release snapshots, served as written | yes |
-| `static/aztec-nr-api/<network>/`, `static/typescript-api/<network>/` | Committed API references, one folder per released version a network reads, shared by networks on that version (`src/network_docs.js`) | yes |
+| `static/aztec-nr-api/<version>/`, `static/typescript-api/<version>/` | Committed API references, one folder per version the site serves, named by version; a version with no reference of its own links another's (`API_REFERENCE_STAND_INS` in `src/network_docs.js`). `/<root>/mainnet/` and `/<root>/testnet/` redirect to the folder of the version each network runs (`netlify.toml`) | yes |
 | `src/` | Preprocessing (`src/preprocess/`), components, theme, plugins | |
 | `scripts/` | Build steps, generators, checks; their tests are in `scripts/__tests__/` | |
 | `snapshots/` | URL baselines the URL checks read | |
@@ -80,7 +80,7 @@ Preprocessing (`src/preprocess/`) expands these in the source trees only. Snapsh
 | `#include_version_without_prefix` | The same without `v` |
 | `#include_foundation_version`, `#include_foundation_version_without_prefix` | `v<installed @aztec-foundation/l1-artifacts version>` (a line page: its pin's), with and without `v`: for links and Nargo dependencies into this repository's `l1-contracts/` and `barretenberg/` |
 | `#docs_commit` | The commit snippet links into this repository name (`DOCS_COMMIT`, else `HEAD`): for hand-written links into, and clones of, `examples/` (a line page: its own line's path) |
-| `#api_ref_version` | The `static/aztec-nr-api/` folder the build's version is served from |
+| `#api_ref_version` | The API reference folder of the version being built (`apiReferenceFolder` in `src/network_docs.js`; a line page: its line's). Fails when the build resolves no version: set the `*_TAG` variable |
 | `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` | Older per-network macros: the `*_TAG` variable, else the config's version |
 
 In a snippet, `// highlight-next-line`, `// highlight-start` and `// highlight-end` highlight lines and `// this-will-error` marks one red; `// docs:start:a:b` puts one region in two snippets, and `// highlight-next-line:a` highlights in one of them only. Example: `#include_code connect_to_network docs/examples/ts/aztecjs_connection/index.ts typescript`.
@@ -134,7 +134,7 @@ Netlify runs `scripts/netlify-ignore-build.sh`, then `scripts/netlify-build.sh` 
 
 - Production builds `next` when `docs/` changed since the last production build that passed, or when that build cannot be found. It leaves out the dev docs and the lines.
 - A deploy preview builds when its pull request changes `docs/`.
-- `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` checks a deployed site for what only Netlify answers: redirects, markdown twins, the migration-notes range, the 404 page and `/commit.txt`. It needs no install.
+- `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` checks a deployed site for what only Netlify answers: redirects, markdown twins, the migration-notes range, the 404 page, `/commit.txt`, and the API reference's network URLs, which must reach the folder `developer_version_config.json` maps each network to. It needs no install.
 - `netlify/` holds the subscribe function and the markdown and migration-notes edge functions. `yarn dev:netlify` runs them locally; the subscribe function reads `BREVO_API_KEY` from a `.env` made from `.env.template`.
 - Failed production deploys post to the `#docs-alert` Slack channel. These are site owners' actions, in the Netlify UI:
   - Roll back: publish an earlier production deploy, after checking that no production build is running (it would publish over the rollback). A rollback lasts until the next production build; to hold it, stop builds, which stops previews too. Never lock deploys.

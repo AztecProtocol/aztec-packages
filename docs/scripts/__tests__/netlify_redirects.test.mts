@@ -113,18 +113,36 @@ test("netlify.toml redirects all match, none repeats and none chains", () => {
   assert.deepEqual(redirectProblems(redirects), []);
 });
 
-test("a network on another network's API reference folder redirects its own folder's URLs there", () => {
-  const config = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../developer_version_config.json"), "utf8"));
+const config = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../../developer_version_config.json"), "utf8"));
+const API_ROOTS = ["aztec-nr-api", "typescript-api"];
+const staticDir = path.resolve(import.meta.dirname, "../../static");
+
+test("each network's API reference URLs redirect to the folder of the version it runs", () => {
   const redirects = readRedirects(fs.readFileSync(toml, "utf8"));
-  for (const network of Object.keys(config)) {
+  const networks = Object.keys(config).filter((network) => networkDocs.networkApiFolder(config, network));
+  assert.ok(networks.length > 0, "developer_version_config.json maps no network");
+  for (const network of networks) {
     const folder = networkDocs.networkApiFolder(config, network);
-    if (!folder) continue;
-    for (const root of ["aztec-nr-api", "typescript-api"]) {
+    for (const root of API_ROOTS) {
       const from = `/${root}/${network}/*`;
       const rule = redirects.find((r) => r.from === from);
-      if (folder === network) assert.equal(rule, undefined, `${from}: static/${root}/${network} serves ${network}, so the rule only catches its 404s`);
-      // A 302 that readRedirects lets through without `force`: the network's own folder wins again, uncached, once it returns.
-      else assert.deepEqual(rule && { to: rule.to, status: rule.status }, { to: `/${root}/${folder}/:splat`, status: 302 }, `${from} must redirect to ${folder}'s folder`);
+      // 302 without `force`: the target moves at the next release, and a real folder at the network's path would win.
+      assert.deepEqual(rule && { to: rule.to, status: rule.status }, { to: `/${root}/${folder}/:splat`, status: 302 }, `${from} must redirect to ${folder}'s folder`);
     }
   }
+});
+
+test("every redirect into the API reference names a folder static/ holds, and an error code names mainnet's", () => {
+  const mainnet = networkDocs.networkApiFolder(config, "mainnet");
+  const problems: string[] = [];
+  for (const { line, from, to } of readRedirects(fs.readFileSync(toml, "utf8"))) {
+    const m = to?.match(/^\/(aztec-nr-api|typescript-api)\/([^/]+)(\/[^?#]*)?/);
+    if (!m) continue;
+    const [, root, folder, rest = ""] = m;
+    if (!fs.existsSync(path.join(staticDir, root, folder))) problems.push(`netlify.toml:${line}: ${to} names a folder static/${root}/ does not hold`);
+    else if (!rest.includes(":splat") && !["", ".html", "/index.html"].some((end) => fs.existsSync(path.join(staticDir, `${root}/${folder}${rest}`.replace(/\/$/, "") + end))))
+      problems.push(`netlify.toml:${line}: ${to} names a file static/ does not hold`);
+    if (from?.startsWith("/errors/") && folder !== mainnet) problems.push(`netlify.toml:${line}: ${from} must name mainnet's folder ${mainnet}, not ${folder}`);
+  }
+  assert.deepEqual(problems, []);
 });

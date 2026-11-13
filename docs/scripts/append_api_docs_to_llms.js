@@ -24,14 +24,16 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production",
 );
 
-// One API reference set per docs version a network reads, read from the build, where
-// aztec_nr_api_markdown.mjs and split_typescript_api.mjs have added their pages.
-const API_DIRS = builtApiReferenceDirs(developerDocs, STATIC_DIR)
+// Every served API reference folder, read from the build, where aztec_nr_api_markdown.mjs and
+// split_typescript_api.mjs have added their pages. Each gets its scoped index; only those a network
+// reads are listed in llms.txt and llms-full.txt, which leave historical docs out.
+const API_DIRS = builtApiReferenceDirs(developerDocs, require("../developer_versions.json"), STATIC_DIR)
   .map(({ kind, dir, version, networks }) => {
-    const scope = `${networks.join(" and ")}, ${version}`;
+    const scope = networks.length ? `${networks.join(" and ")}, ${version}` : version;
+    const listed = networks.length > 0;
     return kind === "aztec-nr"
-      ? { name: "Aztec.nr API Reference", dir, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
-      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
+      ? { name: "Aztec.nr API Reference", dir, listed, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
+      : { name: "TypeScript API Reference", dir, listed, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
   });
 if (!developerDocs.versions.some((v) => v.networks.length)) {
   console.warn("Warning: No network version found for API docs");
@@ -490,9 +492,11 @@ function main() {
       continue;
     }
 
-    sectionsAdded++;
-    fullContentSection += `## ${apiDir.name}\n\n`;
-    fullContentSection += `${apiDir.description}\n\n`;
+    if (apiDir.listed) {
+      sectionsAdded++;
+      fullContentSection += `## ${apiDir.name}\n\n`;
+      fullContentSection += `${apiDir.description}\n\n`;
+    }
 
     // Build the standalone scoped index: its own single H1 + blockquote
     // summary, then the module/package body.
@@ -587,9 +591,11 @@ function main() {
       console.log(
         `  Wrote scoped index ${path.relative(BUILD_DIR, scopedPath)}`,
       );
-      apiReferenceLinks.push(
-        `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/${SCOPED_API_INDEX}): ${apiDir.description}`,
-      );
+      if (apiDir.listed) {
+        apiReferenceLinks.push(
+          `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/${SCOPED_API_INDEX}): ${apiDir.description}`,
+        );
+      }
     } catch (err) {
       console.error(
         `  Failed to write scoped index for ${apiDir.name}: ${err.message}`,
@@ -597,7 +603,7 @@ function main() {
     }
 
     // Add full content for all files (llms-full.txt)
-    for (const file of files) {
+    for (const file of apiDir.listed ? files : []) {
       try {
         const raw = fs.readFileSync(file, "utf-8");
         const text = raw.trim();

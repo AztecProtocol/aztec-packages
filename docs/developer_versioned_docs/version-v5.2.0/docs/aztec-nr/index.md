@@ -11,7 +11,7 @@ import DocCardList from "@theme/DocCardList";
 Aztec.nr is a Noir framework used to develop and test Aztec smart contracts. It contains both high-level abstractions (state variables, messages) and low-level protocol primitives, providing granular control to developers if they want custom contracts.
 
 :::tip
-If you are already familiar with writing Aztec smart contracts and Aztec.nr, visit the [API reference](pathname:///aztec-nr-api/mainnet/).
+If you are already familiar with writing Aztec smart contracts and Aztec.nr, visit the [API reference](pathname:///aztec-nr-api/v6.0.0/).
 :::
 
 ## Motivation

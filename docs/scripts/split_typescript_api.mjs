@@ -73,7 +73,8 @@ export function main(buildDir, env = process.env) {
   const config = (name) => JSON.parse(fs.readFileSync(new URL(`../${name}_version_config.json`, import.meta.url), "utf8"));
   const [developer] = docsInstances(config("developer"), config("network"), env.CONTEXT === "production");
   let failed = false;
-  for (const { kind, dir, version } of apiReferenceDirs(developer)) {
+  const cut = JSON.parse(fs.readFileSync(new URL("../developer_versions.json", import.meta.url), "utf8"));
+  for (const { kind, dir, version } of apiReferenceDirs(developer, cut)) {
     if (kind !== "typescript") continue;
     const root = path.join(buildDir, dir);
     if (!fs.existsSync(root)) {

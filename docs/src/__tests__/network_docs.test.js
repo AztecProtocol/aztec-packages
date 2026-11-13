@@ -4,6 +4,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const {
+  apiReferenceDirs,
+  apiReferenceFolder,
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
@@ -23,6 +25,8 @@ const { lineDocsPath, lineNavbarProps } = require("../utils/docsLine.mjs");
 
 const split = { mainnet: "v5.2.0", testnet: "v6.0.0-rc.3" };
 const shared = { mainnet: "v6.0.0", testnet: "v6.0.0" };
+// Testnet ahead on the next major, as when a release candidate is out.
+const ahead = { mainnet: "v6.0.0", testnet: "v7.0.0-rc.1" };
 
 describe("networks on different versions", () => {
   const [developer, operator] = docsInstances(split, split, true);
@@ -37,9 +41,6 @@ describe("networks on different versions", () => {
     });
   });
 
-  it("gives a dev line the API folder of the network on its major, and none without one", () => {
-    assert.deepStrictEqual([5, 6, 7].map((major) => lineApiFolder(split, major)), ["mainnet", "testnet", undefined]);
-  });
 
   it("names the cut versions no network reads", () => {
     assert.deepStrictEqual(historicalVersions(developer, ["v5.2.0", "v6.0.0-rc.3", "v4.2.0"]), ["v4.2.0"]);
@@ -88,26 +89,48 @@ describe("outside production", () => {
   });
 });
 
-describe("Aztec.nr API folders", () => {
-  it("map each version a network reads to that network's folder, mainnet first", () => {
-    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(shared, shared, true)[0]), { "v6.0.0": "mainnet" });
-    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(split, split, true)[0]), {
-      "v5.2.0": "mainnet",
-      "v6.0.0-rc.3": "testnet",
+describe("API reference folders", () => {
+  it("name a version's folder after the version, except a stand-in's", () => {
+    assert.deepStrictEqual(["v7.0.0-rc.1", "v6.0.0", "v5.2.0"].map(apiReferenceFolder), ["v7.0.0-rc.1", "v6.0.0", "v6.0.0"]);
+  });
+
+  it("map each version a network reads to its own folder", () => {
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(shared, shared, true)[0]), { "v6.0.0": "v6.0.0" });
+    assert.deepStrictEqual(aztecNrApiFolders(docsInstances(ahead, ahead, true)[0]), {
+      "v6.0.0": "v6.0.0",
+      "v7.0.0-rc.1": "v7.0.0-rc.1",
     });
   });
 
-  it("give each network the folder of its version, shared when the networks share one", () => {
+  it("give each network the folder of its version, and a release type no network maps none", () => {
     const folders = (config) => ["mainnet", "testnet", "devnet"].map((type) => networkApiFolder(config, type));
-    assert.deepStrictEqual(folders(shared), ["mainnet", "mainnet", undefined]);
-    assert.deepStrictEqual(folders(split), ["mainnet", "testnet", undefined]);
+    assert.deepStrictEqual(folders(shared), ["v6.0.0", "v6.0.0", undefined]);
+    assert.deepStrictEqual(folders({ ...ahead, devnet: "v7.0.0-devnet.1" }), ["v6.0.0", "v7.0.0-rc.1", undefined]);
   });
 
-  it("send the API page of every released version to a folder that exists, whatever its label", () => {
-    const config = require("../../developer_version_config.json");
-    const [developer] = docsInstances(config, config, true);
-    const folders = aztecNrApiFolders(developer);
-    for (const { version } of developer.versions) {
+  it("give a dev line the folder of the version a network reads on its major, and none without one", () => {
+    assert.deepStrictEqual([6, 7, 8].map((major) => lineApiFolder(ahead, major)), ["v6.0.0", "v7.0.0-rc.1", undefined]);
+  });
+
+  it("serve every served version's folder once, stamped with the folder's own version", () => {
+    const moved = { mainnet: "v6.1.0", testnet: "v6.1.0" };
+    const dirs = apiReferenceDirs(docsInstances(moved, moved, true)[0], ["v6.1.0", "v6.0.0", "v5.2.0"]);
+    assert.deepStrictEqual(
+      dirs.map(({ kind, dir, version, networks }) => [kind, dir, version, networks]),
+      [
+        ["aztec-nr", "aztec-nr-api/v6.1.0", "v6.1.0", ["mainnet", "testnet"]],
+        ["typescript", "typescript-api/v6.1.0", "v6.1.0", ["mainnet", "testnet"]],
+        // Read by no network, and by v5.2.0 only through its stand-in: still served, still v6.0.0's.
+        ["aztec-nr", "aztec-nr-api/v6.0.0", "v6.0.0", []],
+        ["typescript", "typescript-api/v6.0.0", "v6.0.0", []],
+      ],
+    );
+    assert.throws(() => apiReferenceDirs(docsInstances(moved, moved, true)[0]), /cut versions/);
+  });
+
+  it("send the API page of every cut version to a folder that exists, whatever its label", () => {
+    const folders = Object.fromEntries(require("../../developer_versions.json").map((v) => [v, apiReferenceFolder(v)]));
+    for (const version of Object.keys(folders)) {
       const folder = aztecNrApiFolder({ name: version, label: versionLabel(version) }, folders);
       const index = path.join(__dirname, "../../static/aztec-nr-api", folder, "noir_aztec/index.html");
       assert.ok(fs.existsSync(index), `${version} links into aztec-nr-api/${folder}/, which does not exist`);
@@ -125,12 +148,12 @@ describe("dev lines", () => {
   });
 
   it("send a line's API page to its line's folder, and every other page where it went before", () => {
-    const folders = { "v6.0.0": "mainnet" };
-    const lines = { v6: "mainnet" };
-    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer-v6", lines), "mainnet");
+    const folders = { "v6.0.0": "v6.0.0", "v5.2.0": "v6.0.0" };
+    const lines = { v6: "v6.0.0" };
+    assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer-v6", lines), "v6.0.0");
     assert.strictEqual(aztecNrApiFolder({ name: "current" }, folders, "developer", lines), "next");
-    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "mainnet");
-    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders), "mainnet");
+    assert.strictEqual(aztecNrApiFolder({ name: "v6.0.0" }, folders, "developer", lines), "v6.0.0");
+    assert.strictEqual(aztecNrApiFolder({ name: "v5.2.0" }, folders), "v6.0.0");
   });
 
   it("move a line's navigation into the dev docs onto the line, and nothing else", () => {
@@ -172,7 +195,7 @@ describe("Start here", () => {
     const links = urls(true, "https://docs.aztec.network");
     assert.strictEqual(links["Running a full node"], "https://docs.aztec.network/operate/operators/setup/running_a_node.md");
     assert.strictEqual(links["Testing contracts"], "https://docs.aztec.network/developers/docs/aztec-nr/testing_contracts.md");
-    assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/mainnet/llms.txt");
+    assert.strictEqual(links["Aztec.nr API reference"], "https://docs.aztec.network/aztec-nr-api/v6.0.0/llms.txt");
     assert.strictEqual(
       links["Migration notes for a version range"],
       "https://docs.aztec.network/developers/docs/resources/migration_notes.md?from=5.2.0&to=6.0.0",
@@ -187,7 +210,7 @@ describe("Start here", () => {
   });
 
   it("drops the API entries when no network reads a version", () => {
-    assert.strictEqual(urls(true, "https://x")["TypeScript API reference"], "https://x/typescript-api/mainnet/llms.txt");
+    assert.strictEqual(urls(true, "https://x")["TypeScript API reference"], "https://x/typescript-api/v6.0.0/llms.txt");
     const none = startHereLinks(docsInstances({}, {}, false), "https://x").map((l) => l.title);
     assert.ok(!none.includes("Aztec.nr API reference") && none.includes("Getting started"));
   });

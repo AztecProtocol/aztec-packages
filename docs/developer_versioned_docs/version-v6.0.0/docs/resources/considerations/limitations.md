@@ -132,7 +132,7 @@ Here are the current limits:
 
 :::note
 Public data writes have no per-call limit, and one of the 64 write slots per transaction is reserved by the protocol for the fee payer's fee juice balance update.
-The full list of protocol constants, including tree heights and other protocol parameters, is available in the [API reference](pathname:///aztec-nr-api/mainnet/noir_aztec/protocol/constants/index.html).
+The full list of protocol constants, including tree heights and other protocol parameters, is available in the [API reference](pathname:///aztec-nr-api/v6.0.0/noir_aztec/protocol/constants/index.html).
 :::
 
 #### What are the consequences?
