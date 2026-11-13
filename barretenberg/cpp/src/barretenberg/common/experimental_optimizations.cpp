@@ -28,17 +28,36 @@ bool read_flag(const char* name)
 
 } // namespace
 
-void initialize_experimental_optimizations()
+void initialize_experimental_optimizations(ExperimentalOptimizationsMode mode)
 {
     static std::once_flag initialized;
-    std::call_once(initialized, [] {
+    bool frozen_here = false;
+    std::call_once(initialized, [mode, &frozen_here] {
+        // Malformed values are rejected in both modes, so a typo is reported by every command.
         const bool bb_enabled = read_flag("BB_EXPERIMENTAL_OPTIMIZATIONS");
         const bool rollup_enabled = read_flag("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS");
         const bool avm_enabled = read_flag("AVM_EXPERIMENTAL_OPTIMIZATIONS");
-        detail::experimental_optimizations_enabled = bb_enabled;
-        detail::rollup_experimental_optimizations_enabled = rollup_enabled;
-        detail::avm_experimental_optimizations_enabled = avm_enabled;
+        if (mode == ExperimentalOptimizationsMode::FromEnvironment) {
+            detail::experimental_optimizations_enabled = bb_enabled;
+            detail::rollup_experimental_optimizations_enabled = rollup_enabled;
+            detail::avm_experimental_optimizations_enabled = avm_enabled;
+        }
+        frozen_here = true;
     });
+    if (mode == ExperimentalOptimizationsMode::ForceDisabled && !frozen_here &&
+        (vk_affecting_experimental_optimizations_enabled() || detail::avm_experimental_optimizations_enabled)) {
+        throw_or_abort("experimental optimizations were already initialized as enabled");
+    }
+}
+
+void require_vk_derivation_allowed(const char* operation)
+{
+    if (vk_affecting_experimental_optimizations_enabled()) {
+        throw_or_abort(std::string(operation) +
+                       ": a verification key cannot be derived with BB_EXPERIMENTAL_OPTIMIZATIONS or "
+                       "ROLLUP_EXPERIMENTAL_OPTIMIZATIONS enabled. Derive it in a process with both disabled and "
+                       "supply it as a precomputed key.");
+    }
 }
 
 } // namespace bb

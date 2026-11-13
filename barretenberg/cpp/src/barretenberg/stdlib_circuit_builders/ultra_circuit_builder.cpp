@@ -1051,7 +1051,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
         // set the correct range constraint on each limb. note that when there are remainder bits, the last limb must be
         // constrained to a smaller range.
         std::vector<uint32_t> sublimb_indices;
-        sublimb_indices.reserve(num_limbs);
+        sublimb_indices.reserve(static_cast<size_t>(num_limbs));
         RangeList* list = nullptr;
         for (uint64_t j = 0; j < num_limbs; ++j) {
             const uint64_t sublimb = limb_value(j);

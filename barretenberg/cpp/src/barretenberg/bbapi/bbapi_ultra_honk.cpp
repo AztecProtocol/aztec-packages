@@ -1,5 +1,6 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
@@ -110,6 +111,10 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     using Proof = typename Flavor::Transcript::Proof;
     using VerificationKey = typename Flavor::VerificationKey;
 
+    if (vk_bytes.empty()) {
+        require_vk_derivation_allowed("CircuitProve without a precomputed verification key");
+    }
+
     auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(bytecode), std::move(witness));
 
     // Create or deserialize VK
@@ -166,6 +171,7 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME("CircuitComputeVk");
+    require_vk_derivation_allowed("CircuitComputeVk");
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());

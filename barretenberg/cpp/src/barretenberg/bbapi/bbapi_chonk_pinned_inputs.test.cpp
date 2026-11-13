@@ -1,9 +1,11 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 #include <gtest/gtest.h>
@@ -78,9 +80,12 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         ASSERT_EQ(raw_steps.back().kind, bb::CircuitKind::HidingKernel);
         auto hiding_bytecode = raw_steps.back().bytecode;
         const auto hiding_vk = raw_steps.back().vk;
-        const auto derived_vk = bb::bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(hiding_bytecode) },
-                                                           .kind = bb::CircuitKind::HidingKernel }
-                                    .execute();
+        // Derived below the ChonkComputeVk guard so that a run with experimental optimizations enabled also checks
+        // that they leave the verification key unchanged.
+        acir_format::AcirProgram hiding_program{ acir_format::circuit_buf_to_mega_acir_format(
+                                                     std::move(hiding_bytecode)),
+                                                 /*witness=*/{} };
+        const auto derived_vk = bb::compute_chonk_vk(hiding_program, bb::CircuitKind::HidingKernel);
         ASSERT_EQ(hiding_vk, derived_vk.bytes) << "embedded hiding VK differs from bytecode-derived VK";
 
         bb::bbapi::BBApiRequest request;

@@ -1,8 +1,8 @@
-import { assertExperimentalOptionsMatch } from '../backends/experimental_optimizations.js';
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import { isIos } from '@aztec-foundation/ipc-runtime/wasm';
 
+import { assertExperimentalOptionsMatch } from '../backends/experimental_optimizations.js';
 import { BackendOptions, BackendType } from '../backends/index.js';
 import { createAsyncBackend, createSyncBackend, resolveExperimentalOptions } from '../backends/node/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';

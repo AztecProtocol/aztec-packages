@@ -1,4 +1,5 @@
 #include "barretenberg/chonk/chonk_step_processor.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -65,6 +66,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
 
         std::shared_ptr<VK> vk;
         if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
+            require_vk_derivation_allowed("Chonk recompute VK policy");
             vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
         } else {
             if (step.precomputed_vk.empty()) {

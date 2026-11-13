@@ -6,6 +6,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/chonk/proof_compression.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -267,6 +268,9 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
+    if (vk_policy == bbapi::VkPolicy::REWRITE) {
+        require_vk_derivation_allowed("Chonk rewrite VK policy");
+    }
     bool check_failed = false;
     for (size_t i = 0; i < raw_steps.size(); ++i) {
         auto& step = raw_steps[i];

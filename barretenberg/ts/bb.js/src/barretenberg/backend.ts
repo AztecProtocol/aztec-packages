@@ -143,14 +143,25 @@ export class UltraHonkBackend {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
 
-  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
+  /**
+   * Generates a proof for the given witness.
+   * @param verificationKey - The circuit's verification key, as returned by `getVerificationKey` with the same
+   * options. When omitted the key is derived while proving, which is slower and is rejected by a backend running with
+   * `experimentalOptimizations` or `rollupExperimentalOptimizations` enabled: such a backend needs a key obtained from
+   * a backend with both disabled.
+   */
+  async generateProof(
+    compressedWitness: Uint8Array,
+    options?: UltraHonkBackendOptions,
+    verificationKey?: Uint8Array,
+  ): Promise<ProofData> {
     const witness = ungzip(compressedWitness);
     const { proof, publicInputs } = await this.api.circuitProve({
       witness,
       circuit: {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
-        verificationKey: new Uint8Array(0), // Empty VK - lower performance.
+        verificationKey: verificationKey ?? new Uint8Array(0),
       },
       settings: getProofSettingsFromOptions(options),
     });
