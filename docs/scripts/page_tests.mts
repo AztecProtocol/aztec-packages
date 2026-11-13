@@ -47,7 +47,7 @@ export const TRANSCRIPTS: Record<string, Transcript> = {
       { run: "ln -sfn" },
       { copy: "ts/token_bridge/hardhat.config.ts", to: "hardhat.config.ts" },
       { copy: "ts/token_bridge/remappings.txt", to: "remappings.txt" },
-      { skip: "aztec start", why: "starts the local network, which only the script needs" },
+      { skip: "aztec start --local-network", why: "starts the local network, which only the script needs" },
       { run: "aztec new contracts/aztec/nft" },
       { run: "touch nft_contract/src/nft.nr" },
       { copy: "contracts/nft/src/nft.nr", to: "nft_contract/src/nft.nr" },
@@ -173,9 +173,19 @@ function targetErrors(step: Step): string[] {
 
 /** The reasons a spec's skips leave its page partly run: every skip but the runner's and the local network's. */
 export const partlyRun = (steps: Step[]): string[] =>
-  steps.flatMap((s) => ("skip" in s && "why" in s && !/^aztec start\b/.test(s.skip) ? [s.why] : []));
+  steps.flatMap((s) => ("skip" in s && "why" in s && !/^aztec start( --[\w-]+)*$/.test(s.skip) ? [s.why] : []));
 
-const holds = (b: Block, kind: Kind, text: string) => b.body.join("\n").includes(text) || (kind === "write" && b.info.includes(text));
+// A shell block's commands, without blank and comment lines, for a skip, which must name all of them.
+const commands = (b: Block) =>
+  b.body
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"))
+    .join("\n");
+
+function holds(b: Block, kind: Kind, text: string): boolean {
+  if (kind === "skip") return commands(b) === text;
+  return b.body.join("\n").includes(text) || (kind === "write" && b.info.includes(text));
+}
 
 /**
  * Binds each step to its block, one cursor over the blocks in page order. A shell block the cursor
@@ -198,7 +208,7 @@ export function walk(page: Block[], steps: Step[]): { bound: Bound[]; errors: st
     const [kind, text] = bind;
     const at = page.findIndex((b, i) => i >= next && FITS[kind](b) && holds(b, kind, text));
     if (at < 0) {
-      errors.push(`${page[next - 1]?.line ?? 1}: no ${kind} block after this line contains ${JSON.stringify(text)}`);
+      errors.push(`${page[next - 1]?.line ?? 1}: no ${kind} block after this line ${kind === "skip" ? "is exactly" : "contains"} ${JSON.stringify(text)}`);
       continue;
     }
     errors.push(...unrun(at));

@@ -66,10 +66,23 @@ function runnerExamples(line: string): Set<string> {
   return new Set([...(sh.match(/^\s*EXAMPLES=\(([^)]*)\)/m)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]));
 }
 
-test("a skip the examples runner covers names an example that runner runs, on every line", () => {
-  const named = Object.values(TRANSCRIPTS).flatMap((t) => ("steps" in t ? t.steps : [])).flatMap((s) => ("runner" in s ? [s.runner] : []));
-  assert.ok(named.length > 0);
-  assert.deepEqual(lines.flatMap((line) => named.filter((e) => !runnerExamples(line).has(e)).map((e) => `${line}: ${e}`)), []);
+// The entry the examples runner runs for an example (examples/ts/lib.sh project_entry).
+const entry = (line: string, example: string) =>
+  fs.existsSync(path.join(docs, line, "examples/ts", example, "hardhat.config.ts")) ? "scripts/index.ts" : "index.ts";
+
+test("a skip the examples runner covers is that runner's own run of the example the page builds, on every line", () => {
+  const skips = Object.values(TRANSCRIPTS)
+    .flatMap((t) => ("steps" in t ? [t.steps] : []))
+    .flatMap((steps) => steps.flatMap((s) => ("runner" in s ? [{ skip: s.skip, runner: s.runner, steps }] : [])));
+  assert.ok(skips.length > 0);
+  const wrong = lines.flatMap((line) =>
+    skips.flatMap(({ skip, runner, steps }) => {
+      const e = entry(line, runner);
+      const copied = steps.some((c) => "copy" in c && c.copy === `ts/${runner}/${e}` && c.to === e);
+      return runnerExamples(line).has(runner) && skip === `npx tsx ${e}` && copied ? [] : [`${line}${runner}: ${skip}`];
+    }),
+  );
+  assert.deepEqual(wrong, [], "a runner skip is `npx tsx <entry>` of an example run.sh runs, and the spec copies that entry from it");
 });
 
 test("every transcript spec walks its page on every line, and quotes each file it copies in full", () => {
@@ -89,7 +102,10 @@ test("the walk follows page order and accounts for every shell block", () => {
   const skipping = walk(page, [{ run: "a" }, { skip: "b", why: "w" }, { check: "true", why: "w" }, { run: "c" }]);
   assert.deepEqual(skipping.errors, []);
   assert.deepEqual(skipping.bound.map((b) => b.block?.line), [1, 8, undefined, 14]);
-  assert.deepEqual(partlyRun([{ skip: "aztec start", why: "a" }, { skip: "x", runner: "r" }, { skip: "y", why: "b" }]), ["b"]);
+  assert.deepEqual(partlyRun([{ skip: "aztec start --local-network", why: "a" }, { skip: "x", runner: "r" }, { skip: "aztec start-broken", why: "b" }]), ["b"]);
+  const extra = blocks("```bash\n# Terminal 1\naztec start --local-network\nnode setup.js\n```");
+  assert.deepEqual(walk(extra, [{ skip: "aztec start --local-network", why: "a" }]).errors, ['1: no skip block after this line is exactly "aztec start --local-network"', "1: shell block not run"]);
+  assert.deepEqual(walk(extra.slice(0, 1).map((b) => ({ ...b, body: b.body.slice(0, 2) })), [{ skip: "aztec start --local-network", why: "a" }]).errors, []);
 });
 
 test("a copied file counts as quoted only where the page includes its regions", () => {

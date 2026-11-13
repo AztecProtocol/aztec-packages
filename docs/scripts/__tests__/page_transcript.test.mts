@@ -41,14 +41,14 @@ test("the script types blocks verbatim in one shell and ends with the done marke
 });
 
 test("a skipped block is logged and never run, and a check runs where the spec puts it", () => {
-  const page = "```bash\nfalse && aztec start\n```\n```bash\necho page >> out\n```";
-  const steps: Step[] = [{ skip: "aztec start", why: "needs a network" }, { check: "echo check >> out", why: "a test-only step" }, { run: "echo page" }];
+  const page = "```bash\nfalse\n```\n```bash\necho page >> out\n```";
+  const steps: Step[] = [{ skip: "false", why: "needs a network" }, { check: "echo check >> out", why: "a test-only step" }, { run: "echo page" }];
   const r = run(page, steps, ["reader/out"]);
   assert.equal(r.status, 0, r.stderr);
   assert.ok(r.done);
-  assert.match(r.stderr, /skipped p\.md:1: false && aztec start \(needs a network\)/);
+  assert.match(r.stderr, /skipped p\.md:1: false \(needs a network\)/);
   assert.deepEqual(r.files, ["check\npage\n"]);
-  const failing = run(page, [{ skip: "aztec start", runner: "x" }, { check: "false", why: "a test-only step" }, { run: "echo page" }]);
+  const failing = run(page, [{ skip: "false", runner: "x" }, { check: "false", why: "a test-only step" }, { run: "echo page" }]);
   assert.match(failing.stderr, /transcript failed at p\.md:check: not on the page, a test-only step/);
 });
 
