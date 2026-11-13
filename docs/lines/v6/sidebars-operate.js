@@ -1,13 +1,10 @@
 // @ts-check
 // Sidebar configuration for the "Run a Node" docs (operator-facing).
-//
-// Reorg per deliverable-5 docs-layout proposal:
 //   - "Operate" navbar item renamed to "Run a Node"
 //   - The landing page (operators/index) is a role-picker
 //   - One unified sidebar (operatorsSidebar) is used everywhere under /operate.
 //     "Guided setup" lists all four roles as subsections so an operator can
 //     switch roles from any page in one click.
-//   - Prerequisites sits first in Essentials, not at the sidebar root.
 
 const dividerHtml = {
   type: "html",
