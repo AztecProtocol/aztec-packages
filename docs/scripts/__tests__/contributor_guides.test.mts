@@ -123,7 +123,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
     const text = [
       "Pages: `docs-network/`, `docs-developers/`, `versioned_docs/`; versions in `./versions.json`; `docs/migration_notes.md`.",
       "Run `yarn dev`, `yarn build`, `yarn install` and `yarn docusaurus docs:version:developer v1`.",
-      "Not ours: `https://docs.aztec.network/x`, `@aztec-labs/aztec.js`, `origin/next`, `$AZTEC_NODE_DIR/x`, `docs:start:hello`, `.md`.",
+      "Not ours: `https://example.com/x`, `@aztec-labs/aztec.js`, `origin/next`, `$AZTEC_NODE_DIR/x`, `docs:start:hello`, `.md`.",
       "Checkout: `labs/yarn-project/stdlib/a.ts`, `labs/yarn-project/gone.ts`, `.aztec-node/tree/yarn-project/stdlib/`.",
       "Outputs: `processed-docs/x.md`. Patterns: `lines/<line>/allowed-differences.txt`, `lines/<line>/gone.json`, `sidebars-*.js`, `sidebars-*.ts`. Dotfiles: `.nvmrc`, `.nvmmrc`.",
       "Links: [rules](./CONTRIBUTING.md), [gone](./GONE.md#usage). Fragment: `scripts/gone.mts#usage`. Ellipsis: `docs-developers/...`.",
