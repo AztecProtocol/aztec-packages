@@ -213,7 +213,6 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     // A verification key can only be computed from whole pinned chunks.
     num_points = round_up_to_chunk_boundary(num_points);
     const bool verify_cached_crs = std::getenv("BB_VERIFY_CRS") != nullptr;
-    const size_t cached_read_points = verify_cached_crs ? round_up_to_chunk_boundary(num_points) : num_points;
     std::filesystem::create_directories(path);
 
     auto uncompressed_path = path / "bn254_g1.dat";
@@ -234,7 +233,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     size_t compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
     if (compressed_points >= num_points) {
         vinfo("decompressing cached compressed bn254 crs (", compressed_points, " points)...");
-        auto data = read_file(compressed_path, cached_read_points * COMPRESSED_POINT_SIZE);
+        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
         // BB_VERIFY_CRS=1 opts in to per-load verification of cached compressed bytes against the
         // compiled-in chunk hashes. Off by default so cache-hit loads stay cheap.
         if (verify_cached_crs) {
@@ -265,7 +264,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     }
     compressed_points = get_file_size(compressed_path) / COMPRESSED_POINT_SIZE;
     if (compressed_points >= num_points) {
-        auto data = read_file(compressed_path, cached_read_points * COMPRESSED_POINT_SIZE);
+        auto data = read_file(compressed_path, num_points * COMPRESSED_POINT_SIZE);
         if (verify_cached_crs) {
             verify_bn254_crs_integrity(data);
         }
