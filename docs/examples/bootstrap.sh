@@ -390,12 +390,11 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
-  # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
-  # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
+  # 25m: the run's 13 examples took 559 to 797 s under load, too close to 15m. Re-measure when an
+  # example is added, and split the line in two before raising the limit again.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
   # the whole group reaches it, so that its exit trap takes the compose project down.
-  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute"
+  echo "$hash:TIMEOUT=25m docs/examples/bootstrap.sh execute"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.
