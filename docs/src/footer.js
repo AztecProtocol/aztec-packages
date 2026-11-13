@@ -1,5 +1,3 @@
-// The site footer's links and copyright: docusaurus.config.js serves them as themeConfig.footer, and
-// scripts/check_built_site.mts fails a build whose footer shows other links.
 // src/theme/Footer renders an `href` item as a same-tab link with the external-link icon, and a `to` item
 // through @docusaurus/Link, which opens an external URL in a new tab: external URLs go under `href`.
 
