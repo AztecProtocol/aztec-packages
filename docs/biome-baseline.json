@@ -49,9 +49,6 @@
     "biome-ignore lint/correctness/noSwitchDeclarations": {
       "scripts/typescript_api_generation/transform_for_llm.ts": 2
     },
-    "biome-ignore lint/correctness/noUnusedImports": {
-      "src/theme/Footer/index.js": 1
-    },
     "biome-ignore lint/correctness/useExhaustiveDependencies": {
       "src/components/Matomo/matomo.jsx": 2,
       "src/components/MigrationRangeCopy/index.tsx": 1,

@@ -8,6 +8,8 @@ import {
   codeBlockTexts,
   dropdownLinks,
   expectedSections,
+  type FooterColumn,
+  footerLinks,
   hasFooter,
   hasSearchTrigger,
   MATH_PAGES,
@@ -23,7 +25,17 @@ const resources =
   '<div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a href=# class=navbar__link>Resources</a><ul class=dropdown__menu>' +
   '<li><a class="dropdown__link no-external-icon" href=/developers/ai_tooling>AI Tooling</a><li><a href=https://forum.aztec.network target=_blank class=dropdown__link>Forum</a></ul></div>';
 const search = '<button type=button class=trigger_m_iV aria-label="Search (Ctrl+K)" aria-haspopup=dialog>';
-const footer = '<footer class="footer footer--dark"><div class=container></div></footer>';
+const footerColumns: FooterColumn[] = [
+  { title: "Docs", items: [{ label: "Introduction", to: "/" }, { label: "Aztec.nr", href: "https://github.com/aztec-labs-eng/aztec-nr" }] },
+  { title: "Community", items: [{ label: "Forum", href: "https://forum.aztec.network" }] },
+];
+const icon = "<svg width=13.5 height=13.5 aria-hidden=true class=externalLinkIcon_x1yZ><use href=#theme-svg-external-link /></svg>";
+const footer =
+  '<footer class="footer footer--dark"><div class=container><form class=subscriptionForm_ymif><button type=submit disabled><svg width=20 height=20><path d="M5 12h14"/></svg></button></form>' +
+  '<div class="row footer__links"><div class="col footer__col"><div class=footer__title>Docs</div><ul class="footer__items clean-list">' +
+  `<li class=footer__item><a class=footer__link-item href=/>Introduction</a><li class=footer__item><a class=footer__link-item href=https://github.com/aztec-labs-eng/aztec-nr>Aztec.nr${icon}</a></ul></div>` +
+  `<div class="col footer__col"><div class=footer__title>Community</div><ul class="footer__items clean-list"><li class=footer__item><a class=footer__link-item href=https://forum.aztec.network>Forum${icon}</a></ul></div></div>` +
+  '<div class="footer__bottom text--center"><div class=footer__copyright>© <!-- -->2026<!-- --> Aztec Labs.</div></div></div></footer>';
 
 test("dropdownLinks reads the items of the dropdown that offers the page, in any attribute order and quoting", () => {
   const html =
@@ -56,11 +68,23 @@ test("classList, hasFooter and hasSearchTrigger read attribute values, not text"
   assert.equal(hasSearchTrigger('<p>aria-label="Search (Ctrl+K)"</p>'), false);
 });
 
+test("footerLinks reads every link of the site footer in order, under its column, and skips the doc footer", () => {
+  const docFooter = '<footer class="theme-doc-footer docusaurus-mt-lg"><a href=/edit>Edit this page</a></footer>';
+  assert.deepEqual(footerLinks(docFooter + footer), [
+    { title: "Docs", label: "Introduction", href: "/" },
+    { title: "Docs", label: "Aztec.nr", href: "https://github.com/aztec-labs-eng/aztec-nr" },
+    { title: "Community", label: "Forum", href: "https://forum.aztec.network" },
+  ]);
+  const unclassed = footer.replace("</ul></div></div>", "<li><a href=https://example.com/x>X &amp; Y</a></ul></div></div>");
+  assert.deepEqual(footerLinks(unclassed).at(-1), { title: "Community", label: "X & Y", href: "https://example.com/x" });
+  assert.deepEqual(footerLinks("<main></main>"), []);
+});
+
 test("expectedSections follows the layout model: production drops the dev docs and lines and moves operate's release to its root", () => {
   const configs = { developer: { mainnet: "v6.0.0", testnet: "v6.0.0" }, network: { mainnet: "v6.0.0", testnet: "v6.0.0" } };
   const cut = { developer: ["v6.0.0", "v5.2.0"], network: ["v6.0.0", "v5.2.0"] };
   const urls = (production: boolean) =>
-    expectedSections({ configs, cut, lines: ["v6"], production }).map(({ base, rootUrl, urls }) => ({ base, rootUrl, urls }));
+    expectedSections({ configs, cut, lines: ["v6"], production, footer: [] }).map(({ base, rootUrl, urls }) => ({ base, rootUrl, urls }));
   assert.deepEqual(urls(true), [
     { base: "developers", rootUrl: "/developers/overview", urls: ["/developers/overview", "/developers/v5.2.0/overview"] },
     {
@@ -121,6 +145,7 @@ const model: Model = {
   cut: { developer: ["v6.0.0", "v5.2.0"], network: ["v6.0.0", "v5.2.0"] },
   lines: ["v6"],
   production: true,
+  footer: footerColumns,
 };
 
 function run(dir: string, layout: Model = model): { code: number; out: string } {
@@ -155,6 +180,11 @@ test("main passes a healthy build and names each regression it is for", () => {
     ],
     ["search bar gone", (b) => b.write("/404", `<nav></nav>${footer}`), /\/404: no search button/],
     ["footer gone", (b) => b.write("/participate", `<nav>${search}</nav>`), /\/participate: no site footer/],
+    [
+      "footer link changed",
+      (b) => b.write("/participate", `<nav>${search}</nav>${footer.replace("href=https://forum.aztec.network", "href=https://forum.example")}`),
+      /\/participate: footer links \[.*Community: Forum https:\/\/forum\.example\], expected/,
+    ],
     ["math outside MATH_PAGES", (b) => b.write("/participate/get-started", `<nav>${search}</nav>${math}${footer}`), /\/participate\/get-started: renders math/],
     [
       "stale MATH_PAGES entry",
