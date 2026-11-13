@@ -11,6 +11,7 @@
 #   ./run.sh                # Run all examples
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
+#   ./run.sh --clean [...]  # Only remove what setup and run leave in those examples (no network needed)
 #
 # Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification,
 # or any example directory's name (bob_token_contract, token_bridge, kernelless_simulation, ...)
@@ -33,21 +34,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║      Aztec.js Documentation Examples Test Runner           ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Check if network is running
-echo -e "${YELLOW}Checking network connection at $AZTEC_NODE_URL...${NC}"
-if ! curl -s "$AZTEC_NODE_URL" > /dev/null 2>&1; then
-    echo -e "${RED}ERROR: Cannot connect to Aztec network at $AZTEC_NODE_URL${NC}"
-    echo "Please start the network with: aztec start --local-network"
-    exit 1
-fi
-echo -e "${GREEN}✓ Network is running${NC}"
-echo ""
 
 # Run `yarn add` with retries, keeping every attempt's output so transient flakes and
 # install warnings stay visible under set -euo pipefail.
@@ -208,6 +194,12 @@ cleanup_project() {
     if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
 }
 
+CLEAN_ONLY=0
+if [ "${1:-}" = --clean ]; then
+    CLEAN_ONLY=1
+    shift
+fi
+
 # Determine which examples to run
 if [ $# -eq 0 ]; then
     EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof" "bob_token_contract" "token_bridge" "aave_bridge" "aztecjs_kernelless_simulation")
@@ -224,7 +216,11 @@ else
             aave_bridge)     EXAMPLES+=("aave_bridge") ;;
             recursive_verification) EXAMPLES+=("recursive_verification") ;;
             *)
-                if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
+                # A plain name only: a path would point setup and cleanup at files outside the examples.
+                if [[ ! "$arg" =~ ^[a-z0-9_]+$ ]]; then
+                    echo -e "${RED}Unknown example: $arg${NC}"
+                    exit 1
+                elif [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
                     EXAMPLES+=("aztecjs_$arg")
                 elif [ -d "$EXAMPLES_DIR/$arg" ]; then
                     EXAMPLES+=("$arg")
@@ -237,6 +233,28 @@ else
     done
 fi
 
+if [ "$CLEAN_ONLY" -eq 1 ]; then
+    for example in "${EXAMPLES[@]}"; do
+        cleanup_project "$example"
+    done
+    exit 0
+fi
+
+echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║      Aztec.js Documentation Examples Test Runner           ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Check if network is running
+echo -e "${YELLOW}Checking network connection at $AZTEC_NODE_URL...${NC}"
+if ! curl -s "$AZTEC_NODE_URL" > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: Cannot connect to Aztec network at $AZTEC_NODE_URL${NC}"
+    echo "Please start the network with: aztec start --local-network"
+    exit 1
+fi
+echo -e "${GREEN}✓ Network is running${NC}"
+echo ""
+
 echo "Running ${#EXAMPLES[@]} example(s): ${EXAMPLES[*]}"
 echo ""
 
@@ -246,7 +264,8 @@ FAILED=0
 FAILED_EXAMPLES=()
 
 # Setup and run leave files in the example directories; remove them on exit, on an error, or on TERM or
-# INT once the running command returns. A SIGKILL skips it.
+# INT once the running command returns. A SIGKILL, as when its container is stopped, skips it: --clean
+# removes them afterwards.
 cleanup_all() {
     echo -e "${YELLOW}Cleaning up...${NC}"
     for example in "${EXAMPLES[@]}"; do
@@ -257,21 +276,17 @@ trap cleanup_all EXIT
 trap 'exit 143' TERM
 trap 'exit 130' INT
 
-# Setup all projects first
-echo -e "${YELLOW}Setting up projects...${NC}"
+# One example at a time, so the run holds a single install. setup_project stays outside a condition: there
+# set -e would not apply inside it, and a failed setup ends the run.
 for example in "${EXAMPLES[@]}"; do
     setup_project "$example"
-done
-echo ""
-
-# Run all projects
-for example in "${EXAMPLES[@]}"; do
     if run_project "$example"; then
         PASSED=$((PASSED + 1))
     else
         FAILED=$((FAILED + 1))
         FAILED_EXAMPLES+=("$example")
     fi
+    cleanup_project "$example"
 done
 
 # Summary
