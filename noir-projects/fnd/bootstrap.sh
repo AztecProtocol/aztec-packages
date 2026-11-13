@@ -70,7 +70,6 @@ function test_cmds {
     genesis_hash=$(hash_str "${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}" "$(cache_content_hash \
       "^noir-projects/fnd/" \
       "^protocol/" \
-      "^l1-contracts/test/fixtures/.*_checkpoint_1\.json$" \
       "^native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers\.hpp$" \
       ../../avm-transpiler/.rebuild_patterns \
       ../../barretenberg/cpp/.rebuild_patterns \

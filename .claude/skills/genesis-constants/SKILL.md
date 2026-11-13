@@ -1,6 +1,6 @@
 ---
 name: genesis-constants
-description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root), wsdb's C++ genesis seed vector, and the L1 checkpoint fixtures. Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
+description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root), and wsdb's C++ genesis seed vector. Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
 ---
 
 # Genesis constants
@@ -12,7 +12,7 @@ source change, a compiler bump, a transpiler change — moves the genesis roots 
 Run the single source-of-truth script:
 
 ```bash
-noir-projects/fnd/scripts/regenerate_genesis_constants.sh --fixtures
+noir-projects/fnd/scripts/regenerate_genesis_constants.sh
 ```
 
 It derives the protocol contracts' registration nullifiers with barretenberg, measures the roots with the reference
@@ -20,8 +20,7 @@ world state, rewrites every generated file from that one measurement, and stages
 
 | flag | effect |
 | --- | --- |
-| *(none)* | rewrites the genesis package and wsdb's seed vector; reports the L1 fixtures as outstanding |
-| `--fixtures` | also regenerates the six L1 checkpoint fixtures. Needs `anvil` on `PATH`; takes a few minutes |
+| *(none)* | rewrites the genesis package and wsdb's seed vector |
 | `--check` | measures and compares only, writes nothing, exits non-zero if anything is stale. CI runs it as `make fnd-genesis-tests` |
 
 ## Prerequisites
@@ -33,7 +32,7 @@ reference world state (wsdb-ref) measures the roots from them, so those must be 
 make noir-projects-fnd bb-ts bb-wsdb-ref
 ```
 
-`--fixtures` still runs a labs test, so it also needs `make labs-yarn-project`. The script warns when the protocol
+The script warns when the protocol
 contract sources are newer than their artifacts. It is fail-fast throughout: a missing dependency, a failed measurement, or a replacement that did not
 match is a hard error, because a half-applied regeneration leaves genesis values that disagree with each other.
 
@@ -49,12 +48,10 @@ match is a hard error, because a half-applied regeneration leaves genesis values
    which check that the native world state reports the roots the reference world state measured. Barretenberg's
    own world state tests deliberately use a fixed synthetic genesis (`world_state_reference/test_genesis.hpp`):
    bb is upstream of the protocol contracts, so nothing in it may depend on them.
-3. `l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json` — with `--fixtures`. All six move:
-   checkpoint 1 of each family starts from the genesis archive, and checkpoint 2 chains off checkpoint 1.
-
-Their producer picks a wall-clock timestamp and a random coinbase and fee recipient per run, so `--fixtures`
-rewrites all six every time, whether or not the genesis actually moved. Only `lastArchiveRoot` is stable, which is
-what `--check` keys on. Do not pass `--fixtures` unless the roots really moved — otherwise you commit pure churn.
+The L1 checkpoint fixtures are not part of this. L1 only checks that each checkpoint builds on the rollup's tip, and
+its tests use a mock verifier, so the tests deploy the rollup with whatever archive root the fixtures build on
+(`l1-contracts/scripts/remake-constants.sh` reads it from them). They are regenerated only when the checkpoint format
+changes, with `l1-contracts/scripts/regenerate_checkpoint_fixtures.sh`.
 
 ## What it deliberately does NOT rewrite
 
@@ -73,7 +70,6 @@ After regenerating, the tests that assert these values are:
   roots the reference world state measured.
 - `world-state/src/testing.test.ts` (labs) — the native world state, started from the package's inputs, must report
   the package's archive root.
-- `forge test --match-contract 'CheckpointPreflight|Rollup'` (L1, against the regenerated fixtures)
 
 ## Why this is breaking
 
