@@ -94,6 +94,32 @@ A simulation with the stub override active will reach `#[authorize_once]` call s
 
 The example below uses the canonical contract-mediated pattern: Alice calls `Crowdfunding.donate(amount)`, which internally calls `transfer_in_private(alice, crowdfunding, amount, 0)` with `msg_sender = crowdfunding`. The token's `#[authorize_once]` macro requires an authwit from Alice authorizing the crowdfunding contract. Because Alice is the transaction sender, her PXE already has her notes and nullifier key, so the simulation can run end-to-end against her own state without any cross-wallet state sharing.
 
+`donate` checks its deadline through the standard PublicChecks contract, which a local network does not publish. On a local network, publish and register it first, with `@aztec/standard-contracts`:
+
+```typescript title="publish-public-checks" showLineNumbers
+import { publishContractClass, publishInstance } from "@aztec/aztec.js/deployment";
+import { getStandardPublicChecks, PublicChecksArtifact } from "@aztec/standard-contracts/public-checks";
+
+const publicChecks = await getStandardPublicChecks();
+const publicChecksClass = await wallet.getContractClassMetadata(
+  publicChecks.contractClass.id,
+);
+if (!publicChecksClass.isContractClassPubliclyRegistered) {
+  await (
+    await publishContractClass(wallet, PublicChecksArtifact)
+  ).send({ from: aliceAddress });
+}
+const publicChecksInstance = await wallet.getContractMetadata(
+  publicChecks.instance.address,
+);
+if (!publicChecksInstance.isContractPublished) {
+  await publishInstance(wallet, publicChecks.instance).send({
+    from: aliceAddress,
+  });
+}
+await wallet.registerContract(publicChecks.instance, PublicChecksArtifact);
+```
+
 Run the simulation and filter the offchain effects by the `CallAuthorizationRequest` selector:
 
 ```typescript title="simulate-and-collect-effects" showLineNumbers 
