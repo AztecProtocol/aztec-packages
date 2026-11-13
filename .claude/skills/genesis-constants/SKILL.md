@@ -1,6 +1,6 @@
 ---
 name: genesis-constants
-description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root), the C++ genesis seed vectors, and the L1 checkpoint fixtures. Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
+description: Regenerate the canonical genesis (protocol/genesis/genesis.json, the @aztec-foundation/protocol-genesis package with the genesis nullifiers and the nullifier tree root, block header hash and archive root), wsdb's C++ genesis seed vector, and the L1 checkpoint fixtures. Use when a protocol contract, the Noir compiler, or the AVM transpiler changed and the genesis check or a genesis root assertion fails, on a request to "regenerate the genesis constants/roots", or when the precommit reminder about rotating a protocol class id fires.
 ---
 
 # Genesis constants
@@ -20,7 +20,7 @@ world state, rewrites every generated file from that one measurement, and stages
 
 | flag | effect |
 | --- | --- |
-| *(none)* | rewrites the genesis package and the C++ seed vectors; reports the L1 fixtures as outstanding |
+| *(none)* | rewrites the genesis package and wsdb's seed vector; reports the L1 fixtures as outstanding |
 | `--fixtures` | also regenerates the six L1 checkpoint fixtures. Needs `anvil` on `PATH`; takes a few minutes |
 | `--check` | measures and compares only, writes nothing, exits non-zero if anything is stale. CI runs it as `make fnd-genesis-tests` |
 
@@ -45,9 +45,10 @@ match is a hard error, because a half-applied regeneration leaves genesis values
    l1-contracts generates its test constant `GenesisGen.sol` from it at build time. It is deliberately not in
    `constants.nr`: the protocol contracts are compiled against the constants, so the genesis derived from them
    cannot feed back into the constants.
-2. `barretenberg/cpp/src/barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp` and
-   `native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp` — the same values for the C++
-   world-state tests.
+2. `native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers.hpp` — the same values for wsdb's tests,
+   which check that the native world state reports the roots the reference world state measured. Barretenberg's
+   own world state tests deliberately use a fixed synthetic genesis (`world_state_reference/test_genesis.hpp`):
+   bb is upstream of the protocol contracts, so nothing in it may depend on them.
 3. `l1-contracts/test/fixtures/{empty,mixed,single_tx}_checkpoint_{1,2}.json` — with `--fixtures`. All six move:
    checkpoint 1 of each family starts from the genesis archive, and checkpoint 2 chains off checkpoint 1.
 
@@ -68,8 +69,8 @@ After regenerating, the tests that assert these values are:
 
 - `regenerate_genesis_constants.sh --check` (CI: `make fnd-genesis-tests`) — the drift detector: it re-derives the
   genesis from the built protocol contracts and compares it with every generated file.
-- `world_state_reference_tests` and `wsdb_ref_tests` (bb), `world_state_tests` (wsdb) — each world state builds the
-  genesis from the seed vector and must report the same roots.
+- `world_state_tests` (wsdb) — the native world state builds the genesis from the seed vector and must report the
+  roots the reference world state measured.
 - `world-state/src/testing.test.ts` (labs) — the native world state, started from the package's inputs, must report
   the package's archive root.
 - `forge test --match-contract 'CheckpointPreflight|Rollup'` (L1, against the regenerated fixtures)
