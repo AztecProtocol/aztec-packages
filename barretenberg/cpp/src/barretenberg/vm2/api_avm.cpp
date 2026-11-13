@@ -4,6 +4,7 @@
 
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -30,7 +31,8 @@ void print_avm_stats()
 
 void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
 {
-    avm2::AvmAPI avm;
+    initialize_experimental_optimizations();
+    avm2::AvmAPI avm(avm_experimental_optimizations_enabled());
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
     auto proof = avm.prove(inputs);
 
@@ -97,7 +99,8 @@ void avm_write_verification_key(const std::filesystem::path& output_path)
 
 AvmProveResult avm_prove_from_bytes(std::vector<uint8_t> inputs)
 {
-    avm2::AvmAPI avm;
+    initialize_experimental_optimizations();
+    avm2::AvmAPI avm(avm_experimental_optimizations_enabled());
     auto proving_inputs = avm2::AvmAPI::ProvingInputs::from(inputs);
     auto proof = avm.prove(proving_inputs);
 

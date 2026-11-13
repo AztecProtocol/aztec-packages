@@ -12,6 +12,7 @@ namespace detail {
 
 bool experimental_optimizations_enabled = false;
 bool rollup_experimental_optimizations_enabled = false;
+bool avm_experimental_optimizations_enabled = false;
 } // namespace detail
 
 namespace {
@@ -33,8 +34,10 @@ void initialize_experimental_optimizations()
     std::call_once(initialized, [] {
         const bool bb_enabled = read_flag("BB_EXPERIMENTAL_OPTIMIZATIONS");
         const bool rollup_enabled = read_flag("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS");
+        const bool avm_enabled = read_flag("AVM_EXPERIMENTAL_OPTIMIZATIONS");
         detail::experimental_optimizations_enabled = bb_enabled;
         detail::rollup_experimental_optimizations_enabled = rollup_enabled;
+        detail::avm_experimental_optimizations_enabled = avm_enabled;
     });
 }
 

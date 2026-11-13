@@ -104,10 +104,12 @@ template <class Curve> class CommitmentKey {
      * @param polynomials vector of polynomial spans to commit to
      * @param has_duplicates_hints optional per-polynomial hints (parallel to polynomials):
      *        a non-zero entry opts that polynomial's MSM into the dedup pre-pass.
+     * @param msm_options Per-call workspace policy for concurrent small MSMs.
      * @return std::vector<Commitment> vector of commitments, one for each polynomial
      */
     std::vector<Commitment> batch_commit(RefSpan<Polynomial<Fr>> polynomials,
-                                         std::span<const uint32_t> dedup_infos = {}) const
+                                         std::span<const uint32_t> dedup_infos = {},
+                                         scalar_multiplication::MsmBatchOptions msm_options = {}) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
 
@@ -126,7 +128,7 @@ template <class Curve> class CommitmentKey {
         }
 
         auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos);
+            get_monomial_points(), scalar_spans, /*handle_edge_cases=*/false, dedup_infos, msm_options);
         return std::vector<Commitment>(results.begin(), results.end());
     };
 
@@ -138,10 +140,11 @@ template <class Curve> class CommitmentKey {
         // Per-poly dedup channel (parallel to wires): 0 = off, 1 = hinted with no
         // estimate, k >= 2 = hinted with a measured duplicate count of k.
         std::vector<uint32_t> dedup_infos;
+        scalar_multiplication::MsmBatchOptions msm_options{};
 
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript)
         {
-            std::vector<Commitment> commitments = key->batch_commit(wires, dedup_infos);
+            std::vector<Commitment> commitments = key->batch_commit(wires, dedup_infos, msm_options);
             for (size_t i = 0; i < commitments.size(); ++i) {
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
@@ -160,7 +163,11 @@ template <class Curve> class CommitmentKey {
         }
     };
 
-    CommitBatch start_batch() { return CommitBatch{ this, {}, {} }; }
+    /** @brief Start a commitment batch with its own MSM workspace policy. */
+    CommitBatch start_batch(scalar_multiplication::MsmBatchOptions msm_options = {})
+    {
+        return CommitBatch{ this, {}, {}, {}, msm_options };
+    }
 };
 
 } // namespace bb

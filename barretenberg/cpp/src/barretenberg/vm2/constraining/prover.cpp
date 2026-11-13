@@ -11,6 +11,7 @@
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -32,10 +33,11 @@ using FF = Flavor::FF;
  */
 AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_proving_key,
                      std::shared_ptr<Flavor::VerificationKey> vk,
-                     const PCSCommitmentKey& commitment_key)
+                     const PCSCommitmentKey& commitment_key,
+                     bool memory_optimizations)
     : proving_key(std::move(input_proving_key))
     , vk(std::move(vk))
-    , prover_polynomials(*proving_key)
+    , prover_polynomials(*proving_key, memory_optimizations)
     , commitment_key(commitment_key)
 {}
 
@@ -94,7 +96,7 @@ void AvmProver::execute_wire_commitments_round()
     BB_BENCH_NAME("AvmProver::execute_wire_commitments_round");
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
-    auto batch = commitment_key.start_batch();
+    auto batch = commitment_key.start_batch({ .large_workspace = prover_polynomials.memory_optimizations });
     for (const auto& [poly, label] : zip_view(prover_polynomials.get_wires(), prover_polynomials.get_wires_labels())) {
         batch.add_to_batch(poly, label);
     }
@@ -135,7 +137,7 @@ void AvmProver::execute_log_derivative_inverse_round()
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
     BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_commitments_round");
-    auto batch = commitment_key.start_batch();
+    auto batch = commitment_key.start_batch({ .large_workspace = prover_polynomials.memory_optimizations });
     // Commit to all logderivative inverse polynomials and send to verifier
     for (auto [derived_poly, label] :
          zip_view(prover_polynomials.get_derived(), prover_polynomials.get_derived_labels())) {
@@ -211,8 +213,11 @@ void AvmProver::execute_pcs_rounds()
         return static_cast<size_t>(std::distance(polys.begin(), it));
     };
 
-    auto add_scaled_batched =
-        [](Polynomial& dst, const std::span<Polynomial>& sources, const std::span<FF>& scalars, const size_t skip_idx) {
+    const auto add_scaled_batched = [this](Polynomial& dst,
+                                           const std::span<Polynomial>& sources,
+                                           const std::span<FF>& scalars,
+                                           const size_t skip_idx) {
+        if (!prover_polynomials.memory_optimizations) {
             const size_t num_slots = bb::get_num_cpus();
             std::vector<Polynomial> batched_polys(num_slots);
             for (auto& poly : batched_polys) {
@@ -245,7 +250,26 @@ void AvmProver::execute_pcs_rounds()
             for (const auto& poly : batched_polys) {
                 dst += poly;
             }
-        };
+            return;
+        }
+        BB_ASSERT_EQ(sources.size(), scalars.size());
+        std::vector<PolynomialSpan<const FF>> source_spans;
+        std::vector<FF> source_scalars;
+        source_spans.reserve(sources.size());
+        source_scalars.reserve(sources.size());
+        for (size_t poly_id = 0; poly_id < sources.size(); ++poly_id) {
+            const auto& source = sources[poly_id];
+            // The selected polynomial was moved into dst. Empty sources contribute nothing and may
+            // start outside dst's backing range, so omit them before the helper's range checks.
+            if (poly_id == skip_idx || source.is_empty()) {
+                continue;
+            }
+            source_spans.emplace_back(static_cast<PolynomialSpan<const FF>>(source));
+            source_scalars.push_back(scalars[poly_id]);
+        }
+        bb::add_scaled_batch(
+            dst, std::span<const PolynomialSpan<const FF>>(source_spans), std::span<const FF>(source_scalars));
+    };
 
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
@@ -269,7 +293,9 @@ void AvmProver::execute_pcs_rounds()
     // Assign the batched unshifted polynomial according to whether the largest poly was among the to be shifted polys
     // or not
     Polynomial batched_unshifted;
-    if (unshifted_polys[max_idx_unshifted].end_index() > batched_shifted.end_index()) {
+    if (unshifted_polys[max_idx_unshifted].end_index() > batched_shifted.end_index() ||
+        (prover_polynomials.memory_optimizations &&
+         unshifted_polys[max_idx_unshifted].end_index() == batched_shifted.end_index())) {
         batched_unshifted = std::move(unshifted_polys[max_idx_unshifted]);
         batched_unshifted *= unshifted_challenges[max_idx_unshifted];
         batched_unshifted += batched_shifted;

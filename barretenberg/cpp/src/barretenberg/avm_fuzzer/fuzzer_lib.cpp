@@ -209,6 +209,12 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
     auto proof = avm_api.prove(proving_inputs);
     bool verified = avm_api.verify(proof, proving_inputs.public_inputs);
     BB_ASSERT(verified, "Proof verification failed");
+
+    avm2::AvmAPI optimized_api(/*memory_optimizations=*/true);
+    const auto optimized_proof = optimized_api.prove(proving_inputs);
+    BB_ASSERT(optimized_api.verify(optimized_proof, proving_inputs.public_inputs),
+              "Proof verification failed with AVM memory optimizations");
+    BB_ASSERT(optimized_proof == proof, "AVM memory optimizations changed the proof");
 #else
     // In coverage builds, run simulate_for_witgen and tracegen instead of check_circuit
     // This gives us coverage the the event and tracegen code paths without the overhead of check_circuit

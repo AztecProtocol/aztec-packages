@@ -38,7 +38,8 @@ template <typename Curve>
 void pippenger_round_parallel_batched(std::span<std::span<typename Curve::ScalarField>> scalar_arrays,
                                       std::span<std::span<const typename Curve::AffineElement>> point_arrays,
                                       std::vector<typename Curve::Element>& out_results,
-                                      std::span<const uint32_t> dedup_infos = {}) noexcept
+                                      std::span<const uint32_t> dedup_infos = {},
+                                      MsmBatchOptions options = {}) noexcept
 {
     using AffineElement = typename Curve::AffineElement;
     using ScalarField = typename Curve::ScalarField;
@@ -290,13 +291,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
                 compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m), /*max_threads=*/1);
             small_arena_bytes = std::max(small_arena_bytes, bytes);
         }
-        // The per-worker arenas are one contiguous block of `num_workers * small_arena_bytes`.
-        // Cap it at one MSM's budget so a wide batch doesn't hold many full arenas at once,
-        // matching the large-member path's single reused arena of the same budget.
-        const size_t workers_by_budget =
-            small_arena_bytes > 0 ? std::max<size_t>(1, round_parallel_detail::BATCH_MEM_BUDGET / small_arena_bytes)
-                                  : std::numeric_limits<size_t>::max();
-        const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
+        // Each worker needs an arena sized for the largest member; the batch policy limits concurrency by workspace.
+        const size_t num_workers = options.num_workers(pool_width, small_members.size(), small_arena_bytes);
         std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
         if (small_arena_bytes > 0) {
             small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
@@ -369,7 +365,8 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
     std::span<const typename Curve::AffineElement> points,
     std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
     bool handle_edge_cases,
-    std::span<const uint32_t> dedup_infos) noexcept
+    std::span<const uint32_t> dedup_infos,
+    MsmBatchOptions options) noexcept
 {
     BB_BENCH_NAME("MSM_fast::batch_multi_scalar_mul");
     const size_t k = scalars.size();
@@ -405,7 +402,7 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
     }
 
     std::vector<typename Curve::Element> per_msm_jac;
-    pippenger_round_parallel_batched<Curve>(scalar_subspans, point_subspans, per_msm_jac, dedup_infos);
+    pippenger_round_parallel_batched<Curve>(scalar_subspans, point_subspans, per_msm_jac, dedup_infos, options);
 
     std::vector<AffineElement> results(k);
     for (size_t i = 0; i < k; ++i) {
