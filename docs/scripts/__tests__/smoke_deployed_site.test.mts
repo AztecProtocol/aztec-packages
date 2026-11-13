@@ -28,13 +28,14 @@ function apiRoutes(origin: string): Record<string, Handler> {
   const fn = "noir_aztec/macros/fn.aztec";
   for (const network of ["mainnet", "testnet"]) {
     const folder = folderOf(network);
-    for (const rest of ["/noir_aztec/index.html", `/${fn}.md`, "", "/"]) routes[`/aztec-nr-api/${network}${rest}`] = redirect(`${origin}/aztec-nr-api/${folder}${rest}`, 302);
+    // Netlify keeps the slash before `:splat`, so an empty splat lands on the folder's slash form.
+    for (const rest of ["/noir_aztec/index.html", `/${fn}.md`, "", "/"])
+      routes[`/aztec-nr-api/${network}${rest}`] = redirect(`${origin}/aztec-nr-api/${folder}/${rest.replace(/^\//, "")}`, 302);
     routes[`/typescript-api/${network}/llms.txt`] = redirect(`${origin}/typescript-api/${folder}/llms.txt`, 302);
     routes[`/aztec-nr-api/${network}/${fn}`] = (req, res) =>
       req.headers.accept?.includes("text/markdown")
         ? send(200, "text/markdown; charset=utf-8", API_TWIN, { vary: "Accept" })(req, res)
         : redirect(`${origin}/aztec-nr-api/${folder}/${fn}`, 302)(req, res);
-    routes[`/aztec-nr-api/${folder}`] = redirect(`${origin}/aztec-nr-api/${folder}/`);
     for (const rest of ["/", "/noir_aztec/index.html"]) routes[`/aztec-nr-api/${folder}${rest}`] = send(200, "text/html; charset=UTF-8", "<html></html>");
     routes[`/aztec-nr-api/${folder}/${fn}.md`] = send(200, "text/markdown; charset=UTF-8", API_TWIN);
     routes[`/typescript-api/${folder}/llms.txt`] = send(200, "text/plain; charset=UTF-8", "# TypeScript API\n");
