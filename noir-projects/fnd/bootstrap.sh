@@ -62,6 +62,22 @@ function test_cmds {
     echo "$prefix noir-projects/fnd/bootstrap.sh release_smoke_test"
     return
   fi
+  if [ "${1:-}" = genesis ]; then
+    # The committed genesis (protocol/genesis and its C++ test copies) is derived from the protocol contracts with
+    # barretenberg and the reference world state, so it goes stale when any of them moves. Consumers read it rather
+    # than deriving it, so this is the check that it still matches the contracts.
+    local genesis_hash
+    genesis_hash=$(hash_str "${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}" "$(cache_content_hash \
+      "^noir-projects/fnd/" \
+      "^protocol/" \
+      "^l1-contracts/test/fixtures/.*_checkpoint_1\.json$" \
+      "^native-packages/wsdb/cpp/src/world_state/genesis_protocol_nullifiers\.hpp$" \
+      ../../avm-transpiler/.rebuild_patterns \
+      ../../barretenberg/cpp/.rebuild_patterns \
+      ../../barretenberg/ts/.rebuild_patterns)")
+    echo "$genesis_hash noir-projects/fnd/scripts/regenerate_genesis_constants.sh --check"
+    return
+  fi
   parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts
 }
 

@@ -662,6 +662,7 @@ function release {
     noir
     l1-contracts
     protocol/constants-codegen
+    protocol/genesis
     noir-projects/fnd
   )
 
@@ -685,7 +686,7 @@ function private_release {
   # ci-release-pr label creates, on demand. There are no private nightlies by design
   # (nightly-release-tag.yml runs in the public repo alone). ci3_labels_to_env.sh forces
   # PRIVATE_RELEASE=1 for every release in that repo. We publish only our foundation npm packages (barretenberg/ts, noir,
-  # ipc-runtime, wsdb, protocol/constants-codegen, l1-contracts' l1-artifacts, the noir-projects/fnd
+  # ipc-runtime, wsdb, protocol/constants-codegen, protocol/genesis, l1-contracts' l1-artifacts, the noir-projects/fnd
   # artifacts packages) to the INTERNAL_NPM_REGISTRY npm repo in our internal GCP Artifact Registry.
   # We run the release step for real on exactly those components and do not invoke the others — the
   # remaining release sources publish public artifacts (github releases, crates.io) and are not
@@ -723,7 +724,7 @@ function private_release {
 
   # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
-  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
+  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen protocol/genesis l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done

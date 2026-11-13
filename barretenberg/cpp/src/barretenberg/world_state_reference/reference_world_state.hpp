@@ -32,8 +32,9 @@ using numeric::uint256_t;
 
 /**
  * @brief The genesis a world state starts from, as a node world state is configured with it.
- * @details canonical() is the protocol's: the protocol's tree heights and initial sizes, the protocol contracts'
- * registration nullifiers, no public data, timestamp 0.
+ * @details The defaults are the protocol's tree heights and initial sizes, with nothing prefilled. The canonical genesis
+ * adds the protocol contracts' registration nullifiers, which belong to a protocol release rather than to the world
+ * state: callers take them from @aztec-foundation/protocol-genesis.
  */
 struct GenesisConfig {
     /** Each tree's height, by MerkleTreeId. */
@@ -48,8 +49,6 @@ struct GenesisConfig {
     uint64_t genesis_timestamp = 0;
     /** The first field of the genesis block header's hash preimage (its domain separator). */
     FF header_generator_point = FF(DOM_SEP__BLOCK_HEADER_HASH);
-
-    static GenesisConfig canonical();
 };
 
 /** @brief One tree's root and size, as a state reference reports it. */
@@ -111,7 +110,7 @@ class ReferenceWorldState {
     /** Leaves each indexed tree of the canonical genesis starts with, prefill included, as on a node. */
     static constexpr size_t INDEXED_TREE_INITIAL_SIZE = 128;
 
-    explicit ReferenceWorldState(const GenesisConfig& genesis = GenesisConfig::canonical());
+    explicit ReferenceWorldState(const GenesisConfig& genesis);
 
     /** Why `genesis` cannot seed a world state, or nullopt when it can. */
     static std::optional<std::string> check_genesis(const GenesisConfig& genesis);

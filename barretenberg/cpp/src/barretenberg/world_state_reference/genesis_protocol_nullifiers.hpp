@@ -13,9 +13,8 @@ namespace bb::world_state {
  *
  * Derived from the protocol contract artifacts: per protocol contract, the class registration nullifier siloed by
  * ContractClassRegistry and the instance publication nullifier siloed by ContractInstanceRegistry. Sorted ascending
- * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. These determine the
- * three roots below, and GENESIS_NULLIFIER_TREE_ROOT, GENESIS_BLOCK_HEADER_HASH and GENESIS_ARCHIVE_ROOT in
- * constants.nr, so all of them are rewritten together and never on their own.
+ * because the indexed nullifier tree requires unique, strictly increasing prefilled leaves. A copy, for the tests, of
+ * protocol/genesis/genesis.json, which the same script writes from the same measurement.
  */
 inline std::vector<bb::fr> genesis_protocol_nullifiers()
 {
@@ -30,13 +29,7 @@ inline std::vector<bb::fr> genesis_protocol_nullifiers()
 }
 
 /**
- * @brief The genesis roots the seed vector above produces.
- *
- * Measured from the protocol contract artifacts together with the seeds, so that this package can check its tree
- * implementation against them without reaching for the protocol constants: the GENESIS_* macros in
- * common/aztec_constants.hpp come from the release named in foundation.pin, which lags this tree whenever the genesis
- * moves. constants.nr remains the protocol's source of truth, and is held to this same measurement by the script that
- * writes this file.
+ * @brief The genesis roots the seed vector above produces, measured by the reference world state.
  */
 inline bb::fr genesis_nullifier_tree_root()
 {

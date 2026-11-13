@@ -157,7 +157,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
         ok(call_ffi<wire::WsdbGetTreeInfoResponse>("WsdbGetTreeInfo",
                                                    wire::WsdbGetTreeInfo{ .treeId = 4, .revision = LATEST_COMMITTED },
                                                    "WsdbGetTreeInfoResponse"));
-    EXPECT_EQ(fr_of(archive.root), fr(GENESIS_ARCHIVE_ROOT));
+    EXPECT_EQ(fr_of(archive.root), world_state::genesis_archive_root());
     EXPECT_EQ(archive.size, 1);
     EXPECT_EQ(archive.depth, ARCHIVE_HEIGHT);
 
@@ -166,7 +166,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
         wire::WsdbGetLeafValue{ .treeId = 4, .revision = LATEST_COMMITTED, .leafIndex = 0 },
         "WsdbGetLeafValueResponse"));
     ASSERT_TRUE(header.value.has_value());
-    EXPECT_EQ(fr_of(*header.value), fr(GENESIS_BLOCK_HEADER_HASH));
+    EXPECT_EQ(fr_of(*header.value), world_state::genesis_block_header_hash());
 
     auto initial = ok(call_ffi<wire::WsdbGetInitialStateReferenceResponse>(
         "WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{}, "WsdbGetInitialStateReferenceResponse"));
@@ -175,7 +175,7 @@ TEST(WsdbRef, FfiEntryServesTheCanonicalGenesis)
     for (const auto& tree : initial.state) {
         if (tree.treeId == 0) {
             saw_nullifier_tree = true;
-            EXPECT_EQ(fr_of(tree.root), fr(GENESIS_NULLIFIER_TREE_ROOT));
+            EXPECT_EQ(fr_of(tree.root), world_state::genesis_nullifier_tree_root());
             EXPECT_EQ(tree.size, 128);
         }
     }
@@ -322,7 +322,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
             "WsdbGetTreeInfoResponse"));
         return fr_of(info.root);
     };
-    EXPECT_EQ(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
+    EXPECT_EQ(nullifier_root(), world_state::genesis_nullifier_tree_root());
     ok(service.call<wire::WsdbInitResponse>(
         "WsdbInit",
         wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
@@ -333,7 +333,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
                         .genesisTimestamp = 0,
                         .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) },
         "WsdbInitResponse"));
-    EXPECT_NE(nullifier_root(), fr(GENESIS_NULLIFIER_TREE_ROOT));
+    EXPECT_NE(nullifier_root(), world_state::genesis_nullifier_tree_root());
     auto slot = ok(service.call<wire::WsdbFindPublicDataLeafIndicesResponse>(
         "WsdbFindPublicDataLeafIndices",
         wire::WsdbFindPublicDataLeafIndices{ .revision = LATEST_COMMITTED,
