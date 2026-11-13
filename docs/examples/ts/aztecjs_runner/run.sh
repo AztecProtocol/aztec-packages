@@ -9,6 +9,7 @@
 #
 # Usage:
 #   ./run.sh                # Run all examples
+#   ./run.sh --half 1       # Run one half of them (HALF_1 or HALF_2 below)
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
 #   ./run.sh --clean [...]  # Only remove what setup and run leave in those examples (no network needed)
@@ -191,8 +192,16 @@ cleanup_project() {
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
+    # yarn init's files, which setup removes right after it: a stop in between leaves them. No example may track one.
+    rm -rf "$project_dir/.git" "$project_dir/.gitignore" "$project_dir/.editorconfig" \
+           "$project_dir/.gitattributes" "$project_dir/README.md"
     if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
 }
+
+# Every example is in exactly one half (scripts/__tests__/page_tests.test.mts checks it). CI runs each
+# half in a compose project of its own (examples/bootstrap.sh execute 1|2), so balance them by measured time.
+HALF_1=("first_full_project" "aztecjs_getting_started" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "bob_token_contract" "aave_bridge")
+HALF_2=("aztecjs_connection" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "note_hash_proof" "token_bridge" "aztecjs_kernelless_simulation")
 
 CLEAN_ONLY=0
 if [ "${1:-}" = --clean ]; then
@@ -202,7 +211,13 @@ fi
 
 # Determine which examples to run
 if [ $# -eq 0 ]; then
-    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof" "bob_token_contract" "token_bridge" "aave_bridge" "aztecjs_kernelless_simulation")
+    EXAMPLES=("${HALF_1[@]}" "${HALF_2[@]}")
+elif [ "$1" = --half ]; then
+    case "$#:${2:-}" in
+        2:1) EXAMPLES=("${HALF_1[@]}") ;;
+        2:2) EXAMPLES=("${HALF_2[@]}") ;;
+        *) echo -e "${RED}Usage: $0 --half 1|2${NC}"; exit 1 ;;
+    esac
 else
     EXAMPLES=()
     for arg in "$@"; do

@@ -54,11 +54,12 @@ services:
       HOME: /tmp/home
       CRS_PATH: /bb-crs
       COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+      DOCS_EXAMPLES_HALF: ${DOCS_EXAMPLES_HALF:-}
     entrypoint: >
       bash -c '
         mkdir -p "$$HOME";
         while ! nc -z local-network 8080; do sleep 1; done;
-        ./run.sh
+        ./run.sh $${DOCS_EXAMPLES_HALF:+--half "$$DOCS_EXAMPLES_HALF"}
       '
     depends_on:
       - local-network

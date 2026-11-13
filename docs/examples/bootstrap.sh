@@ -21,7 +21,11 @@ EXECUTED=
 function on_exit {
   if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
   # A stopped compose run kills the runner before its own cleanup, which leaves an example's install behind.
-  if [ -n "$EXECUTED" ]; then "$REPO_ROOT/docs/examples/ts/aztecjs_runner/run.sh" --clean || true; fi
+  # EXECUTED is the half execute ran, or all; only that half's examples are cleaned, as the other may be running.
+  if [ -n "$EXECUTED" ]; then
+    local half=${EXECUTED#all}
+    "$REPO_ROOT/docs/examples/ts/aztecjs_runner/run.sh" --clean ${half:+--half "$half"} || true
+  fi
 }
 trap on_exit EXIT
 
@@ -286,7 +290,14 @@ function validate-webapp-tutorial {
 }
 
 function execute-examples {
-  echo_header "Executing TypeScript documentation examples"
+  # One half of the examples (run.sh HALF_1 or HALF_2), or every example when none is named. Each half's
+  # compose project has its own name, so both halves can run at once.
+  local half=${1:-}
+  if [ $# -gt 1 ] || [[ ! "$half" =~ ^[12]?$ ]]; then
+    echo_stderr "usage: examples/bootstrap.sh execute [1|2]"
+    return 1
+  fi
+  echo_header "Executing TypeScript documentation examples${half:+ (half $half)}"
   # The compose file mounts the repository and runs main's examples.
   if [ -n "$DOCS_LINE" ]; then
     echo_stderr "execute runs main's examples only: a line's run against a network at its cut."
@@ -301,10 +312,11 @@ function execute-examples {
   local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
   # These traps hold this shell until run_compose_test returns, which is after it took the project down, so
   # on_exit removes the examples' files only once no container writes them.
-  EXECUTED=1
+  EXECUTED=${half:-all}
   trap 'exit 143' TERM
   trap 'exit 130' INT
-  DOCS_UID=$(id -u) DOCS_GID=$(id -g) run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+  DOCS_EXAMPLES_HALF=$half DOCS_UID=$(id -u) DOCS_GID=$(id -g) \
+    run_compose_test "docs_examples${half:+_$half}" "docs-examples" "$COMPOSE_DIR"
 }
 
 # Runs the Noir tests of every docs workspace package that has any (the type = "lib" test
@@ -398,11 +410,13 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # 25m: the run's 14 examples took 721 to 908 s under load, past 15m at the slowest. Re-measure when
-  # an example is added, and split the line in two before raising the limit again.
+  # 15m: with both halves at once under load, a green half took 294 to 421 s, and a half with a failing
+  # example (five attempts) 449 s. Re-measure when an example is added, and rebalance the halves
+  # (run.sh HALF_1, HALF_2) before raising a limit.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
   # the whole group reaches it, so that its exit trap takes the compose project down.
-  echo "$hash:TIMEOUT=25m docs/examples/bootstrap.sh execute"
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 1"
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 2"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.
@@ -536,7 +550,7 @@ case "$cmd" in
     compile-solidity
     ;;
   execute)
-    execute-examples
+    execute-examples "$@"
     ;;
   test-contracts)
     test-contracts

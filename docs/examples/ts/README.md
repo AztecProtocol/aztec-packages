@@ -33,7 +33,7 @@ The `aztecjs_runner/run.sh` script executes examples against a live local Aztec 
 
 ### CI Execution (Docker Compose)
 
-In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. This is triggered by `docs/examples/bootstrap.sh execute` (called from `docs/bootstrap.sh ci`).
+In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. Full CI runs `docs/examples/bootstrap.sh execute 1` and `execute 2` at once, one compose project per half; `execute` with no half runs every example. Two `execute` calls started by hand at the same moment on a stale checkout or toolchain can break each other, since each updates the submodules and reinstalls the shared CLI; `docs/examples/bootstrap.sh test` does both once before it starts them.
 
 ```bash
 cd docs/examples && ./bootstrap.sh execute
@@ -111,7 +111,7 @@ dependencies:
 ```
 
 4. Run `./bootstrap.sh your_example_name` to validate
-5. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
+5. Add it to one of the halves in `aztecjs_runner/run.sh` (`HALF_1` or `HALF_2`), keeping their measured times close
 
 ## File Management
 
