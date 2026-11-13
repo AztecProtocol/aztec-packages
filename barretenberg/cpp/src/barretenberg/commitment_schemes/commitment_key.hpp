@@ -63,13 +63,18 @@ template <class Curve> class CommitmentKey {
         , srs_size(round_up_to_even(num_points))
     {}
     /**
+     * @brief Throw unless the SRS points are canonical. Called before computing a verification key.
+     */
+    void verify_srs_integrity() const { srs->verify_points_integrity(); }
+
+    /**
      * @brief Checks the commitment key is properly initialized.
      *
      * @return bool
      */
     bool initialized() const { return srs != nullptr; }
 
-    std::span<Commitment> get_monomial_points() const
+    std::span<const Commitment> get_monomial_points() const
     {
         BB_ASSERT(initialized(), "Commitment key is not initialized");
         return srs->get_monomial_points();
@@ -83,6 +88,9 @@ template <class Curve> class CommitmentKey {
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *
+     * @details The MSM calls throw_or_abort if the polynomial needs more points than the SRS holds; see
+     *          scalar_multiplication::check_msm_points_cover_scalars.
+     *
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
@@ -90,13 +98,6 @@ template <class Curve> class CommitmentKey {
     {
         BB_BENCH_NAME("CommitmentKey::commit");
         std::span<const Commitment> point_table = get_monomial_points();
-        size_t consumed_srs = polynomial.start_index + polynomial.size();
-        if (consumed_srs > get_monomial_size()) {
-            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                  consumed_srs,
-                                  " points with an SRS of size ",
-                                  get_monomial_size()));
-        }
         return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table, has_duplicates_hint);
     };
     /**
@@ -106,6 +107,7 @@ template <class Curve> class CommitmentKey {
      *          Precondition (unchecked): the polynomials must not share memory, e.g. a polynomial and its
      *          shifted view, or the same polynomial twice. Members can be committed concurrently, and
      *          overlapping coefficients would be converted in place by two MSMs at once.
+     *          As in commit, the MSM rejects a polynomial that needs more points than the SRS holds.
      *
      * @param polynomials vector of polynomial spans to commit to
      * @param has_duplicates_hints optional per-polynomial hints (parallel to polynomials):
@@ -121,13 +123,6 @@ template <class Curve> class CommitmentKey {
         scalar_spans.reserve(polynomials.size());
 
         for (auto& polynomial : polynomials) {
-            const size_t consumed_srs = polynomial.start_index() + polynomial.size();
-            if (consumed_srs > get_monomial_size()) {
-                throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                      consumed_srs,
-                                      " points with an SRS of size ",
-                                      get_monomial_size()));
-            }
             scalar_spans.emplace_back(polynomial.start_index(), polynomial.coeffs());
         }
 

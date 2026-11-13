@@ -152,7 +152,8 @@ TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
     const size_t round_roots_before = domain.get_round_roots().size();
     EXPECT_GT(round_roots_before, 0UL);
 
-    domain = std::move(domain);
+    auto* same_domain = &domain;
+    domain = std::move(*same_domain);
 
     EXPECT_EQ(domain.size, 256UL);
     EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);

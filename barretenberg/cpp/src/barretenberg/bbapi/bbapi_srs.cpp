@@ -12,7 +12,6 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
-#include "barretenberg/srs/factories/get_grumpkin_crs.hpp"
 #include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <span>
@@ -74,15 +73,6 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
         });
     }
 
-    // Pin the first two G1 points to their canonical trusted-setup values. Defense in depth on the
-    // compressed path; the only gate on the uncompressed (cached) path.
-    if (num_points >= 1 && g1_points[0] != bb::srs::BN254_G1_FIRST_ELEMENT) {
-        throw_or_abort("SrsInitSrs: g1_points[0] is not the canonical BN254 generator");
-    }
-    if (num_points >= 2 && g1_points[1] != bb::srs::get_bn254_g1_second_element()) {
-        throw_or_abort("SrsInitSrs: g1_points[1] does not match the canonical trusted-setup tau·G");
-    }
-
     // Defense in depth: hash-pin AND subgroup-check the G2 input. Hash equality alone is sufficient
     // for the canonical case (it implies prime-order membership); the subgroup check is kept so
     // that any future relaxation of the hash gate (e.g. a flag to allow a different trusted setup)
@@ -101,7 +91,7 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
         throw_or_abort("SrsInitSrs: g2_point is not in the BN254 G2 prime-order subgroup");
     }
 
-    // Initialize BN254 SRS
+    // The G1 points are checked against the pinned chunk hashes when a verification key is computed from them.
     bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point_elem);
 
     return { .points_buf = std::move(uncompressed_out) };
@@ -121,11 +111,10 @@ SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest&
                        std::to_string(required_size) + ")");
     }
 
-    verify_grumpkin_crs_integrity(points_buf);
-
-    // Parse Grumpkin affine elements from buffer
-    std::vector<curve::Grumpkin::AffineElement> points(num_points);
-    for (uint32_t i = 0; i < num_points; ++i) {
+    // Every supplied point is installed. The CRS constructor checks them against the pinned chunk hashes.
+    const size_t num_supplied_points = points_buf.size() / sizeof(curve::Grumpkin::AffineElement);
+    std::vector<curve::Grumpkin::AffineElement> points(num_supplied_points);
+    for (size_t i = 0; i < num_supplied_points; ++i) {
         points[i] =
             from_buffer<curve::Grumpkin::AffineElement>(points_buf.data(), i * sizeof(curve::Grumpkin::AffineElement));
     }

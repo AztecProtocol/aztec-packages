@@ -471,6 +471,7 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     // The index is the table's identity in the LogDeriv lookup relation (tables are distinguished by
     // table_index, not BasicTableId), so assign it at this single allocation choke point.
     table.table_index = index;
+    table.initialize_index_map();
     return table;
 }
 } // namespace bb::plookup

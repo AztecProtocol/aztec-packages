@@ -84,14 +84,14 @@ struct PolyFixture {
             self_ref.at(i) = fr::random_element();
             other.at(i) = fr::random_element();
         }
-        std::memcpy(self.data(), self_ref.data(), N * sizeof(fr));
+        std::copy_n(self_ref.data(), N, self.data());
     }
 
     // Reset self to the pre-randomized reference state without timing.
     void reset_self(State& state)
     {
         state.PauseTiming();
-        std::memcpy(self.data(), self_ref.data(), N * sizeof(fr));
+        std::copy_n(self_ref.data(), N, self.data());
         state.ResumeTiming();
     }
 };
@@ -111,7 +111,7 @@ struct CorrectnessGuard {
             a.at(i) = fr::random_element();
             b.at(i) = fr::random_element();
         }
-        std::memcpy(a_ref.data(), a.data(), M * sizeof(fr));
+        std::copy_n(a.data(), M, a_ref.data());
         const fr s = fr::random_element();
 
         // Production path.

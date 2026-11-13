@@ -51,9 +51,10 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
         if (data.size() != verify_bytes) {
             throw_or_abort("Truncated Grumpkin CRS");
         }
-        verify_grumpkin_crs_integrity(data);
-        std::vector<curve::Grumpkin::AffineElement> points(num_points);
-        for (size_t i = 0; i < num_points; ++i) {
+        // Not hashed here: the CRS constructor checks every point against the pinned chunk hashes, and accepts only
+        // whole chunks.
+        std::vector<curve::Grumpkin::AffineElement> points(verify_points);
+        for (size_t i = 0; i < verify_points; ++i) {
             points[i] = from_buffer<curve::Grumpkin::AffineElement>(data, i * sizeof(curve::Grumpkin::AffineElement));
         }
         return points;
@@ -70,7 +71,6 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
     const auto data = to_buffer(points);
     verify_grumpkin_crs_integrity(data);
     write_file(g1_path, data);
-    points.resize(num_points);
     return points;
 }
 } // namespace bb
