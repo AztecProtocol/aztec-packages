@@ -395,11 +395,7 @@ class MsgpackCursor {
         zone.clear();
     }
 
-    [[noreturn]] static void fail(const std::string& message)
-    {
-        bb::assert_failure("acir_format: " + message);
-        __builtin_unreachable();
-    }
+    [[noreturn]] static void fail(const std::string& message) { throw_or_abort("acir_format: " + message); }
 
   private:
     uint8_t next_byte(std::string_view what)
@@ -436,8 +432,9 @@ class MsgpackCursor {
  *
  * @param field_names The struct's fields in declaration order.
  * @param on_field Called with the field index for each present field. It must consume the field's value from the
- * cursor. Fields the struct does not declare are skipped.
+ * cursor. Unknown tagged fields are rejected unless allow_unknown_fields is true.
  * @param required_fields Required prefix of field_names for arrays and string-keyed maps. Tagged maps allow omissions.
+ * @param allow_unknown_fields Accept extra array/map entries and unknown integer tags.
  */
 template <size_t N, typename OnField>
 void for_each_struct_field(MsgpackCursor& cursor,
@@ -445,9 +442,13 @@ void for_each_struct_field(MsgpackCursor& cursor,
                            const std::array<std::string_view, N>& field_names,
                            std::string_view struct_name,
                            OnField&& on_field,
-                           size_t required_fields = N)
+                           size_t required_fields = N,
+                           bool allow_unknown_fields = false)
 {
     const auto header = cursor.read_container(struct_name);
+    if (!allow_unknown_fields && header.kind == MsgpackCursor::Container::ARRAY && header.count > N) {
+        MsgpackCursor::fail("too many fields in " + std::string(struct_name));
+    }
     std::array<bool, N> seen{};
     bool tagged_fields = false;
     for (uint32_t position = 0; position < header.count; ++position) {
@@ -458,6 +459,9 @@ void for_each_struct_field(MsgpackCursor& cursor,
             const msgpack::object key = cursor.next(zone, std::string(struct_name) + " field key");
             if (position == 0) {
                 tagged_fields = key.type == msgpack::type::POSITIVE_INTEGER;
+                if (!allow_unknown_fields && !tagged_fields && header.count > N) {
+                    MsgpackCursor::fail("too many fields in " + std::string(struct_name));
+                }
             }
             if (tagged_fields && key.type == msgpack::type::POSITIVE_INTEGER && key.via.u64 <= UINT8_MAX) {
                 field = key.via.u64 < field_names.size() ? static_cast<size_t>(key.via.u64) : field_names.size();
@@ -482,6 +486,9 @@ void for_each_struct_field(MsgpackCursor& cursor,
             seen[field] = true;
             on_field(field);
         } else {
+            if (tagged_fields && !allow_unknown_fields) {
+                MsgpackCursor::fail("unknown tag in " + std::string(struct_name));
+            }
             cursor.skip(std::string(struct_name) + " field");
         }
     }
@@ -694,28 +701,54 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
                     const auto functions = cursor.read_array("functions");
                     BB_ASSERT_EQ(
                         functions.count, 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
-                    for_each_struct_field(cursor, zone, CIRCUIT_FIELDS, "Circuit", [&](size_t circuit_field) {
-                        switch (circuit_field) {
-                        case CIRCUIT_OPCODES: {
-                            has_opcodes = true;
-                            header.num_opcodes = cursor.read_array("opcodes").count;
-                            Acir::Opcode opcode;
-                            for (size_t i = 0; i < header.num_opcodes; ++i) {
-                                cursor.read_into(zone, opcode, "Opcode");
-                                visit(i, opcode);
+                    for_each_struct_field(
+                        cursor,
+                        zone,
+                        CIRCUIT_FIELDS,
+                        "Circuit",
+                        [&](size_t circuit_field) {
+                            switch (circuit_field) {
+                            case CIRCUIT_OPCODES: {
+                                has_opcodes = true;
+                                header.num_opcodes = cursor.read_array("opcodes").count;
+                                Acir::Opcode opcode;
+                                for (size_t i = 0; i < header.num_opcodes; ++i) {
+                                    cursor.read_into(zone, opcode, "Opcode");
+                                    visit(i, opcode);
+                                }
+                                break;
                             }
-                            break;
-                        }
-                        case CIRCUIT_PUBLIC_PARAMETERS:
-                            cursor.read_into(zone, header.public_parameters, "Circuit::public_parameters");
-                            break;
-                        case CIRCUIT_RETURN_VALUES:
-                            cursor.read_into(zone, header.return_values, "Circuit::return_values");
-                            break;
-                        default:
-                            cursor.skip(CIRCUIT_FIELDS[circuit_field]);
-                        }
-                    });
+                            case CIRCUIT_PUBLIC_PARAMETERS:
+                                cursor.read_into(zone, header.public_parameters, "Circuit::public_parameters");
+                                break;
+                            case CIRCUIT_RETURN_VALUES:
+                                cursor.read_into(zone, header.return_values, "Circuit::return_values");
+                                break;
+                            case 0: {
+                                std::string name;
+                                cursor.read_into(zone, name, "Circuit::function_name");
+                                break;
+                            }
+                            case 2: {
+                                const auto parameters = cursor.read_array("Circuit::private_parameters");
+                                Acir::Witness witness;
+                                for (uint32_t i = 0; i < parameters.count; ++i) {
+                                    cursor.read_into(zone, witness, "Circuit::private_parameters element");
+                                }
+                                break;
+                            }
+                            case 5: {
+                                const auto messages = cursor.read_array("Circuit::assert_messages");
+                                std::tuple<Acir::OpcodeLocation, Acir::AssertionPayload> message;
+                                for (uint32_t i = 0; i < messages.count; ++i) {
+                                    cursor.read_into(zone, message, "Circuit::assert_messages element");
+                                }
+                                break;
+                            }
+                            }
+                        },
+                        CIRCUIT_FIELDS.size(),
+                        /*allow_unknown_fields=*/true);
                 },
                 /*required_fields=*/1);
             if (!has_functions) {
@@ -764,7 +797,8 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
         for (uint32_t item = 0; item < stack.count; ++item) {
             for_each_struct_field(cursor, zone, STACK_ITEM_FIELDS, "StackItem", [&](size_t field) {
                 if (field != STACK_ITEM_WITNESS) {
-                    cursor.skip("StackItem::index");
+                    uint32_t index = 0;
+                    cursor.read_into(zone, index, "StackItem::index");
                     return;
                 }
                 ++num_witness_maps;
