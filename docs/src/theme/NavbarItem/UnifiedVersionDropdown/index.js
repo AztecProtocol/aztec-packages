@@ -61,9 +61,6 @@ function useDisplayedVersion(pluginId, versions) {
   return candidateVersion ?? versions[0];
 }
 
-/**
- * One docs instance's versions, active doc context, preferred-version setter and displayed version
- */
 function useSection(pluginId) {
   const versions = useVersions(pluginId);
   return {
@@ -100,10 +97,7 @@ function createSectionHeader(label) {
   };
 }
 
-/**
- * The menu on one section's pages: only its versions, labelled with the displayed one. A mobile
- * menu with several versions is labelled "Versions" and has no link of its own.
- */
+// A mobile menu with several versions gets no `to`, so tapping its label opens the list.
 function sectionMenu(section, mobile, search, hash) {
   const items = buildVersionItems(section, search, hash);
   const collapsed = mobile && items.length > 1;
@@ -114,7 +108,6 @@ function sectionMenu(section, mobile, search, hash) {
   };
 }
 
-/** The menu on other pages: both sections' versions, grouped under headers. */
 function groupedMenu(developer, operate, search, hash) {
   return {
     items: [
