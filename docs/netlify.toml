@@ -1024,21 +1024,31 @@
 
 # =============================================================================
 # API REFERENCE FOLDERS
-# A docs version links the API reference folder of the first network that reads it
-# (aztecNrApiFolders in src/network_docs.js), so a network on another network's version has
-# no folder: its folder's URLs go to the one serving its version. 302 and no `force`, so the
-# network's own folder wins again, uncached, once it has one. Checked by
+# Each reference lives in a folder named after its version (apiReferenceFolder in
+# src/network_docs.js). A network's name is a redirect to the folder of the version it runs,
+# from developer_version_config.json; 302, as the target moves at each release. A retired
+# version's folder redirects to mainnet's. Checked by
 # scripts/__tests__/{api_reference_folders,netlify_redirects}.test.mts.
 # =============================================================================
 
 [[redirects]]
+    from = "/aztec-nr-api/mainnet/*"
+    to = "/aztec-nr-api/v6.0.0/:splat"
+    status = 302
+
+[[redirects]]
     from = "/aztec-nr-api/testnet/*"
-    to = "/aztec-nr-api/mainnet/:splat"
+    to = "/aztec-nr-api/v6.0.0/:splat"
+    status = 302
+
+[[redirects]]
+    from = "/typescript-api/mainnet/*"
+    to = "/typescript-api/v6.0.0/:splat"
     status = 302
 
 [[redirects]]
     from = "/typescript-api/testnet/*"
-    to = "/typescript-api/mainnet/:splat"
+    to = "/typescript-api/v6.0.0/:splat"
     status = 302
 
 # =============================================================================
@@ -1056,22 +1066,22 @@
 [[redirects]]
     # Aztec-nr: custom message was received but no handler was configured
     from = "/errors/2"
-    to = "/aztec-nr-api/mainnet/noir_aztec/macros/struct.AztecConfig.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/macros/struct.AztecConfig.html"
 
 [[redirects]]
     # Aztec-nr: message received with message type ID in the range reserved for future aztec.nr built-in message types
     from = "/errors/3"
-    to = "/aztec-nr-api/mainnet/noir_aztec/messages/msg_type/index.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/messages/msg_type/index.html"
 
 [[redirects]]
     # Aztec-nr: note packed length exceeds MAX_NOTE_PACKED_LEN
     from = "/errors/4"
-    to = "/aztec-nr-api/mainnet/noir_aztec/macros/notes/fn.note.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/macros/notes/fn.note.html"
 
 [[redirects]]
     # Aztec-nr: event serialized length exceeds MAX_EVENT_SERIALIZED_LEN
     from = "/errors/5"
-    to = "/aztec-nr-api/mainnet/noir_aztec/macros/events/fn.event.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/macros/events/fn.event.html"
 
 [[redirects]]
     # Aztec-nr: direct invocation of contract functions is not supported
@@ -1081,7 +1091,7 @@
 [[redirects]]
     # Aztec-nr: user-defined 'offchain_receive' is not allowed
     from = "/errors/7"
-    to = "/aztec-nr-api/mainnet/noir_aztec/messages/processing/offchain/fn.receive.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/messages/processing/offchain/fn.receive.html"
 
 [[redirects]]
     # PXE: incompatible oracle version between contract and PXE
@@ -1121,4 +1131,4 @@
 [[redirects]]
     # Aztec-nr: auto-generated note properties require the derived Packable layout
     from = "/errors/15"
-    to = "/aztec-nr-api/mainnet/noir_aztec/note/note_interface/trait.NoteProperties.html"
+    to = "/aztec-nr-api/v6.0.0/noir_aztec/note/note_interface/trait.NoteProperties.html"

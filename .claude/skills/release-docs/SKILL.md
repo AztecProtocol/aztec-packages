@@ -174,11 +174,6 @@ grep -rlE '#if\((devnet|testnet|mainnet|nightly)\)' docs/docs-developers/ docs/d
 Then set each other type's `<TAG_VAR>` in `docs_env` (2b) to the version its network
 reports in Step 1, and run Step 11b's `update_docs_versions.sh` once per type.
 
-A version both networks read serves its API reference from `mainnet/`, but Step 6 and
-`#api_ref_version` use the rendered type's folder, so a shared snapshot rendered as testnet
-fails Step 13's agent readiness check. Until that is supported, offer the owner a mainnet
-rendering only.
-
 ### Step 2: Prepare the Cut Worktree
 
 #### 2a. The Labs tag must exist
@@ -475,55 +470,35 @@ networks stay Alpha and Testnet, and CLI, env and Docker values stay `mainnet` a
 
 ### Step 6: Generate API Reference Docs
 
-A docs version links the API reference folder of the first network that reads it (mainnet
-before testnet; `networkApiFolder` in `src/network_docs.js`, which `#api_ref_version` also
-reads), so one version is stored once. Work out the folder this release's pages will link,
-and whether another network, keeping the version it shared with this type, now needs a
-folder of its own:
+Each docs version links the API reference folder of its own name (`apiReferenceFolder` in
+`src/network_docs.js`, which `#api_ref_version` reads), so every release type, devnet
+included, generates the release's own folders and never rewrites another version's:
 
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
-eval "$(node -e '
-  const { networkApiFolder } = require("./src/network_docs");
-  const [type, version] = process.argv.slice(1);
-  const before = require("./developer_version_config.json");
-  const after = { ...before, [type]: version };
-  const keep = Object.keys(before).filter(
-    (n) => n !== type && networkApiFolder(before, n) !== n && networkApiFolder(after, n) === n);
-  console.log(`API_FOLDER=${networkApiFolder(after, type) ?? ""}`);
-  console.log(`KEEP="${keep.map((n) => `${networkApiFolder(before, n)}:${n}`).join(" ")}"`);
-' <release_type> "$LABS_TAG")"
-echo "API_FOLDER=${API_FOLDER:-none} KEEP=${KEEP:-none}"
-for pair in $KEEP; do
-  for root in aztec-nr-api typescript-api; do
-    dst="static/$root/${pair#*:}"
-    rm -rf "$dst" && mkdir -p "$dst"
-    git -C "$CUT" archive "$PINNED" "docs/static/$root/${pair%%:*}" | tar -x -C "$dst" --strip-components=4
-  done
-done
-if [ "$API_FOLDER" = <release_type> ]; then
-  docs_env yarn generate:typescript-api <new_version>
-  docs_env yarn generate:aztec-nr-api <new_version>
-fi
+docs_env yarn generate:typescript-api "$LABS_TAG"
+docs_env yarn generate:aztec-nr-api "$LABS_TAG"
 docs_env yarn generate:aztecjs-reference
 ```
 
-- `API_FOLDER` is `<release_type>`: the two API generators write it.
-- It names another network: that network's folder already holds this version's reference,
-  so the generators are skipped. Step 16 removes this type's old folders and adds its
-  redirects.
-- Empty (devnet): no network docs version reads this type, so no folder is generated.
-- `KEEP` lists `<folder>:<network>` for a network that stays on the version it shared with
-  this type (mainnet moves on while testnet stays): the loop copies the shared folder to
-  that network from the pin commit, so a rerun after the generators overwrote the folder
-  still copies the old reference, and Step 16 removes its redirects.
-
 This writes:
 
-- `docs/static/typescript-api/<release_type>/` and `docs/static/aztec-nr-api/<release_type>/`,
-  when `API_FOLDER` is `<release_type>`
-- the copies `KEEP` names
+- `docs/static/typescript-api/$LABS_TAG/` and `docs/static/aztec-nr-api/$LABS_TAG/`
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
+
+List the new folders' landing pages in `docs/snapshots/published-static.txt`, so deleting
+either folder later fails `check_static_redirects.sh` until it has a redirect
+(`api_reference_folders.test.mts` fails a served folder whose pages are not listed):
+
+```bash
+f=snapshots/published-static.txt
+{ grep '^#' "$f"; { grep -v -e '^#' -e '^[[:space:]]*$' "$f"
+    printf '%s\n' "aztec-nr-api/$LABS_TAG/index.html" "typescript-api/$LABS_TAG/aztec.js.md"; } | LC_ALL=C sort -u; } >"$STATE/published-static.txt"
+mv "$STATE/published-static.txt" "$f"
+```
+
+Step 16 points the networks' URLs at the folder of the version each runs and removes the
+folders no served version links.
 
 The generators read the checkout at the tag: TypeDoc over the `yarn-project` Step 2d installed,
 `nargo doc` over a copy of `noir-projects/aztec-nr` made outside `docs/` (so nargo cannot
@@ -531,9 +506,10 @@ take `docs/Nargo.toml` as its workspace), and the Aztec.js reference from
 `yarn-project/aztec.js/src`. `generate_aztec_nr_docs.sh` takes `NARGO`, which `docs_env`
 exports as the provisioned binary, and fails unless it prints
 `nargo version = $NOIR_VERSION`; a mismatched nargo fails with errors such as
-`error: Non-ASCII character in comment`. The output folders are named by `RELEASE_TYPE`,
-which `docs_env` sets. `docs/bootstrap.sh` fails CI when the Aztec.js reference drifts from
-the destination's pin (`update_docs.sh --check`); regenerating here makes the snapshot
+`error: Non-ASCII character in comment`. The output folder is the version argument
+(`api_reference_folder` in `docs/scripts/lib/aztec_node.sh`), which refuses anything but a
+version, so a generator cannot write a folder named after a network. `docs/bootstrap.sh`
+fails CI when the Aztec.js reference drifts from the destination's pin (`update_docs.sh --check`); regenerating here makes the snapshot
 match the tag, and the page stays in the cut (Step 17).
 
 ### Step 7: Generate CLI Reference Docs
@@ -1483,8 +1459,6 @@ A first cut of a release type has nothing to clean up.
 - `docs/developer_versioned_docs/version-<old_version>/`
 - `docs/developer_versioned_sidebars/version-<old_version>-sidebars.json`
 - the old entry in `developer_version_config.json`
-- any version-named API docs under `docs/static/aztec-nr-api/` or
-  `docs/static/typescript-api/` (network folders follow "API reference folders" below)
 
 and reconcile so `developer_versions.json` drops it too:
 
@@ -1500,23 +1474,35 @@ reconciles one release type at a time and does not remove other types' orphans.
 
 #### API reference folders
 
-After Step 11 each network links its own folder, or the folder of the first network on its
-version (Step 6). Make `static/` and `docs/netlify.toml` agree for every network, not only
-this release type:
+Each docs version links the folder of its own name, except a version in
+`API_REFERENCE_STAND_INS` (`src/network_docs.js`), which links another's. The site serves
+the folder of every version a network reads and of every version in
+`developer_versions.json`. After the deletions above, make `static/` and
+`docs/netlify.toml` agree with that for every network, not only this release type
+(`<root>` is `aztec-nr-api` and `typescript-api`):
 
-- `git rm -r` each `docs/static/aztec-nr-api/<network>/` and
-  `docs/static/typescript-api/<network>/` that no version links any more, and append it to
-  `$STATE/deleted.txt`.
-- A network on another network's folder has two redirects in the "API REFERENCE FOLDERS"
-  section of `docs/netlify.toml`: `/aztec-nr-api/<network>/*` and `/typescript-api/<network>/*`
-  to `/<root>/<folder>/:splat`, `status = 302`, without `force`. A network on its own
-  folder has neither: delete them.
+1. Each network's two rules in the "API REFERENCE FOLDERS" section of `docs/netlify.toml`,
+   `/<root>/<network>/*`, redirect to `/<root>/<folder>/:splat`, where `<folder>` is the
+   folder of the version `developer_version_config.json` now maps that network to;
+   `status = 302`, without `force`.
+2. The retired-folder rules in that section and the `/errors/N` rules name mainnet's folder.
+3. `git rm -r` each folder under `docs/static/<root>/` that no served version links, and
+   append it to `$STATE/deleted.txt`. A folder a stand-in still names stays. Deleting a
+   stand-in's own version also removes its `API_REFERENCE_STAND_INS` entry.
+4. For each deleted folder, add `/<root>/<folder>/*` to `/<root>/<mainnet's folder>/:splat`,
+   `status = 302`, next to the network rules.
 
 Then check the cut:
 
 ```bash
 node --test scripts/__tests__/api_reference_folders.test.mts scripts/__tests__/netlify_redirects.test.mts
+scripts/check_static_redirects.sh
 ```
+
+`check_static_redirects.sh` fails a deleted folder that has no redirect, since its inventory
+lists each published folder's landing page. Known limit: a retired folder's redirect lands
+on the 404 page for a path the successor's reference dropped; reopen it if a reader reports
+one.
 
 #### Network/operator docs (mainnet and testnet only)
 
@@ -1593,7 +1579,7 @@ Sort every listed path into exactly one class:
    ```bash
    . ~/.cache/aztec-docs-cut/<cut>/env.sh
    for d in developer_versioned_docs/version-$LABS_TAG network_versioned_docs/version-$LABS_TAG \
-       static/{aztec-nr-api,typescript-api}/{mainnet,testnet}; do
+       static/{aztec-nr-api,typescript-api}/$LABS_TAG; do
      [ -d "$CUT/docs/$d" ] && rsync -a --delete "$CUT/docs/$d/" "$DEST_ROOT/docs/$d/"
    done
    for f in developer_versioned_sidebars/version-$LABS_TAG-sidebars.json \
@@ -1611,8 +1597,8 @@ Sort every listed path into exactly one class:
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
    destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
-   `release_names.json` entry from Step 5, Step 16's `netlify.toml` redirects, edits to
-   existing snapshots). Carry them as
+   `release_names.json` entry from Step 5, Step 16's `netlify.toml` redirects, including the
+   API reference rules, Step 6's `published-static.txt` lines, edits to existing snapshots). Carry them as
    reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 
@@ -1789,6 +1775,6 @@ Apart from the header's date, the diff only adds URLs and the static files this 
   migration notes.
 - **Changes land on the destination as one commit** that names the release inputs; the
   owner decides on pushing.
-- **API reference docs** use stable folders per release type; `#api_ref_version` resolves
-  to the matching folder (`include_version.js`).
+- **API reference docs** live in one folder per version, which `#api_ref_version` names;
+  a network's URLs redirect to the folder of the version it runs (Steps 6 and 16).
 - **Update `docs/README.md`** when a release adds generation scripts or build steps.

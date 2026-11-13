@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import networkDocs from "../src/network_docs.js";
 
 const TIMEOUT_MS = 20_000;
 const RETRY_PAUSE_MS = 2_000;
@@ -14,6 +15,8 @@ const COMMIT = /^[0-9a-f]{40}$/;
 const BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 const PAGE = "/developers/overview";
 const LLMS_DIRECTIVE = "> For the complete documentation index";
+const API_CONFIG = JSON.parse(fs.readFileSync(new URL("../developer_version_config.json", import.meta.url), "utf8"));
+const API_PAGE = "noir_aztec/macros/fn.aztec";
 
 type Reply = { url: URL; status: number; type: string; header: (name: string) => string; body: string };
 type Get = (pathAndQuery: string, accept?: string) => Promise<Reply>;
@@ -66,10 +69,10 @@ const getter = (base: URL, retried: string[]): Get => async (pathAndQuery, accep
 
 const isType = (reply: Reply, type: string) => reply.type.split(";")[0].trim().toLowerCase() === type;
 
-/** Problems with a redirect from `reply` to `expected` (a path on the base's origin); the target URL when there are none. */
-function redirectTo(reply: Reply, expected: string, problems: string[]): URL | null {
-  if (reply.status !== 301) {
-    problems.push(`${reply.url.pathname}: expected 301, got ${reply.status}`);
+/** Problems with a `status` redirect from `reply` to `expected` (a path on the base's origin); the target URL when there are none. */
+function redirectTo(reply: Reply, expected: string, problems: string[], status = 301): URL | null {
+  if (reply.status !== status) {
+    problems.push(`${reply.url.pathname}: expected ${status}, got ${reply.status}`);
     return null;
   }
   const target = new URL(reply.header("location"), reply.url);
@@ -77,6 +80,14 @@ function redirectTo(reply: Reply, expected: string, problems: string[]): URL | n
   else if (target.pathname !== expected) problems.push(`${reply.url.pathname}: redirects to ${target.pathname}, expected ${expected}`);
   else return target;
   return null;
+}
+
+/** Records problems unless a markdown request for `pathname` answers `twin`, as text/markdown that varies on Accept. */
+async function negotiates(get: Get, pathname: string, twin: string | undefined, label: string, problems: string[]) {
+  const reply = await get(pathname, "text/markdown");
+  if (reply.status !== 200 || !isType(reply, "text/markdown")) problems.push(`${label}: got ${reply.status} ${reply.type}, expected 200 text/markdown`);
+  else if (!reply.header("vary").toLowerCase().split(",").some((v) => v.trim() === "accept")) problems.push(`${label}: no Vary: Accept`);
+  else if (reply.body !== twin) problems.push(`${label}: body differs from ${pathname}.md`);
 }
 
 type Check = { id: string; name: string; run: (get: Get, state: { twin?: string; commit?: string }) => Promise<string[] | string> };
@@ -120,18 +131,12 @@ export const CHECKS: Check[] = [
     name: "content negotiation",
     run: async (get, state) => {
       const problems: string[] = [];
-      const markdown = async (label: string) => {
-        const reply = await get(PAGE, "text/markdown");
-        if (reply.status !== 200 || !isType(reply, "text/markdown")) problems.push(`${label}: got ${reply.status} ${reply.type}, expected 200 text/markdown`);
-        else if (!reply.header("vary").toLowerCase().split(",").some((v) => v.trim() === "accept")) problems.push(`${label}: no Vary: Accept`);
-        else if (reply.body !== state.twin) problems.push(`${label}: body differs from ${PAGE}.md`);
-      };
-      await markdown("markdown request");
+      await negotiates(get, PAGE, state.twin, "markdown request", problems);
       const browser = await get(PAGE, BROWSER_ACCEPT);
       if (browser.status !== 200 || !isType(browser, "text/html")) problems.push(`browser request: content-type ${browser.type}, status ${browser.status}, expected 200 text/html`);
       else if (!/<\/llms\.txt>;\s*rel="describedby"/.test(browser.header("link"))) problems.push('browser request: no Link: </llms.txt>; rel="describedby"');
       // Asked again after the HTML, so a cache that keys on the URL alone serves the wrong representation here.
-      await markdown("markdown request after the browser one");
+      await negotiates(get, PAGE, state.twin, "markdown request after the browser one", problems);
       return problems.length ? problems : `${PAGE}: markdown, html, markdown`;
     },
   },
@@ -171,6 +176,44 @@ export const CHECKS: Check[] = [
       if (!COMMIT.test(sha)) return ["/commit.txt: not a commit id"];
       if (state.commit && sha !== state.commit) return [`/commit.txt: ${sha}, expected ${state.commit}`];
       return sha;
+    },
+  },
+  {
+    id: "B8",
+    name: "API reference folders",
+    run: async (get) => {
+      const problems: string[] = [];
+      const folders = new Map<string, string>();
+      for (const network of Object.keys(API_CONFIG)) {
+        const folder = networkDocs.networkApiFolder(API_CONFIG, network);
+        if (folder) folders.set(network, folder);
+      }
+      const mainnet = folders.get("mainnet");
+      if (!mainnet) return ["developer_version_config.json maps no mainnet version"];
+      // A network's URL redirects (302: the target moves at each release) to the same path in its version's folder;
+      // the rule's `/:splat` keeps its slash, so the bare folder lands on `<folder>/`.
+      const lands = async (root: string, network: string, rest: string, type: string) => {
+        const expected = `/${root}/${folders.get(network)}/${rest.replace(/^\//, "")}`;
+        if (!redirectTo(await get(`/${root}/${network}${rest}`, BROWSER_ACCEPT), expected, problems, 302)) return undefined;
+        const page = await get(expected, BROWSER_ACCEPT);
+        if (page.status === 200 && isType(page, type)) return page;
+        problems.push(`${expected}: got ${page.status} ${page.type}, expected 200 ${type}`);
+        return undefined;
+      };
+      for (const network of folders.keys()) {
+        await lands("aztec-nr-api", network, "/noir_aztec/index.html", "text/html");
+        await lands("typescript-api", network, "/llms.txt", "text/plain");
+      }
+      await lands("aztec-nr-api", "mainnet", "", "text/html");
+      await lands("aztec-nr-api", "mainnet", "/", "text/html");
+      const twin = await lands("aztec-nr-api", "mainnet", `/${API_PAGE}.md`, "text/markdown");
+      if (twin) {
+        const negotiated = `/aztec-nr-api/mainnet/${API_PAGE}`;
+        await negotiates(get, negotiated, twin.body, "markdown request", problems);
+        redirectTo(await get(negotiated, BROWSER_ACCEPT), `/aztec-nr-api/${mainnet}/${API_PAGE}`, problems, 302);
+        await negotiates(get, negotiated, twin.body, "markdown request after the browser one", problems);
+      }
+      return problems.length ? problems : [...folders].map(([network, folder]) => `${network} → ${folder}`).join(", ");
     },
   },
 ];

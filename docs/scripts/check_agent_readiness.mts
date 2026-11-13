@@ -223,7 +223,8 @@ export function main(buildDir: string, env = process.env): number {
   const { problems, checked, previewOnly } = brokenLinks(pages, files, { production, llmsOrigin });
   problems.push(...missingTwins(sitemapPaths(read("sitemap.xml")), files));
   problems.push(...startHereProblems(read("llms.txt"), networkDocs.startHereLinks(instances, llmsOrigin)));
-  const apiDirs = networkDocs.apiReferenceDirs(instances[0]);
+  const cut = JSON.parse(fs.readFileSync(new URL("../developer_versions.json", import.meta.url), "utf8"));
+  const apiDirs = networkDocs.apiReferenceDirs(instances[0], cut);
   const namePages = new Map<string, string[]>();
   for (const { kind, dir } of apiDirs) {
     for (const { name: pkg } of kind === "typescript" ? tsPackages.documentedPackages() : []) {

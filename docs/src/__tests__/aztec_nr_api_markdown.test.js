@@ -13,6 +13,21 @@ async function convert(html, pagePath) {
   return convertRustdocPage(html, { pagePath: `${folder}${pagePath}`, folder, banner });
 }
 
+it("a folder no network reads gets twins whose banner names its version and its own index", async () => {
+  const { main } = await import("../../scripts/aztec_nr_api_markdown.mjs");
+  const build = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "aztec-nr-markdown-"));
+  try {
+    const dir = "aztec-nr-api/v1.0.0";
+    fs.mkdirSync(path.join(build, dir, "noir_aztec/state_vars"), { recursive: true });
+    fs.writeFileSync(path.join(build, dir, "noir_aztec/state_vars/struct.PublicMutable.html"), fixture("struct.PublicMutable.html"));
+    assert.equal(main(build, { CONTEXT: "deploy-preview", DEPLOY_PRIME_URL: "https://x" }, [{ kind: "aztec-nr", dir, version: "v1.0.0", networks: [] }]), 0);
+    const md = fs.readFileSync(path.join(build, dir, "noir_aztec/state_vars/struct.PublicMutable.md"), "utf8");
+    assert.ok(md.startsWith("> Aztec.nr API reference, v1.0.0. Index: https://x/aztec-nr-api/v1.0.0/llms.txt\n\n# Struct PublicMutable\n"), md.slice(0, 200));
+  } finally {
+    fs.rmSync(build, { recursive: true, force: true });
+  }
+});
+
 it("keeps a struct's method signatures, where-clauses and examples as rust blocks", async () => {
   const md = await convert(fixture("struct.PublicMutable.html"), "noir_aztec/state_vars/struct.PublicMutable.html");
   assert.ok(md.startsWith(`> ${banner}\n\n# Struct PublicMutable\n\nModule: \`noir_aztec::state_vars\`\n\n\`\`\`rust\npub struct PublicMutable<T, Context>\n`));

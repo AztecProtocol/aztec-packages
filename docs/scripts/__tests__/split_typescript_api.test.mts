@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
+import networkDocs from "../../src/network_docs.js";
 import packages from "../typescript_api_generation/packages.js";
 import { declarations, splitPackage } from "../split_typescript_api.mjs";
 
@@ -64,7 +65,8 @@ test("a comment flattened to one line of backticks does not hide the declaration
 });
 
 test("every declaration of the committed reference lands in exactly one page", () => {
-  const dir = new URL("../../static/typescript-api/mainnet/", import.meta.url);
+  const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
+  const dir = new URL(`../../static/typescript-api/${networkDocs.networkApiFolder(config, "mainnet")}/`, import.meta.url);
   for (const { name } of packages.documentedPackages()) {
     const markdown = fs.readFileSync(new URL(`${name}.md`, dir), "utf8");
     const pages = splitPackage(markdown, { ...options, pkg: name });

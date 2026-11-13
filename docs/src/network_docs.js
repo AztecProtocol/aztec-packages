@@ -9,6 +9,19 @@ const { versionLabel } = require("./release_names");
 
 const NETWORKS = ["mainnet", "testnet"];
 
+// v5.2.0's reference was never published under its own name and is not regenerated: its pages link
+// v6.0.0's, a fixed target, so they never follow a network to a later version.
+const API_REFERENCE_STAND_INS = { "v5.2.0": "v6.0.0" };
+
+/**
+ * The folder under static/aztec-nr-api/ and static/typescript-api/ that docs `version` links: the
+ * version's own name, so a release adds a folder and never overwrites another version's reference.
+ *
+ * @param {string} version a docs version, like `v6.0.0`
+ * @returns {string}
+ */
+const apiReferenceFolder = (version) => API_REFERENCE_STAND_INS[version] ?? version;
+
 const docsPath = (routeBasePath, path) =>
   `/${[routeBasePath, path].filter(Boolean).join("/")}`;
 
@@ -64,9 +77,7 @@ function docsInstances(developerConfig, networkConfig, production) {
 }
 
 /**
- * The Aztec.nr API reference folder (`static/aztec-nr-api/<folder>/`) of each docs version a
- * network reads. The reference is published per network, so a version uses the first network
- * that reads it, in NETWORKS order.
+ * The API reference folder (`apiReferenceFolder`) of each docs version a network reads.
  *
  * @param {{versions: {version: string, networks: string[]}[]}} instance a docsInstances entry
  * @returns {Record<string, string>} version → folder
@@ -75,7 +86,7 @@ const aztecNrApiFolders = (instance) =>
   Object.fromEntries(
     instance.versions
       .filter((v) => v.networks.length)
-      .map((v) => [v.version, v.networks[0]])
+      .map((v) => [v.version, apiReferenceFolder(v.version)])
   );
 
 /**
@@ -140,8 +151,8 @@ function lineApiFolders(developerConfig, lines) {
 }
 
 /**
- * The API reference folder a network's docs link: the one `apiReferenceDirs` serves for the version
- * that network reads, so networks on one version share it.
+ * The API reference folder of the version a network reads, which its `/<root>/<network>/*` redirect
+ * in netlify.toml targets.
  *
  * @param {Record<string, string>} developerConfig release type → version
  * @param {string} network a release type
@@ -149,27 +160,36 @@ function lineApiFolders(developerConfig, lines) {
  */
 function networkApiFolder(developerConfig, network) {
   const version = NETWORKS.includes(network) && developerConfig[network];
-  return version ? aztecNrApiFolders(docsInstances(developerConfig, {}, true)[0])[version] : undefined;
+  return version ? apiReferenceFolder(version) : undefined;
 }
 
 /**
- * The API reference folders of each docs version a network reads, one per kind, in the folder
- * aztecNrApiFolders names (the TypeScript reference is published per network the same way).
+ * The API reference folders the site serves, one entry per kind: the folder of every version a network
+ * reads, then of every cut version, once each. A cut version no network reads still serves its
+ * snapshot, and with it the folder its links name, so the build must index that folder too.
  *
  * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string[]} cutVersions developer_versions.json
  * @returns {{kind: "aztec-nr" | "typescript", dir: string, folder: string, version: string, networks: string[]}[]}
- *   `dir` is the folder's path under `static/` and the site root
+ *   `dir` is the folder's path under `static/` and the site root; `version` is the reference's own
+ *   version (the folder), whichever version links it; `networks` the networks whose version links it,
+ *   empty when only historical versions do
  */
-function apiReferenceDirs(instance) {
-  const folders = aztecNrApiFolders(instance);
-  return instance.versions
-    .filter((v) => folders[v.version])
-    .flatMap(({ version, networks }) =>
-      [
-        ["aztec-nr", "aztec-nr-api"],
-        ["typescript", "typescript-api"],
-      ].map(([kind, root]) => ({ kind, dir: `${root}/${folders[version]}`, folder: folders[version], version, networks })),
-    );
+function apiReferenceDirs(instance, cutVersions) {
+  if (!Array.isArray(cutVersions)) throw new TypeError("apiReferenceDirs needs the cut versions (developer_versions.json)");
+  const networksByFolder = new Map();
+  const add = (version, networks) => {
+    const folder = apiReferenceFolder(version);
+    networksByFolder.set(folder, [...new Set([...(networksByFolder.get(folder) ?? []), ...networks])]);
+  };
+  for (const { version, networks } of instance.versions) if (networks.length) add(version, networks);
+  for (const version of cutVersions) add(version, []);
+  return [...networksByFolder].flatMap(([folder, networks]) =>
+    [
+      ["aztec-nr", "aztec-nr-api"],
+      ["typescript", "typescript-api"],
+    ].map(([kind, root]) => ({ kind, dir: `${root}/${folder}`, folder, version: folder, networks })),
+  );
 }
 
 // The scoped index append_api_docs_to_llms.js writes into each built API reference folder. It
@@ -180,22 +200,24 @@ const SCOPED_API_INDEX = "llms.txt";
  * The apiReferenceDirs entries the build indexes: those whose folder exists under `static/`.
  *
  * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string[]} cutVersions developer_versions.json
  * @param {string} staticDir the docs `static/` directory
  */
-const builtApiReferenceDirs = (instance, staticDir) =>
-  apiReferenceDirs(instance).filter(({ dir }) => fs.existsSync(path.join(staticDir, dir)));
+const builtApiReferenceDirs = (instance, cutVersions, staticDir) =>
+  apiReferenceDirs(instance, cutVersions).filter(({ dir }) => fs.existsSync(path.join(staticDir, dir)));
 
 /**
- * The scoped indexes the build writes, as paths under the site root (`typescript-api/mainnet/llms.txt`).
+ * The scoped indexes the build writes, as paths under the site root (`typescript-api/v6.0.0/llms.txt`).
  * append_api_docs_to_llms.js skips a folder with no markdown, so an entry can be missing from
  * build/; check_agent_readiness.mts fails that build.
  *
  * @param {{versions: {version: string, networks: string[]}[]}} instance the developer docsInstances entry
+ * @param {string[]} cutVersions developer_versions.json
  * @param {string} staticDir the docs `static/` directory
  * @returns {string[]}
  */
-const scopedApiIndexes = (instance, staticDir) =>
-  builtApiReferenceDirs(instance, staticDir).map(({ dir }) => `${dir}/${SCOPED_API_INDEX}`);
+const scopedApiIndexes = (instance, cutVersions, staticDir) =>
+  builtApiReferenceDirs(instance, cutVersions, staticDir).map(({ dir }) => `${dir}/${SCOPED_API_INDEX}`);
 
 const sectionName = (title, { version, networks }) =>
   `${title}: ${networks.length ? `${versionLabel(version)} on ${networks.join(" and ")}` : "unreleased"}`;
@@ -373,8 +395,10 @@ function syncVersionsFile(configFile, versionsFile, versionedDocsDir) {
 }
 
 module.exports = {
+  API_REFERENCE_STAND_INS,
   SCOPED_API_INDEX,
   apiReferenceDirs,
+  apiReferenceFolder,
   aztecNrApiFolders,
   builtApiReferenceDirs,
   docsInstances,

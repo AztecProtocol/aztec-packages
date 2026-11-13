@@ -13,8 +13,8 @@ set -euo pipefail
 #
 # Checks performed:
 #   1. Broken links - target file does not exist at all
-#   2. Version mismatches - link uses wrong API version for its docs directory (e.g., a devnet
-#      versioned doc linking to nightly API, or vice versa)
+#   2. Version mismatches - a snapshot links an Aztec.nr API folder other than its version's
+#      (`apiReferenceFolder` in src/network_docs.js)
 #
 # Usage: validate_api_ref_links.sh   (DOCS_ROOT overrides the docs/ directory it reads)
 #
@@ -76,33 +76,22 @@ TOTAL_COUNT=0
 BROKEN_DETAILS=()
 VERSION_MISMATCH_DETAILS=()
 
-# Build version-to-type lookup from config files
-# Returns lines like "v4.2.0-aztecnr-rc.2=mainnet"
-DEVELOPER_VERSION_TYPE_MAP=""
-if [[ -f "$DOCS_ROOT/developer_version_config.json" ]]; then
-  DEVELOPER_VERSION_TYPE_MAP=$(node -e "
-    const config = require('$DOCS_ROOT/developer_version_config.json');
-    for (const [type, version] of Object.entries(config)) {
-      if (version) console.log(version + '=' + type);
-    }
-  " 2>/dev/null || echo "")
-fi
+# Lines like "v5.2.0=v6.0.0": a docs version whose pages link another version's API folder.
+API_REFERENCE_STAND_INS=$(cd "$DOCS_ROOT" && node -e '
+  const { API_REFERENCE_STAND_INS } = require("./src/network_docs");
+  for (const [version, folder] of Object.entries(API_REFERENCE_STAND_INS)) console.log(version + "=" + folder);
+')
 
-# Look up a version string in the type map
-# Args: $1 = version string (e.g., "v4.2.0-aztecnr-rc.2")
-# Outputs: the release type (e.g., "mainnet") or empty string if not found
-lookup_version_type() {
-  local version="$1"
-  local result=""
+# Outputs the API reference folder that the pages of docs version $1 link.
+api_reference_folder() {
+  local version="$1" line
   while IFS= read -r line; do
-    local map_version="${line%%=*}"
-    local map_type="${line#*=}"
-    if [[ "$map_version" == "$version" ]]; then
-      result="$map_type"
-      break
+    if [[ -n "$line" ]] && [[ "${line%%=*}" == "$version" ]]; then
+      echo "${line#*=}"
+      return
     fi
-  done <<< "$DEVELOPER_VERSION_TYPE_MAP"
-  echo "$result"
+  done <<< "$API_REFERENCE_STAND_INS"
+  echo "$version"
 }
 
 # Resolve a link path to a file in static/, case-insensitively.
@@ -192,36 +181,14 @@ resolve_static_path() {
   return 0
 }
 
-# Determine the expected API version from a docs directory path.
-# Uses the version config file for explicit type resolution.
+# The Aztec.nr API folder a docs directory's links must name.
 # Args: $1 = search directory path
-# Outputs: release type (e.g., "mainnet", "devnet") or "" (skip version check)
+# Outputs: the folder for a snapshot (version-<v>), or "" (skip the version check) for any other directory
 get_expected_api_version() {
-  local search_dir="$1"
   local dirname
-  dirname=$(basename "$search_dir")
-
-  # Extract version string from directory name (e.g., "version-v4.2.0-aztecnr-rc.2" → "v4.2.0-aztecnr-rc.2")
-  local version_str="${dirname#version-}"
-
-  # Look up in the config-based type map
-  local type_from_config
-  type_from_config=$(lookup_version_type "$version_str")
-  if [[ -n "$type_from_config" ]]; then
-    echo "$type_from_config"
-    return
-  fi
-
-  # Fallback: pattern matching for directories not in the config
-  if [[ "$dirname" =~ devnet ]]; then
-    echo "devnet"
-  elif [[ "$dirname" =~ nightly ]]; then
-    echo "nightly"
-  elif [[ "$dirname" =~ mainnet ]]; then
-    echo "mainnet"
-  else
-    # processed-docs or unrecognized — skip version check
-    echo ""
+  dirname=$(basename "$1")
+  if [[ "$dirname" == version-* ]]; then
+    api_reference_folder "${dirname#version-}"
   fi
 }
 
@@ -274,35 +241,15 @@ process_link() {
   fi
 }
 
-# Get the expected TypeScript API version from a docs directory path.
-# Uses the version config file for explicit type resolution.
+# The TypeScript API folder that a docs directory's <ApiFile>/<ApiLink> paths resolve against.
 # Args: $1 = search directory path
-# Outputs: release type (e.g., "mainnet", "devnet") or "next"
+# Outputs: the folder for a snapshot (version-<v>), or "next" for any other directory
 get_expected_ts_api_version() {
-  local search_dir="$1"
   local dirname
-  dirname=$(basename "$search_dir")
-
-  # Extract version string from directory name
-  local version_str="${dirname#version-}"
-
-  # Look up in the config-based type map
-  local type_from_config
-  type_from_config=$(lookup_version_type "$version_str")
-  if [[ -n "$type_from_config" ]]; then
-    echo "$type_from_config"
-    return
-  fi
-
-  # Fallback: pattern matching for directories not in the config
-  if [[ "$dirname" =~ devnet ]]; then
-    echo "devnet"
-  elif [[ "$dirname" =~ nightly ]]; then
-    echo "nightly"
-  elif [[ "$dirname" =~ mainnet ]]; then
-    echo "mainnet"
+  dirname=$(basename "$1")
+  if [[ "$dirname" == version-* ]]; then
+    api_reference_folder "${dirname#version-}"
   else
-    # processed-docs maps to "next"
     echo "next"
   fi
 }

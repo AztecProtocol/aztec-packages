@@ -48,7 +48,7 @@ function docs_routes_init_api_indexes {
   API_INDEXES=$(cd "$DOCS_ROOT" && node -e '
 const { docsInstances, scopedApiIndexes } = require("./src/network_docs");
 const [developer] = docsInstances(require("./developer_version_config.json"), require("./network_version_config.json"), true);
-for (const index of scopedApiIndexes(developer, "static")) console.log(index);
+for (const index of scopedApiIndexes(developer, require("./developer_versions.json"), "static")) console.log(index);
 ') || { echo "ERROR: could not read the scoped API indexes" >&2; return 1; }
 }
 
