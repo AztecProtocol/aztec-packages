@@ -1,663 +1,150 @@
-# Aztec Network Documentation
+# Aztec documentation
 
-Documentation for the Aztec Network, built with Docusaurus
+The source of https://docs.aztec.network: a Docusaurus 3 site, hosted on Netlify. Read [CLAUDE.md](CLAUDE.md) before a change: it holds the rules every change follows. Style: [HOW_WE_WRITE_DOCS.md](HOW_WE_WRITE_DOCS.md). First contribution: [CONTRIBUTING.md](CONTRIBUTING.md). Paths below are relative to `docs/` unless they start at the repository root.
 
-You can view the latest successful build here: https://docs.aztec.network
+## Layout
 
-## Two dev lines
+| Path | What it holds | Production serves it |
+| --- | --- | --- |
+| `docs/` | Landing and other root pages | yes |
+| `docs-developers/`, `docs-operate/`, `examples/`, `sidebars-developer.js`, `sidebars-operate.js` | The main dev line: pages (Docusaurus's "current" version), the code they quote, sidebars. Pinned by `aztec-node.json` | no |
+| `lines/v6/` | The v6 dev line: the same set, its pin, and `lines/v6/allowed-differences.txt` | no; previews serve it at `/developers-v6/` and `/operate-v6/`, marked noindex and left out of search, `llms.txt` and the sitemap |
+| `docs-participate/` | Unversioned participation pages | yes |
+| `developer_versioned_docs/`, `network_versioned_docs/` and their `*_versioned_sidebars/` | Release snapshots, served as written | yes |
+| `static/aztec-nr-api/<network>/`, `static/typescript-api/<network>/` | Committed API references, one folder per released version a network reads, shared by networks on that version (`src/network_docs.js`) | yes |
+| `src/` | Preprocessing (`src/preprocess/`), components, theme, plugins | |
+| `scripts/` | Build steps, generators, checks; their tests are in `scripts/__tests__/` | |
+| `snapshots/` | URL baselines the URL checks read | |
+| `docusaurus.config.js`, `netlify.toml` | Site config (docs instances, versions, link policy); Netlify build, redirects and headers | |
 
-The dev docs follow two aztec-node branches at once: `main` (v7) and `v6`, which keeps shipping v6.x releases. So each developer and operator page exists twice. The landing pages (`docs/`), `docs-participate/`, the versioned snapshots and `static/` are shared.
+## Commands
 
-| Line | Follows | Pages and examples | Pin |
-| --- | --- | --- | --- |
-| main | aztec-node `main` | `docs-developers/`, `docs-operate/`, `sidebars-*.js`, `examples/` | `aztec-node.json` |
-| v6 | aztec-node `v6` | `lines/v6/docs-developers/`, `lines/v6/docs-operate/`, `lines/v6/sidebars-*.js`, `lines/v6/examples/` | `lines/v6/aztec-node.json` |
+Run them in `docs/`, with the Node of `.nvmrc` and the Yarn of `package.json`'s `packageManager`.
 
-- Make each change in both lines, unless it is specific to one. Decide from the code: look the symbol or behaviour up in each line's checkout (`.aztec-node/tree` and `lines/v6/.aztec-node/tree`). If it is the same in both, change both pages; if not, change the line that has it. A fix to wording or to a mistake both copies share always goes into both.
-- In a v6 page, snippet and `references:` paths name the line's own files: `docs/lines/v6/examples/...` and `docs/lines/v6/.aztec-node/l1-artifacts/...`. `labs/` paths are the same in both lines and read each line's checkout. While the two pins differ, preprocessing refuses a page that quotes the other line's files.
-- Deploy previews serve the v6 line at `/developers-v6/` and `/operate-v6/`, marked noindex and left out of search, `llms.txt` and the sitemap. Production never builds it.
-- `./bootstrap.sh` checks each line's references and builds its examples (`examples/bootstrap.sh --line v6`). CI also runs each line's Noir tests under TXE (`--line v6 test-contracts`) and its fresh-folder test (`--line v6 test-first-project`). A line's TypeScript examples run against a network only at its release cut.
-- `test-first-project` runs `examples/ts/first_full_project/fresh_folder_test.sh`: it builds the "Your first full project" page's project in an empty folder from the page's own `package.json` and `tsconfig.json` blocks, rendered as the site renders them, and the example's `full` region, then type-checks it. Editing those blocks or that region is what it tests.
-- Migration notes and the operator changelog exist in both lines. A v6.x entry goes into both, since v7 readers upgrade from the latest v6; a v7 entry goes into main only.
-- A v6.x release cut promotes the v6 line into the main paths with `scripts/promote_line.sh` (see the release skills).
-- Retire a line with `git rm -r docs/lines/<line>` after its last release, or once no network runs its major.
+| Command | What it does |
+| --- | --- |
+| `yarn install` | Install. CI installs with `--immutable`. Yarn refuses a package younger than 7 days, except the first-party scopes `.yarnrc.yml` lists. |
+| `yarn start` | Fetch the pinned aztec-node checkout, preprocess once, generate the dev Aztec.nr reference, serve on port 3000 (`HOST` sets the host, `--port` the port). Run `node scripts/aztec_node.mts provision nargo` once first. There is no hot reload: restart to see an edit. |
+| `yarn build` | The full build and its checks, into `build/` (see below). Run `source scripts/node_options.sh` first, as CI and Netlify do, or Node prints a localStorage warning per render worker. `CONTEXT=production` builds the production layout. |
+| `yarn serve` | Serve `build/`, without the `netlify.toml` redirects: `/developers` answers 404, `/developers/overview` is the page. |
+| `yarn preprocess` | Expand the macros into `processed-docs/`, which is what Docusaurus reads. It loads `.env`, if present, into the build variables. |
+| `yarn spellcheck` | cspell, with the words in `docs-words.txt` (add a real word there). A line's pages are checked only through `processed-docs/`, so run `yarn preprocess` first. |
+| `yarn lint` | Biome (lint only, a warning fails), the `biome-baseline.json` count test, strict `tsc` over `scripts/**/*.mts` (`tsconfig.scripts.json`), shellcheck over `bootstrap.sh` and `scripts/*.sh`. |
+| `yarn test` | The `node:test` unit tests of `src/` and `scripts/`. |
+| `./bootstrap.sh check` | The checks that need no install, as fast CI runs them (about 1.5 minutes). |
 
-## Docusaurus
+`yarn build` runs, in order: the aztec-node fetch, `scripts/clean.sh`, preprocessing (snippets, macros, conditional blocks), spellcheck, `scripts/validate_redirect_targets.sh`, `scripts/validate_api_ref_links.sh`, the Docusaurus build (a broken link, a broken anchor or a duplicate route fails it), the markdown and `llms.txt` steps, then three checks of the output: `scripts/check_agent_readiness.mts`, `scripts/check_search_index.mts` and `scripts/check_built_site.mts`. Each check runs alone after a build: `node scripts/check_built_site.mts build`, with the build's `CONTEXT`.
 
-This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
+## What runs when
 
-### Files
+| When | What runs | Defined in |
+| --- | --- | --- |
+| Every pull request (fast CI) | `./bootstrap.sh check`: all of `scripts/__tests__/*.test.mts` (line copies, page census, operate sidebar, snapshot hygiene, Netlify redirects, these guides' paths and more), `scripts/check_netlify_toml.py`, `scripts/check_source_urls.sh`, `scripts/check_static_redirects.sh`, `scripts/check_skills.sh`, `scripts/check_cli_defaults.sh` and `scripts/check_doc_references.sh` per line | `bootstrap.sh` (`check`); `docs-checks` in the root `Makefile` |
+| A pull request that changes `docs/` (Netlify deploy preview) | `scripts/netlify-build.sh`: `yarn lint`, `yarn test`, a production-layout `yarn build` whose output is dropped, the dev Aztec.nr reference, the preview `yarn build`, `/commit.txt`, then `scripts/browser_smoke.mts` opens a few built pages in headless Chromium | `netlify.toml`, `scripts/netlify-ignore-build.sh` |
+| After the merge, full CI on `next` | `make docs docs-tests`: each line's examples compiled, the build, the aztec.js reference drift check, orphaned URLs against the base branch's snapshot, `check`; then spellcheck, `yarn test`, `yarn lint` and `examples/bootstrap.sh test_cmds` (below) | `bootstrap.sh`, `examples/bootstrap.sh` |
+| After the merge, Netlify production | Builds `next` with `CONTEXT=production` when `docs/` changed | `scripts/netlify-ignore-build.sh` |
 
-Here are the most relevant files you should be aware of:
+So the examples, the page runs, the aztec.js drift check and the orphaned-URL check run only after a merge. [CLAUDE.md](CLAUDE.md) says which to run yourself before you open a pull request.
 
-- `.gitignore` - This specifies which files Git should ignore when committing and pushing to remote repositories.
-- `docusaurus.config.js` - This is the configuration file for Docusaurus. You can manage the links in the header and footer, and site metadata here. A more in-depth introduction to this configuration file is available on the [Docusaurus website](https://docusaurus.io/docs/configuration) and full documentation for the API is [here](https://docusaurus.io/docs/docusaurus.config.js).
-- `package.json` - This specifies the dependencies for the website and the commands that you can run with yarn.
-- `sidebars-developer.js` / `sidebars-network.js` - These specify the sidebars for the developer and network documentation respectively. The full documentation for sidebar configuration is available on the [Docusaurus website](https://docusaurus.io/docs/sidebar).
-- `yarn.lock` - This specifies the full dependencies for the website including the dependencies of the dependencies listed in `package.json`. Do not edit this file directly. Edit `package.json` instead, then run `yarn` as described above.
-- `.env.template` - Template for environment variables required for Netlify functions (copy to `.env` and update with your API keys).
-- `netlify.toml` - Configuration for Netlify deployment and functions.
+## aztec-node code: the pin
 
-This site uses **Docusaurus multi-instance docs** with separate documentation areas:
-
-- `docs/` - Root-level documentation (landing page, shared content)
-- `docs-developers/` - Developer documentation source files (tutorials, references, guides)
-- `docs-operate/` - Operator documentation source files
-- `docs-participate/` - Participation / educational documentation source files
-
-See the [Docusaurus website](https://docusaurus.io/docs/docs-introduction) for the full documentation on how to create docs and to manage the metadata.
-
-## Versioning
-
-Aztec Docs use **multi-instance versioning** with separate version tracks for developer and network documentation:
-
-- **Developer docs**: Versions stored in `developer_versioned_docs/`, listed in `developer_versions.json`
-- **Network docs**: Versions stored in `network_versioned_docs/`, listed in `network_versions.json`
-
-Each versioned docs folder is a complete copy of the documentation at that point in time, which allows you to hot-fix previous versions.
-
-When you look at the published docs site, you will see version dropdowns for each docs instance. Developer docs show versions like `mainnet`, `testnet`, `devnet`, and `nightly`, while network docs show versions like `mainnet` and `testnet`.
-
-- Updating files in `docs-developers/` updates the "next" developer version
-- Updating files in `docs-operate/` updates the "next" operate version
-- Updating files in `docs-participate/` updates the unversioned participate docs
-- Updating files in versioned folders like `developer_versioned_docs/version-v3.0.0-devnet.5/` updates that specific version
-
-Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in versioned folders, since those docs have already been processed and built. Instead, drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
-
-The way docs builds work is the following:
-
-- Netlify builds this directory (`netlify.toml`). A push to `next` that changes `docs/` publishes docs.aztec.network about 15 minutes later; a push that changes nothing under `docs/` publishes nothing. A pull request that changes `docs/` gets a deploy preview. See [Publishing](#publishing).
-- Netlify hosts and serves the site: the domain, the `netlify.toml` redirects, the `subscribe` function, the markdown edge function and the migration notes range edge function (`migration_notes.md?from=&to=`, read from the `migration_notes.json` index the build writes).
-- [The main CI workflow](../.github/workflows/ci3.yml) runs the docs reference and sync checks on every pull request. The docs build and tests (`make docs docs-tests`) run in full CI, for example with the `ci-full` label.
-
-The preprocessing macros use environment variables to determine version numbers. For nightly builds, set `NIGHTLY_TAG` (or `COMMIT_TAG` for backwards compatibility):
+The docs quote aztec-node (Labs) code at the commit `aztec-node.json` pins, with its toolchain versions (aztec, bb, noir, `@aztec-foundation/l1-artifacts`). Everything that reads aztec-node code (`#include_code`, `references:`, the generators, `scripts/check_doc_references.sh`) reads a checkout of that commit, never this repository's `labs/` submodule, which moves on the Foundation's schedule. Each line has its own pin (`lines/v6/aztec-node.json`) and checkout.
 
 ```bash
-NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
+node scripts/aztec_node.mts fetch                    # check out each pinned commit (.aztec-node/tree, lines/v6/.aztec-node/tree)
+node scripts/aztec_node.mts check                    # fail on drift between the pin, the checkout and package.json
+node scripts/aztec_node.mts provision nargo bb cli   # install the pinned published toolchain into .aztec-node/
+eval "$(node scripts/aztec_node.mts env)"            # export AZTEC_NODE_DIR, the versions, NARGO, BB and AZTEC
+node scripts/aztec_node.mts --line v6 env            # the same for a line
+node scripts/aztec_node.mts lines                    # list the lines (none when CONTEXT=production)
 ```
 
-For other release types, use `RELEASE_TYPE` with the corresponding tag variable (see [RELEASE_TYPE Environment Variable](#release_type-environment-variable) for details).
+- `yarn build`, `yarn start` and `./bootstrap.sh` fetch first. `AZTEC_NODE_DIR` moves the checkout elsewhere.
+- A snippet or `references:` path keeps its `labs/` prefix, which names the checkout: `labs/yarn-project/stdlib/src/interfaces/aztec-node.ts` reads `.aztec-node/tree/yarn-project/stdlib/src/interfaces/aztec-node.ts`, and its source link names aztec-node at the pinned commit.
+- The examples' `Nargo.toml` path dependencies name the default checkout, so `AZTEC_NODE_DIR` does not apply to them.
+- `node scripts/aztec_node.mts pin <tag>` moves a pin; [CLAUDE.md](CLAUDE.md) has the steps. `pin` needs `gh` logged in: it records the sha256 of each noir release archive in `noirArchives` once `gh attestation verify` proves noir's publish workflow built it, and `provision nargo` refuses an archive whose sha256 differs.
+- `scripts/pin_doc_references.sh [--line <line>] [<old-commit>]` prints `<reference> -> <pages>` for each `labs/` reference whose files differ between the old pin (default: the line's pin at `git merge-base origin/next HEAD`) and the new one.
+- `node scripts/labs_release_notes.mts <from> <to> <outdir>` (needs `gh`) writes aztec-node's GitHub release notes for the tags in `(<from>, <to>]` as `<tag>.md`, with an `index.tsv` of each tag's status.
 
-The legacy `#include_aztec_version` macro uses `COMMIT_TAG`, while `#include_version_without_prefix` strips the `v` prefix (e.g., `v3.0.0-devnet.5` renders as `3.0.0-devnet.5`).
+## Macros and conditional content
 
-### How do I change the versions that show in the website
+Preprocessing (`src/preprocess/`) expands these in the source trees only. Snapshots are served as written, and `scripts/__tests__/snapshot_hygiene.test.mts` fails on a macro left in one.
 
-Both developer and network docs use **version config files** that map release types to version strings:
+| Macro | Renders |
+| --- | --- |
+| `#include_code <name> <path> <language> [noTitle,noLineNumbers,noSourceLink]` | The code between `docs:start:<name>` and `docs:end:<name>` in the file at `<path>` (from the repository root), with a source link. A `labs/` path links aztec-node at the pin; a path into `docs/node_modules/@aztec-foundation/l1-artifacts/` links that package's own release tag |
+| `#release_version` | The version of the build's `RELEASE_TYPE`, without `v`: `NIGHTLY_TAG` (else `COMMIT_TAG`), `DEVNET_TAG`, `TESTNET_TAG` or `MAINNET_TAG`, else that type's version in `developer_version_config.json`, else `0.0.0` |
+| `#release_network` | The `--network` value: `local-network` (nightly), `devnet`, `testnet`, `mainnet` |
+| `#release_name`, `#release_label` | The release line name from `release_names.json` (`Tierra`, else `v<version>`); the full label (`Tierra (v6.0.0)`) |
+| `#include_aztec_version` | The pin's `ref` (a line page: its line's pin; a release cut: `COMMIT_TAG`). A Labs version, never a ref into this repository |
+| `#include_version_without_prefix` | The same without `v` |
+| `#include_foundation_version`, `#include_foundation_version_without_prefix` | `v<installed @aztec-foundation/l1-artifacts version>` (a line page: its pin's), with and without `v`: for links and Nargo dependencies into this repository's `l1-contracts/` and `barretenberg/` |
+| `#docs_commit` | The commit snippet links into this repository name (`DOCS_COMMIT`, else `HEAD`): for hand-written links into, and clones of, `examples/` (a line page: its own line's path) |
+| `#api_ref_version` | The `static/aztec-nr-api/` folder the build's version is served from |
+| `#include_devnet_version`, `#include_testnet_version`, `#include_mainnet_version` | Older per-network macros: the `*_TAG` variable, else the config's version |
 
-- **Developer docs**: `developer_version_config.json` (e.g., `{"mainnet": "v4.2.0-aztecnr-rc.2", "testnet": "v4.1.0-rc.2", ...}`)
-- **Network docs**: `network_version_config.json` (e.g., `{"mainnet": "v4.1.2", "testnet": "v4.1.0-rc.2"}`)
+In a snippet, `// highlight-next-line`, `// highlight-start` and `// highlight-end` highlight lines and `// this-will-error` marks one red; `// docs:start:a:b` puts one region in two snippets, and `// highlight-next-line:a` highlights in one of them only. Example: `#include_code connect_to_network docs/examples/ts/aztecjs_connection/index.ts typescript`.
 
-The `docusaurus.config.js` reads these configs and auto-generates the Docusaurus-compatible `*_versions.json` arrays at startup, including only versions that have matching versioned docs directories. Any extra directories not in the config are also included (to preserve newly cut versions before the config is updated).
+`#if(<type>)`, `#elif(<type>)`, `#else` and `#endif` keep a block for one `RELEASE_TYPE` (`nightly`, `devnet`, `testnet`, `mainnet`). They are expanded before the version macros, so a block may hold one, and they do not nest.
 
-Use `scripts/update_docs_versions.sh` to update configs and reconcile with versioned docs directories:
+Build variables: `RELEASE_TYPE` (default `mainnet`); `DOCS_COMMIT`, required whenever `RELEASE_TYPE` is set to anything but `nightly`, and on `origin/next`; the `*_TAG` variables above; `COMMIT_TAG`; `KEEP_DEVELOPER_VERSIONS=1` for a network-only cut. `CONTEXT=production` drops the dev docs and the lines.
 
-```bash
-./scripts/update_docs_versions.sh developer                        # Reconcile developer config
-./scripts/update_docs_versions.sh network mainnet v4.2.0           # Set mainnet=v4.2.0, then reconcile
-./scripts/update_docs_versions.sh developer nightly v5.0.0-nightly # Set nightly version, then reconcile
-```
+## Versions and release cuts
 
-To create a new versioned snapshot of the docs:
+- `developer_version_config.json` and `network_version_config.json` map each network to the version it reads. `src/network_docs.js` turns them into served versions and paths, and `docusaurus.config.js` writes `developer_versions.json` and `network_versions.json` from them at every load.
+- `release_names.json` maps a major version to its release line name; `src/release_names.js` makes the labels.
+- `scripts/update_docs_versions.sh <developer|network> [<type> <version>]` sets a mapping and reconciles it with the snapshot folders.
+- A release cut is a skill run: `.claude/skills/release-docs/SKILL.md` and `.claude/skills/release-network-docs/SKILL.md`. A v6.x cut first promotes `lines/v6/` into the main paths with `scripts/promote_line.sh`.
+- A fix to a released page goes into its snapshot as rendered text, and into the dev lines when the code it describes is the same there.
 
-```bash
-yarn docusaurus docs:version:developer v3.0.0-devnet.6  # New developer version
-yarn docusaurus docs:version:network v4.2.0              # New network version
-```
+## Generated references
 
-### Version Configuration
+| Reference | Command | Source | Output | Needs |
+| --- | --- | --- | --- | --- |
+| Aztec.nr API | `yarn generate:aztec-nr-api [<version>]` | `labs/noir-projects/aztec-nr/` | `static/aztec-nr-api/<folder>/` (dev: `next`, gitignored, previews only) | `node scripts/aztec_node.mts provision nargo` |
+| TypeScript API | `yarn generate:typescript-api [<version>]` | the packages in `scripts/typescript_api_generation/config.json` | `static/typescript-api/<folder>/` | the checkout's `yarn-project` built, outside `docs/` |
+| Aztec.js reference page | `yarn generate:aztecjs-reference` | `labs/yarn-project/aztec.js/src/` | `docs-developers/docs/aztec-js/aztec_js_reference.md` | `node`, `python3` |
+| Node JSON-RPC API | `yarn generate:node-api-reference [--target-dir <dir>]` | `labs/yarn-project/stdlib/src/interfaces/` | `docs-operate/operators/reference/node-api-reference.md` | `yarn install` |
+| Operator CLI | `yarn generate:operator-cli-reference` | the installed aztec CLI's `aztec start --help` | `docs-operate/operators/reference/cli-reference.md` | the aztec CLI |
 
-`src/network_docs.js` maps both config files to the docs version each network reads and the path it is served at; `docusaurus.config.js` takes version labels, paths and defaults from it. The config-based approach replaces fragile substring matching on version strings.
+`RELEASE_TYPE` or the version string picks `<folder>` (see each generator's header). More detail: `scripts/aztec_nr_docs_generation/README.md`, `scripts/aztecjs_reference_generation/README.md`, `scripts/cli_reference_generation/CLI_DOCS_README.md`.
 
-This ensures that:
+## Examples and page tests
 
-- Version types are always correct regardless of the version string format
-- When nightly versions are removed by the cleanup script, the build doesn't break
-- Version configurations are conditionally included only if they exist
-- `llms.txt` and `llms-full.txt` name the networks and version of every listed page, and leave out versions no network reads
+`examples/` holds the code the pages quote. `examples/bootstrap.sh` compiles the Noir circuits and contracts and the Solidity, type-checks the TypeScript examples and builds the webapp tutorial, with the pinned published toolchain. `examples/bootstrap.sh --line v6` does the same for a line, in a copy staged outside the repository, because nargo takes the topmost `Nargo.toml` as its workspace. The stage is new on every run, so run a line's build whole: a single step such as `validate-ts` finds no compiled contracts, unless `DOCS_LINE_STAGE=<dir>` keeps one stage across runs. Its subcommands, which `examples/bootstrap.sh test_cmds` lists for full CI:
 
-## Releases
+- `execute`: runs main's examples listed in `EXAMPLES` (`examples/ts/aztecjs_runner/run.sh`) against a local network, in one compose project (`examples/ts/docker-compose.yml`), as the checkout's owner. A line's TypeScript examples run against a network only at its release cut.
+- `test-contracts` (Noir tests under TXE), `test-webapp`, `test-first-project` (the "Your first full project" page built in an empty folder).
+- `test-fresh-clone <page>` (`scripts/fresh_clone_test.sh`): a page's "Clone the example" block, as rendered, in an empty folder, then the build. The block fetches this repository at `#docs_commit`, takes the page's line's `examples/` and `Nargo.toml` only, then aztec-node's `noir-projects` at `#include_aztec_version` into that line's `.aztec-node/tree`; its versions come from the page's macros, never from a pin file.
+- `test-page-transcript <page>` (`scripts/page_transcript_test.sh`): every shell block of a page, as rendered, in an empty folder.
 
-A new docs site is published on every merge to `next` that changes `docs/`, unversioned pages (`docs/docs`, `docs-participate`) included.
+`scripts/page_tests.mts` names, for every tutorial and getting-started page with a shell block, the test that runs its commands (`TRANSCRIPTS`) or why none does (`UNTESTED`). `scripts/__tests__/page_tests.test.mts` fails on a page in neither list, and `scripts/__tests__/page_versions.test.mts` on a version a page types that differs from the one its example installs.
 
-### Publishing
+To run the examples by hand, start a local network, run `eval "$(node scripts/aztec_node.mts env)"`, then `examples/ts/aztecjs_runner/run.sh`. `AZTEC_NODE_URL` defaults to `http://localhost:8080`.
 
-Netlify (site `aztec-docs-dev`) runs `scripts/netlify-ignore-build.sh` first, and `scripts/netlify-build.sh` when it says to build. Its decision and the reason are the first lines of the deploy log.
+A new TypeScript example is a folder under `examples/ts/` with `examples/ts/<example>/index.ts` and `examples/ts/<example>/config.yaml`, and no `yarn.lock` (its install creates an empty, gitignored one). It reads `process.env.AZTEC_NODE_URL ?? "http://localhost:8080"`, and it runs only once it is in `EXAMPLES`. The TypeScript examples install `@aztec-labs/*` at the pin's `AZTEC_VERSION` and `@aztec-foundation/*` at its `BB_VERSION`. The Solidity examples compile against the l1-contracts sources in the `@aztec-foundation/l1-artifacts` devDependency (`examples/solidity/foundry.toml`); the bridge tutorials' contracts are Hardhat projects (`examples/ts/README.md`).
 
-- **Production** (`next`): builds when `docs/` changed since the last production build that passed, and whenever that build cannot be identified (no build cache, a commit that is not in `next`'s history). It leaves out the dev docs (`CONTEXT=production`).
-- **Deploy previews**: build when the pull request changes `docs/`.
-- **Check a deploy**: `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` asks a deployed site for what only Netlify answers: a redirect, a wildcard redirect, a page's markdown twin and the markdown answer to `Accept: text/markdown`, a migration-notes range, a missing page and `/commit.txt`. It prints one line per check and needs no install. With `--commit`, `/commit.txt` must name that commit.
+## Search
 
-Failed production deploys post to the `#docs-alert` Slack channel. These actions are for site owners, in the Netlify UI:
+Search is [Pagefind](https://pagefind.app), built by every `yarn build` into `build/pagefind/`, with no server or key. `src/plugins/pagefind/` indexes the Aztec.nr API pages of each network's version and every docs page but the dev line previews; `src/theme/SearchBar/` searches the version being read. `scripts/check_search_index.mts` fails the build when a sitemap page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query in `PROBES` misses its page in the top 10.
 
-- **Roll back**: publish an earlier production deploy (Deploys, then the deploy, then Publish deploy). First check that no production build is running, or it publishes over the rollback. A rollback lasts until the next production build. To hold it, also stop builds in the build settings, which stops previews too. Never lock deploys.
-- **Force a production build**: Trigger deploy, then Clear cache and deploy. Without a cache the build always runs. Use it after a failed production deploy, and after a change to a Netlify environment variable, which changes the output without a `docs/` change. Retry is not enough: it can be skipped.
-- A push whose tip commit message contains `[skip ci]` or `[skip netlify]` gets no deploy; the next push to `next` builds its changes.
-- A manual `netlify deploy --prod` upload is replaced by the next production build.
+## Publishing
 
-### Installation
+Netlify runs `scripts/netlify-ignore-build.sh`, then `scripts/netlify-build.sh` when it says to build; the first lines of a deploy log give the decision and the reason.
 
-To install the dependencies and dev dependencies, run:
+- Production builds `next` when `docs/` changed since the last production build that passed, or when that build cannot be found. It leaves out the dev docs and the lines.
+- A deploy preview builds when its pull request changes `docs/`.
+- `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` checks a deployed site for what only Netlify answers: redirects, markdown twins, the migration-notes range, the 404 page and `/commit.txt`. It needs no install.
+- `netlify/` holds the subscribe function and the markdown and migration-notes edge functions. `yarn dev:netlify` runs them locally; the subscribe function reads `BREVO_API_KEY` from a `.env` made from `.env.template`.
+- Failed production deploys post to the `#docs-alert` Slack channel. These are site owners' actions, in the Netlify UI:
+  - Roll back: publish an earlier production deploy, after checking that no production build is running (it would publish over the rollback). A rollback lasts until the next production build; to hold it, stop builds, which stops previews too. Never lock deploys.
+  - Force a build: Trigger deploy, then "Clear cache and deploy" (a retry can be skipped). Needed after a failed production deploy and after a change to a Netlify environment variable.
+  - A tip commit whose message has `[skip ci]` or `[skip netlify]` gets no deploy, and a manual `netlify deploy --prod` upload lasts until the next production build.
 
-```
-$ yarn
-```
+## `references:` front matter
 
-### Development
+A page lists the source files it documents, from the repository root (`references: ["labs/yarn-project/stdlib/src/interfaces/aztec-node.ts"]`, or a folder with `/*`). `scripts/check_doc_references.sh` fails when one is gone. It reads the source trees, not the snapshots. After a pin move, `scripts/pin_doc_references.sh` lists the pages to review, and the `update-doc-references` skill (`.claude/skills/update-doc-references/SKILL.md`) works through them.
 
-Aztec docs pull some code from the rest of the repository. This allows for great flexibility and maintainability. Some documentation is also autogenerated.
+## Migration notes and the operator changelog
 
-For that reason, there's a preprocessing step. You can run that step ad-hoc with `yarn preprocess`.
-
-This step does the following:
-
-- Pulls the code from the source files using the `#include` macros explained below.
-- Autogenerates documentation using the scripts in the `src` file.
-- Puts the final documentation in a `processed-docs` folder.
-
-> [!NOTE]
-> The `yarn start` command runs preprocessing once at startup and then serves from the `processed-docs` folder. This means that changes to files in the `docs` folder will NOT be reflected until you restart the dev server. This applies to all changes - both regular markdown edits and changes to code included via `#include_code` macros.
-> For a full build with all preprocessing, use `yarn build` instead.
-
-#### Run locally
-
-To run docusaurus development server, run:
-
-```
-$ yarn start
-```
-
-This command will start the development server on `HOST=localhost` by default. You can override the host by setting the `HOST` environment variable (e.g., `HOST=0.0.0.0 yarn start` to allow access from remote targets like codespaces).
-
-> [!TIP]
-> Since hot reloading is not available, you'll need to restart the dev server (`Ctrl+C` and run `yarn start` again) to see any changes you make to the documentation.
-
-#### Netlify Development (Full-Stack Testing)
-
-For testing features that require Netlify functions (like email subscriptions), use the Netlify development environment:
-
-```bash
-$ yarn dev:netlify
-```
-
-This runs a proxy server that includes both Docusaurus and Netlify functions:
-
-```
-Browser Request to localhost:8888
-           ↓
-    Netlify CLI Proxy (8888)
-           ↓
-    ┌─────────────────────────┐
-    │ Is it /.netlify/functions? │
-    └─────────────────────────┘
-           ↓                    ↓
-        YES                   NO
-           ↓                    ↓
-   Functions Server      Docusaurus (3000)
-```
-
-**When to use each:**
-
-- `yarn start` → Fast docs development (requires dev server restart for changes)
-- `yarn dev:netlify` → Testing email subscriptions, functions, full production-like environment
-
-**Environment Setup:**
-Create a `.env` file in the project root for Netlify functions:
-
-```bash
-# Copy .env.template to .env and update with your API key
-cp .env.template .env
-```
-
-Then edit `.env` with your actual Brevo API key.
-
-### Build
-
-To build the final version of the docs (which includes processes not present in dev, like broken links checking and minification), you can run:
-
-```
-$ yarn build
-```
-
-This command runs the preprocess command, generates static content into the `build` directory and can be served using any static contents hosting service.
-
-The build ends with checks of its own output. `scripts/check_built_site.mts` reads a few named pages of each docs version and dev line: the version menu, the operator pages' command template and recommended version, the search button and the footer. In production it also fails when the dev docs or a dev line is served. Most OperatorConfig parts render only in the browser, so it can check only their server-rendered fallbacks. When you rename a sample page, update `SAMPLE_PAGES` in the check, or the build fails. After a build, run it alone with `node scripts/check_built_site.mts build`, with the build's `CONTEXT`.
-
-### Search
-
-Search is [Pagefind](https://pagefind.app), built by every `yarn build`. There is no search server, key or crawler, and each deploy preview searches its own pages.
-
-- **Index**: `src/plugins/pagefind/` runs after the Docusaurus build and writes `build/pagefind/`. It indexes every docs page under Docusaurus's own `docusaurus_tag` (for example `docs-developer-v6.0.0`), and the Aztec.nr API item pages of each network's version under `default`, ranked below the guides. The served HTML is not changed. The TypeScript API reference is markdown only, so it is not searchable.
-- **Search bar**: `src/theme/SearchBar/` opens with Ctrl+K (⌘K on macOS) and loads `/pagefind/pagefind.js` on first use. It searches the version being read in both the developer and the operator docs, plus the unversioned pages. On an unversioned page it uses the developer version the reader last picked in the version menu, else the latest. "All versions" removes the filter.
-- **Check**: `scripts/check_search_index.mts` runs at the end of `yarn build`. It fails the build when a `sitemap.xml` page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query's page is not in the top 10 for a served version. A probe page outside the top 3 only prints a warning. After a build, run it alone with `node scripts/check_search_index.mts build`, with the build's `CONTEXT`.
-- **Probes**: `PROBES` in the check names each query's expected page by URL suffix. When you rename or move a probed page, add its new path to the probe, or the build fails.
-
-### aztec-node code: the pin
-
-Most of the code the docs quote is aztec-node's (the Labs repository). The docs pin the commit they quote in `aztec-node.json`, together with its toolchain versions (aztec, bb, noir and the `@aztec-foundation/l1-artifacts` version), and read a checkout of that commit. They never read this repository's `labs/` submodule, which the Foundation builds against and moves on its own schedule.
-
-```bash
-node scripts/aztec_node.mts fetch            # check the pinned commit out into .aztec-node/tree
-node scripts/aztec_node.mts check            # fail on any drift between the pin, the checkout and package.json
-node scripts/aztec_node.mts pin <tag>        # move the pin to an aztec-node release or nightly tag (needs gh)
-node scripts/aztec_node.mts provision nargo bb cli   # install the pinned nargo, bb and aztec CLI into .aztec-node/
-eval "$(node scripts/aztec_node.mts env)"    # export AZTEC_NODE_DIR, the versions, NARGO, BB and AZTEC
-node scripts/aztec_node.mts --line v6 <command>   # the same for a line, with its own pin and lines/v6/.aztec-node/
-node scripts/aztec_node.mts lines            # list the lines (none in production)
-```
-
-- `yarn build`, `yarn start` and `./bootstrap.sh` fetch first, so a fresh clone needs nothing else. The checkout is a shallow clone without aztec-node's own `docs/`; `AZTEC_NODE_DIR` moves it elsewhere.
-- `#include_code` and `references:` paths keep their `labs/` prefix, which names the checkout: `labs/yarn-project/...` reads `.aztec-node/tree/yarn-project/...`, and source links name aztec-node at the pinned commit (a tag can move; a commit cannot).
-- **Moving the pin:** run `pin <tag>`, then do what `check` asks (usually: set `@aztec-foundation/l1-artifacts` in `package.json` to the pinned `BB_VERSION` and run `yarn install`), and commit `aztec-node.json`, `package.json` and `yarn.lock` together. Snippets whose markers moved fail the build until the pages follow.
-- **Verified nargo:** `pin` needs the GitHub CLI, logged in. It downloads noir's release archive for each platform, has `gh attestation verify` check that noir's `publish-nargo.yml` workflow built it, and records its sha256 in `noirArchives`. `provision nargo` needs no `gh`: it refuses an archive whose sha256 differs from the pin, and a platform the pin has no sha256 for. Never edit `noirArchives` by hand; a mismatch means the release archive changed after the pin.
-- **Which tag:** each line's pin follows its own aztec-node branch: `aztec-node.json` follows `main` (v7 from 2026-11-04), and `lines/<line>/aztec-node.json` follows `<line>`. A line's `pin` installs its l1-artifacts into `lines/<line>/.aztec-node/`, so `package.json` stays as it is, and its `pin` and `check` refuse a tag of another major. After moving a pin, check that the recorded commit is on its branch (from `docs/`): `gh api "repos/aztec-labs-eng/aztec-node/compare/<branch>...<commit>" --jq .status` prints `behind` or `identical`.
-- **Release cuts** move the pins inside their own worktree, and the snapshot is generated from that; the dev docs keep their pins. A v6.x release is cut from its tag on aztec-node's `v6` branch, after `scripts/promote_line.sh` moves the v6 line into the main paths. See the `release-docs` and `release-network-docs` skills under `.claude/skills/`.
-- **Release notes:** from v6.1.0 the release skills read aztec-node's GitHub release notes for the tags they span. `node scripts/labs_release_notes.mts <from> <to> <outdir>` (needs `gh`) writes each body as `<tag>.md` and an `index.tsv` with each tag's status (`ok`, `empty`, `missing`) and `updated_at`. It takes the published releases and the release and rc tags in `(<from>, <to>]` that `<to>` contains, and does not parse the notes.
-- **Examples** build with the pinned published toolchain against the default checkout, which their Nargo.toml path dependencies name (`../../../.aztec-node/tree/...`), so `AZTEC_NODE_DIR` does not apply to them. The TS examples install `@aztec-labs/*` at the pinned `AZTEC_VERSION` and `@aztec-foundation/*` at `BB_VERSION`.
-- Never run nargo inside `docs/` or the checkout: nargo takes `docs/Nargo.toml` as its workspace.
-
-### Aztec.nr API Documentation
-
-The Aztec.nr API reference is auto-generated from the checkout's `noir-projects/aztec-nr/` (copied outside `docs/` first) using `nargo doc`. This generates HTML documentation that is served from `static/aztec-nr-api/`.
-
-**Prerequisites:** the nargo release the pinned aztec-node uses. The generator takes `NARGO`, else `.aztec-node/bin/nargo`, and refuses any other version:
-
-```bash
-node scripts/aztec_node.mts provision nargo
-```
-
-**Generate docs for the "next" version:**
-
-```bash
-yarn generate:aztec-nr-api
-```
-
-**Generate docs for a specific version:**
-
-```bash
-yarn generate:aztec-nr-api v1.0.0
-```
-
-**When to regenerate:**
-
-- When `aztec-nr` source code changes (new functions, updated comments, etc.)
-- The `next` version docs should be committed to the repo
-- Versioned docs (e.g., `v1.0.0`) are automatically generated by CI when releases are cut
-
-The generated docs are stored in `static/aztec-nr-api/<version>/` and linked from the [Aztec.nr API Reference](/developers/docs/aztec-nr/api) page.
-
-### TypeScript API Documentation
-
-The TypeScript API reference is auto-generated from the checkout's `yarn-project/` packages using TypeDoc. This generates LLM-optimized markdown documentation served from `static/typescript-api/`.
-
-**Documented packages:**
-
-- **Client SDKs:** `@aztec-labs/aztec.js`, `@aztec-labs/accounts`, `@aztec-labs/pxe`, `@aztec-labs/wallet-sdk`, `@aztec-labs/wallets`, `@aztec-labs/entrypoints`
-- **Core Libraries:** `@aztec-labs/stdlib`, `@aztec-labs/foundation`, `@aztec-labs/constants`
-
-**Prerequisites:** the checkout's `yarn-project` must be built, which is aztec-node's own build. Put the checkout outside `docs/` for it, since the build runs nargo:
-
-```bash
-export AZTEC_NODE_DIR=$HOME/.cache/aztec-docs/aztec-node
-node scripts/aztec_node.mts fetch
-(cd "$AZTEC_NODE_DIR" && env -u root -u ci3 AZTEC_TOOLCHAIN_FND_ROOT= make yarn-project)
-```
-
-**Generate docs for the "next" version:**
-
-```bash
-yarn generate:typescript-api
-```
-
-**Generate docs for a specific version:**
-
-```bash
-yarn generate:typescript-api v3.0.0-devnet.6
-```
-
-**How it works:**
-
-1. Reads package configuration from `scripts/typescript_api_generation/config.json`
-2. Runs TypeDoc on each package's entry points defined in their `package.json` `typedocOptions`
-3. Transforms the TypeDoc JSON output to LLM-optimized markdown via `transform_for_llm.ts`
-4. Generates `llm-summary.txt` with an overview of all packages
-
-**Output files:**
-
-- `static/typescript-api/<version>/*.md` - Per-package markdown documentation
-- `static/typescript-api/<version>/llm-summary.txt` - Human/LLM-readable summary
-
-**Version mapping:**
-
-- Versions containing "nightly" → `nightly/` folder
-- Versions containing "devnet" → `devnet/` folder
-- Versions containing "testnet" → `testnet/` folder
-- Versions for mainnet → `mainnet/` folder (set via `RELEASE_TYPE=mainnet`)
-- Other versions → version-specific folder (e.g., `v1.0.0/`)
-
-**When to regenerate:**
-
-- When TypeScript package APIs change (new exports, updated JSDoc comments, etc.)
-- The `next` version docs should be committed to the repo
-- Versioned docs are automatically generated by CI during release workflows
-
-The generated docs are linked from the [TypeScript API Reference](/developers/docs/aztec-js/typescript_api_reference) page.
-
-### Aztec.js API Reference Page
-
-The single-page Aztec.js reference (`docs-developers/docs/aztec-js/aztec_js_reference.md`) is auto-generated from the checkout's `yarn-project/aztec.js/src` by `scripts/aztecjs_reference_generation/`. This is a separate surface from the TypeDoc-based `static/typescript-api/` docs above: it is a Docusaurus page that gets snapshotted into `developer_versioned_docs/` at release cut time. `docs/bootstrap.sh` runs `update_docs.sh --check` in CI, so a pin move that alters the reference cannot land without the regenerated page.
-
-**Prerequisites:** No build is required — the parser reads source `.ts` files directly. `node` and `python3` must be available.
-
-**Regenerate the current page:**
-
-```bash
-yarn generate:aztecjs-reference
-```
-
-This overwrites `docs-developers/docs/aztec-js/aztec_js_reference.md`. Do not hand-edit that file.
-
-**When to regenerate:**
-
-- When a pin move changes `yarn-project/aztec.js/src` public APIs or JSDoc (CI's drift check will require it)
-- During a release docs cut (the `release-docs` skill runs this in Step 6, with the cut's pin at the release tag)
-
-### Node JSON-RPC API Reference
-
-The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in the checkout's `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
-
-**Source files** (in the checkout):
-
-- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`aztec_` methods)
-- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`aztecAdmin_` methods)
-- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
-
-**Prerequisites:** `yarn install` in `docs/` (the generator, `generate_node_api_reference.mts`, runs under `node` and resolves `typescript` from `docs/node_modules`). No build is required — it parses source `.ts` files via the TypeScript Compiler API, not compiled output.
-
-**Generate the reference doc:**
-
-```bash
-yarn generate:node-api-reference
-```
-
-This writes to `docs-operate/operators/reference/node-api-reference.md`.
-
-**Generate for a specific versioned docs directory:**
-
-```bash
-yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.1.3/operators/reference
-```
-
-**How it works:**
-
-1. Parses TypeScript interfaces with the TS Compiler API to extract JSDoc comments
-2. Parses Zod schema object literals from source AST to enumerate methods and extract types
-3. Generates markdown with method grouping, curl examples, and admin API security warnings
-
-**When to regenerate:**
-
-- When a pin move changes interface methods or Zod schemas in `yarn-project/stdlib/src/interfaces/`
-- When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
-- The source doc (`docs-operate/`) should be kept in sync with the latest code
-
-## Macros
-
-As mentioned above, Aztec docs pull code from the source files. This makes it easy to include sections of the source code in tutorials and other examples.
-
-This is done via macros which are processed in the `preprocessing` step described above.
-
-### `#include_code`
-
-You can embed code snippets into a `.md`/`.mdx` file from code which lives elsewhere in the repo.
-
-- In your markdown file:
-  - `#include_code identifier path/from/repo/root/to/file.ts language`
-  - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
-  - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
-- In the corresponding code delineate the code snippet with comments:
-  - ```typescript
-    some code
-    some code
-    // docs:start:hello
-    more code
-    more code
-    // this-will-error <-- you can use docusaurus highlighting comments.
-    this code will be highlighted red
-    more code
-    // highlight-next-line
-    this line will be highlighted
-    more code
-    // highlight-start
-    this line will be highlighted
-    this line will be highlighted
-    // highlight-end
-    more code
-    // docs:end:hello
-    more code
-    ```
-- You can even include chunks of the same piece of code (with different highlighting preferences) into different parts of the docs:
-  - ```typescript
-      some code
-      some code
-      // docs:start:hello:goodbye
-      this code will appear in the 'hello' snippet and the 'goodbye' snippet.
-      this code will appear in the 'hello' snippet and the 'goodbye' snippet.
-      // this-will-error
-      this code will be highlighted red in all snippets.
-      // highlight-next-line:goodbye
-      this line will be highlighted only in the 'goodbye' snippet.
-      // highlight-start:goodbye:hello
-      this line will be highlighted in both the `hello` and `goodbye` snippets
-      this line will be highlighted in both the `hello` and `goodbye` snippets
-      // highlight-end:goodbye
-      this line will be highlighted only in the 'hello' snippet.
-      // highlight-end:hello
-      this code will appear in the 'hello' snippet and the 'goodbye' snippet.
-      // docs:end:goodbye
-      this code will appear only in the 'hello' snippet.
-      // docs:end:hello
-      some code
-      some code
-    ```
-  - Somewhere in your markdown, you can then write:
-    - `#include_code hello path/from/repo/root/to/file.ts typescript`
-  - And somewhere else, you can write:
-    - `#include_code goodbye path/from/repo/root/to/file.ts typescript`
-- You can add as a last optional parameter a comma-separated list of options to tweak the display of the code block, for example:
-  - `#include_code hello path/from/repo/root/to/file.ts typescript noTitle,noLineNumbers,noSourceLink`
-- Ironically, we can't show you a rendering of these examples, because this README.md file doesn't support the `#include_code` macro!
-
-### `#include_aztec_version`
-
-This macro will be replaced inline with `COMMIT_TAG`: the Labs release tag in a release cut, the pin's `ref` from `aztec-node.json` otherwise. It is an aztec-node (Labs) version, never a ref into this repository and never an `@aztec-foundation/*` version; use `#include_foundation_version` (or `#include_foundation_version_without_prefix`) for those.
-
-Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
-
-```
-import { AztecPackagesVersion } from "@site/src/components/Version";
-<>{AztecPackagesVersion()}</>
-```
-
-### `#include_foundation_version`
-
-This macro will be replaced inline with `v<version>` of the installed `@aztec-foundation/l1-artifacts`, which `scripts/aztec_node.mts check` holds equal to the pinned aztec-node's `BB_VERSION`. Use it for links and Nargo `git` dependencies into this repository's own code, such as `l1-contracts/` and `barretenberg/`, in every build: it names the release the docs build against, which is also the tag that published Solidity snippets link to. `#include_foundation_version_without_prefix` renders the same version without the `v`, as npm wants it.
-
-### `#docs_commit`
-
-This macro will be replaced inline with the commit that `#include_code` snippets from this repository's files link to: `DOCS_COMMIT`, else `HEAD`. Use it for hand-written links into, and clones of, the docs examples (`docs/examples/`, or a line's `docs/lines/<line>/examples/`): `https://github.com/AztecProtocol/aztec-packages/blob/#docs_commit/docs/examples/...`. A line page names its own line's path. Like those snippets, it fails a build whose `RELEASE_TYPE` is set to anything but `nightly` without `DOCS_COMMIT`.
-
-### `#include_testnet_version`
-
-This macro will be replaced inline with the provided testnet version. This value is sourced from the `TESTNET_TAG` environment variable when running `yarn build` (e.g. `TESTNET_TAG=0.87.5 yarn build`).
-This value may be different from the `#include_aztec_version` macro, since the testnet version is not always the same as the latest aztec packages version.
-
-### `#include_devnet_version`
-
-This macro will be replaced inline with the provided devnet version. This value is sourced from the `DEVNET_TAG` environment variable when running `yarn build` (e.g. `DEVNET_TAG=3.0.0-devnet.4 yarn build`). If not specified, it defaults to `3.0.0-devnet.4`.
-This value may be different from both `#include_aztec_version` and `#include_testnet_version` macros, since the devnet version represents a separate development network release.
-
-### `#include_mainnet_version`
-
-This macro will be replaced inline with the provided mainnet version. This value is sourced from the `MAINNET_TAG` environment variable when running `yarn build` (e.g. `MAINNET_TAG=2.1.11 yarn build`). If not specified, it defaults to `2.1.11`.
-This value is used for mainnet releases.
-
-### `#release_version`
-
-This macro is release-type-aware and automatically resolves to the appropriate version based on the `RELEASE_TYPE` environment variable:
-
-| RELEASE_TYPE | Resolves to                                | Example                  |
-| ------------ | ------------------------------------------ | ------------------------ |
-| nightly      | `NIGHTLY_TAG` (falls back to `COMMIT_TAG`) | `3.0.0-nightly.20251218` |
-| devnet       | `DEVNET_TAG`                               | `3.0.0-devnet.5`         |
-| testnet      | `TESTNET_TAG`                              | `2.1.11`                 |
-| mainnet      | `MAINNET_TAG`                              | `2.1.11`                 |
-
-Usage: `azteclabs/aztec:#release_version`
-
-### `#release_network`
-
-This macro resolves to the network name for use with the `--network` CLI flag:
-
-| RELEASE_TYPE | Resolves to     |
-| ------------ | --------------- |
-| nightly      | `local-network` |
-| devnet       | `devnet`        |
-| testnet      | `testnet`       |
-| mainnet      | `mainnet`       |
-
-Usage: `--network #release_network`
-
-### `RELEASE_TYPE` Environment Variable
-
-The `RELEASE_TYPE` environment variable controls which release type the documentation is being built for. Valid values are:
-
-- `nightly` - For nightly developer docs releases
-- `devnet` - For devnet releases
-- `testnet` - For testnet releases
-- `mainnet` (default when unset) - For mainnet releases
-
-Setting any value but `nightly` also requires `DOCS_COMMIT`: released docs link this repository's snippet files (`examples/`) at that commit, which must be on `origin/next`. Unset, links name `HEAD`.
-
-Example build commands:
-
-```bash
-# Build with the defaults (mainnet versions, links at HEAD)
-yarn build
-
-# Build for nightly
-RELEASE_TYPE=nightly NIGHTLY_TAG=v3.0.0-nightly.20251218 yarn build
-
-# Build for devnet
-RELEASE_TYPE=devnet DEVNET_TAG=3.0.0-devnet.5 DOCS_COMMIT=<commit on origin/next> yarn build
-
-# Build for testnet
-RELEASE_TYPE=testnet TESTNET_TAG=2.1.11 DOCS_COMMIT=<commit on origin/next> yarn build
-
-# Build for mainnet
-RELEASE_TYPE=mainnet MAINNET_TAG=4.2.0-aztecnr-rc.2 DOCS_COMMIT=<commit on origin/next> yarn build
-```
-
-### Conditional Content
-
-You can include content that only appears for specific release types using conditional blocks:
-
-```markdown
-#if(nightly)
-Content that only appears in nightly docs
-#elif(devnet)
-Content that only appears in devnet docs
-#elif(testnet)
-Content that only appears in testnet docs
-#elif(mainnet)
-Content that only appears in mainnet docs
-#else
-Default content if no condition matches
-#endif
-```
-
-**Supported conditions** (matching `RELEASE_TYPE` values):
-
-- `nightly` - True when `RELEASE_TYPE=nightly`
-- `devnet` - True when `RELEASE_TYPE=devnet`
-- `testnet` - True when `RELEASE_TYPE=testnet`
-- `mainnet` - True when `RELEASE_TYPE=mainnet`
-
-**Notes:**
-
-- Conditional blocks are processed before version macro substitution, so you can use version macros inside conditionals
-- Nested conditionals are not supported
-- The `else` block is optional
-
-## Viewing (outdated) protocol specs
-
-The protocol specs pages are outdated, but it may still be useful to view them in some cases.
-
-To view the protocol specs, you can run `yarn dev`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the versioned docs folders (`developer_versioned_docs/`, `network_versioned_docs/`) and their sidebars.
-
-## Adding Migration Notes
-
-When making breaking changes to Aztec, add migration notes to help users upgrade. Migration notes are organized by version and component in `docs/migration_notes.md`.
-
-### Structure
-
-- **Latest changes**: Add new items at the top under `## TBD` or `## [Component]` sections
-- **Version releases**: When cutting a release, move TBD items under the new version header (e.g., `## 2.0.2`)
-- **Component sections**: Group related changes under headers like `## [Aztec.nr]`, `## [Aztec.js]`, etc.
-
-### Format
-
-Each migration item should include:
-
-1. **Clear title**: Descriptive `### Title` explaining what changed
-2. **Motivation** (optional): Why the change was made
-3. **Key points**: Numbered list of important changes
-4. **Example migration**: Before/after code using `diff` blocks:
-
-```diff
-- old_code()
-+ new_code()
-```
-
-## Documentation References
-
-Documentation pages can declare which source files they document via a `references` field in their frontmatter. CI validates that every referenced path still exists, so a refactor that moves or deletes a documented file fails the build until the frontmatter is updated.
-
-**How it works:**
-
-1. **Mark Referenced Files**: Add a `references` field to your documentation frontmatter with paths to source files or directories (from repository root):
-
-   ```yaml
-   ---
-   title: Node JSON RPC API reference
-   references: ["labs/yarn-project/stdlib/src/interfaces/aztec-node.ts"]
-   ---
-   ```
-
-   To reference all files in a directory, use `/*` suffix:
-
-   ```yaml
-   ---
-   title: Function Context
-   references: ["labs/noir-projects/aztec-nr/aztec/src/context/*"]
-   ---
-   ```
-
-2. **Validation**: During CI builds (`bootstrap.sh`), the system extracts all referenced paths from documentation frontmatter and fails the build if any of them no longer exist; update the `references` frontmatter in the affected doc.
-
-3. **Pin moves**: aztec-node changes reach the docs only when a line's pin moves, so the PR that moves it also updates the pages it reaches. `scripts/pin_doc_references.sh [--line <line>] [<old-commit>]` lists them as `<reference> -> <pages>`: every reference whose files differ between the old pin (by default the line's pin at `git merge-base origin/next HEAD`) and the new one. The `update-doc-references` skill under `.claude/skills/` takes that list.
-
-**Implementation**: The check is `scripts/check_doc_references.sh` (with `scripts/lib/extract_doc_references.sh` for frontmatter parsing), which runs as part of the docs CI pipeline. `scripts/pin_doc_references.sh` uses the same library.
-
-**Path Format**:
-
-- Paths must be absolute from the repository root (e.g., `labs/yarn-project/...`, not `../../../../labs/yarn-project/...`)
-- For individual files: `"path/to/file.ts"`
-- For directories (all files within): `"path/to/directory/*"`
-
-**Limitations**:
-
-- Only checks documentation in the source folders (`docs-developers/`, `docs-operate/`, `docs-participate/`), not versioned docs
-
-## Contributing
-
-We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.
+Developer migration notes are `docs-developers/docs/resources/migration_notes.md`. New entries go under `## TBD`, each a `###` heading that starts with its component in brackets ([Aztec.nr], [Aztec.js], [PXE]), with what changed and a before-and-after `diff` block; a release cut moves them under its version. The operator changelog is `docs-operate/operators/reference/changelog/`, one page per release.
