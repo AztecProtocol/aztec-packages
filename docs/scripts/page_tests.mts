@@ -83,7 +83,7 @@ export const TRANSCRIPTS: Record<string, Transcript> = {
       { skip: "aztec compile", why: "the first build, of the contract's public half, which no example file holds" },
       { skip: "aztec codegen target --outdir artifacts", why: "the bindings of that public half" },
       { skip: "aztec start --local-network", why: "starts the local network, which only the script needs" },
-      { skip: "npx tsx index.ts", runner: "bob_token_contract" },
+      { skip: "npx tsx index.ts", why: "deploys that public half" },
       { merge: "balance_set", into: "bob_token_contract/Nargo.toml" },
       { copy: "contracts/bob_token_contract/src/main.nr", to: "bob_token_contract/src/main.nr" },
       { run: "aztec compile" },
@@ -108,7 +108,7 @@ export const UNTESTED: Record<string, string> = {
   "docs-developers/docs/tutorials/contract_tutorials/recursive_verification.md":
     "needs aztec-nargo from the installer, proof generation and a running network",
   "docs-developers/docs/tutorials/contract_tutorials/token_contract.md":
-    "its first build, of the contract's public half, is not run: no example file holds that half",
+    "its first build, bindings and deployment, of the contract's public half, are not run: no example file holds that half",
   "docs-developers/docs/tutorials/js_tutorials/aave_bridge.md": "no transcript test yet",
   "docs-developers/docs/tutorials/js_tutorials/aztecjs-getting-started.md":
     "installs with Yarn's default PnP linker and its script needs a running network",
