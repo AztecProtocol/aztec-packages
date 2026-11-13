@@ -15,10 +15,13 @@ unset AZTEC_NODE_DIR
 # line's .aztec-node (checkout and toolchain) and l1-artifacts linked in where docs/ has its own.
 # DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
 DOCS_LINE= STAGE= DOCS_ROOT=
+EXECUTED=
 
 # Set before staging, so a failed copy also removes the stage.
 function on_exit {
   if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
+  # A stopped compose run kills the runner before its own cleanup, which leaves an example's install behind.
+  if [ -n "$EXECUTED" ]; then "$REPO_ROOT/docs/examples/ts/aztecjs_runner/run.sh" --clean || true; fi
 }
 trap on_exit EXIT
 
@@ -296,6 +299,11 @@ function execute-examples {
   mkdir -p "$crs"
   [ -w "$crs" ] || { echo_stderr "$crs is not writable by $(id -un), and the examples runner caches the CRS there."; return 1; }
   local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
+  # These traps hold this shell until run_compose_test returns, which is after it took the project down, so
+  # on_exit removes the examples' files only once no container writes them.
+  EXECUTED=1
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
   DOCS_UID=$(id -u) DOCS_GID=$(id -g) run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
