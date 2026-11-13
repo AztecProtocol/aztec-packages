@@ -1,11 +1,13 @@
 // Fails a build whose key pages lost what readers rely on though the build succeeded. The expected
-// layout comes from the model docusaurus.config.js builds from (src/network_docs.js). Most
-// OperatorConfig parts render nothing on the server, so only their fallbacks can be checked here.
+// layout comes from the model docusaurus.config.js builds from (src/network_docs.js, src/footer.js).
+// Most OperatorConfig parts render nothing on the server, so only their fallbacks can be checked here.
 //
 //   node scripts/check_built_site.mts <build-dir>
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
+import footer from "../src/footer.js";
 import networkDocs from "../src/network_docs.js";
 import line from "../src/preprocess/line.js";
 
@@ -22,12 +24,17 @@ export const MATH_PAGES = ["docs/foundational-topics/advanced/storage/indexed_me
 // Generated API reference pages: thousands of files, and no Docusaurus page among them.
 const GENERATED_REFERENCE = ["aztec-nr-api/**", "typescript-api/**"];
 
+/** A footer link column, as in `themeConfig.footer.links`. */
+export type FooterColumn = { title: string; items: { label: string; to?: string; href?: string }[] };
+export type FooterLink = { title: string; label: string; href: string };
+
 export type Model = {
   configs: { developer: Record<string, string>; network: Record<string, string> };
   /** `<plugin>_versions.json`: every version with a snapshot, read by the config as its cut versions. */
   cut: { developer: string[]; network: string[] };
   lines: string[];
   production: boolean;
+  footer: FooterColumn[];
 };
 type Section = { base: string; page: string; paths: string[]; urls: string[]; rootUrl: string | null };
 
@@ -98,6 +105,23 @@ const navbarLinksTo = (html: string, url: string) =>
 
 export const hasFooter = (html: string) => startTags(html, "footer").some((tag) => classList(tag).includes("footer"));
 
+/** Every link in the site footer, in page order, with the column title before it. */
+export function footerLinks(html: string): FooterLink[] {
+  const site = [...html.matchAll(/(<footer\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)<\/footer>/gi)].find((m) => classList(m[1]).includes("footer"));
+  const links: FooterLink[] = [];
+  let title = "";
+  // A title is a div holding only text; a link's text may hold markup (the external-link icon).
+  for (const m of site?.[2].matchAll(/(<div\b(?:[^>"']|"[^"]*"|'[^']*')*>)([^<]*)<\/div>|(<a\b(?:[^>"']|"[^"]*"|'[^']*')*>)([\s\S]*?)<\/a>/gi) ?? []) {
+    if (m[1] && classList(m[1]).includes("footer__title")) title = decode(m[2]);
+    if (m[3]) links.push({ title, label: decode(m[4].replace(/<[^>]*>/g, "")), href: attr(m[3], "href") ?? "" });
+  }
+  return links;
+}
+
+const configLinks = (columns: FooterColumn[]): FooterLink[] =>
+  columns.flatMap(({ title, items }) => items.map(({ label, to, href }) => ({ title, label, href: href ?? to ?? "" })));
+const describeLinks = (links: FooterLink[]) => links.map((l) => `${l.title}: ${l.label} ${l.href}`).join(", ");
+
 export const hasSearchTrigger = (html: string) =>
   startTags(html, "button").some((tag) => attr(tag, "aria-label")?.startsWith("Search ("));
 
@@ -148,6 +172,7 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     toolchainUrls.push(...s.paths.map((p) => pageUrl(s.base, p, TOOLCHAIN_PAGE)));
   }
   const urls = [...sections.flatMap((s) => s.urls), ...toolchainUrls, ...OTHER_PAGES];
+  const expectedFooter = configLinks(model.footer);
   for (const url of urls) {
     const html = page(url);
     if (html === null) {
@@ -155,7 +180,11 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
       continue;
     }
     if (!hasSearchTrigger(html)) problems.push(`${url}: no search button (the navbar's search bar rendered nothing)`);
+    const shownFooter = footerLinks(html);
     if (!hasFooter(html)) problems.push(`${url}: no site footer`);
+    else if (!isDeepStrictEqual(shownFooter, expectedFooter)) {
+      problems.push(`${url}: footer links [${describeLinks(shownFooter)}], expected src/footer.js's [${describeLinks(expectedFooter)}]`);
+    }
   }
 
   for (const s of sections) {
@@ -216,5 +245,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     cut: { developer: json("developer_versions.json"), network: json("network_versions.json") },
     lines: line.lineNames(path.dirname(docsDir)),
     production: process.env.CONTEXT === "production",
+    footer: footer.links,
   });
 }
