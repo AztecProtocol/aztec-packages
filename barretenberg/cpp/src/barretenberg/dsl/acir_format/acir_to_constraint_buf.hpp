@@ -1,6 +1,13 @@
 #pragma once
 #include "acir_format.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "serde/index.hpp"
+
+#include <functional>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace acir_format {
 
@@ -76,13 +83,28 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 ///   which constructs a barretenberg circuit by adding the relevant constraints and witnesses to a Builder
 
 /**
- * @brief Deserialize `buf` containing msgpack-compact format data.
+ * @brief Check the format marker in front of a serialized program or witness (2 msgpack, 3 msgpack-compact, 4
+ * msgpack-tagged) and return the msgpack data after it. msgpack-compact data must have an array at its root.
+ *
+ * @param what Names the caller in error messages.
+ */
+std::span<const char> msgpack_bytes(const std::vector<uint8_t>& buf, std::string_view what);
+
+/**
+ * @brief Deserialize `buf` containing msgpack-compact format data into a whole msgpack object tree.
  *
  * @note The function expects the first byte to be a format marker (2 for msgpack, 3 for msgpack-compact).
- * The data must be in msgpack array format (compact format), not map format.
+ * The data must be in msgpack array format (compact format), not map format. The circuit and witness readers below
+ * do not use it: they read the bytes one value at a time, because the tree of a large program is several times the
+ * size of its bytes.
  */
 template <typename T>
-T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack);
+T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack)
+{
+    const std::span<const char> bytes = msgpack_bytes(buf, "deserialize_msgpack_compact");
+    auto oh = msgpack::unpack(bytes.data(), bytes.size());
+    return decode_msgpack(oh.get());
+}
 
 /**
  * @brief Convert an Acir::Circuit into an AcirFormat by processing all the opcodes.

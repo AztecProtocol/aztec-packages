@@ -1,9 +1,16 @@
 #include "acir_to_constraint_buf.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <numeric>
 #include <optional>
+#include <ranges>
+#include <span>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -291,55 +298,275 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
 
 /// ========= BYTES TO BARRETENBERG'S REPRESENTATION  ========= ///
 
-template <typename T>
-T deserialize_msgpack_compact(std::vector<uint8_t>&& buf, std::function<T(msgpack::object const&)> decode_msgpack)
-{
-    BB_ASSERT(!buf.empty(), "deserialize_msgpack_compact: buffer is empty");
+namespace {
 
-    // Expect format marker for msgpack, msgpack-compact or msgpack-tagged
-    const uint8_t FORMAT_MSGPACK = 2;
-    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
-    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
-    uint8_t format_u8 = buf[0];
-    BB_ASSERT(format_u8 == FORMAT_MSGPACK || format_u8 == FORMAT_MSGPACK_COMPACT || format_u8 == FORMAT_MSGPACK_TAGGED,
-              "deserialize_msgpack_compact: expected msgpack format marker (2, 3 or 4), got " +
-                  std::to_string(format_u8));
+/**
+ * @brief Reads one msgpack value at a time from a serialized buffer.
+ *
+ * @details Container headers are read directly from the bytes, so the caller can walk into the program without building
+ * a msgpack::object for anything but the value it is about to convert. Values are unpacked into a zone the caller
+ * provides and reuses, so the memory for one value is recycled for the next.
+ */
+class MsgpackCursor {
+  public:
+    enum class Container : uint8_t { ARRAY, MAP };
+    struct Header {
+        Container kind;
+        uint32_t count;
+    };
 
-    // Skip the format marker to get the data.
-    const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
-    size_t size = buf.size() - 1;
+    MsgpackCursor(const char* data, size_t size)
+        : data_(data)
+        , size_(size)
+    {}
 
-    auto oh = msgpack::unpack(buffer, size);
-    auto o = oh.get();
+    size_t offset() const { return offset_; }
+    void seek(size_t offset) { offset_ = offset; }
 
-    // Expect ARRAY type for msgpack-compact format
-    if (format_u8 == FORMAT_MSGPACK_COMPACT) {
-        BB_ASSERT(o.type == msgpack::type::ARRAY,
-                  "deserialize_msgpack_compact: expected ARRAY type, got " + std::to_string(o.type));
+    /**
+     * @brief Consume the header of an array or map.
+     * @param what Names the value for the error message.
+     */
+    Header read_container(std::string_view what)
+    {
+        const uint8_t marker = next_byte(what);
+        if (marker >= 0x90 && marker <= 0x9f) {
+            return { Container::ARRAY, static_cast<uint32_t>(marker & 0x0f) };
+        }
+        if (marker >= 0x80 && marker <= 0x8f) {
+            return { Container::MAP, static_cast<uint32_t>(marker & 0x0f) };
+        }
+        switch (marker) {
+        case 0xdc:
+            return { Container::ARRAY, read_big_endian(2, what) };
+        case 0xdd:
+            return { Container::ARRAY, read_big_endian(4, what) };
+        case 0xde:
+            return { Container::MAP, read_big_endian(2, what) };
+        case 0xdf:
+            return { Container::MAP, read_big_endian(4, what) };
+        default:
+            fail("expected an array or map for " + std::string(what) + ", got msgpack marker 0x" + hex(marker));
+        }
     }
 
-    return decode_msgpack(o);
+    Header read_array(std::string_view what)
+    {
+        const Header header = read_container(what);
+        if (header.kind != Container::ARRAY) {
+            fail("expected an array for " + std::string(what));
+        }
+        return header;
+    }
+
+    /**
+     * @brief Unpack the next value into `zone`. STR and BIN bytes are copied into the zone, so the object stays
+     * valid until the zone is cleared, whatever happens to the buffer.
+     */
+    msgpack::object next(msgpack::zone& zone, std::string_view what)
+    {
+        try {
+            return msgpack::unpack(zone, data_, size_, offset_);
+        } catch (const msgpack::unpack_error&) {
+            // Unnamed: under BB_NO_EXCEPTIONS the shim turns this into `if (false)` and the variable would not exist.
+            fail("malformed msgpack while reading " + std::string(what));
+        }
+    }
+
+    /// Skip the next value without building an object for it.
+    void skip(std::string_view what)
+    {
+        msgpack::null_visitor visitor;
+        if (!msgpack::parse(data_, size_, offset_, visitor)) {
+            fail("malformed msgpack while skipping " + std::string(what));
+        }
+    }
+
+    /// Unpack the next value into `out` through its msgpack adaptor.
+    template <typename T> void read_into(msgpack::zone& zone, T& out, std::string_view what)
+    {
+        const msgpack::object value = next(zone, what);
+        try {
+            value.convert(out);
+        } catch (const msgpack::type_error&) {
+            std::cerr << value << std::endl;
+            fail("failed to convert msgpack data to " + std::string(what));
+        }
+        zone.clear();
+    }
+
+    [[noreturn]] static void fail(const std::string& message) { throw_or_abort("acir_format: " + message); }
+
+  private:
+    uint8_t next_byte(std::string_view what)
+    {
+        if (offset_ >= size_) {
+            fail("unexpected end of msgpack data while reading " + std::string(what));
+        }
+        return static_cast<uint8_t>(data_[offset_++]);
+    }
+
+    uint32_t read_big_endian(size_t num_bytes, std::string_view what)
+    {
+        uint32_t value = 0;
+        for (size_t i = 0; i < num_bytes; ++i) {
+            value = (value << 8) | next_byte(what);
+        }
+        return value;
+    }
+
+    static std::string hex(uint8_t byte)
+    {
+        static constexpr char DIGITS[] = "0123456789abcdef";
+        return { DIGITS[byte >> 4], DIGITS[byte & 0x0f] };
+    }
+
+    const char* data_;
+    size_t size_;
+    size_t offset_ = 0;
+};
+
+/**
+ * @brief Visit the fields of a serde struct in any wire layout the generated msgpack_unpack accepts: an array in field
+ * order, a map keyed by field index, or a map keyed by field name.
+ *
+ * @param field_names The struct's fields in declaration order.
+ * @param on_field Called with the field index for each present field. It must consume the field's value from the
+ * cursor. Unknown tagged fields are rejected unless allow_unknown_fields is true.
+ * @param required_fields Required prefix of field_names for arrays and string-keyed maps. Tagged maps allow omissions.
+ * @param allow_unknown_fields Accept extra array/map entries and unknown integer tags.
+ */
+template <size_t N, typename OnField>
+void for_each_struct_field(MsgpackCursor& cursor,
+                           msgpack::zone& zone,
+                           const std::array<std::string_view, N>& field_names,
+                           std::string_view struct_name,
+                           OnField&& on_field,
+                           size_t required_fields = N,
+                           bool allow_unknown_fields = false)
+{
+    const auto header = cursor.read_container(struct_name);
+    if (!allow_unknown_fields && header.kind == MsgpackCursor::Container::ARRAY && header.count > N) {
+        MsgpackCursor::fail("too many fields in " + std::string(struct_name));
+    }
+    std::array<bool, N> seen{};
+    bool tagged_fields = false;
+    for (uint32_t position = 0; position < header.count; ++position) {
+        size_t field = field_names.size();
+        if (header.kind == MsgpackCursor::Container::ARRAY) {
+            field = position;
+        } else {
+            const msgpack::object key = cursor.next(zone, std::string(struct_name) + " field key");
+            if (position == 0) {
+                tagged_fields = key.type == msgpack::type::POSITIVE_INTEGER;
+                if (!allow_unknown_fields && !tagged_fields && header.count > N) {
+                    MsgpackCursor::fail("too many fields in " + std::string(struct_name));
+                }
+            }
+            if (tagged_fields && key.type == msgpack::type::POSITIVE_INTEGER && key.via.u64 <= UINT8_MAX) {
+                field = key.via.u64 < field_names.size() ? static_cast<size_t>(key.via.u64) : field_names.size();
+            } else if (!tagged_fields && key.type == msgpack::type::STR) {
+                const std::string_view name(key.via.str.ptr, key.via.str.size);
+                field = static_cast<size_t>(std::ranges::find(field_names, name) - field_names.begin());
+            } else {
+                MsgpackCursor::fail("expected " + std::string(tagged_fields ? "u8" : "string") + " field key in " +
+                                    std::string(struct_name));
+            }
+            zone.clear();
+        }
+        if (field < field_names.size()) {
+            if (header.kind == MsgpackCursor::Container::MAP && seen[field]) {
+                if (tagged_fields) {
+                    MsgpackCursor::fail("duplicate field '" + std::string(field_names[field]) + "' in " +
+                                        std::string(struct_name));
+                }
+                cursor.skip(field_names[field]);
+                continue;
+            }
+            seen[field] = true;
+            on_field(field);
+        } else {
+            if (tagged_fields && !allow_unknown_fields) {
+                MsgpackCursor::fail("unknown tag in " + std::string(struct_name));
+            }
+            cursor.skip(std::string(struct_name) + " field");
+        }
+    }
+    if (!tagged_fields) {
+        for (size_t field = 0; field < required_fields; ++field) {
+            if (!seen[field]) {
+                MsgpackCursor::fail("missing field '" + std::string(field_names[field]) + "' in " +
+                                    std::string(struct_name));
+            }
+        }
+    }
 }
 
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
-{
-    BB_ASSERT_LT(
-        circuit.opcodes.size(), UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
+constexpr std::array<std::string_view, 2> PROGRAM_FIELDS = { "functions", "unconstrained_functions" };
+constexpr std::array<std::string_view, 6> CIRCUIT_FIELDS = { "function_name",     "opcodes",       "private_parameters",
+                                                             "public_parameters", "return_values", "assert_messages" };
+constexpr size_t CIRCUIT_OPCODES = 1;
+constexpr size_t CIRCUIT_PUBLIC_PARAMETERS = 3;
+constexpr size_t CIRCUIT_RETURN_VALUES = 4;
 
+/**
+ * @brief The parts of an Acir::Circuit that circuit_serde_to_acir_format reads besides the opcodes.
+ */
+struct CircuitHeader {
+    Acir::PublicInputs public_parameters;
+    Acir::PublicInputs return_values;
+    size_t num_opcodes = 0;
+};
+
+/**
+ * @brief Give back the growth slack of the AcirFormat's constraint vectors.
+ * @details The vectors are filled by push_back, so each holds up to twice its final size. The slack is a few MiB for a
+ * kernel and would otherwise stay resident through circuit construction.
+ */
+void shrink_constraint_vectors(auto& constraints)
+{
+    auto shrink = [](auto&... vectors) { (vectors.shrink_to_fit(), ...); };
+    shrink(constraints.logic_constraints,
+           constraints.range_constraints,
+           constraints.aes128_constraints,
+           constraints.sha256_compression,
+           constraints.ecdsa_k1_constraints,
+           constraints.ecdsa_r1_constraints,
+           constraints.blake2s_constraints,
+           constraints.blake3_constraints,
+           constraints.keccak_permutations,
+           constraints.poseidon2_constraints,
+           constraints.multi_scalar_mul_constraints,
+           constraints.ec_add_constraints,
+           constraints.honk_recursion_constraints,
+           constraints.avm_recursion_constraints,
+           constraints.hn_recursion_constraints,
+           constraints.chonk_recursion_constraints,
+           constraints.quad_constraints,
+           constraints.big_quad_constraints,
+           constraints.bilinear_constraints,
+           constraints.batched_eq_check_constraints,
+           constraints.block_constraints);
+}
+
+void release_growth_slack(AcirFormat& af)
+{
+    af.public_inputs.shrink_to_fit();
+    shrink_constraint_vectors(af);
+    shrink_constraint_vectors(af.original_opcode_indices);
+}
+
+/**
+ * @brief Convert a streamed circuit into constraints.
+ *
+ * @param stream_circuit Called once with a visitor, which it must call with (index, opcode) for each opcode in order,
+ * and must then return the circuit header. The opcode only needs to live for the duration of the call. The header is
+ * taken last so a serialized circuit can be read in wire order, whichever side of the opcodes its other fields are on.
+ */
+template <typename StreamCircuit>
+AcirFormat circuit_serde_to_acir_format_impl(StreamCircuit&& stream_circuit, bool is_mega)
+{
     AcirFormat af;
-    af.num_acir_opcodes = static_cast<uint32_t>(circuit.opcodes.size());
-    af.public_inputs = join({
-        transform::map(circuit.public_parameters.value,
-                       [&](const Acir::Witness& e) {
-                           update_max_witness_index(e.value, af);
-                           return e.value;
-                       }),
-        transform::map(circuit.return_values.value,
-                       [&](const Acir::Witness& e) {
-                           update_max_witness_index(e.value, af);
-                           return e.value;
-                       }),
-    });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
     // Block constraints are built as we process the opcodes, so we store them in this map and we add them to the
     // AcirFormat struct at the end
@@ -350,8 +577,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
     // They are batched later via the function batched_eq_assert_zeros_into_constraints
     std::vector<BatchedEqEntry> batched_eq_assert_zeros;
 
-    for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        const auto& gate = circuit.opcodes[i];
+    const CircuitHeader header = stream_circuit([&](size_t i, Acir::Opcode const& gate) {
         update_max_witness_index_from_opcode(gate, af);
         std::visit(
             overloaded{
@@ -378,7 +604,23 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
                 },
             },
             gate.value);
-    }
+    });
+    BB_ASSERT_LT(
+        header.num_opcodes, UINT32_MAX, "acir_format::circuit_serde_to_acir_format: too many opcodes in circuit.");
+    af.num_acir_opcodes = static_cast<uint32_t>(header.num_opcodes);
+    af.public_inputs = join({
+        transform::map(header.public_parameters.value,
+                       [&](const Acir::Witness& e) {
+                           update_max_witness_index(e.value, af);
+                           return e.value;
+                       }),
+        transform::map(header.return_values.value,
+                       [&](const Acir::Witness& e) {
+                           update_max_witness_index(e.value, af);
+                           return e.value;
+                       }),
+    });
+
     // Pair any buffered batched-eq AssertZeros (≤2-witness linear opcodes) into BATCHED_EQ rows.
     batched_eq_assert_zeros_into_constraints(af, batched_eq_assert_zeros);
 
@@ -396,26 +638,133 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_me
     return af;
 }
 
+} // namespace
+
+std::span<const char> msgpack_bytes(const std::vector<uint8_t>& buf, std::string_view what)
+{
+    BB_ASSERT(!buf.empty(), std::string(what) + ": buffer is empty");
+    const uint8_t FORMAT_MSGPACK = 2;
+    const uint8_t FORMAT_MSGPACK_COMPACT = 3;
+    const uint8_t FORMAT_MSGPACK_TAGGED = 4;
+    const uint8_t format_marker = buf[0];
+    BB_ASSERT(format_marker == FORMAT_MSGPACK || format_marker == FORMAT_MSGPACK_COMPACT ||
+                  format_marker == FORMAT_MSGPACK_TAGGED,
+              std::string(what) + ": expected msgpack format marker (2, 3 or 4), got " + std::to_string(format_marker));
+    std::span<const char> bytes(reinterpret_cast<const char*>(buf.data()) + 1, buf.size() - 1);
+    if (format_marker == FORMAT_MSGPACK_COMPACT) {
+        BB_ASSERT(!bytes.empty() && ((static_cast<uint8_t>(bytes[0]) & 0xf0) == 0x90 ||
+                                     static_cast<uint8_t>(bytes[0]) == 0xdc || static_cast<uint8_t>(bytes[0]) == 0xdd),
+                  std::string(what) + ": expected ARRAY type at the root of msgpack-compact data");
+    }
+    return bytes;
+}
+
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, bool is_mega)
+{
+    AcirFormat af = circuit_serde_to_acir_format_impl(
+        [&](auto&& visit) {
+            for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
+                visit(i, circuit.opcodes[i]);
+            }
+            return CircuitHeader{ circuit.public_parameters, circuit.return_values, circuit.opcodes.size() };
+        },
+        is_mega);
+    release_growth_slack(af);
+    return af;
+}
+
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf, bool is_mega)
 {
-    // We need to deserialize into Acir::Program first because the buffer returned by Noir has this structure
-    auto program = deserialize_msgpack_compact<Acir::ProgramWithoutBrillig>(
-        std::move(buf), [](auto o) -> Acir::ProgramWithoutBrillig {
-            Acir::ProgramWithoutBrillig program_wob;
-            try {
-                // Deserialize into a partial structure that ignores the Brillig parts,
-                // so that new opcodes can be added without breaking Barretenberg.
-                o.convert(program_wob);
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                bb::assert_failure(
-                    "acir_format::circuit_buf_to_acir_format: failed to convert msgpack data to Program");
-            }
-            return program_wob;
-        });
-    BB_ASSERT_EQ(program.functions.size(), 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+    // The program is read as a ProgramWithoutBrillig (ignoring the Brillig parts, so that new Brillig opcodes do not
+    // break Barretenberg), in a single pass over the bytes in wire order. Nothing but the opcode being converted is
+    // ever materialised as a msgpack object; the Brillig bytecode is skipped without being decoded.
+    const std::span<const char> bytes = msgpack_bytes(buf, "circuit_buf_to_acir_format");
+    MsgpackCursor cursor(bytes.data(), bytes.size());
+    msgpack::zone zone;
 
-    return circuit_serde_to_acir_format(program.functions[0], is_mega);
+    AcirFormat af = circuit_serde_to_acir_format_impl(
+        [&](auto&& visit) {
+            CircuitHeader header;
+            bool has_functions = false;
+            bool has_opcodes = false;
+            for_each_struct_field(
+                cursor,
+                zone,
+                PROGRAM_FIELDS,
+                "ProgramWithoutBrillig",
+                [&](size_t field) {
+                    if (field != 0) {
+                        cursor.skip("unconstrained_functions");
+                        return;
+                    }
+                    has_functions = true;
+                    const auto functions = cursor.read_array("functions");
+                    BB_ASSERT_EQ(
+                        functions.count, 1U, "circuit_buf_to_acir_format: expected single function in ACIR program");
+                    for_each_struct_field(
+                        cursor,
+                        zone,
+                        CIRCUIT_FIELDS,
+                        "Circuit",
+                        [&](size_t circuit_field) {
+                            switch (circuit_field) {
+                            case CIRCUIT_OPCODES: {
+                                has_opcodes = true;
+                                header.num_opcodes = cursor.read_array("opcodes").count;
+                                Acir::Opcode opcode;
+                                for (size_t i = 0; i < header.num_opcodes; ++i) {
+                                    cursor.read_into(zone, opcode, "Opcode");
+                                    visit(i, opcode);
+                                }
+                                break;
+                            }
+                            case CIRCUIT_PUBLIC_PARAMETERS:
+                                cursor.read_into(zone, header.public_parameters, "Circuit::public_parameters");
+                                break;
+                            case CIRCUIT_RETURN_VALUES:
+                                cursor.read_into(zone, header.return_values, "Circuit::return_values");
+                                break;
+                            case 0: {
+                                std::string name;
+                                cursor.read_into(zone, name, "Circuit::function_name");
+                                break;
+                            }
+                            case 2: {
+                                const auto parameters = cursor.read_array("Circuit::private_parameters");
+                                Acir::Witness witness;
+                                for (uint32_t i = 0; i < parameters.count; ++i) {
+                                    cursor.read_into(zone, witness, "Circuit::private_parameters element");
+                                }
+                                break;
+                            }
+                            case 5: {
+                                const auto messages = cursor.read_array("Circuit::assert_messages");
+                                std::tuple<Acir::OpcodeLocation, Acir::AssertionPayload> message;
+                                for (uint32_t i = 0; i < messages.count; ++i) {
+                                    cursor.read_into(zone, message, "Circuit::assert_messages element");
+                                }
+                                break;
+                            }
+                            }
+                        },
+                        CIRCUIT_FIELDS.size(),
+                        /*allow_unknown_fields=*/true);
+                },
+                /*required_fields=*/1);
+            if (!has_functions) {
+                MsgpackCursor::fail("circuit_buf_to_acir_format: missing field 'functions' in ProgramWithoutBrillig");
+            }
+            if (!has_opcodes) {
+                MsgpackCursor::fail("circuit_buf_to_acir_format: missing field 'opcodes' in Circuit");
+            }
+            return header;
+        },
+        is_mega);
+    // The caller handed the serialized program over by rvalue reference; it is not needed past this point. It goes
+    // before the vectors are shrunk so the copies that makes do not add to the parse peak.
+    std::vector<uint8_t>().swap(buf);
+    release_growth_slack(af);
+    return af;
 }
 
 AcirFormat circuit_buf_to_mega_acir_format(std::vector<uint8_t>&& buf)
@@ -423,25 +772,93 @@ AcirFormat circuit_buf_to_mega_acir_format(std::vector<uint8_t>&& buf)
     return circuit_buf_to_acir_format(std::move(buf), true);
 }
 
+namespace {
+
+constexpr std::array<std::string_view, 1> WITNESS_STACK_FIELDS = { "stack" };
+constexpr std::array<std::string_view, 2> STACK_ITEM_FIELDS = { "index", "witness" };
+constexpr size_t STACK_ITEM_WITNESS = 1;
+
+} // namespace
+
 WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
 {
-    // We need to deserialize into WitnessStack first because the buffer returned by Noir has this structure
-    auto witness_stack = deserialize_msgpack_compact<Witnesses::WitnessStack>(std::move(buf), [](auto o) {
-        Witnesses::WitnessStack witness_stack;
-        try {
-            o.convert(witness_stack);
-        } catch (const msgpack::type_error&) {
-            std::cerr << o << std::endl;
-            bb::assert_failure(
-                "acir_format::witness_buf_to_witness_vector: failed to convert msgpack data to WitnessStack");
-        }
-        return witness_stack;
-    });
-    BB_ASSERT_EQ(witness_stack.stack.size(),
-                 1U,
-                 "acir_format::witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
+    // The buffer returned by Noir is a WitnessStack holding a single WitnessMap. Its entries are read one at a time in
+    // wire order, which is increasing witness index for a map serialized from a BTreeMap; any other order is restored
+    // below so the result matches witness_map_to_witness_vector on the fully deserialized map.
+    const std::span<const char> bytes = msgpack_bytes(buf, "witness_buf_to_witness_vector");
+    MsgpackCursor cursor(bytes.data(), bytes.size());
+    msgpack::zone zone;
 
-    return witness_map_to_witness_vector(witness_stack.stack[0].witness);
+    std::vector<std::pair<uint32_t, bb::fr>> entries;
+    bool sorted = true;
+    size_t num_witness_maps = 0;
+    for_each_struct_field(cursor, zone, WITNESS_STACK_FIELDS, "WitnessStack", [&](size_t) {
+        const auto stack = cursor.read_array("WitnessStack::stack");
+        for (uint32_t item = 0; item < stack.count; ++item) {
+            for_each_struct_field(cursor, zone, STACK_ITEM_FIELDS, "StackItem", [&](size_t field) {
+                if (field != STACK_ITEM_WITNESS) {
+                    uint32_t index = 0;
+                    cursor.read_into(zone, index, "StackItem::index");
+                    return;
+                }
+                ++num_witness_maps;
+                const auto map = cursor.read_container("WitnessMap");
+                if (map.kind != MsgpackCursor::Container::MAP) {
+                    MsgpackCursor::fail("witness_buf_to_witness_vector: expected "
+                                        "a map for WitnessMap");
+                }
+                entries.reserve(std::min<size_t>(map.count, (bytes.size() - cursor.offset()) / 2));
+                Witnesses::Witness witness{};
+                std::vector<uint8_t> value;
+                for (uint32_t entry = 0; entry < map.count; ++entry) {
+                    cursor.read_into(zone, witness, "Witness");
+                    cursor.read_into(zone, value, "witness value");
+                    sorted = sorted && (entries.empty() || entries.back().first < witness.value);
+                    entries.emplace_back(witness.value, from_buffer_with_bound_checks(value));
+                }
+            });
+        }
+    });
+    BB_ASSERT_EQ(num_witness_maps,
+                 1U,
+                 "acir_format::witness_buf_to_witness_vector: expected single "
+                 "WitnessMap in WitnessStack");
+    std::vector<uint8_t>().swap(buf);
+
+    std::vector<size_t> order;
+    if (!sorted) {
+        // Some standard libraries allocate stable_sort's temporary buffer without extended alignment.
+        // Sort indices instead of field elements, retaining wire order for duplicate witness indices.
+        order.resize(entries.size());
+        std::iota(order.begin(), order.end(), size_t{ 0 });
+        std::ranges::sort(order, [&](size_t lhs, size_t rhs) {
+            return std::pair{ entries[lhs].first, lhs } < std::pair{ entries[rhs].first, rhs };
+        });
+    }
+
+    WitnessVector witness_vector;
+    const size_t last_entry = entries.empty() ? 0 : (sorted ? entries.size() - 1 : order.back());
+    witness_vector.reserve(entries.empty() ? 0 : entries[last_entry].first + 1);
+    for (size_t position = 0, index = 0; position < entries.size(); ++position) {
+        const auto& [witness_index, value] = entries[sorted ? position : order[position]];
+        // Match msgpack's std::map conversion: the last occurrence of a witness index wins.
+        if (witness_index < index) {
+            witness_vector[witness_index] = value;
+            continue;
+        }
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned. To ensure that
+        // witnesses sit at the correct indices in the `WitnessVector`, we fill any indices which do not exist within
+        // the `WitnessMap` with the random values. We use random values instead of zero because unassigned witnesses
+        // indices are not supposed to be used in any constraint, so filling them with a random value helps catching
+        // bugs.
+        while (index < witness_index) {
+            witness_vector.emplace_back(fr::random_element());
+            index++;
+        }
+        witness_vector.emplace_back(value);
+        index++;
+    }
+    return witness_vector;
 }
 
 WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)

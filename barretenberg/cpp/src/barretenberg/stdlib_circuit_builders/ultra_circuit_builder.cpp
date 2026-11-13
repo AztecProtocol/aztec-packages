@@ -411,6 +411,7 @@ plookup::BasicTable* UltraCircuitBuilder_<ExecutionTrace>::register_basic_lookup
     // Indices start at 1; see get_table() for the reason.
     table.table_index = lookup_tables.size() + 1;
     BB_ASSERT_GT(table.table_index, 0U, "Table index must be greater than 0");
+    table.initialize_index_map();
 
     lookup_tables.emplace_back(std::move(table));
     return &lookup_tables.back();
@@ -430,7 +431,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
 {
     this->assert_valid_variables({ key_idx, val1_idx, val2_idx });
 
-    table.lookup_gates.emplace_back(entry);
+    table.lookup_gate_rows.push_back(table.row_of(entry));
 
     {
         auto& block_for_row = blocks.lookup;

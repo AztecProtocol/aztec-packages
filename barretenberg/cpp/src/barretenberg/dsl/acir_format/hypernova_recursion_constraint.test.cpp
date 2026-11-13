@@ -176,7 +176,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         std::vector<RecursionConstraint> constraints;
         constraints.reserve(proof_types.size());
         for (PROOF_TYPE proof_type : proof_types) {
-            RecursionConstraint constraint;
+            RecursionConstraint constraint{};
             constraint.proof_type = proof_type;
             constraints.push_back(constraint);
         }

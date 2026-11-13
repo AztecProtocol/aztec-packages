@@ -51,8 +51,7 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
     auto blocks_array = builder.blocks.get();
     const size_t num_blocks = blocks_array.size();
 
-    // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
-    // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
+    // Pre-pass: count copy-cycle sizes per real-variable index, which gives the CSR offsets phase 1.5 scatters into.
     {
         BB_BENCH_NAME("counting copy_cycles");
         const size_t num_cycles = builder.get_num_variables();
@@ -62,9 +61,9 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx];
-                    // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates real_var_idx
-                    // as an in-range index for both cycle_counts and the CSR offsets (same size), which is why phase
-                    // 1.5 below can index the cursor array without .at().
+                    // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates var_idx and
+                    // real_var_idx as in-range indices for both cycle_counts and the CSR offsets (same size), which is
+                    // why phases 1 and 1.5 below index without .at().
                     ++cycle_counts.at(builder.real_variable_index.at(var_idx));
                 }
             }
@@ -81,39 +80,36 @@ CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_
         copy_cycles.nodes.resize(running);
     }
 
-    // Phase 1: per-block parallel pass over wires and emit copy-cycle nodes.
-    std::vector<std::vector<std::pair<uint32_t, cycle_node>>> per_block_nodes(num_blocks);
+    // Phase 1: per-block parallel pass over wires.
     {
-        BB_BENCH_NAME("populate_wires_and_emit_cycles");
+        BB_BENCH_NAME("populate_wires");
         parallel_for(num_blocks, [&](size_t block_idx) {
             auto& block = blocks_array[block_idx];
             const uint32_t offset = block.trace_offset();
             const uint32_t block_size = static_cast<uint32_t>(block.size());
-            auto& local_nodes = per_block_nodes[block_idx];
-            local_nodes.reserve(static_cast<size_t>(block_size) * NUM_WIRES);
-
-            // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code.
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-                    uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    // Use .at() so out-of-range var_idx is caught instead of producing a silent OOB read.
-                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
-                    uint32_t trace_row_idx = block_row_idx + offset;
+                    const uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // validated by the pre-pass
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
-                    local_nodes.emplace_back(real_var_idx, cycle_node{ wire_idx, trace_row_idx });
+                    wires[wire_idx].at(block_row_idx + offset) = builder.get_variable(var_idx);
                 }
             }
         });
     }
 
-    // Phase 1.5: Serial concat in block order to preserve cycle-node ordering within each variable's cycle list.
+    // Phase 1.5: serial scatter of the copy-cycle nodes, in block, row, wire order so the nodes of each variable's
+    // cycle stay in trace order. Reading wires directly avoids an intermediate array of (variable, node) pairs.
     {
         BB_BENCH_NAME("fill_copy_cycles");
         std::vector<uint32_t> cursors(copy_cycles.offsets.begin(), copy_cycles.offsets.end() - 1);
-        for (const auto& block_nodes : per_block_nodes) {
-            for (const auto& [real_var_idx, node] : block_nodes) {
-                copy_cycles.nodes[cursors[real_var_idx]++] = node;
+        for (auto& block : blocks_array) {
+            const uint32_t offset = block.trace_offset();
+            const uint32_t block_size = static_cast<uint32_t>(block.size());
+            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                    const uint32_t real_var_idx = builder.real_variable_index[block.wires[wire_idx][block_row_idx]];
+                    copy_cycles.nodes[cursors[real_var_idx]++] = cycle_node{ wire_idx, block_row_idx + offset };
+                }
             }
         }
     }

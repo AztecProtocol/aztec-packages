@@ -224,7 +224,9 @@ TEST(CalldataTraceGenTest, LongerHash)
     CalldataTraceBuilder builder;
 
     std::vector<FF> calldata = random_fields(100);
-    std::vector<FF> preimage = { DOM_SEP__PUBLIC_CALLDATA };
+    std::vector<FF> preimage;
+    preimage.reserve(calldata.size() + 1);
+    preimage.push_back(DOM_SEP__PUBLIC_CALLDATA);
     preimage.insert(preimage.end(), calldata.begin(), calldata.end());
     FF output_hash = RawPoseidon2::hash(preimage);
 
