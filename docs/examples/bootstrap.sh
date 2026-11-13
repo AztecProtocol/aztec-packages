@@ -390,8 +390,8 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # 25m: the run's 13 examples took 559 to 797 s under load, too close to 15m. Re-measure when an
-  # example is added, and split the line in two before raising the limit again.
+  # 25m: the run's 14 examples took 721 to 908 s under load, past 15m at the slowest. Re-measure when
+  # an example is added, and split the line in two before raising the limit again.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
   # the whole group reaches it, so that its exit trap takes the compose project down.
   echo "$hash:TIMEOUT=25m docs/examples/bootstrap.sh execute"

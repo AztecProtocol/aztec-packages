@@ -90,13 +90,8 @@ The `AZTEC_NODE_URL` env var is used by the runner script and the example `index
 | `recursive_verification` | Recursive proof generation and onchain verification flow |
 | `bob_token_contract` | The token contract tutorial's custom contract: deploy, mint, transfer |
 | `token_bridge` | The NFT bridge tutorial: L1 portal, L2 bridge, deposit and withdrawal |
+| `aave_bridge` | The Aave bridge tutorial: L1 portal and Aave pool, L2 bridge, deposit and claim |
 | `aztecjs_kernelless_simulation` | Simulating a transaction without kernel circuits |
-
-### Examples Not Executed (Type-Checked Only)
-
-| Example | Reason |
-|---------|--------|
-| `aave_bridge` | Disabled after timing out (~600s) waiting for a proven block |
 
 ## Adding New Examples
 
