@@ -430,22 +430,21 @@ lmdblib:
 kvdb: lmdblib
 	$(call build,$@,native-packages/kvdb)
 
-wsdb: lmdblib
+# wsdb links the working tree's barretenberg static library (see native-packages/wsdb/README.md).
+wsdb: bb-cpp-native
 	$(call build,$@,native-packages/wsdb)
 
 # Native-package tests. lmdblib and wsdb are self-contained gtest binaries. kvdb has no
 # C++ tests: its NAPI protocol is driven from node (ts/test) and exercised further by
 # yarn-project's kv-store tests. wsdb_tests use no bb headers; the bb-header
-# parity/equivalence target is manual (WSDB_BUILD_BB_TESTS). wsdb_tests compare aztec-wsdb with
-# bb's wsdb-ref binary, which bb-cpp-native builds into the working tree (until native-packages
-# leaves aztec-packages: see native-packages/wsdb/cpp/CMakeLists.txt).
+# parity/equivalence target is manual (WSDB_BUILD_BB_TESTS).
 lmdblib-tests: lmdblib
 	$(call test,$@,native-packages/lmdblib)
 
 kvdb-tests: kvdb
 	$(call test,$@,native-packages/kvdb)
 
-wsdb-tests: wsdb bb-cpp-native
+wsdb-tests: wsdb
 	$(call test,$@,native-packages/wsdb)
 
 #==============================================================================

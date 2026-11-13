@@ -10,6 +10,8 @@ export interface PackageWasmModule {
 
 export interface TypeScriptPackageOptions {
   prefix: string;
+  /** The name the service's FFI symbols carry: the wasm transport calls `<ffiName>_ipc_ffi_entry`. */
+  ffiName: string;
   packageName: string;
   binaryName: string;
   binaryEnvVar: string;
@@ -798,8 +800,8 @@ export class ${svc}Sync extends SyncApi {
         : "undefined";
     const wide = (key: string, m: PackageWasmModule | undefined) =>
       m ? `\n  ${key}: ${moduleEntry(m)},` : "";
-    // The module's FFI symbols carry the service name (see the FFI entry in SCHEMA_SPEC.md).
-    const sym = prefix ? `${toSnakeCase(prefix)}_` : "";
+    // The module's FFI symbols carry the implementation's FFI name (see the FFI entry in SCHEMA_SPEC.md).
+    const sym = this.opts.ffiName ? `${this.opts.ffiName}_` : "";
     const ffiExports = `    entry: '${sym}ipc_ffi_entry',`;
 
     return `import {

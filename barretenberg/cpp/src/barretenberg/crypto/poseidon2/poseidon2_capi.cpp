@@ -9,7 +9,8 @@
 // frequency but want no dependency on barretenberg's C++ headers, field type,
 // stdlib, or build flags (e.g. the standalone world-state DB service). Field
 // elements cross as 32 canonical bytes (barretenberg's field serialization);
-// the montgomery form stays private to barretenberg.
+// the montgomery form stays private to barretenberg. Default visibility, as an exported C ABI: the
+// libwsdb-ref.a link keeps only exported symbols global (see src/CMakeLists.txt).
 namespace {
 using FF = bb::fr;
 using Poseidon2Bn254 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -18,7 +19,7 @@ using Poseidon2Bn254 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFie
 extern "C" {
 
 // Hash `n` field elements. `elems` is n*32 canonical bytes; `out` receives 32.
-void bb_poseidon2_hash(const uint8_t* elems, size_t n, uint8_t* out)
+__attribute__((visibility("default"))) void bb_poseidon2_hash(const uint8_t* elems, size_t n, uint8_t* out)
 {
     std::vector<FF> inputs;
     inputs.reserve(n);
@@ -30,7 +31,7 @@ void bb_poseidon2_hash(const uint8_t* elems, size_t n, uint8_t* out)
 
 // Hash { separator, lhs, rhs } — matches Poseidon2HashPolicy::hash_pair_with_separator,
 // the domain-separated internal-node hash used by the Aztec merkle trees.
-void bb_poseidon2_hash_pair_with_separator(uint64_t separator, const uint8_t* lhs, const uint8_t* rhs, uint8_t* out)
+__attribute__((visibility("default"))) void bb_poseidon2_hash_pair_with_separator(uint64_t separator, const uint8_t* lhs, const uint8_t* rhs, uint8_t* out)
 {
     std::vector<FF> inputs{ FF(separator), FF::serialize_from_buffer(lhs), FF::serialize_from_buffer(rhs) };
     FF::serialize_to_buffer(Poseidon2Bn254::hash(inputs), out);

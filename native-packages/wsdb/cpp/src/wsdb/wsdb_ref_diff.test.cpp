@@ -2,47 +2,68 @@
  * @file wsdb_ref_diff.test.cpp
  * @brief aztec-wsdb against wsdb-ref, barretenberg's reference world state, request for request.
  *
- * Both serve wsdb_schema.jsonc, so one encoded request goes to both, each a child process reached over its
- * socket: aztec-wsdb, and barretenberg's wsdb-ref binary (so no barretenberg code is compiled or linked
- * here). A seeded random run builds blocks the way a node does (effects on a
- * fork, then SyncBlock), interleaved with reads at every revision, writes and checkpoints on forks, unwinds,
- * finalization and history removal. A request must fail on both or on neither, and every success must be
- * byte-identical, apart from the store statistics a full status carries. Error messages are counted, not
+ * Both serve wsdb_schema.jsonc and both are linked in, each behind its generated FFI entry: aztec-wsdb's
+ * (wsdb_labs_ipc_ffi_entry) from this package's sources, wsdb-ref's (wsdb_ref_ipc_ffi_entry) from barretenberg's
+ * static library. The test drives each through the generated typed client, WsdbApi. A seeded random run builds blocks
+ * the way a node does (effects on a fork, then SyncBlock), interleaved with reads at every revision, writes and
+ * checkpoints on forks, unwinds, finalization and history removal. A request must fail on both or on neither, and
+ * every success must be equal, apart from the store statistics a full status carries. Error messages are counted, not
  * compared.
  *
- * Skipped when the wsdb-ref binary (WSDB_REF_BIN, see cpp/CMakeLists.txt) is not built. WSDB_DIFF_SEEDS (default 4) and
- * WSDB_DIFF_STEPS (default 400) size the run.
+ * WSDB_DIFF_SEEDS (default 4) and WSDB_DIFF_STEPS (default 400) size the run; WSDB_DIFF_TRACE prints every request.
  */
 #include "common/aztec_constants.hpp"
 #include "field/field_element.hpp"
-#include "ipc_runtime/ipc_client.hpp"
 #include "world_state/genesis_protocol_nullifiers.hpp"
 #include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
+#include "wsdb/generated/wsdb_client.hpp"
+#include "wsdb/generated/wsdb_ffi_backend.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
+#include "wsdb/wsdb_ffi_service.hpp"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cstdlib>
 #include <filesystem>
+#include <optional>
 #include <random>
-#include <signal.h>
-#include <spawn.h>
+#include <span>
 #include <sstream>
 #include <string>
-#include <sys/wait.h>
-#include <thread>
+#include <type_traits>
 #include <unistd.h>
+#include <variant>
 #include <vector>
 
-extern char** environ;
+// wsdb-ref's FFI entry, in barretenberg's static library.
+extern "C" {
+void wsdb_ref_ipc_ffi_entry(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
+void wsdb_ref_ipc_ffi_free(void* ptr);
+}
 
 using namespace azteclabs::wsdb;
 
 namespace {
 
 constexpr uint32_t LATEST = std::numeric_limits<uint32_t>::max();
+
+/** An ipc_codegen::Backend over wsdb-ref's FFI entry, as the generated FfiBackend is over aztec-wsdb's. */
+class WsdbRefBackend {
+  public:
+    std::vector<uint8_t> call(std::span<const uint8_t> request)
+    {
+        uint8_t* out = nullptr;
+        size_t out_len = 0;
+        wsdb_ref_ipc_ffi_entry(request.data(), request.size(), &out, &out_len);
+        std::vector<uint8_t> response(out, out + out_len);
+        wsdb_ref_ipc_ffi_free(out);
+        return response;
+    }
+};
+
+using RefApi = WsdbApi<WsdbRefBackend>;
+using LabsApi = WsdbApi<FfiBackend>;
 
 template <typename W> W bytes_of(const fr& value)
 {
@@ -56,45 +77,21 @@ fr fr_of(const auto& w)
     return fr::serialize_from_buffer(w.data());
 }
 
-std::vector<uint8_t> encode_request(const std::string& name, const auto& cmd)
+/** A message or response as msgpack text, for failure messages and traces. */
+template <typename T> std::string dump(const T& value)
 {
-    msgpack::sbuffer buf;
-    msgpack::packer<msgpack::sbuffer> pk(buf);
-    pk.pack_array(1);
-    pk.pack_array(2);
-    pk.pack(name);
-    pk.pack(cmd);
-    return { buf.data(), buf.data() + buf.size() };
-}
-
-/** A response frame: its tag, and the payload decoded when it is not an error. */
-struct Frame {
-    std::vector<uint8_t> bytes;
-    std::string tag;
-    std::string error;
-    bool is_error() const { return tag == "WsdbErrorResponse"; }
-};
-
-Frame parse(std::vector<uint8_t> bytes)
-{
-    Frame frame{ .bytes = std::move(bytes), .tag = {}, .error = {} };
-    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(frame.bytes.data()), frame.bytes.size());
-    auto obj = unpacked.get();
-    frame.tag.assign(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
-    if (frame.is_error()) {
-        wire::WsdbErrorResponse error;
-        obj.via.array.ptr[1].convert(error);
-        frame.error = error.message;
+    if constexpr (std::is_same_v<T, std::monostate>) {
+        return "{}";
+    } else {
+        msgpack::sbuffer buf;
+        msgpack::packer<msgpack::sbuffer> pk(buf);
+        pk.pack(value);
+        auto unpacked = msgpack::unpack(buf.data(), buf.size());
+        std::ostringstream out;
+        out << unpacked.get();
+        std::string text = out.str();
+        return text.size() > 1500 ? text.substr(0, 1500) + "..." : text;
     }
-    return frame;
-}
-
-template <typename Resp> Resp decode(const Frame& frame)
-{
-    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(frame.bytes.data()), frame.bytes.size());
-    Resp resp;
-    unpacked.get().via.array.ptr[1].convert(resp);
-    return resp;
 }
 
 /** The indexed trees' initial sizes, prefill included: a run's one varied part of the genesis. */
@@ -103,13 +100,10 @@ struct InitialSizes {
     uint64_t public_data;
 };
 
-/** aztec-wsdb's command line: this test's tree shapes and genesis, served on `socket`. */
-std::vector<std::string> aztec_wsdb_command(const std::string& binary,
-                                            const std::filesystem::path& dir,
-                                            const std::string& socket,
-                                            const InitialSizes& sizes)
+/** aztec-wsdb's open options: this test's tree shapes and genesis, its stores in `data_dir`. */
+std::vector<std::string> aztec_wsdb_options(const std::filesystem::path& data_dir, const InitialSizes& sizes)
 {
-    std::filesystem::create_directories(dir / "data");
+    std::filesystem::create_directories(data_dir);
     std::ostringstream nullifiers;
     nullifiers << "[";
     auto seeds = world_state::genesis_protocol_nullifiers();
@@ -123,13 +117,8 @@ std::vector<std::string> aztec_wsdb_command(const std::string& binary,
     heights << "{0:" << NULLIFIER_TREE_HEIGHT << ",1:" << NOTE_HASH_TREE_HEIGHT << ",2:" << PUBLIC_DATA_TREE_HEIGHT
             << ",3:" << L1_TO_L2_MSG_TREE_HEIGHT << ",4:" << ARCHIVE_HEIGHT << "}";
     return {
-        binary,
-        "msgpack",
-        "run",
-        "-i",
-        socket,
         "-d",
-        (dir / "data").string(),
+        data_dir.string(),
         "-t",
         "4",
         "--tree-heights",
@@ -145,62 +134,39 @@ std::vector<std::string> aztec_wsdb_command(const std::string& binary,
     };
 }
 
-/** A wsdb server in a child process, reached over its socket. */
-class WsdbProcess {
+/** aztec-wsdb in-process, open for one run: closed, with its stores, when the run ends. */
+class AztecWsdb {
   public:
-    WsdbProcess(std::vector<std::string> args, std::string socket_path)
-        : socket_path_(std::move(socket_path))
+    explicit AztecWsdb(const std::vector<std::string>& options)
     {
-        const std::string binary = args[0];
-        std::vector<char*> argv;
-        for (auto& arg : args) {
-            argv.push_back(arg.data());
+        std::vector<const char*> args;
+        for (const auto& option : options) {
+            args.push_back(option.c_str());
         }
-        argv.push_back(nullptr);
-        if (posix_spawn(&pid_, binary.c_str(), nullptr, nullptr, argv.data(), environ) != 0) {
-            throw std::runtime_error("failed to spawn " + binary);
-        }
-        client_ = ipc::IpcClient::create_socket(socket_path_);
-        for (int attempt = 0; attempt < 200 && !client_->connect(); ++attempt) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        if (wsdb_labs_ffi_open(static_cast<int>(args.size()), args.data()) != 0) {
+            throw std::runtime_error("wsdb_labs_ffi_open failed");
         }
     }
-
-    ~WsdbProcess()
-    {
-        client_->close();
-        kill(pid_, SIGTERM);
-        int status = 0;
-        waitpid(pid_, &status, 0);
-    }
-
-    std::vector<uint8_t> call(const std::vector<uint8_t>& request)
-    {
-        if (!client_->send(request.data(), request.size(), 0)) {
-            throw std::runtime_error("send to " + socket_path_ + " failed");
-        }
-        auto response = client_->receive(0);
-        if (response.data() == nullptr) {
-            throw std::runtime_error("receive from " + socket_path_ + " failed");
-        }
-        std::vector<uint8_t> out(response.begin(), response.end());
-        client_->release(response.size());
-        return out;
-    }
-
-  private:
-    std::string socket_path_;
-    pid_t pid_ = 0;
-    std::unique_ptr<ipc::IpcClient> client_;
+    ~AztecWsdb() { wsdb_labs_ffi_close(); }
+    AztecWsdb(const AztecWsdb&) = delete;
+    AztecWsdb& operator=(const AztecWsdb&) = delete;
+    AztecWsdb(AztecWsdb&&) = delete;
+    AztecWsdb& operator=(AztecWsdb&&) = delete;
 };
+
+// Sends one command to both: `BOTH(get_tree_info, cmd)` calls api.get_tree_info(cmd) on each, building the command
+// once so both get the same request.
+#define BOTH(method, ...)                                                                                              \
+    both(                                                                                                              \
+        #method,                                                                                                       \
+        [](auto& api, auto&&... args) { return api.method(std::forward<decltype(args)>(args)...); } __VA_OPT__(, )   \
+            __VA_ARGS__)
 
 /** One differential run: a random but node-shaped workload, every request answered by both. */
 class DiffRun {
   public:
-    DiffRun(WsdbProcess& ref, WsdbProcess& native, const InitialSizes& sizes, uint64_t seed)
-        : ref_(ref)
-        , native_(native)
-        , sizes_(sizes)
+    DiffRun(const InitialSizes& sizes, uint64_t seed)
+        : sizes_(sizes)
         , rng_(seed)
     {}
 
@@ -209,43 +175,54 @@ class DiffRun {
     size_t failed_writes_reverted = 0;
     std::vector<std::string> message_mismatches;
 
-    /** Sends `cmd` to both; returns the reference's frame. */
-    template <typename Cmd> Frame both(const std::string& name, const Cmd& cmd)
+    /**
+     * Sends one command to both through `call(api, cmd...)` and compares the answers. Returns the reference's
+     * response, or nullopt when it failed; a command answering nothing returns std::monostate.
+     */
+    template <typename Call, typename... Cmd> auto both(const std::string& name, Call call, const Cmd&... cmd)
     {
-        auto request = encode_request(name, cmd);
-        Frame ref = parse(ref_.call(request));
-        Frame nat = parse(native_.call(request));
+        using Resp = decltype(call(ref_, Cmd(cmd)...));
+        using Value = std::conditional_t<std::is_void_v<Resp>, std::monostate, Resp>;
+        auto attempt = [&](auto& api) -> std::variant<Value, std::string> {
+            try {
+                if constexpr (std::is_void_v<Resp>) {
+                    call(api, Cmd(cmd)...);
+                    return Value{};
+                } else {
+                    return call(api, Cmd(cmd)...);
+                }
+            } catch (const std::exception& e) {
+                return std::string(e.what());
+            }
+        };
+        auto ref = attempt(ref_);
+        auto labs = attempt(labs_);
         ++requests;
+        auto request = [&]() { return name + " " + (std::string() + ... + dump(cmd)); };
+        auto* ref_value = std::get_if<Value>(&ref);
+        auto* labs_value = std::get_if<Value>(&labs);
         if (std::getenv("WSDB_DIFF_TRACE") != nullptr) {
-            std::cout << "step " << step_ << " " << dump_request(request).substr(0, 600)
-                      << (ref.is_error()
-                              ? " -> error: " + ref.error
-                              : (name == "WsdbCreateFork" || name == "WsdbGetStatus" ? " -> " + dump(ref) : ""))
+            std::cout << "step " << step_ << " " << request().substr(0, 600)
+                      << (ref_value == nullptr ? " -> error: " + std::get<std::string>(ref)
+                          : name == "create_fork" || name == "get_status" ? " -> " + dump(*ref_value)
+                                                                          : "")
                       << "\n";
         }
-        if (ref.is_error() != nat.is_error()) {
-            ADD_FAILURE() << name << " step " << step_ << " " << dump_request(request) << ": wsdb-ref "
-                          << (ref.is_error() ? "failed: " + ref.error : "succeeded") << ", aztec-wsdb "
-                          << (nat.is_error() ? "failed: " + nat.error : "succeeded");
-            return ref;
-        }
-        if (ref.is_error()) {
+        if ((ref_value == nullptr) != (labs_value == nullptr)) {
+            ADD_FAILURE() << "step " << step_ << " " << request() << ": wsdb-ref "
+                          << (ref_value == nullptr ? "failed: " + std::get<std::string>(ref) : "succeeded")
+                          << ", aztec-wsdb "
+                          << (labs_value == nullptr ? "failed: " + std::get<std::string>(labs) : "succeeded");
+        } else if (ref_value == nullptr) {
             ++errors;
-            if (ref.error != nat.error) {
-                message_mismatches.push_back(name + ": '" + ref.error + "' vs '" + nat.error + "'");
+            if (std::get<std::string>(ref) != std::get<std::string>(labs)) {
+                message_mismatches.push_back(name + ": '" + std::get<std::string>(ref) + "' vs '" +
+                                             std::get<std::string>(labs) + "'");
             }
-            return ref;
+        } else {
+            compare(*ref_value, *labs_value, request);
         }
-        if (has_full_status(name)) {
-            compare_status(name, ref, nat);
-        } else if (name == "WsdbGetStateReference" || name == "WsdbGetInitialStateReference") {
-            // A node builds a state reference from an unordered map: the entries match, in any order.
-            EXPECT_EQ(sorted_state(ref), sorted_state(nat)) << name << " step " << step_ << ": state references differ";
-        } else if (ref.bytes != nat.bytes) {
-            ADD_FAILURE() << name << " step " << step_ << ": responses differ\n  request:    " << dump_request(request)
-                          << "\n  wsdb-ref:   " << dump(ref) << "\n  aztec-wsdb: " << dump(nat);
-        }
-        return ref;
+        return ref_value == nullptr ? std::optional<Value>() : std::optional<Value>(std::move(*ref_value));
     }
 
     void run(size_t steps)
@@ -275,8 +252,8 @@ class DiffRun {
     }
 
   private:
-    WsdbProcess& ref_;
-    WsdbProcess& native_;
+    RefApi ref_;
+    LabsApi labs_;
     InitialSizes sizes_;
     std::mt19937_64 rng_;
     size_t step_ = 0;
@@ -285,28 +262,8 @@ class DiffRun {
     std::vector<fr> known_note_hashes_;
     std::vector<fr> slots_;
 
-    static std::string dump(const Frame& frame)
+    static auto sorted_state(const std::vector<wire::TreeStateReference>& state)
     {
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(frame.bytes.data()), frame.bytes.size());
-        std::ostringstream out;
-        out << unpacked.get();
-        std::string text = out.str();
-        return text.size() > 1500 ? text.substr(0, 1500) + "..." : text;
-    }
-
-    static std::string dump_request(const std::vector<uint8_t>& request)
-    {
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
-        std::ostringstream out;
-        out << unpacked.get();
-        std::string text = out.str();
-        return text.size() > 1500 ? text.substr(0, 1500) + "..." : text;
-    }
-
-    static std::vector<std::tuple<uint32_t, fr, uint64_t>> sorted_state(const Frame& frame)
-    {
-        // Both responses carry `state` as their only field.
-        auto state = decode<wire::WsdbGetStateReferenceResponse>(frame).state;
         std::vector<std::tuple<uint32_t, fr, uint64_t>> out;
         for (const auto& tree : state) {
             out.emplace_back(tree.treeId, fr_of(tree.root), tree.size);
@@ -315,21 +272,23 @@ class DiffRun {
         return out;
     }
 
-    static bool has_full_status(const std::string& name)
+    template <typename T> void compare(const T& ref, const T& labs, const auto& request)
     {
-        return name == "WsdbCommit" || name == "WsdbSyncBlock" || name == "WsdbUnwindBlocks" ||
-               name == "WsdbRemoveHistoricalBlocks";
+        if constexpr (requires { ref.status.meta; }) {
+            compare_status(ref.status, labs.status, request);
+        } else if constexpr (requires { ref.state; }) {
+            // A node builds a state reference from an unordered map: the entries match, in any order.
+            EXPECT_EQ(sorted_state(ref.state), sorted_state(labs.state))
+                << "step " << step_ << " " << request() << ": state references differ";
+        } else if (!(ref == labs)) {
+            ADD_FAILURE() << "step " << step_ << ": responses differ\n  request:    " << request()
+                          << "\n  wsdb-ref:   " << dump(ref) << "\n  aztec-wsdb: " << dump(labs);
+        }
     }
 
-    void compare_status(const std::string& name, const Frame& ref, const Frame& nat)
+    void compare_status(const wire::WorldStateStatusFull& r, const wire::WorldStateStatusFull& n, const auto& request)
     {
         // Store statistics are a node's LMDB sizes; the summary and every tree's meta must match.
-        auto summary = [](const wire::WorldStateStatusFull& s) {
-            return std::make_tuple(s.summary.unfinalizedBlockNumber,
-                                   s.summary.finalizedBlockNumber,
-                                   s.summary.oldestHistoricalBlock,
-                                   s.summary.treesAreSynched);
-        };
         auto meta = [](const wire::TreeMeta& m) {
             return std::make_tuple(m.depth,
                                    m.size,
@@ -341,28 +300,13 @@ class DiffRun {
                                    m.unfinalizedBlockHeight,
                                    m.finalizedBlockHeight);
         };
-        auto statuses = [&]() -> std::pair<wire::WorldStateStatusFull, wire::WorldStateStatusFull> {
-            if (name == "WsdbCommit") {
-                return { decode<wire::WsdbCommitResponse>(ref).status, decode<wire::WsdbCommitResponse>(nat).status };
-            }
-            if (name == "WsdbSyncBlock") {
-                return { decode<wire::WsdbSyncBlockResponse>(ref).status,
-                         decode<wire::WsdbSyncBlockResponse>(nat).status };
-            }
-            if (name == "WsdbUnwindBlocks") {
-                return { decode<wire::WsdbUnwindBlocksResponse>(ref).status,
-                         decode<wire::WsdbUnwindBlocksResponse>(nat).status };
-            }
-            return { decode<wire::WsdbRemoveHistoricalBlocksResponse>(ref).status,
-                     decode<wire::WsdbRemoveHistoricalBlocksResponse>(nat).status };
-        }();
-        const auto& [r, n] = statuses;
-        EXPECT_EQ(summary(r), summary(n)) << name << " step " << step_ << ": status summaries differ";
-        EXPECT_EQ(meta(r.meta.nullifierTreeMeta), meta(n.meta.nullifierTreeMeta)) << name << " nullifier meta";
-        EXPECT_EQ(meta(r.meta.noteHashTreeMeta), meta(n.meta.noteHashTreeMeta)) << name << " note hash meta";
-        EXPECT_EQ(meta(r.meta.publicDataTreeMeta), meta(n.meta.publicDataTreeMeta)) << name << " public data meta";
-        EXPECT_EQ(meta(r.meta.messageTreeMeta), meta(n.meta.messageTreeMeta)) << name << " message meta";
-        EXPECT_EQ(meta(r.meta.archiveTreeMeta), meta(n.meta.archiveTreeMeta)) << name << " archive meta";
+        auto what = [&]() { return "step " + std::to_string(step_) + " " + request(); };
+        EXPECT_EQ(r.summary, n.summary) << what() << ": status summaries differ";
+        EXPECT_EQ(meta(r.meta.nullifierTreeMeta), meta(n.meta.nullifierTreeMeta)) << what() << ": nullifier meta";
+        EXPECT_EQ(meta(r.meta.noteHashTreeMeta), meta(n.meta.noteHashTreeMeta)) << what() << ": note hash meta";
+        EXPECT_EQ(meta(r.meta.publicDataTreeMeta), meta(n.meta.publicDataTreeMeta)) << what() << ": public data meta";
+        EXPECT_EQ(meta(r.meta.messageTreeMeta), meta(n.meta.messageTreeMeta)) << what() << ": message meta";
+        EXPECT_EQ(meta(r.meta.archiveTreeMeta), meta(n.meta.archiveTreeMeta)) << what() << ": archive meta";
     }
 
     uint64_t uniform(uint64_t lo, uint64_t hi) { return std::uniform_int_distribution<uint64_t>(lo, hi)(rng_); }
@@ -396,8 +340,7 @@ class DiffRun {
 
     uint32_t latest_block()
     {
-        auto status = decode<wire::WsdbGetStatusResponse>(both("WsdbGetStatus", wire::WsdbGetStatus{}));
-        return static_cast<uint32_t>(status.status.unfinalizedBlockNumber);
+        return static_cast<uint32_t>(BOTH(get_status).value().status.unfinalizedBlockNumber);
     }
 
     wire::WorldStateRevision some_revision()
@@ -432,10 +375,10 @@ class DiffRun {
         for (const auto& seed : world_state::genesis_protocol_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
-        auto request = encode_request("WsdbInit", genesis);
-        ASSERT_FALSE(parse(ref_.call(request)).is_error());
+        // aztec-wsdb takes its genesis when it is opened; wsdb-ref, from Init, which replaces any earlier state.
+        ref_.init(genesis);
         slots_.push_back(fr(1000));
-        both("WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{});
+        BOTH(get_initial_state_reference);
     }
 
     void read()
@@ -444,34 +387,34 @@ class DiffRun {
         uint32_t tree = static_cast<uint32_t>(uniform(0, 4));
         switch (uniform(0, 11)) {
         case 0:
-            both("WsdbGetTreeInfo", wire::WsdbGetTreeInfo{ .treeId = tree, .revision = revision });
+            BOTH(get_tree_info, wire::WsdbGetTreeInfo{ .treeId = tree, .revision = revision });
             break;
         case 1:
-            both("WsdbGetStateReference", wire::WsdbGetStateReference{ .revision = revision });
+            BOTH(get_state_reference, wire::WsdbGetStateReference{ .revision = revision });
             break;
         case 2:
-            both("WsdbGetLeafValue",
+            BOTH(get_leaf_value,
                  wire::WsdbGetLeafValue{
                      .treeId = coin(80) ? 1u : 4u, .revision = revision, .leafIndex = uniform(0, 300) });
             break;
         case 3:
-            both("WsdbGetNullifierLeafPreimage",
+            BOTH(get_nullifier_leaf_preimage,
                  wire::WsdbGetNullifierLeafPreimage{ .revision = revision, .leafIndex = uniform(0, 400) });
-            both("WsdbGetNullifierLeafValue",
+            BOTH(get_nullifier_leaf_value,
                  wire::WsdbGetNullifierLeafValue{ .revision = revision, .leafIndex = uniform(0, 400) });
             break;
         case 4:
-            both("WsdbGetPublicDataLeafPreimage",
+            BOTH(get_public_data_leaf_preimage,
                  wire::WsdbGetPublicDataLeafPreimage{ .revision = revision, .leafIndex = uniform(0, 300) });
-            both("WsdbGetPublicDataLeafValue",
+            BOTH(get_public_data_leaf_value,
                  wire::WsdbGetPublicDataLeafValue{ .revision = revision, .leafIndex = uniform(0, 300) });
             break;
         case 5:
-            both("WsdbGetSiblingPath",
+            BOTH(get_sibling_path,
                  wire::WsdbGetSiblingPath{ .treeId = tree, .revision = revision, .leafIndex = uniform(0, 400) });
             break;
         case 6:
-            both("WsdbFindLeafIndices",
+            BOTH(find_leaf_indices,
                  wire::WsdbFindLeafIndices{
                      .treeId = 1,
                      .revision = revision,
@@ -479,13 +422,13 @@ class DiffRun {
                      .startIndex = uniform(0, 20) });
             break;
         case 7:
-            both("WsdbFindNullifierLeafIndices",
+            BOTH(find_nullifier_leaf_indices,
                  wire::WsdbFindNullifierLeafIndices{
                      .revision = revision,
                      .leaves = { { .nullifier = bytes_of<wire::Nullifier>(some_key()) },
                                  { .nullifier = bytes_of<wire::Nullifier>(fr(uniform(1, 127))) } },
                      .startIndex = uniform(0, 140) });
-            both("WsdbFindPublicDataLeafIndices",
+            BOTH(find_public_data_leaf_indices,
                  wire::WsdbFindPublicDataLeafIndices{
                      .revision = revision,
                      .leaves = { { .slot = bytes_of<wire::PublicDataSlot>(some_slot()),
@@ -493,32 +436,32 @@ class DiffRun {
                      .startIndex = 0 });
             break;
         case 8:
-            both("WsdbFindLowLeaf",
+            BOTH(find_low_leaf,
                  wire::WsdbFindLowLeaf{ .treeId = coin(50) ? 0u : 2u,
                                         .revision = revision,
                                         .key = bytes_of<wire::Fr>(coin(50) ? some_key() : some_slot()) });
             break;
         case 9:
-            both("WsdbFindSiblingPaths",
+            BOTH(find_sibling_paths,
                  wire::WsdbFindSiblingPaths{
                      .treeId = 1, .revision = revision, .leaves = { bytes_of<wire::Fr>(some_note_hash()) } });
-            both("WsdbFindNullifierSiblingPaths",
+            BOTH(find_nullifier_sibling_paths,
                  wire::WsdbFindNullifierSiblingPaths{
                      .revision = revision, .leaves = { { .nullifier = bytes_of<wire::Nullifier>(some_key()) } } });
-            both("WsdbFindPublicDataSiblingPaths",
+            BOTH(find_public_data_sibling_paths,
                  wire::WsdbFindPublicDataSiblingPaths{
                      .revision = revision,
                      .leaves = { { .slot = bytes_of<wire::PublicDataSlot>(some_slot()),
                                    .value = bytes_of<wire::PublicDataValue>(fr(0)) } } });
             break;
         case 10:
-            both("WsdbGetBlockNumbersForLeafIndices",
+            BOTH(get_block_numbers_for_leaf_indices,
                  wire::WsdbGetBlockNumbersForLeafIndices{
                      .treeId = tree, .revision = revision, .leafIndices = { 0, uniform(0, 140), uniform(0, 400) } });
             break;
         default:
-            both("WsdbGetStatus", wire::WsdbGetStatus{});
-            both("WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{});
+            BOTH(get_status);
+            BOTH(get_initial_state_reference);
         }
     }
 
@@ -586,8 +529,8 @@ class DiffRun {
     {
         std::vector<uint64_t> others(forks_.begin() + 1, forks_.end());
         if (others.empty() || coin(15)) {
-            auto created = both("WsdbCreateFork", wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
-            forks_.push_back(decode<wire::WsdbCreateForkResponse>(created).forkId);
+            auto created = BOTH(create_fork, wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
+            forks_.push_back(created.value().forkId);
             return forks_.back();
         }
         return others[uniform(0, others.size() - 1)];
@@ -598,87 +541,86 @@ class DiffRun {
         uint64_t fork = coin(25) ? 0 : other_fork();
         if (fork == 0 && coin(50)) {
             // Writes that cannot fail, so the canonical fork keeps growing.
-            both("WsdbAppendLeaves",
+            BOTH(append_leaves,
                  wire::WsdbAppendLeaves{
                      .treeId = coin(70) ? 1u : 3u, .leaves = some_note_hashes(uniform(0, 5)), .forkId = 0 });
-            both("WsdbSequentialInsertNullifier",
+            BOTH(sequential_insert_nullifier,
                  wire::WsdbSequentialInsertNullifier{ .leaves = some_nullifiers(uniform(0, 3), true, true),
                                                       .forkId = 0 });
-            both("WsdbBatchInsertPublicData",
+            BOTH(batch_insert_public_data,
                  wire::WsdbBatchInsertPublicData{ .leaves = distinct_public_data(4), .subtreeDepth = 2, .forkId = 0 });
             return;
         }
         // As the public processor does with each tx: a checkpoint around the write, reverted if the write fails.
         bool guarded = coin(50);
         if (guarded) {
-            both("WsdbCreateCheckpoint", wire::WsdbCreateCheckpoint{ .forkId = fork });
+            BOTH(create_checkpoint, wire::WsdbCreateCheckpoint{ .forkId = fork });
         }
-        Frame result;
+        bool failed = false;
         switch (uniform(0, 6)) {
         case 0:
-            both("WsdbAppendLeaves",
+            BOTH(append_leaves,
                  wire::WsdbAppendLeaves{
                      .treeId = coin(70) ? 1u : 3u, .leaves = some_note_hashes(uniform(0, 5)), .forkId = fork });
             break;
         case 1:
-            result = both("WsdbSequentialInsertNullifier",
+            failed = !BOTH(sequential_insert_nullifier,
                           wire::WsdbSequentialInsertNullifier{ .leaves = some_nullifiers(uniform(0, 4), true, false),
-                                                               .forkId = fork });
+                                                               .forkId = fork }).has_value();
             break;
         case 2:
-            result = both("WsdbSequentialInsertPublicData",
+            failed = !BOTH(sequential_insert_public_data,
                           wire::WsdbSequentialInsertPublicData{ .leaves = some_public_data(uniform(0, 4), true),
-                                                                .forkId = fork });
+                                                                .forkId = fork }).has_value();
             break;
         case 3:
-            result = both("WsdbBatchInsertNullifier",
+            failed = !BOTH(batch_insert_nullifier,
                           wire::WsdbBatchInsertNullifier{ .leaves = some_nullifiers(4, true, false),
                                                           .subtreeDepth = static_cast<uint32_t>(uniform(0, 2)),
-                                                          .forkId = fork });
+                                                          .forkId = fork }).has_value();
             break;
         case 4:
-            result = both("WsdbBatchInsertPublicData",
+            failed = !BOTH(batch_insert_public_data,
                           wire::WsdbBatchInsertPublicData{ .leaves = some_public_data(4, true),
                                                            .subtreeDepth = static_cast<uint32_t>(uniform(0, 2)),
-                                                           .forkId = fork });
+                                                           .forkId = fork }).has_value();
             break;
         case 5:
-            result = both("WsdbAppendNullifierLeaves",
+            failed = !BOTH(append_nullifier_leaves,
                           wire::WsdbAppendNullifierLeaves{ .leaves = some_nullifiers(uniform(1, 3), true, false),
-                                                           .forkId = fork });
-            if (result.is_error()) {
+                                                           .forkId = fork }).has_value();
+            if (failed) {
                 break;
             }
-            result = both(
-                "WsdbAppendPublicDataLeaves",
-                wire::WsdbAppendPublicDataLeaves{ .leaves = some_public_data(uniform(1, 3), true), .forkId = fork });
+            failed = !BOTH(append_public_data_leaves,
+                wire::WsdbAppendPublicDataLeaves{ .leaves = some_public_data(uniform(1, 3), true), .forkId = fork }).has_value();
             break;
         default: {
-            auto state = both("WsdbGetStateReference",
+            auto state = BOTH(get_state_reference,
                               wire::WsdbGetStateReference{
                                   .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } });
-            if (state.is_error()) {
+            if (!state) {
                 break;
             }
-            auto block_state = decode<wire::WsdbGetStateReferenceResponse>(state).state;
+            auto block_state = state->state;
             if (coin(20)) {
-                block_state = decode<wire::WsdbGetInitialStateReferenceResponse>(
-                                  both("WsdbGetInitialStateReference", wire::WsdbGetInitialStateReference{}))
-                                  .state;
+                block_state = BOTH(get_initial_state_reference).value().state;
             }
-            both(
-                "WsdbUpdateArchive",
+            BOTH(update_archive,
                 wire::WsdbUpdateArchive{ .blockStateRef = block_state,
                                          .blockHeaderHash = bytes_of<wire::BlockHeaderHash>(fr(uniform(1, 1ULL << 62))),
                                          .forkId = fork });
         }
         }
         if (guarded) {
-            if (result.is_error()) {
+            if (failed) {
                 failed_writes_reverted++;
             }
-            both(result.is_error() || coin(50) ? "WsdbRevertCheckpoint" : "WsdbCommitCheckpoint",
-                 wire::WsdbRevertCheckpoint{ .forkId = fork });
+            if (failed || coin(50)) {
+                BOTH(revert_checkpoint, wire::WsdbRevertCheckpoint{ .forkId = fork });
+            } else {
+                BOTH(commit_checkpoint, wire::WsdbCommitCheckpoint{ .forkId = fork });
+            }
         }
     }
 
@@ -688,17 +630,20 @@ class DiffRun {
         switch (uniform(0, 4)) {
         case 0:
         case 1:
-            both("WsdbCreateCheckpoint", wire::WsdbCreateCheckpoint{ .forkId = fork });
+            BOTH(create_checkpoint, wire::WsdbCreateCheckpoint{ .forkId = fork });
             break;
         case 2:
-            both(coin(50) ? "WsdbCommitCheckpoint" : "WsdbRevertCheckpoint",
-                 wire::WsdbCommitCheckpoint{ .forkId = fork });
+            if (coin(50)) {
+                BOTH(commit_checkpoint, wire::WsdbCommitCheckpoint{ .forkId = fork });
+            } else {
+                BOTH(revert_checkpoint, wire::WsdbRevertCheckpoint{ .forkId = fork });
+            }
             break;
         case 3:
-            both("WsdbCommitAllCheckpoints", wire::WsdbCommitAllCheckpoints{ .forkId = fork });
+            BOTH(commit_all_checkpoints, wire::WsdbCommitAllCheckpoints{ .forkId = fork });
             break;
         default:
-            both("WsdbRevertAllCheckpoints", wire::WsdbRevertAllCheckpoints{ .forkId = fork });
+            BOTH(revert_all_checkpoints, wire::WsdbRevertAllCheckpoints{ .forkId = fork });
         }
     }
 
@@ -706,16 +651,16 @@ class DiffRun {
     {
         if (coin(60) || forks_.size() < 2) {
             bool latest = coin(70);
-            auto frame =
-                both("WsdbCreateFork",
+            auto created =
+                BOTH(create_fork,
                      wire::WsdbCreateFork{ .latest = latest,
                                            .blockNumber = static_cast<uint32_t>(uniform(0, latest_block() + 1)) });
-            if (!frame.is_error()) {
-                forks_.push_back(decode<wire::WsdbCreateForkResponse>(frame).forkId);
+            if (created) {
+                forks_.push_back(created->forkId);
             }
         } else {
             size_t at = uniform(0, forks_.size() - 1);
-            both("WsdbDeleteFork", wire::WsdbDeleteFork{ .forkId = forks_[at] });
+            BOTH(delete_fork, wire::WsdbDeleteFork{ .forkId = forks_[at] });
             if (forks_[at] != 0) {
                 forks_.erase(forks_.begin() + static_cast<std::ptrdiff_t>(at));
             }
@@ -725,13 +670,13 @@ class DiffRun {
     void canonical_op()
     {
         // Direct writes to the canonical fork, then a commit or a rollback.
-        both("WsdbAppendLeaves", wire::WsdbAppendLeaves{ .treeId = 1, .leaves = some_note_hashes(2), .forkId = 0 });
-        both("WsdbSequentialInsertNullifier",
+        BOTH(append_leaves, wire::WsdbAppendLeaves{ .treeId = 1, .leaves = some_note_hashes(2), .forkId = 0 });
+        BOTH(sequential_insert_nullifier,
              wire::WsdbSequentialInsertNullifier{ .leaves = some_nullifiers(1, false, true), .forkId = 0 });
         if (coin(50)) {
-            both("WsdbCommit", wire::WsdbCommit{});
+            BOTH(commit);
         } else {
-            both("WsdbRollback", wire::WsdbRollback{});
+            BOTH(rollback);
         }
     }
 
@@ -740,15 +685,15 @@ class DiffRun {
         uint32_t latest = latest_block();
         switch (uniform(0, 2)) {
         case 0:
-            both("WsdbFinalizeBlocks",
+            BOTH(finalize_blocks,
                  wire::WsdbFinalizeBlocks{ .toBlockNumber = static_cast<uint32_t>(uniform(0, latest + 1)) });
             break;
         case 1:
-            both("WsdbUnwindBlocks",
+            BOTH(unwind_blocks,
                  wire::WsdbUnwindBlocks{ .toBlockNumber = static_cast<uint32_t>(uniform(0, latest)) });
             break;
         default:
-            both("WsdbRemoveHistoricalBlocks",
+            BOTH(remove_historical_blocks,
                  wire::WsdbRemoveHistoricalBlocks{ .toBlockNumber = static_cast<uint32_t>(uniform(0, latest + 1)) });
         }
         // Forks a chain operation dropped are gone on both; forget them.
@@ -756,58 +701,61 @@ class DiffRun {
             if (fork == 0) {
                 return false;
             }
-            return parse(ref_.call(encode_request(
-                             "WsdbGetTreeInfo",
-                             wire::WsdbGetTreeInfo{
-                                 .treeId = 0,
-                                 .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } })))
-                .is_error();
+            try {
+                ref_.get_tree_info(wire::WsdbGetTreeInfo{
+                    .treeId = 0, .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } });
+                return false;
+            } catch (const std::exception&) {
+                return true;
+            }
         });
     }
 
     /** Builds a block as a node does: its effects on a fork at the tip, then the same effects synced to fork 0. */
     void build_block()
     {
-        auto created = both("WsdbCreateFork", wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
-        uint64_t fork = decode<wire::WsdbCreateForkResponse>(created).forkId;
+        auto created = BOTH(create_fork, wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 });
+        uint64_t fork = created.value().forkId;
         auto notes = some_note_hashes(coin(30) ? 64 : 8);
         auto messages = coin(30) ? some_note_hashes(4) : std::vector<wire::Fr>{};
         auto nullifiers = some_nullifiers(coin(30) ? 64 : 8, true, true);
         auto public_data = some_public_data(uniform(0, 4), false);
-        both("WsdbAppendLeaves", wire::WsdbAppendLeaves{ .treeId = 1, .leaves = notes, .forkId = fork });
-        both("WsdbAppendLeaves", wire::WsdbAppendLeaves{ .treeId = 3, .leaves = messages, .forkId = fork });
+        BOTH(append_leaves, wire::WsdbAppendLeaves{ .treeId = 1, .leaves = notes, .forkId = fork });
+        BOTH(append_leaves, wire::WsdbAppendLeaves{ .treeId = 3, .leaves = messages, .forkId = fork });
         auto inserted =
-            both("WsdbBatchInsertNullifier",
+            BOTH(batch_insert_nullifier,
                  wire::WsdbBatchInsertNullifier{
                      .leaves = nullifiers, .subtreeDepth = nullifiers.size() == 64 ? 6u : 3u, .forkId = fork });
-        both("WsdbSequentialInsertPublicData",
+        BOTH(sequential_insert_public_data,
              wire::WsdbSequentialInsertPublicData{ .leaves = public_data, .forkId = fork });
-        auto state = decode<wire::WsdbGetStateReferenceResponse>(
-            both("WsdbGetStateReference",
-                 wire::WsdbGetStateReference{
-                     .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } }));
+        auto state = BOTH(get_state_reference,
+                          wire::WsdbGetStateReference{
+                              .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } })
+                         .value();
         fr header_hash(uniform(1, 1ULL << 62));
-        both("WsdbUpdateArchive",
+        BOTH(update_archive,
              wire::WsdbUpdateArchive{ .blockStateRef = state.state,
                                       .blockHeaderHash = bytes_of<wire::BlockHeaderHash>(header_hash),
                                       .forkId = fork });
-        auto archive = decode<wire::WsdbGetTreeInfoResponse>(
-            both("WsdbGetTreeInfo",
-                 wire::WsdbGetTreeInfo{
-                     .treeId = 4, .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } }));
-        auto previous = decode<wire::WsdbGetTreeInfoResponse>(
-            both("WsdbGetTreeInfo",
-                 wire::WsdbGetTreeInfo{
-                     .treeId = 4, .revision = { .forkId = 0, .blockNumber = LATEST, .includeUncommitted = false } }));
-        both("WsdbDeleteFork", wire::WsdbDeleteFork{ .forkId = fork });
-        if (inserted.is_error()) {
+        auto archive = BOTH(get_tree_info,
+                            wire::WsdbGetTreeInfo{
+                                .treeId = 4,
+                                .revision = { .forkId = fork, .blockNumber = LATEST, .includeUncommitted = true } })
+                           .value();
+        auto previous = BOTH(get_tree_info,
+                             wire::WsdbGetTreeInfo{
+                                 .treeId = 4,
+                                 .revision = { .forkId = 0, .blockNumber = LATEST, .includeUncommitted = false } })
+                            .value();
+        BOTH(delete_fork, wire::WsdbDeleteFork{ .forkId = fork });
+        if (!inserted) {
             return;
         }
         // Sometimes a block whose claimed state is wrong, which both must reject without committing.
         if (coin(10)) {
             state.state[0].size += 1;
         }
-        both("WsdbSyncBlock",
+        BOTH(sync_block,
              wire::WsdbSyncBlock{ .blockNumber = 0,
                                   .blockStateRef = state.state,
                                   .blockHeaderHash = bytes_of<wire::BlockHeaderHash>(header_hash),
@@ -825,22 +773,16 @@ class DiffRun {
 
 TEST(WsdbRefDiff, MatchesWsdbRefRequestForRequest)
 {
-    if (!std::filesystem::exists(WSDB_REF_BIN)) {
-        GTEST_SKIP() << "no wsdb-ref binary at " << WSDB_REF_BIN << " (build barretenberg's wsdb-ref target)";
-    }
     size_t seeds = std::getenv("WSDB_DIFF_SEEDS") ? std::stoul(std::getenv("WSDB_DIFF_SEEDS")) : 4;
     size_t steps = std::getenv("WSDB_DIFF_STEPS") ? std::stoul(std::getenv("WSDB_DIFF_STEPS")) : 400;
     for (uint64_t seed = 1; seed <= seeds && !HasFailure(); ++seed) {
         auto dir = std::filesystem::temp_directory_path() /
                    ("wsdb-ref-diff-" + std::to_string(getpid()) + "-" + std::to_string(seed));
         {
-            auto native_socket = (dir / "aztec-wsdb.sock").string();
-            auto ref_socket = (dir / "wsdb-ref.sock").string();
             // Odd seeds run the protocol's initial sizes, even ones others.
             InitialSizes sizes = seed % 2 == 1 ? InitialSizes{ 128, 128 } : InitialSizes{ 64, 256 };
-            WsdbProcess native(aztec_wsdb_command(AZTEC_WSDB_BIN, dir, native_socket, sizes), native_socket);
-            WsdbProcess ref({ WSDB_REF_BIN, "msgpack", "run", "--input", ref_socket }, ref_socket);
-            DiffRun run(ref, native, sizes, seed);
+            AztecWsdb aztec_wsdb(aztec_wsdb_options(dir / "data", sizes));
+            DiffRun run(sizes, seed);
             run.run(steps);
             std::cout << "seed " << seed << ": " << run.requests << " requests, " << run.errors
                       << " answered with errors on both, " << run.message_mismatches.size()

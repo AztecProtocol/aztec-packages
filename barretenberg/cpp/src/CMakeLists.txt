@@ -231,14 +231,12 @@ set(BARRETENBERG_TARGET_OBJECTS
 # The core object list: what FFI consumers of bb-external need (bb_ipc_ffi_entry()).
 set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
 
-# world_state_reference is the in-memory reference merkle DB and its bb_wsref_* C ABI, which external
-# world-state implementations link for their conformance tests. It is vm2-free; vm2_stub satisfies its
+# world_state_reference is the in-memory reference world state. It is vm2-free; vm2_stub satisfies its
 # Stats references.
 if(BB_ARCHIVE_WORLD_STATE_REFERENCE)
     list(APPEND BARRETENBERG_TARGET_OBJECTS
         $<TARGET_OBJECTS:world_state_reference_objects>
         $<TARGET_OBJECTS:api_objects>)
-    list(APPEND BB_EXTERNAL_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
 endif()
 
 add_library(
@@ -256,6 +254,70 @@ if(NOT WASM)
         ${BB_EXTERNAL_TARGET_OBJECTS}
         $<TARGET_OBJECTS:vm2_stub>
     )
+endif()
+
+# libwsdb-ref.a: wsdb-ref behind its FFI entry, plus the poseidon2 C bindings, for aztec-wsdb (which
+# links it instead of bb-external). aztec-wsdb is separately built C++ with its own msgpack-c, and a
+# static link merges same-named inline and template code across both, so only those C symbols may
+# keep their names; everything else, barretenberg's msgpack and libc++ instantiations included, must
+# be private to this library.
+# ELF: one relocatable object in which everything else is local. lld links the objects as lazy
+# members, so only what the exports reach is kept, and --force-group-allocation dissolves the COMDAT
+# groups, or the final link would discard this object's copies in favour of the consumer's.
+# Mach-O: ld64.lld has no -r (and zig's crashes the final link), so rename_private_symbols.sh renames
+# every other symbol the objects define under a private prefix instead.
+if(NOT WASM AND BB_WITH_WSDB_REF AND BB_ARCHIVE_WORLD_STATE_REFERENCE AND CMAKE_SYSTEM_NAME MATCHES "Linux|Darwin")
+    find_program(BB_LLVM_OBJCOPY NAMES llvm-objcopy llvm-objcopy-20)
+    find_program(BB_LLVM_NM NAMES llvm-nm llvm-nm-20)
+    # zig's lld (the zig presets' own linker) when there is one. lld links every ELF target, so the
+    # cross presets need no per-architecture linker.
+    find_program(BB_ZIG zig)
+    find_program(BB_LD_LLD NAMES ld.lld ld.lld-20)
+    if(BB_ZIG)
+        set(WSDB_REF_LD ${BB_ZIG} ld.lld)
+    elseif(BB_LD_LLD)
+        set(WSDB_REF_LD ${BB_LD_LLD})
+    endif()
+    set(WSDB_REF_EXPORTS
+        wsdb_ref_ipc_ffi_entry wsdb_ref_ipc_ffi_alloc wsdb_ref_ipc_ffi_free
+        bb_poseidon2_hash bb_poseidon2_hash_pair_with_separator)
+    set(WSDB_REF_OBJECTS ${BB_EXTERNAL_TARGET_OBJECTS} $<TARGET_OBJECTS:world_state_reference_objects>
+        $<TARGET_OBJECTS:wsdb_ref_objects> $<TARGET_OBJECTS:vm2_stub>)
+    set(WSDB_REF_DIR ${CMAKE_CURRENT_BINARY_DIR}/wsdb_ref_library)
+    set(WSDB_REF_ARCHIVE ${CMAKE_BINARY_DIR}/lib/libwsdb-ref.a)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND WSDB_REF_LD AND BB_LLVM_OBJCOPY)
+        # Every object is a lazy archive member (--start-lib), so only what the exports reach is linked.
+        file(GENERATE OUTPUT ${WSDB_REF_DIR}/objects.rsp
+             CONTENT "--start-lib\n$<JOIN:${WSDB_REF_OBJECTS},\n>\n--end-lib\n")
+        list(TRANSFORM WSDB_REF_EXPORTS PREPEND "-u" OUTPUT_VARIABLE WSDB_REF_UNDEFINED)
+        list(TRANSFORM WSDB_REF_EXPORTS PREPEND "--keep-global-symbol=" OUTPUT_VARIABLE WSDB_REF_KEEP)
+        set(WSDB_REF_COMMANDS
+            COMMAND ${WSDB_REF_LD} -r --force-group-allocation ${WSDB_REF_UNDEFINED}
+                    -o ${WSDB_REF_DIR}/wsdb_ref.o @${WSDB_REF_DIR}/objects.rsp
+            COMMAND ${BB_LLVM_OBJCOPY} ${WSDB_REF_KEEP} ${WSDB_REF_DIR}/wsdb_ref.o
+            COMMAND ${CMAKE_COMMAND} -E rm -f ${WSDB_REF_ARCHIVE}
+            COMMAND ${CMAKE_AR} qc ${WSDB_REF_ARCHIVE} ${WSDB_REF_DIR}/wsdb_ref.o)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND BB_LLVM_OBJCOPY AND BB_LLVM_NM)
+        file(GENERATE OUTPUT ${WSDB_REF_DIR}/objects.rsp CONTENT "$<JOIN:${WSDB_REF_OBJECTS},\n>\n")
+        list(TRANSFORM WSDB_REF_EXPORTS PREPEND "_")
+        set(WSDB_REF_COMMANDS
+            COMMAND ${CMAKE_SOURCE_DIR}/scripts/rename_private_symbols.sh ${BB_LLVM_NM} ${BB_LLVM_OBJCOPY}
+                    ${CMAKE_AR} ${WSDB_REF_ARCHIVE} ${WSDB_REF_DIR}/objects.rsp ${WSDB_REF_EXPORTS})
+    endif()
+    if(NOT WSDB_REF_COMMANDS)
+        message(WARNING "Not building libwsdb-ref.a, which aztec-wsdb links: it needs llvm-objcopy, and ld.lld (or zig) on Linux or llvm-nm on macOS")
+    else()
+        add_custom_command(
+            OUTPUT ${WSDB_REF_ARCHIVE}
+            ${WSDB_REF_COMMANDS}
+            COMMAND ${CMAKE_RANLIB} ${WSDB_REF_ARCHIVE}
+            DEPENDS ${WSDB_REF_OBJECTS} ${WSDB_REF_DIR}/objects.rsp ${CMAKE_SOURCE_DIR}/scripts/rename_private_symbols.sh
+            COMMENT "Archiving libwsdb-ref.a with only its C entry points public"
+            VERBATIM
+        )
+        # Named after its file so a preset's target list caches it (see preset_cache_paths in bootstrap.sh).
+        add_custom_target(libwsdb-ref.a ALL DEPENDS ${WSDB_REF_ARCHIVE})
+    endif()
 endif()
 
 if(WASM)

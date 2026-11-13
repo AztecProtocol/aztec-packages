@@ -1,7 +1,9 @@
 # wsdb-ref: the in-memory reference world state (world_state_reference) as a service over the node
 # world state's contract, wsdb_schema.jsonc here. wsdb-ref owns the schema: the AVM's wsdb client in
 # vm2_wsdb and native-packages/wsdb's aztec-wsdb are generated from it too. The generated dispatch
-# runs the handlers here; the generated FFI entry (wsdb_ipc_ffi_entry) runs the dispatch in-process.
+# runs the handlers here; the generated FFI entry (wsdb_ref_ipc_ffi_entry) runs the dispatch in-process.
+# The FFI symbols carry this implementation's name, not the schema's service (which names the wire
+# protocol aztec-wsdb serves too), so the two can be linked into one binary.
 # Three artifacts carry it to @aztec-foundation/wsdb-ref (barretenberg/ts/wsdb-ref), one per transport:
 #   - the wsdb-ref binary (native builds), the dispatch served over IPC, for its process transports
 #     (and for a downstream world state's conformance test, which runs it beside its own server);
@@ -35,6 +37,7 @@ add_custom_command(
             --server
             --ffi
             --napi
+            --ffi-name wsdb_ref
             --cpp-namespace bb::wsdb_ref
             --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${WSDB_REF_SCHEMA} ${IPC_CODEGEN_SRC}

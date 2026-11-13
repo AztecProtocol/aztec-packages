@@ -86,6 +86,7 @@ interface Args {
   uds: boolean;
   ffi: boolean;
   napi: boolean;
+  ffiName: string;
   stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
 }
@@ -142,6 +143,10 @@ Optional:
   --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
                            client backend. With --server: the exported FFI entry
                            (<service>_ipc_ffi_entry) over the dispatch
+  --ffi-name <name>        The name the FFI symbols carry (<name>_ipc_ffi_entry, and the
+                           wasm export a TS package's wasm transport calls). Defaults
+                           to the schema's service in snake_case; set it when several
+                           implementations serve one schema, so each exports its own
   --napi                   With --server --ffi (cpp): also emit <service>_napi.cpp, a
                            Node-API addon over the FFI entry, for a TS package's
                            napi transport (--package-transports napi)
@@ -179,6 +184,7 @@ function parseArgs(argv: string[]): Args {
     uds: false,
     ffi: false,
     napi: false,
+    ffiName: "",
     stripMethodPrefix: false,
     stripTypePrefix: false,
   };
@@ -268,6 +274,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--napi":
         args.napi = true;
+        break;
+      case "--ffi-name":
+        args.ffiName = takeValue();
         break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
@@ -513,6 +522,9 @@ function generate(args: Args) {
   // the bare command. Positional schemas keep the legacy --prefix/--strip flags.
   const prefix = service || args.prefix || detectPrefix(compiled);
   const stripMethodPrefix = service ? true : args.stripMethodPrefix;
+  // The schema's service names the wire protocol (it prefixes every tag), so it is shared by every
+  // implementation of the schema. The FFI symbols name one implementation.
+  const ffiName = args.ffiName || toSnakeCase(prefix);
 
   console.log(
     `Schema: ${absSchema} (${compiled.commands.length} commands, prefix=${prefix})`,
@@ -660,6 +672,7 @@ function generate(args: Args) {
           }
           const packageGen = new TypeScriptPackageCodegen({
             prefix,
+            ffiName,
             packageName,
             binaryName,
             binaryEnvVar: binaryName
@@ -715,6 +728,7 @@ function generate(args: Args) {
     case "rust": {
       const gen = new RustCodegen({
         prefix,
+        ffiName,
         stripMethodPrefix: stripMethodPrefix,
         stripTypePrefix: args.stripTypePrefix,
       });
@@ -753,6 +767,7 @@ function generate(args: Args) {
     case "zig": {
       const gen = new ZigCodegen({
         prefix,
+        ffiName,
         clientName: `${prefix}Client`,
         stripMethodPrefix: stripMethodPrefix,
       });
@@ -796,6 +811,7 @@ function generate(args: Args) {
       const gen = new CppCodegen({
         namespace: ns,
         prefix,
+        ffiName,
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
         stripMethodPrefix: stripMethodPrefix,

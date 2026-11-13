@@ -32,6 +32,8 @@ export interface CppCodegenOptions {
    * and the server dispatch deserializes into wire types then converts to domain types.
    */
   wireNamespace?: string;
+  /** The name the FFI symbols carry (`<ffiName>_ipc_ffi_entry`); defaults to the prefix in snake_case. */
+  ffiName?: string;
 }
 
 export class CppCodegen {
@@ -700,12 +702,13 @@ void serve(const std::string& input_path, Ctx& ctx)
    * symbols, and the one hook the service defines to hand over its dispatcher.
    */
   /**
-   * Exported symbol names carry the service (`bb_ipc_ffi_entry`), so libraries of several services
-   * can be linked into one binary. A schema with no service/prefix keeps the bare names.
+   * Exported symbol names carry the implementation's FFI name (`bb_ipc_ffi_entry`), so libraries of
+   * several services, or several implementations of one schema, can be linked into one binary. A
+   * schema with no service/prefix and no FFI name keeps the bare names.
    */
   private ffiSymbol(name: string): string {
-    const prefix = this.opts.prefix ? `${toSnakeCase(this.opts.prefix)}_` : "";
-    return `${prefix}${name}`;
+    const ffiName = this.opts.ffiName ?? toSnakeCase(this.opts.prefix);
+    return ffiName ? `${ffiName}_${name}` : name;
   }
 
   generateFfiHeader(): string {
