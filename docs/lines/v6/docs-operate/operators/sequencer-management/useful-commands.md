@@ -346,7 +346,7 @@ cast --to-address 0x000000000000000000000000742d35Cc6634C0532925a3b844Bc9e7595f0
 
 ## Next Steps
 
-- [Learn about sequencer setup](../setup/sequencer-setup.md) to operate your sequencer node
+- [Learn about sequencer setup](../solo-sequencer/index.mdx) to operate your sequencer node
 - [Participate in governance](./governance-participation.md) by signaling, voting, and creating proposals
 - [Monitor your node](../monitoring/index.md) with metrics and observability tools
 - Join the [Aztec Discord](https://discord.gg/aztec) for operator support and community discussions

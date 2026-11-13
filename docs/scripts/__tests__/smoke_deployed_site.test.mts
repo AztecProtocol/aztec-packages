@@ -16,8 +16,8 @@ const redirect = (to: string): Handler => (_req, res) => res.writeHead(301, { lo
 function netlifyRoutes(origin: string): Record<string, Handler> {
   return {
     "/developers": redirect(`${origin}/developers/overview`),
-    "/network/operators/setup/running_a_node": redirect(`${origin}/operate/operators/setup/running_a_node`),
-    "/operate/operators/setup/running_a_node": send(200, "text/html; charset=UTF-8", "<html></html>"),
+    "/network/operators/full-node/setup": redirect(`${origin}/operate/operators/full-node/setup`),
+    "/operate/operators/full-node/setup": send(200, "text/html; charset=UTF-8", "<html></html>"),
     "/developers/overview.md": send(200, "text/markdown; charset=UTF-8", TWIN, { vary: "Accept-Encoding" }),
     "/developers/overview": (req, res) =>
       req.headers.accept?.includes("text/markdown")
@@ -71,7 +71,7 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   const { origin } = await serve((o) => ({
     ...netlifyRoutes(o),
     "/developers": redirect(`${o}/developers/docs`),
-    "/network/operators/setup/running_a_node": redirect(`${elsewhere.origin}/operate/operators/setup/running_a_node`),
+    "/network/operators/full-node/setup": redirect(`${elsewhere.origin}/operate/operators/full-node/setup`),
     "/developers/overview.md": send(200, "text/markdown-broken; charset=UTF-8", TWIN),
     "/developers/overview": send(200, "text/markdown; charset=utf-8", TWIN),
     "/developers/docs/resources/migration_notes.md": send(200, "text/markdown", "Included versions: none\n"),
@@ -147,8 +147,8 @@ test("a redirect target that fails with its query, a soft 404, an oversized body
   const soft = await serve(
     (o) => ({
       ...netlifyRoutes(o),
-      "/network/operators/setup/running_a_node": redirect(`${o}/operate/operators/setup/running_a_node?broken=1`),
-      "/operate/operators/setup/running_a_node": (req, res) =>
+      "/network/operators/full-node/setup": redirect(`${o}/operate/operators/full-node/setup?broken=1`),
+      "/operate/operators/full-node/setup": (req, res) =>
         (req.url?.includes("broken") ? send(404, "text/html", "") : send(200, "text/html", "<html></html>"))(req, res),
     }),
     send(200, "text/html", "<html></html>"),
@@ -156,7 +156,7 @@ test("a redirect target that fails with its query, a soft 404, an oversized body
   const { out } = await run([origin, "--commit", SHA]);
   assert.match(out, /FAIL B7 .*over 5 MiB/);
   const mismatch = await run([soft.origin, "--commit", "a".repeat(40)]);
-  assert.match(mismatch.out, /FAIL B2 .*running_a_node\?broken=1: got 404/);
+  assert.match(mismatch.out, /FAIL B2 .*full-node\/setup\?broken=1: got 404/);
   assert.match(mismatch.out, /FAIL B6 .*expected 404, got 200/);
   assert.match(mismatch.out, new RegExp(`FAIL B7 .*${SHA}, expected a{40}`));
   for (const bad of [[], ["ftp://example.org"], ["https://user:pw@example.org"], ["https://example.org/?a=1"], ["https://example.org/sub"], [origin, "--commit", "abc"]]) {

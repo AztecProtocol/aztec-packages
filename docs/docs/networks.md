@@ -31,7 +31,7 @@ Use the network name for where something is deployed, the release name for what 
 | **RPC Endpoint**    | `https://aztec-mainnet.drpc.org`                                                                         | `https://aztec-testnet.drpc.org`                                                                  |
 | **Bootnodes**       | [http://static.aztec.network/mainnet/bootnodes.json](http://static.aztec.network/mainnet/bootnodes.json) | [http://static.aztec.network/testnet/bootnodes.json](http://static.aztec.network/testnet/bootnodes.json) |
 | **Block Explorer**  | [Aztecscan](https://aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=mainnet)          | [Aztecscan](https://testnet.aztecscan.xyz), [Aztecexplorer](https://aztecexplorer.xyz/?network=testnet)  |
-| **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management)                                       | [Run a node →](/operate/operators/setup/running_a_node)                                                  |
+| **Getting Started** | [Run a sequencer →](/operate/operators/solo-sequencer)                                       | [Run a node →](/operate/operators/full-node/overview)                                                  |
 
 :::tip Network roles (post-Alpha)
 **Testnet is your production path.** It's decentralized, live, and stable: treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
@@ -173,5 +173,5 @@ Based on your use case:
 
 - **Building an application?** Start with [Getting started](/developers/getting_started_on_local_network).
 - **Running infrastructure?** Review the [Network operator guide](/operate/operators).
-- **Joining as a sequencer?** See [Sequencer management](/operate/operators/setup/sequencer_management).
+- **Joining as a sequencer?** See [Sequencer management](/operate/operators/solo-sequencer).
 - **Tracking releases?** See [Versions and releases](#versions-and-releases) above and the [GitHub releases page](https://github.com/aztec-labs-eng/aztec-node/releases).

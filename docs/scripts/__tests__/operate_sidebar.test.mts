@@ -11,14 +11,7 @@ const require = createRequire(import.meta.url);
 
 // Doc ids of pages in no sidebar on purpose. Every URL here is in snapshots/published-urls.txt, so
 // removing a page needs a redirect first.
-const UNLISTED: Record<string, string> = {
-  "operators/setup/become_a_staking_provider": "setup page from before the guided setups; a netlify.toml redirect and provider pages point here",
-  "operators/setup/registering_sequencer": "setup page from before the guided setups",
-  "operators/setup/running_a_node": "setup page from before the guided setups; netlify.toml redirects and two pages point here",
-  "operators/setup/running_a_prover": "setup page from before the guided setups; a netlify.toml redirect points here",
-  "operators/setup/sequencer_management": "setup page from before the guided setups; the guided setups and token pages link it",
-  "reference/changelog/v4": "duplicate of operators/reference/changelog/v4, kept for its published URL",
-};
+const UNLISTED: Record<string, string> = {};
 const unlisted = (id: string) => Object.hasOwn(UNLISTED, id);
 
 // The id Docusaurus gives a docs file: its directory and its front-matter `id`, else its file name; a
