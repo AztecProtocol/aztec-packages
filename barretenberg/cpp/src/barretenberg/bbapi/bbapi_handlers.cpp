@@ -547,7 +547,6 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
         });
     }
 
-
     // Defense in depth: hash-pin AND subgroup-check the G2 input. Hash equality alone is sufficient
     // for the canonical case (it implies prime-order membership); the subgroup check is kept so
     // that any future relaxation of the hash gate (e.g. a flag to allow a different trusted setup)
