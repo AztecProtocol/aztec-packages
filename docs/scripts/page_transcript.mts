@@ -55,30 +55,37 @@ const KEY = /^\s*([\w-]+|"[^"]*")\s*=/;
 const TABLE = /^\s*\[([^[\]]+)\]\s*(#.*)?$/;
 const isContent = (row: string) => row.trim() !== "" && !row.trim().startsWith("#");
 
-// Each `table\0key` the rows define, and the index after each table's last content row ("" is the
-// rows before the first header).
+const bare = (row: string) => row.replace(/\s+/g, "");
+
+// Each `table\0key` the rows define, with its row without whitespace, and the index after each table's
+// last content row ("" is the rows before the first header).
 function tables(rows: string[]) {
-  const keys = new Set<string>();
+  const keys = new Map<string, string>();
   const end = new Map<string, number>([["", 0]]);
   let table = "";
   rows.forEach((row, i) => {
     const header = row.match(TABLE)?.[1].trim();
     if (header !== undefined) table = header;
-    else if (KEY.test(row)) keys.add(`${table}\0${row.match(KEY)![1]}`);
+    else if (KEY.test(row)) keys.set(`${table}\0${row.match(KEY)![1]}`, bare(row));
     if (isContent(row)) end.set(table, i + 1);
   });
   return { keys, end };
 }
 
-// The block's rows whose key the file lacks, by table.
-function missing(block: string, have: Set<string>): Map<string, string[]> {
+// The block's rows whose key the file lacks, by table. A key the file has must have the block's value:
+// the page shows the reader's file, and a merge that kept another value would not test what it shows.
+function missing(block: string, have: Map<string, string>): Map<string, string[]> {
   const add = new Map<string, string[]>();
   let table = "";
   for (const row of block.split("\n").filter(isContent)) {
     const header = row.match(TABLE)?.[1].trim();
     if (header !== undefined) table = header;
     else if (!KEY.test(row)) throw new Error(`merge reads one-line keys and [tables] only: ${row}`);
-    else if (!have.has(`${table}\0${row.match(KEY)![1]}`)) add.set(table, [...(add.get(table) ?? []), row]);
+    else {
+      const value = have.get(`${table}\0${row.match(KEY)![1]}`);
+      if (value === undefined) add.set(table, [...(add.get(table) ?? []), row]);
+      else if (value !== bare(row)) throw new Error(`merge: the file sets this key in [${table}] to another value: ${row}`);
+    }
   }
   return add;
 }

@@ -55,10 +55,12 @@ test("a write whose body holds its own delimiter is refused", () => {
   assert.throws(() => script("p.md", bound, "/x"), /holds the line TRANSCRIPT_EOF_1/);
 });
 
-test("merge adds only the keys a table lacks, at the end of that table", () => {
+test("merge adds only the keys a table lacks, at the end of that table, and refuses another value for a key it has", () => {
   const file = '[package]\nname = "c"\n\n[dependencies]\naztec = { git = "a" }\n\n[extra]\nk = 1\n';
-  const block = '[dependencies]\naztec = { git = "b" }\nbalance_set = { git = "b" }\n[new]\nz = 2';
+  const block = '[dependencies]\naztec = {git="a"}\nbalance_set = { git = "b" }\n[new]\nz = 2';
   assert.equal(mergeToml(file, block), '[package]\nname = "c"\n\n[dependencies]\naztec = { git = "a" }\nbalance_set = { git = "b" }\n\n[extra]\nk = 1\n\n[new]\nz = 2');
+  assert.throws(() => mergeToml(file, '[dependencies]\naztec = { git = "a/" }'), /another value: aztec/);
+  assert.throws(() => mergeToml(file, "[dependencies]\naztec = {invalid toml"), /another value/);
   assert.throws(() => mergeToml(file, "[d]\nx = [\n  1,\n]"), /one-line keys/);
 });
 
