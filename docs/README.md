@@ -126,7 +126,7 @@ A new TypeScript example is a folder under `examples/ts/` with `examples/ts/<exa
 
 ## Search
 
-Search is [Pagefind](https://pagefind.app), built by every `yarn build` into `build/pagefind/`, with no server or key. `src/plugins/pagefind/` indexes every docs page and the Aztec.nr API pages of each network's version; `src/theme/SearchBar/` searches the version being read. `scripts/check_search_index.mts` fails the build when a sitemap page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query in `PROBES` misses its page in the top 10.
+Search is [Pagefind](https://pagefind.app), built by every `yarn build` into `build/pagefind/`, with no server or key. `src/plugins/pagefind/` indexes the Aztec.nr API pages of each network's version and every docs page except a dev line's preview (`/developers-v6/`, `/operate-v6/`), which repeats the dev docs; `src/theme/SearchBar/` searches the version being read. `scripts/check_search_index.mts` fails the build when a sitemap page is missing from the index, when fewer than 1,000 API pages are indexed, or when a probe query in `PROBES` misses its page in the top 10.
 
 ## Publishing
 

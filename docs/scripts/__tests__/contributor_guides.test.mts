@@ -10,21 +10,26 @@ const repoRoot = path.dirname(docsDir);
 const GUIDES = ["CLAUDE.md", "README.md", "HOW_WE_WRITE_DOCS.md", "CONTRIBUTING.md"];
 const CHECKOUT = "docs/.aztec-node/tree";
 
-// Roots the guides name on purpose whose contents a build, an install or scripts/aztec_node.mts writes, so a path
-// under them is not checked. An entry no guide names fails.
+// Paths the guides name on purpose that a build, an install or the reader creates, so they and the paths under them
+// are not checked. An entry no guide names fails.
 const OUTPUTS: Record<string, string> = {
   "docs/processed-docs": "preprocessing output",
   "docs/build": "site build output",
+  "docs/node_modules": "yarn install output, absent when ./bootstrap.sh check runs",
+  "docs/.env": "the reader makes it from .env.template",
 };
 // Path-like tokens that name no file of this repository, with the reason. An entry no guide uses fails.
 const NOT_PATHS: Record<string, string> = {
   "repos/aztec-labs-eng/aztec-node/compare/<branch>...<commit>": "a GitHub API route",
+  ".status": "a jq filter",
 };
 
 const SHELL_FENCE = /^(?:bash|sh|shell|console)\b/;
-// A bare extension (`.md`) names no file.
-const EXTENSION = /[^/]\.(?:md|mdx|mts|ts|tsx|js|mjs|cjs|json|toml|ya?ml|sh|py|txt|html|css|lock|nr|sol)$/;
-// Yarn's own commands the guides run; any other `yarn <word>` must be a script of docs/package.json.
+const EXTENSIONS = "md|mdx|mts|ts|tsx|js|mjs|cjs|json|toml|ya?ml|sh|py|txt|html|css|lock|nr|sol";
+// A bare extension (`.md`) names no file; a dotfile (`.nvmrc`) does.
+const EXTENSION = new RegExp(`[^/]\\.(?:${EXTENSIONS})$`);
+const DOTFILE = new RegExp(`^\\.(?!(?:${EXTENSIONS})$)[A-Za-z][\\w.-]*$`);
+// `yarn <word>` the guides run that is no docs/package.json script: a Yarn command or a dependency's binary.
 const YARN_COMMANDS = new Set(["install", "add", "docusaurus", "node", "playwright"]);
 // URLs, npm scopes, absolute and home paths, variables, refs and markers with a colon, and remote branches.
 const NOT_REPO = /^(?:[a-z][a-z0-9+.-]*:\/\/|[@/~]|origin\/)|[$:]/i;
@@ -52,7 +57,7 @@ function mentions(guide: string, text: string): Mention[] {
     tokens.forEach((raw, i) => {
       if (raw === "yarn" && /^[a-z][\w:-]*$/.test(tokens[i + 1] ?? "")) found.push({ line, token: `yarn ${tokens[i + 1]}`, yarn: tokens[i + 1] });
       const token = raw.replace(/[.,:;]+$/, "");
-      if (Object.hasOwn(NOT_PATHS, token) || NOT_REPO.test(token) || !(token.includes("/") || EXTENSION.test(token.replace(/#.*$/, "")))) return;
+      if (Object.hasOwn(NOT_PATHS, token) || NOT_REPO.test(token) || !(token.includes("/") || EXTENSION.test(token.replace(/#.*$/, "")) || DOTFILE.test(token))) return;
       addPath(line, token, token.startsWith("./") ? ["docs"] : ["docs", "."]);
     });
   };
@@ -111,7 +116,7 @@ function problems(root: string, guide: string, found: Mention[], scripts: Set<st
 test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, globs and other tokens pass", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "contributor-guides-"));
   try {
-    for (const file of ["docs/docs-developers/a.md", "docs/lines/v6/allowed-differences.txt", "docs/sidebars-operate.js", "docs/scripts/aztec_node.mts", "docs/CONTRIBUTING.md", `${CHECKOUT}/yarn-project/stdlib/a.ts`]) {
+    for (const file of ["docs/docs-developers/a.md", "docs/lines/v6/allowed-differences.txt", "docs/sidebars-operate.js", "docs/scripts/aztec_node.mts", "docs/CONTRIBUTING.md", "docs/.nvmrc", `${CHECKOUT}/yarn-project/stdlib/a.ts`]) {
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), "");
     }
@@ -120,7 +125,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
       "Run `yarn dev`, `yarn build`, `yarn install` and `yarn docusaurus docs:version:developer v1`.",
       "Not ours: `https://docs.aztec.network/x`, `@aztec-labs/aztec.js`, `origin/next`, `$AZTEC_NODE_DIR/x`, `docs:start:hello`, `.md`.",
       "Checkout: `labs/yarn-project/stdlib/a.ts`, `labs/yarn-project/gone.ts`, `.aztec-node/tree/yarn-project/stdlib/`.",
-      "Outputs: `processed-docs/x.md`. Patterns: `lines/<line>/allowed-differences.txt`, `lines/<line>/gone.json`, `sidebars-*.js`, `sidebars-*.ts`.",
+      "Outputs: `processed-docs/x.md`. Patterns: `lines/<line>/allowed-differences.txt`, `lines/<line>/gone.json`, `sidebars-*.js`, `sidebars-*.ts`. Dotfiles: `.nvmrc`, `.nvmmrc`.",
       "Links: [rules](./CONTRIBUTING.md), [gone](./GONE.md#usage). Fragment: `scripts/gone.mts#usage`. Ellipsis: `docs-developers/...`.",
       "```bash",
       "node scripts/aztec_node.mts fetch && node scripts/gone.mts",
@@ -142,6 +147,7 @@ test("guide paths: stale paths and yarn scripts fail; outputs, placeholders, glo
         "docs/README.md:4: labs/yarn-project/gone.ts",
         "docs/README.md:5: lines/<line>/gone.json",
         "docs/README.md:5: sidebars-*.ts",
+        "docs/README.md:5: .nvmmrc",
         "docs/README.md:6: scripts/gone.mts#usage",
         "docs/README.md:6: ./GONE.md#usage",
         "docs/README.md:8: scripts/gone.mts",
