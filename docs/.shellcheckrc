@@ -1,3 +1,3 @@
-# Resolve `# shellcheck source=` paths from the script's own directory, and follow them.
+# Sourced files resolve from each script's directory, so results do not depend on where shellcheck runs.
 source-path=SCRIPTDIR
 external-sources=true

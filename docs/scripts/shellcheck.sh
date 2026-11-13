@@ -44,7 +44,7 @@ sha256() {
 }
 
 download() {
-  local target url archive err
+  local target url archive err digest
   target=$(platform)
   url="https://github.com/koalaman/shellcheck/releases/download/v$VERSION/shellcheck-v$VERSION.$target.tar.gz"
   mkdir -p "$cache"
@@ -57,14 +57,15 @@ download() {
     ! curl --fail --silent --show-error --location --max-time 60 -o "$archive" "$url" 2>"$err"; then
     die "could not download $url: $(tail -n 1 "$err")"
   fi
-  [ "$(sha256 "$archive")" = "$(pinned_sha256 "$target")" ] || die "$url does not match its pinned SHA-256"
+  digest=$(sha256 "$archive" 2>"$err") || die "could not hash $url: $(tail -n 1 "$err")"
+  [ "$digest" = "$(pinned_sha256 "$target")" ] || die "$url does not match its pinned SHA-256"
   tar -xzf "$archive" -C "$staging" 2>"$err" || die "could not extract $url: $(tail -n 1 "$err")"
   mkdir -p "$(dirname "$cached")"
   # A rename within the cache is atomic, so a concurrent run never executes a partial binary.
   mv "$staging/shellcheck-v$VERSION/shellcheck" "$cached"
 }
 
-if command -v shellcheck >/dev/null && [ "$(shellcheck --version | sed -n 's/^version: //p')" = "$VERSION" ]; then
+if version=$(shellcheck --version 2>/dev/null) && [ "$(sed -n 's/^version: //p' <<<"$version")" = "$VERSION" ]; then
   shellcheck=shellcheck
 else
   if [ ! -x "$cached" ]; then download; fi
