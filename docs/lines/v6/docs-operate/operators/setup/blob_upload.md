@@ -173,9 +173,9 @@ See [Public buckets](https://developers.cloudflare.com/r2/buckets/public-buckets
 
 Once configured, other nodes can use:
 ```bash
-BLOB_FILE_STORE_URLS=https://pub-[ID].r2.dev/
+BLOB_FILE_STORE_URLS=https://pub-[ID].r2.dev/blobs/
 # or with custom domain:
-BLOB_FILE_STORE_URLS=https://blobs.yourdomain.com/
+BLOB_FILE_STORE_URLS=https://blobs.yourdomain.com/blobs/
 ```
 
 :::tip

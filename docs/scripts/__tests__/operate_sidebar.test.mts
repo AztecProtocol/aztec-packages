@@ -12,10 +12,7 @@ const require = createRequire(import.meta.url);
 // Doc ids of pages in no sidebar on purpose. Every URL here is in snapshots/published-urls.txt, so
 // removing a page needs a redirect first.
 const UNLISTED: Record<string, string> = {
-  "operators/prerequisites": "each role's first setup page covers it now; a netlify.toml redirect and an operator page point here",
   "operators/setup/become_a_staking_provider": "setup page from before the guided setups; a netlify.toml redirect and provider pages point here",
-  "operators/setup/blob_storage": "setup page from before the guided setups; operators/concepts/l1-rpc links it",
-  "operators/setup/blob_upload": "setup page from before the guided setups",
   "operators/setup/registering_sequencer": "setup page from before the guided setups",
   "operators/setup/running_a_node": "setup page from before the guided setups; netlify.toml redirects and two pages point here",
   "operators/setup/running_a_prover": "setup page from before the guided setups; a netlify.toml redirect points here",
