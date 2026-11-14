@@ -252,15 +252,15 @@ it, and `_destroy` ends it once no call on it is running. Calls on one instance
 must not overlap, and the caller serializes them. Calls on different instances
 may run concurrently, on any threads, so a service's instances share no mutable
 state. `_entry` is `_call` on one instance of the process, made on first use,
-for callers that need no more than one. The C++ generator emits all of them
-(the service defines `ipc_ffi_create_instance()`); a service that exports only
-`_entry`, such as the Rust and Zig FFI servers today, is one instance whose
-calls the caller serializes.
+for callers that need no more than one. Every generator emits all of them: in
+C++ the service defines `ipc_ffi_create_instance()`, in Rust and Zig each
+instance is a `Default` (`.{}`) handler of the given type. The generated FFI
+client backends call `_entry`.
 
 A service calls its host (`ipc_runtime.host_call`, the `HostCallBackend`) through
 `ipc_runtime_host_call`: a wasm import, and natively a function the loading
 process hands over with `_set_host_call` (one per library, shared by all its
-instances). It has the same contract either way: the answer goes in a buffer from
+instances; only the C++ server has host calls, so only it exports the setter). It has the same contract either way: the answer goes in a buffer from
 `<svc>_ipc_ffi_alloc()` that the service frees, with status 0 for a response and
 non-zero for an error message. Until a host call function is set, every host
 call fails.
