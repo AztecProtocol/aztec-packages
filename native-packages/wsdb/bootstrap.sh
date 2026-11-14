@@ -10,8 +10,8 @@ WSDB_BINARY=aztec-wsdb
 # from once native-packages leaves aztec-packages.
 WSDB_SCHEMA="$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc"
 
-# While wsdb lives in aztec-packages it builds against this checkout's barretenberg (its static
-# library), ipc-runtime and ipc-codegen (see cpp/CMakeLists.txt), so the build follows their hashes.
+# While wsdb lives in aztec-packages it builds against this checkout's barretenberg (the wsdb-ref
+# sources), ipc-runtime and ipc-codegen (see cpp/CMakeLists.txt), so the build follows their hashes.
 hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(../../barretenberg/cpp/bootstrap.sh hash) \
   $(../../ipc-codegen/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
@@ -31,7 +31,7 @@ function generate_ts_package {
     --package-ipc-path-args 'msgpack,run,--input,{path}'
 }
 
-# Build the standalone aztec-wsdb binary against this checkout's barretenberg build.
+# Build the standalone aztec-wsdb binary.
 function build_native {
   local build_dir="cpp/build"
   CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
@@ -41,8 +41,7 @@ function build_native {
   cp "$build_dir/bin/$WSDB_BINARY" "$target_dir/$WSDB_BINARY"
 }
 
-# Cross-compile aztec-wsdb for a non-host release platform with zig (cpp/CMakePresets.json), against
-# barretenberg's build of libwsdb-ref.a for that platform.
+# Cross-compile aztec-wsdb for a non-host release platform with zig (cpp/CMakePresets.json).
 function build_cross {
   local platform=$1
   echo_header "wsdb build_cross $platform"
