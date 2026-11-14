@@ -32,9 +32,9 @@ using numeric::uint256_t;
 
 /**
  * @brief The genesis a world state starts from, as a node world state is configured with it.
- * @details The defaults are the protocol's tree heights and initial sizes, with nothing prefilled. The canonical genesis
- * adds the protocol contracts' registration nullifiers, which belong to a protocol release rather than to the world
- * state: callers take them from @aztec-foundation/protocol-genesis.
+ * @details The defaults are the protocol's tree heights and initial sizes, with nothing prefilled. The canonical
+ * genesis adds the protocol contracts' registration nullifiers, which belong to a protocol release rather than to the
+ * world state: callers take them from @aztec-foundation/protocol-genesis.
  */
 struct GenesisConfig {
     /** Each tree's height, by MerkleTreeId. */

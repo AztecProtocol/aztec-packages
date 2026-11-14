@@ -297,7 +297,8 @@ TEST(ReferenceWorldState, SequentialNullifierWitnessesAreConsistent)
     FF root = ws.get_tree_info(LATEST_UNCOMMITTED, MerkleTreeId::NULLIFIER_TREE).root;
     EXPECT_THROW(ws.sequential_insert_nullifiers(CANONICAL, leaves), std::runtime_error);
     EXPECT_EQ(ws.get_tree_info(LATEST_UNCOMMITTED, MerkleTreeId::NULLIFIER_TREE).root, root);
-    EXPECT_EQ(ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::NULLIFIER_TREE).root, test_genesis_nullifier_tree_root());
+    EXPECT_EQ(ws.get_tree_info(LATEST_COMMITTED, MerkleTreeId::NULLIFIER_TREE).root,
+              test_genesis_nullifier_tree_root());
 }
 
 TEST(ReferenceWorldState, BatchInsertionTakesOneSlotPerValue)
