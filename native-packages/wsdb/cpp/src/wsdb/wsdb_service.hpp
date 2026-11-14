@@ -4,9 +4,8 @@
  * @brief The wsdb service without a transport: the world state, the dispatch pool, the per-fork scheduler and the
  * generated async handler over them.
  *
- * The IPC server feeds the handler from its reactor; `call` runs it in-process. A WsdbConfig with genesis options
- * opens the stores at that genesis; one without them leaves the service waiting for Init, which carries the genesis
- * over the wire. The data directory, map sizes and threads always come from the config.
+ * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service opens no stores until
+ * Init, which carries the genesis; the data directory, map sizes and threads come from the config.
  */
 #include "common/thread_pool.hpp"
 #include "world_state/world_state.hpp"
@@ -30,18 +29,9 @@ class WsdbScheduler;
 
 struct WsdbConfig {
     std::string data_dir;
-    // Maps as "{treeId:value,...}".
-    std::string tree_heights_json;
-    std::string tree_prefill_json;
-    // LMDB map sizes in KB.
+    // LMDB map sizes in KB, as "{treeId:value,...}".
     std::string map_sizes_json;
     uint32_t threads = 16;
-    uint32_t initial_header_generator_point = 0;
-    // [["slot_hex","value_hex"],...]
-    std::string prefilled_public_data_json;
-    // ["nullifier_hex",...]
-    std::string prefilled_nullifiers_json;
-    uint64_t genesis_timestamp = 0;
 };
 
 /** Registers the WsdbConfig options on a CLI (sub)command. */
