@@ -57,10 +57,10 @@ git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --b
   https://github.com/aztec-labs-eng/aztec-node.git docs/lines/v6/.aztec-node/tree
 git -C docs/lines/v6/.aztec-node/tree sparse-checkout set noir-projects
 cd docs/lines/v6/examples/webapp-tutorial
-./setup.sh #include_version_without_prefix
+./setup.sh #include_version_without_prefix #include_foundation_version_without_prefix
 ```
 
-This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/lines/v6/`, the workspace root. A full clone of the repository does not build it: nargo would take the topmost `Nargo.toml`, `docs/Nargo.toml`, as the workspace. `setup.sh` writes the Aztec version into `package.json` and installs the dependencies.
+This checks out the docs examples with their Noir workspace (`docs/lines/v6/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/lines/v6/`, the workspace root. A full clone of the repository does not build it: nargo would take the topmost `Nargo.toml`, `docs/Nargo.toml`, as the workspace. `setup.sh` writes the Aztec version into `package.json` and both versions into `.yarnrc.yml`, which lets only those versions of the Aztec packages skip Yarn's 7-day age gate. Then it installs the dependencies.
 
 ## Architecture
 

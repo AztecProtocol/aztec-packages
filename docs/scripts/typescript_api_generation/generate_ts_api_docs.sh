@@ -199,7 +199,6 @@ generate_json_for_package() {
     fi
 
     local error_log="/tmp/typedoc_${pkg_name}.log"
-    local typedoc_exit_code=0
     (
         cd "$pkg_dir"
         # --excludeExternals prevents including types from node_modules (e.g., viem)
@@ -211,7 +210,7 @@ generate_json_for_package() {
             --tsconfig ./tsconfig.json \
             "${entry_points_arr[@]}" \
             2>"$error_log"
-    ) || typedoc_exit_code=$?
+    ) || true
 
     # If raw output file not generated, show first few lines of error
     if [[ ! -f "$raw_output_file" ]] && [[ -f "$error_log" ]]; then

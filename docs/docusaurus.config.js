@@ -2,21 +2,19 @@
 // Note: type annotations allow type checking and IDEs autocompletion
 
 const { themes } = require("prism-react-renderer");
-// @ts-ignore
-const lightTheme = themes.github;
-// @ts-ignore
-const darkTheme = themes.dracula;
 
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 import math from "remark-math";
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 import katex from "rehype-katex";
 
+// biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 const path = require("path");
-// @ts-ignore
-const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const { createRequire } = require("module");
 const {
   apiReferenceDirs,
   aztecNrApiFolders,
@@ -227,6 +225,9 @@ const rehypePlugins = [
     },
   ],
 ];
+// KaTeX's stylesheet must match the KaTeX that renders the markup, so it comes from rehype-katex's own
+// katex dependency; the bundler serves it and its fonts from the site.
+const katexCss = createRequire(require.resolve("rehype-katex")).resolve("katex/dist/katex.min.css");
 
 const config = {
   title: SITE_TITLE,
@@ -235,6 +236,8 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
+  onDuplicateRoutes: "throw",
   favicon: "img/brand/favicon.png",
   headTags: [
     {
@@ -310,7 +313,7 @@ const config = {
         docs: false,
         blog: false,
         theme: {
-          customCss: require.resolve("./src/css/custom.css"),
+          customCss: [katexCss, require.resolve("./src/css/custom.css")],
         },
         // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
@@ -323,15 +326,6 @@ const config = {
         },
       },
     ],
-  ],
-  stylesheets: [
-    {
-      href: "https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css",
-      type: "text/css",
-      integrity:
-        "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
-      crossorigin: "anonymous",
-    },
   ],
   plugins: [
     // Developer docs instance - mainnet/testnet versions
@@ -497,7 +491,6 @@ const config = {
         apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
-    // ["./src/plugins/plugin-embed-code", {}],
   ],
   customFields: {
     organizationId: ORGANIZATION_ID,
@@ -676,71 +669,7 @@ const config = {
           },
         ],
       },
-      footer: {
-        style: "dark",
-        links: [
-          {
-            title: "Docs",
-            items: [
-              {
-                label: "Introduction",
-                to: "/",
-              },
-              {
-                label: "Aztec.nr",
-                to: "https://github.com/aztec-labs-eng/aztec-nr",
-              },
-            ],
-          },
-          {
-            title: "Community",
-            items: [
-              {
-                label: "Support",
-                to: "/developers/support",
-              },
-              {
-                label: "Forum",
-                href: "https://forum.aztec.network",
-              },
-              {
-                label: "Discord",
-                href: "https://discord.gg/aztec",
-              },
-              {
-                label: "Noir Discord",
-                href: "https://discord.com/invite/JtqzkdeQ6G",
-              },
-              {
-                label: "X (Twitter)",
-                href: "https://x.com/aztecnetwork",
-              },
-            ],
-          },
-          {
-            title: "More",
-            items: [
-              {
-                label: "GitHub",
-                href: "https://github.com/AztecProtocol",
-              },
-              {
-                label: "Awesome Aztec",
-                to: "https://github.com/AztecProtocol/awesome-aztec",
-              },
-              {
-                label: "Technical Whitepaper",
-                href: "https://aztec.network/technical-whitepaper",
-              },
-              {
-                label: "Economic Whitepaper",
-                href: "https://aztec.network/economic-whitepaper",
-              },
-            ],
-          },
-        ],
-        copyright: `Copyright © ${new Date().getFullYear()} Aztec, built with Docusaurus, powered by <a target="_blank" href="https://netlify.com">Netlify.</a>`,
-      },
+      footer: require("./src/footer.js"),
       prism: {
         theme: themes.nightOwlLight,
         darkTheme: themes.okaidia,

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
-import { useOperatorConfig, SECRET_FIELDS, MAX_SEQUENCER_COUNT } from './context';
+import { useOperatorConfig, MAX_SEQUENCER_COUNT } from './context';
 import styles from './styles.module.css';
 
 const FIELD_DEFS = [
@@ -219,6 +219,7 @@ function Panel() {
               .filter((def) => !def.showWhen || def.showWhen({ track }))
               .map((def, i) =>
                 def._separator ? (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: baselined 2026-11-12: a different key would change how React reuses these elements
                   <hr key={`sep-${i}`} className={styles.sep} />
                 ) : (
                   <Field

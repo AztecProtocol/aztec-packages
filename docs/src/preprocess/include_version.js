@@ -93,6 +93,7 @@ function pinnedAztecNodeRef() {
  * @param {string} [rootDir] - The repository root; without it every page is main's
  * @returns {Promise<{content: string, isUpdated: boolean}>} - Processed content and update flag
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function preprocessIncludeVersion(markdownContent, filePath = "unknown", rootDir = undefined) {
   const originalContent = markdownContent;
   // A line page names its own pin, whatever a release build sets for main's pages.

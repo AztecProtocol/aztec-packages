@@ -1,4 +1,4 @@
-# @aztec/foundation
+# @aztec-labs/foundation
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   Buffer16,
   Buffer32,
   // ... and more
-} from '@aztec/foundation';
+} from '@aztec-labs/foundation';
 ```
 
 ## Classes

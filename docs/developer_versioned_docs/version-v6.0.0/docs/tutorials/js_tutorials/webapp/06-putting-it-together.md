@@ -2,7 +2,7 @@
 title: "6. Putting It Together"
 sidebar_position: 7
 description: "Wire all components into a complete Pod Racing webapp and run it"
-references: ["docs/examples/webapp-tutorial/src/main.tsx", "docs/examples/webapp-tutorial/src/App.tsx"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/main.tsx", "docs/lines/v6/examples/webapp-tutorial/src/App.tsx"]
 ---
 
 # Putting It Together
@@ -25,7 +25,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/main.tsx#L1-L12" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/main.tsx#L1-L12</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/main.tsx#L1-L12" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/main.tsx#L1-L12</a></sub></sup>
 
 
 ## App component
@@ -55,7 +55,7 @@ import { LogProvider, TransactionLog } from './components/TransactionLog';
 import { TwoPlayerLocal } from './components/TwoPlayerLocal';
 import { EmbeddedWallet } from './embedded-wallet';
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/App.tsx#L1-L17" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/App.tsx#L1-L17</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L1-L17" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L1-L17</a></sub></sup>
 
 
 ### State
@@ -72,7 +72,7 @@ function App() {
   const [gameId, setGameId] = useState<bigint>(BigInt(0));
   const [currentRound, setCurrentRound] = useState(1);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/App.tsx#L19-L30" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/App.tsx#L19-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L19-L30" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L19-L30</a></sub></sup>
 
 
 ### Event handlers
@@ -119,7 +119,7 @@ function handleRoundPlayed() {
   setCurrentRound((r) => r + 1);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/App.tsx#L32-L68" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/App.tsx#L32-L68</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L32-L68" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L32-L68</a></sub></sup>
 
 
 ### Render
@@ -185,12 +185,10 @@ return (
   </ErrorBoundary>
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/App.tsx#L70-L128" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/App.tsx#L70-L128</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L70-L128" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/App.tsx#L70-L128</a></sub></sup>
 
 
 ## Running the app
-
-First make the two changes in the warning below: the v6.0.0 example needs both. Then:
 
 ```bash
 # Terminal 1: Start the local network
@@ -202,48 +200,6 @@ yarn dev
 
 Open `http://localhost:5173`.
 
-:::warning Two fixes the v6.0.0 example needs
-Without them, the local (split-screen) mode fails:
-
-- **"Connect Account #1" fails with "SQLite worker crashed".** Vite pre-bundles the PXE's SQLite store, and the bundle loses the path to the store's worker. In `vite.config.ts`, keep the store out of pre-bundling and pre-bundle the CommonJS packages it imports instead:
-
-  ```typescript
-  optimizeDeps: {
-    include: [
-      "pino",
-      "pino/browser",
-      "@aztec-labs/foundation/log",
-      "@aztec-labs/foundation/queue",
-      "buffer",
-      "ohash",
-      "msgpackr/index-no-eval",
-    ],
-    exclude: [
-      "@aztec-foundation/noir-noirc_abi",
-      "@aztec-foundation/noir-acvm_js",
-      "@aztec-foundation/bb.js",
-      "@aztec-foundation/noir-noir_js",
-      "@aztec-labs/kv-store/sqlite-opfs",
-    ],
-  },
-  ```
-
-- **"Connect Account #2" fails** with `SQLite-OPFS pool ... is already in use by another store instance`, because both in-page wallets open the same PXE store. Give each wallet its own in-memory store in `src/embedded-wallet.ts`:
-
-  ```typescript
-  import { openTmpStore } from "@aztec-labs/kv-store/sqlite-opfs";
-
-  // in EmbeddedWallet.initialize, add pxeOptions to the create() options:
-  const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
-    ephemeral: true,
-    pxeConfig: { proverEnabled: !isLocal },
-    pxeOptions: { store: await openTmpStore(true) },
-  });
-  ```
-
-With both changes, the full game below runs as described.
-:::
-
 ### Playing a game (local, split-screen)
 
 When you select "Local" network, the app renders a two-player split-screen on a single page. Both players are side by side:
@@ -251,19 +207,28 @@ When you select "Local" network, the app renders a two-player split-screen on a 
 1. **Player 1 panel**: Click "Connect Account #1" — initializes a PXE and connects the first test account
 2. **Player 2 panel**: Click "Connect Account #2" — initializes a separate PXE and connects the second test account
 3. **Player 1 panel**: Click "Deploy Contract & Create Game" — deploys the Pod Racing contract and creates a game
-4. **Player 2 panel**: Once Player 1's panel reads "Game created! Waiting for Player 2...", click "Join Game" — registers the contract with Player 2's PXE and joins the game. The button appears earlier, while the game is still being created; joining then fails with `Assertion failed: 'assert(!self.player1.eq(AztecAddress::zero()) & ...)'`
+4. **Player 2 panel**: Click "Join Game" — registers the contract with Player 2's PXE and joins the game
 5. **Both panels**: Adjust the track sliders (total must be < 10) and click "Submit Round" — repeat for rounds 1, 2, and 3
 6. **Both panels**: Click "Reveal Scores" to call `finish_game`
 7. **Player 1 panel**: Click "Finalize Game" to call `finalize_game` and determine the winner
 
 ### With browser extension wallet
 
-1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension) for build and install instructions). In v6.0.0, first apply the one-line fix described in [Testing the wallet extension](../wallet-extension/07-testing.md#building-the-extension)
+1. Build and install the tutorial wallet extension (see [`test-extension/README.md`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension) for build and install instructions)
 2. Run `yarn dev`
 3. Select "Browser Wallet" → connect via the wallet extension → verify emojis match
 4. Play the same flow as above (share the contract address with your opponent)
 
 ## Troubleshooting
+
+### "SQLite worker crashed" when connecting an account
+
+Under `yarn dev`, Vite's dependency pre-bundling breaks the path to the PXE store's SQLite worker, so the in-browser PXE can't start. Run a production build instead and open `http://localhost:4173`:
+
+```bash
+yarn build
+yarn preview
+```
 
 ### "SharedArrayBuffer is not defined"
 
@@ -283,11 +248,11 @@ Ensure SponsoredFPC is registered with PXE. The `EmbeddedWallet` does this autom
 
 ### Contract compilation fails
 
-Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location.
+Make sure the `aztec` CLI is installed and matches your package versions. Run `aztec --version` to check. The `Nargo.toml` dependency path must point to a valid `aztec-nr` location: in the example, the aztec-node checkout that the [clone steps](./index.md#clone-the-example) create.
 
 ## Next steps
 
-You now have a working Aztec webapp. From here you could:
+You now have a working Aztec webapp. Next, [test the contract](./07-testing-the-contract.md) with Noir unit tests in the TXE. From here you could also:
 
 - Add more game features (tournaments, betting, leaderboards)
 - Deploy your own contract with custom game logic

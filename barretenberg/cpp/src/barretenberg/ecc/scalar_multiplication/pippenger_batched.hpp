@@ -56,7 +56,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         return;
     }
     if (K == 1) {
-        const size_t n = std::min(scalar_arrays[0].size(), point_arrays[0].size());
+        const size_t n = scalar_arrays[0].size();
+        BB_ASSERT_DEBUG(n <= point_arrays[0].size());
         if (n == 0) {
             return;
         }
@@ -67,7 +68,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
 
     std::vector<size_t> n_input(K);
     for (size_t m = 0; m < K; ++m) {
-        n_input[m] = std::min(scalar_arrays[m].size(), point_arrays[m].size());
+        n_input[m] = scalar_arrays[m].size();
+        BB_ASSERT_DEBUG(n_input[m] <= point_arrays[m].size());
     }
 
     // Group MSMs by shared SRS pointer; one shared GLV-doubled buffer per group, sized to
@@ -393,7 +395,7 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
     if (handle_edge_cases) {
         std::vector<AffineElement> results(k);
         for (size_t i = 0; i < k; ++i) {
-            const size_t n = std::min(point_subspans[i].size(), scalar_subspans[i].size());
+            const size_t n = scalar_subspans[i].size();
             PolynomialSpan<const ScalarField> scalar_span(0,
                                                           std::span<const ScalarField>(scalar_subspans[i].data(), n));
             results[i] =

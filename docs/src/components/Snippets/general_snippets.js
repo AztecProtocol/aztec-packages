@@ -1,5 +1,3 @@
-import React from "react";
-
 export const General = {
   VersionLatestTestnet: () => <code>testnet</code>,
   VersionLatestLocalNetwork: () => <code>0.87.2</code>,

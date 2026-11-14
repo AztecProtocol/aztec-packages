@@ -4,15 +4,15 @@ Thanks for considering contributing to the Aztec documentation site! This docume
 
 All contributors and participants will follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
-This site is built using docusaurus. If you have questions
+How the site is built, its commands and its checks: [README.md](./README.md). The rules every change follows: [CLAUDE.md](./CLAUDE.md).
 
-## I have question
+## I have a question
 
 This repo is not for asking general questions, so don't open issues with questions. 
 
 If you have a question about Aztec, consult the live documentation site at [https://docs.aztec.network](https://docs.aztec.network), or join the [Discord server](https://discord.com/invite/aztec) and ask the community.
 
-If you have a question about contributing to the docs, post in the [Discussions](https://github.com/AztecProtocol/docs/discussions) tab.
+If you have a question about contributing to the docs, ask in the [Discord server](https://discord.com/invite/aztec). To report a mistake in the docs, open an [issue](https://github.com/AztecProtocol/aztec-packages/issues).
 
 ## Docusaurus
 
@@ -26,21 +26,22 @@ If you have questions about how Docusaurus works, consult their [documentation](
 
 Write pages in markdown. [Docusaurus reference](https://docusaurus.io/docs/creating-pages#add-a-markdown-page).
 
-When you create a new page, the file path must be added to `./sidebars.js` for the page to be rendered on the site. 
+A new developer page under `docs-developers/docs/` appears in the sidebar from its folder (`sidebars-developer.js`). A new operator page must be added to `sidebars-operate.js`, and a participation page to `sidebars-participate.js`. Developer and operator pages exist once per dev line: add yours to each (see [CLAUDE.md](./CLAUDE.md)).
 
 ### Front-matter
 
-Markdown front matter should include a title at minimum.
+Markdown front matter includes a title and a description.
 
 ```md
 ---
 title: Page title
+description: What the reader learns or does on this page, in 50 to 160 characters.
 ---
 ```
 
 ### Adding images
 
-When adding images, update the page extension to be [.mdx](https://mdxjs.com/).
+Pages are parsed as [MDX](https://mdxjs.com/), so a `.md` page can import components.
 
 Import [Ideal image](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-ideal-image) to the page.
 
@@ -51,12 +52,12 @@ import Image from '@theme/IdealImage';
 Add the image with the path to the image in `./static/img/`.
 
 ```ts
-<Image img={require('/img/proofs-on-proofs.png')} />
+<Image img={require('/img/flamegraph-counter.png')} />
 ```
 
 Things to note:
 
-- If you want to modify anything related to the sidebar pages tree, modify `./sidebars.js`. Consult [these docs](https://docusaurus.io/docs/sidebar) for reference.
+- To change the sidebar tree, edit the section's `sidebars-*.js`. Consult [these docs](https://docusaurus.io/docs/sidebar) for reference.
 - The search on the Docusaurus documentation site is excellent. Try searching for the topic in question.
 
 When in doubt, check existing sections of the code to see if there are relevant references.

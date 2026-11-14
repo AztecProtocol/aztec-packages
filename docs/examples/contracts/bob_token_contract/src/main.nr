@@ -13,7 +13,9 @@ pub contract BobToken {
     };
     // docs:end:imports
 
+    // docs:start:balance_set_import
     use balance_set::BalanceSet;
+    // docs:end:balance_set_import
 
     // docs:start:public_storage
     // docs:start:storage

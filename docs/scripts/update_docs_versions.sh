@@ -62,6 +62,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     fi
 
     if [ -d "$VERSIONED_DOCS_DIR" ]; then
+        # shellcheck disable=SC2012 # version-* directory names only; find would also list dotfiles
         ALL_VERSIONS=$(ls -1 "$VERSIONED_DOCS_DIR" | sed 's/version-//' | sort -V)
         if [ -n "$ALL_VERSIONS" ]; then
             NIGHTLY_VERSIONS=$(echo "$ALL_VERSIONS" | grep "nightly" | sort -Vr)
@@ -110,6 +111,7 @@ fi
 
 if [ -d "$VERSIONED_DOCS_DIR" ]; then
     # Get all versions from versioned docs directory
+    # shellcheck disable=SC2012 # version-* directory names only; find would also list dotfiles
     ALL_VERSIONS=$(ls -1 "$VERSIONED_DOCS_DIR" | sed 's/version-//' | sort -V)
 
     if [ -n "$ALL_VERSIONS" ]; then
@@ -156,8 +158,8 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
 
         echo "Updated ${INSTANCE}_version_config.json successfully"
 
-        NIGHTLY_COUNT=$(echo "$ALL_VERSIONS" | grep "nightly" | wc -l)
-        NON_NIGHTLY_COUNT=$(echo "$ALL_VERSIONS" | grep -v "nightly" | wc -l)
+        NIGHTLY_COUNT=$(echo "$ALL_VERSIONS" | grep -c "nightly")
+        NON_NIGHTLY_COUNT=$(echo "$ALL_VERSIONS" | grep -vc "nightly")
         if [ "$NIGHTLY_COUNT" -gt 0 ]; then
             echo "Found $NIGHTLY_COUNT nightly version(s)"
         fi

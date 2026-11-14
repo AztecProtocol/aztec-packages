@@ -123,12 +123,12 @@ Create `package.json`:
 }
 ```
 
-Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages at your network's version, which you install below:
 
 ```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
 npmMinimalAgeGate: 7d
-npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
+npmPreapprovedPackages: ["@aztec-labs/*@#include_version_without_prefix", "@aztec-foundation/*@#include_foundation_version_without_prefix"]
 ```
 
 Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:

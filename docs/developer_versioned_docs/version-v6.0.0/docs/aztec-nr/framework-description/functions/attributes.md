@@ -66,7 +66,7 @@ unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     self.storage.balances.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L503-L508" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L503-L508</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L503-L508" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L503-L508</a></sub></sup>
 
 
 :::info
@@ -90,7 +90,7 @@ fn set_minter(minter: AztecAddress, approve: bool) {
     self.storage.minters.at(minter).write(approve);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L153-L159" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L153-L159</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L153-L159" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L153-L159</a></sub></sup>
 
 
 Under the hood, the macro:

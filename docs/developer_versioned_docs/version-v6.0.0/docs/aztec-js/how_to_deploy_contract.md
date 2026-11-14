@@ -3,7 +3,7 @@ title: Deploying Contracts
 tags: [contracts, deployment]
 sidebar_position: 3
 description: Deploy smart contracts to Aztec using generated TypeScript classes.
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts", "labs/yarn-project/aztec.js/src/contract/deploy_method.ts", "labs/yarn-project/aztec.js/src/deployment/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts", "labs/yarn-project/aztec.js/src/contract/deploy_method.ts", "labs/yarn-project/aztec.js/src/deployment/*"]
 ---
 
 This guide shows you how to deploy compiled contracts to Aztec using the generated TypeScript interfaces.
@@ -63,7 +63,7 @@ const { contract: token } = await TokenContract.deploy(
   18,
 ).send({ from: aliceAddress }); // alice has fee juice and is registered in the wallet
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L38-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L38-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L38-L48" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L38-L48</a></sub></sup>
 
 
 On testnet, your account likely won't have Fee Juice. Instead, pay fees using the [Sponsored Fee Payment Contract method](./how_to_pay_fees.md):
@@ -91,7 +91,7 @@ const { contract: sponsoredContract } = await TokenContract.deploy(
   18,
 ).send({ from: aliceAddress, fee: { paymentMethod: sponsoredPaymentMethod } });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L50-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L50-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L50-L72" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L50-L72</a></sub></sup>
 
 
 Here's a complete example from the test suite:
@@ -99,7 +99,7 @@ Here's a complete example from the test suite:
 ```typescript title="deploy_basic" showLineNumbers 
 const { contract } = await StatefulTestContract.deploy(wallet, owner, 42).send({ from: defaultAccountAddress });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L47-L49" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L47-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L47-L49" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L47-L49</a></sub></sup>
 
 
 ## Use deployment options
@@ -123,7 +123,7 @@ const { contract: saltedContract } = await TokenContract.deploy(
   from: aliceAddress,
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L74-L88" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L74-L88</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L74-L88" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L74-L88</a></sub></sup>
 
 
 ### Deploy universally
@@ -134,7 +134,7 @@ Deploy to the same address across networks by setting `universalDeploy: true`:
 const opts = { universalDeploy: true, from: defaultAccountAddress };
 const { contract } = await StatefulTestContract.deploy(wallet, owner, 42).send(opts);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L66-L69" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L66-L69</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L66-L69" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L66-L69</a></sub></sup>
 
 
 :::info
@@ -167,7 +167,7 @@ await delayedToken.methods
 
 console.log("Contract initialized");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L274-L295" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L274-L295</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L274-L295" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L274-L295</a></sub></sup>
 
 
 ### Deploy with a specific initializer
@@ -183,7 +183,7 @@ const { contract } = await StatefulTestContract.deployWithOpts(
   from: defaultAccountAddress,
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L90-L98" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L90-L98</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L90-L98" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L90-L98</a></sub></sup>
 
 
 The `deployWithOpts` method accepts an options object as its first argument:
@@ -219,7 +219,7 @@ const predictedAddress = instance.address;
 
 console.log(`Contract will deploy at: ${predictedAddress}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L90-L106" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L90-L106</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L90-L106" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L90-L106</a></sub></sup>
 
 
 :::warning
@@ -232,10 +232,12 @@ This is an advanced pattern. For most use cases, deploy the contract directly an
 
 Use `NO_WAIT` to get the transaction hash immediately and track deployment:
 
-```typescript
+```typescript title="no_wait_deploy_imports" showLineNumbers 
 import { NO_WAIT } from "@aztec-labs/aztec.js/contracts";
 import { waitForTx } from "@aztec-labs/aztec.js/node";
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L2-L5" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L2-L5</a></sub></sup>
+
 
 ```typescript title="no_wait_deploy" showLineNumbers 
 // Use NO_WAIT to get the transaction hash immediately and track deployment
@@ -256,7 +258,7 @@ console.log(`Deployment tx: ${txHash}`);
 const receipt = await waitForTx(node, txHash);
 console.log(`Deployed in block ${receipt.blockNumber}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L147-L165" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L147-L165</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L147-L165" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L147-L165</a></sub></sup>
 
 
 For most use cases, simply await the deployment to get the contract directly:
@@ -274,7 +276,7 @@ const { contract: token } = await TokenContract.deploy(
 
 console.log(`Token deployed at: ${token.address.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L128-L140" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L128-L140</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L128-L140" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L128-L140</a></sub></sup>
 
 
 ## Deploy multiple contracts
@@ -288,7 +290,7 @@ const { contract: token } = await TokenContract.deploy(wallet, owner, 'TOKEN', '
   from: defaultAccountAddress,
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L79-L83" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L79-L83</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L79-L83" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L79-L83</a></sub></sup>
 
 
 ### Deploy contracts with dependencies
@@ -317,7 +319,7 @@ const { contract: derivedToken } = await TokenContract.deploy(
 console.log(`Base token at: ${baseToken.address.toString()}`);
 console.log(`Derived token at: ${derivedToken.address.toString()}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L226-L247" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L226-L247</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L226-L247" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L226-L247</a></sub></sup>
 
 
 ### Deploy contracts in parallel
@@ -346,7 +348,7 @@ console.log(`Contract 1 at: ${contracts[0].address}`);
 console.log(`Contract 2 at: ${contracts[1].address}`);
 console.log(`Contract 3 at: ${contracts[2].address}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L249-L272" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L249-L272</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L249-L272" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L249-L272</a></sub></sup>
 
 
 :::tip[Parallel deployment considerations]
@@ -370,7 +372,7 @@ const contract = await deployMethod.register();
 const publicCall = contract.methods.increment_public_value(owner, 84);
 await new BatchCall(wallet, [deployMethod, publicCall]).send({ from: defaultAccountAddress });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L170-L178" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L170-L178</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L170-L178" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L170-L178</a></sub></sup>
 
 
 ## Verify deployment
@@ -398,7 +400,7 @@ const metadata = await wallet.getContractMetadata(contract.address);
 const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.originalContractClassId);
 const isPublished = classMetadata.isContractClassPubliclyRegistered;
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L56-L60" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L56-L60</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L56-L60" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/contracts/deploy/deploy_method.parallel.test.ts#L56-L60</a></sub></sup>
 
 
 ### What the PXE checks automatically
@@ -431,7 +433,7 @@ try {
   console.error("Contract not accessible:", (error as Error).message);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L108-L119" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L108-L119</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L108-L119" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L108-L119</a></sub></sup>
 
 
 ## Register deployed contracts
@@ -457,7 +459,7 @@ await wallet.registerContract(metadata.instance!, TokenContract.artifact);
 // Now you can interact with the contract
 const externalContract = await TokenContract.at(contractAddress, wallet);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L121-L137" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L121-L137</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L121-L137" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L121-L137</a></sub></sup>
 
 
 :::warning
@@ -483,7 +485,7 @@ console.log(
   `Reconstructed contract address: ${reconstructedInstance.address.toString()}`,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L191-L210" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L191-L210</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L191-L210" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L191-L210</a></sub></sup>
 
 
 :::

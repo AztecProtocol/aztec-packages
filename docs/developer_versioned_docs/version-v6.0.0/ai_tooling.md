@@ -113,10 +113,10 @@ These resources help you understand Aztec concepts, read docs, or provide additi
 
 - **llms.txt** - The docs site publishes [llms.txt](https://docs.aztec.network/llms.txt), a navigational index of every page following the [llmstxt.org](https://llmstxt.org) standard, and [llms-full.txt](https://docs.aztec.network/llms-full.txt), the complete documentation in a single file. Many AI tools can consume these files directly to index documentation.
 - **Markdown for any page** - Append `.md` to any page URL (for example `https://docs.aztec.network/developers/overview.md`), or request the normal URL with an `Accept: text/markdown` header, to get the page as clean markdown instead of HTML. This is the best format to hand to an agent.
-- **Reference repositories** - Point your AI tool at these repos for additional context:
+- **Reference repositories and projects** - Point your AI tool at these for additional context:
   - [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages) - main monorepo, best general reference
-  - [Deploying a token contract](./docs/tutorials/js_tutorials/aztecjs-getting-started.md) - deploy and call a contract from TypeScript, easier for onboarding
-  - [Custom notes](./docs/aztec-nr/framework-description/custom_notes.md) and [verifying Noir proofs in contracts](./docs/tutorials/contract_tutorials/recursive_verification.md) - worked contract examples
+  - [Your first full project](./docs/tutorials/js_tutorials/first_full_project.md) - a contract and its TypeScript client, built from an empty folder, easier for onboarding
+  - [Prove knowledge of a note](./docs/tutorials/contract_tutorials/note_hash_proof.md) - a contract, a Noir circuit and a script that work together
   - [noir-lang/noir](https://github.com/noir-lang/noir) - Noir language source of truth
   - [noir-lang/noir-examples](https://github.com/noir-lang/noir-examples) - common Noir patterns
   - [awesome-noir](https://github.com/noir-lang/awesome-noir) - community Noir resources

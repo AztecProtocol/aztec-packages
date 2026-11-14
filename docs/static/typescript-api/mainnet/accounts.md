@@ -1,4 +1,4 @@
-# @aztec/accounts
+# @aztec-labs/accounts
 
 Version: 6.0.0
 
@@ -12,7 +12,7 @@ import {
   EcdsaRSSHAccountContract,
   SchnorrAccountContract,
   // ... and more
-} from '@aztec/accounts';
+} from '@aztec-labs/accounts';
 ```
 
 ## Classes
@@ -218,3 +218,19 @@ type SchnorrAccountContractArtifact = ContractArtifact
 ```typescript
 type SchnorrInitializerlessAccountContractArtifact = ContractArtifact
 ```
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec-labs/aztec.js**
+- `Account`, `AccountContract`
+
+**@aztec-labs/entrypoints**
+- `AuthWitnessProvider`
+
+**@aztec-labs/foundation**
+- `Fq`, `Fr`, `Point`
+
+**@aztec-labs/stdlib**
+- `AztecAddress`, `CompleteAddress`, `ContractArtifact`

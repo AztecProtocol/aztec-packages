@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './styles.module.css';
 import { analytics } from '@site/src/utils/analytics';
 
@@ -23,6 +23,7 @@ interface NPSData {
 // - https://survicate.com/blog/nps-best-practices/
 // - https://delighted.com/blog/when-to-send-your-nps-survey
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export default function NPSWidget({ 
   siteId = 'aztec-docs',
   showAfterSeconds = 180, // 3 minutes total session time (production default)
@@ -74,6 +75,7 @@ export default function NPSWidget({
     const dismissedKey = `nps-dismissed-${siteId}`;
     const lastDismissed = localStorage.getItem(dismissedKey);
     if (lastDismissed) {
+      // biome-ignore lint/correctness/useParseIntRadix: baselined 2026-11-12: a radix of 10 would change how 0x-prefixed input parses
       const daysSinceDismissed = (Date.now() - parseInt(lastDismissed)) / (1000 * 60 * 60 * 24);
       if (daysSinceDismissed < 7) {
         return;
@@ -82,6 +84,7 @@ export default function NPSWidget({
 
     // Track page views
     const pageViewsKey = `nps-pageviews-${siteId}`;
+    // biome-ignore lint/correctness/useParseIntRadix: baselined 2026-11-12: a radix of 10 would change how 0x-prefixed input parses
     const currentPageViews = parseInt(localStorage.getItem(pageViewsKey) || '0');
     const newPageViews = currentPageViews + 1;
     localStorage.setItem(pageViewsKey, newPageViews.toString());

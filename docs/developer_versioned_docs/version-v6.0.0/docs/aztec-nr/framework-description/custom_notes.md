@@ -61,7 +61,7 @@ pub struct NFTNote {
     pub token_id: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/nft.nr#L1-L9" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/nft.nr#L1-L9</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/nft.nr#L1-L9" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/nft.nr#L1-L9</a></sub></sup>
 
 
 The `#[note]` macro generates the following for your struct:
@@ -125,7 +125,7 @@ fn mint(to: AztecAddress, token_id: Field) {
     self.enqueue_self._mark_nft_exists(token_id, true);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L52-L67" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L52-L67</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L52-L67" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L52-L67</a></sub></sup>
 
 
 ### Reading and removing notes
@@ -150,7 +150,7 @@ fn burn(from: AztecAddress, token_id: Field) {
     self.enqueue_self._mark_nft_exists(token_id, false);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L77-L94" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L77-L94</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L77-L94" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L77-L94</a></sub></sup>
 
 
 :::warning
@@ -258,7 +258,7 @@ unconstrained fn get_private_nfts(owner: AztecAddress, page_index: u32) -> ([Fie
     (owned_nft_ids, page_limit_reached)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L269-L286</a></sub></sup>
 
 
 ## Further reading

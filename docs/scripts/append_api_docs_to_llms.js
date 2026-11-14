@@ -163,12 +163,14 @@ function extractModuleItems(htmlPath) {
   const sectionRegex =
     /<h2 id="(structs|traits|functions)">[^<]*<\/h2>\s*<ul class="item-list">([\s\S]*?)<\/ul>/g;
   let match;
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = sectionRegex.exec(html)) !== null) {
     const kind = match[1];
     const body = match[2];
     const names = [];
     const itemRegex = /<div class="item-name">[\s\S]*?>([A-Za-z_][\w]*)<\/a>/g;
     let item;
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
     while ((item = itemRegex.exec(body)) !== null) {
       names.push(item[1]);
     }
@@ -420,6 +422,8 @@ function pagesContent(index) {
 /**
  * Main function to complete llms.txt and write llms-full.txt.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function main() {
   const llmsTxtPath = path.join(BUILD_DIR, "llms.txt");
   const llmsFullTxtPath = path.join(BUILD_DIR, "llms-full.txt");
@@ -449,11 +453,11 @@ function main() {
   // shorter context is needed, so secondary community resources live there and
   // are ordered last. Community resources are independent of the generated API
   // docs, so they are always appended (see write logic below).
-  let communitySection =
+  const communitySection =
     "\n\n## Optional\n\n" +
     "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
     "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
-    "- [Aztec.js getting started](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/aztecjs-getting-started): Deploy and call a contract from TypeScript.\n" +
+    "- [Your first full project](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/first_full_project): Create a contract, then deploy and call it from TypeScript, starting from an empty folder.\n" +
     "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
     "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
     "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Community list of third-party Aztec projects, tools and libraries, labelled with the Aztec version each targets where it depends on Aztec.\n" +
@@ -480,7 +484,6 @@ function main() {
     const files = isMarkdown
       ? fs.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().map((f) => path.join(dirPath, f))
       : sortByImportance(findMarkdownFiles(dirPath));
-    const ext = ".md";
     console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
 
     if (files.length === 0) {
@@ -504,6 +507,7 @@ function main() {
       // are what makes specific types (e.g. SingleUseClaim) findable: an agent
       // searching this index for the name lands on the owning module, then
       // follows the link to the module page.
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);

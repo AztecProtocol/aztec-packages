@@ -48,12 +48,12 @@ yarn add @aztec-labs/aztec.js@#include_aztec_version @aztec-labs/accounts@#inclu
 ```
 
 :::tip Packages published in the last 24 hours
-Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`:
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`. It exempts only the versions this page installs, so a later publication still waits out the gate:
 
 ```yaml
 npmPreapprovedPackages:
-  - "@aztec-labs/*"
-  - "@aztec-foundation/*"
+  - "@aztec-labs/*@#include_version_without_prefix"
+  - "@aztec-foundation/*@#include_foundation_version_without_prefix"
 ```
 :::
 
@@ -85,7 +85,7 @@ name = "bob_token_contract"
 type = "contract"
 
 [dependencies]
-aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "aztec" }
+aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "#include_aztec_version", directory = "aztec" }
 ```
 
 Since we're here, let's import more specific stuff from this library:
@@ -222,7 +222,10 @@ Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alic
 #include_code checkpoint_1 /docs/examples/ts/bob_token_contract/index.ts raw
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
 ```
 
 Run your test:
@@ -292,21 +295,12 @@ For something like balances, you can use a simple library called `balance_set` w
 ```toml
 [dependencies]
 aztec = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="#include_aztec_version", directory="aztec" }
-balance_set = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "#include_aztec_version", directory = "balance-set" }
+balance_set = { git = "https://github.com/aztec-labs-eng/aztec-nr", tag = "#include_aztec_version", directory = "balance-set" }
 ```
 
-Then import `BalanceSet` in our contract:
+Then import `BalanceSet` in our contract, below the other `use` lines:
 
-```rust
-use aztec::macros::aztec;
-
-#[aztec]
-pub contract BobToken {
-    // ... other imports
-    use balance_set::BalanceSet;
-    // ...
-}
-```
+#include_code balance_set_import /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 We need to update the contract storage to have private balances as well:
 

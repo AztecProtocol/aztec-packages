@@ -8,7 +8,7 @@ This documentation system consists of three main components:
 
 1. **Scanner** (`scan_cli.py`) - Recursively scans any CLI and extracts help information
 2. **Transformer** (`transform_to_markdown.py`) - Converts structured data into formatted Markdown
-3. **Template** (`doc_template_example.py`) - Customizable configuration for output formatting
+3. **Template** (optional) - A Python file with a `CONFIG` dictionary that customizes the output (see [Customization](#customization))
 
 The system supports multiple CLIs:
 - **Aztec CLI** (`aztec`) - Main Aztec command-line interface
@@ -56,7 +56,7 @@ python transform_to_markdown.py --input cli_docs.json --output aztec-cli-referen
 python transform_to_markdown.py \
   --input cli_docs.json \
   --output aztec-cli-reference.md \
-  --template doc_template_example.py
+  --template my_template.py
 
 # With custom title
 python transform_to_markdown.py \
@@ -282,7 +282,7 @@ python scan_cli.py --output /tmp/aztec_cli.json
 python transform_to_markdown.py \
   --input /tmp/aztec_cli.json \
   --output docs/cli-reference.md \
-  --template doc_template_example.py
+  --template my_template.py
 ```
 
 ### Quick Test Run

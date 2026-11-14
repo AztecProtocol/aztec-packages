@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { select } from "hast-util-select";
+// biome-ignore lint/suspicious/noShadowRestrictedNames: baselined 2026-11-12: a local name that shadows the global on purpose
 import { toString } from "hast-util-to-string";
 import rehypeParse from "rehype-parse";
 import rehypeRemark from "rehype-remark";
@@ -72,6 +73,7 @@ function dropHidden(node) {
 }
 
 function rewrite(node, context) {
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   node.children = node.children.flatMap((child) => {
     if (!isElement(child)) return [child];
     // A signature: impl headers sit in an <h3>, method and field signatures beside their docs.

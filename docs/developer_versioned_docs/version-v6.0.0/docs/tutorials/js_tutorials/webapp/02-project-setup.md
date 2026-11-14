@@ -2,7 +2,7 @@
 title: "2. Project Setup"
 sidebar_position: 2
 description: "Understand the webapp project structure, Vite configuration, and environment setup"
-references: ["docs/examples/webapp-tutorial/vite.config.ts", "docs/examples/webapp-tutorial/package.json"]
+references: ["docs/lines/v6/examples/webapp-tutorial/vite.config.ts", "docs/lines/v6/examples/webapp-tutorial/package.json"]
 ---
 
 # Project Setup
@@ -46,7 +46,7 @@ webapp-tutorial/
 Aztec uses WASM modules that require `SharedArrayBuffer`, which needs specific HTTP headers. Open `vite.config.ts`:
 
 ```typescript title="vite-config" showLineNumbers 
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import {
   type PolyfillOptions,
@@ -67,7 +67,13 @@ const nodePolyfillsFix = (options?: PolyfillOptions): Plugin => ({
   },
 });
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // process.env is only a shim in the browser, so substitute the node URL from .env (or the shell) at build time.
+  define: {
+    "process.env.AZTEC_NODE_URL": JSON.stringify(
+      loadEnv(mode, process.cwd(), "").AZTEC_NODE_URL ?? "",
+    ),
+  },
   plugins: [
     react(),
     nodePolyfillsFix({
@@ -104,9 +110,9 @@ export default defineConfig({
     // resolve from the webapp tutorial's node_modules.
     preserveSymlinks: true,
   },
-});
+}));
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/vite.config.ts#L1-L61" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/vite.config.ts#L1-L61</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/vite.config.ts#L1-L67" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/vite.config.ts#L1-L67</a></sub></sup>
 
 
 Why each piece is needed:
@@ -132,9 +138,7 @@ and paste the below into the file.
 AZTEC_NODE_URL=http://localhost:8080
 ```
 
-This tells the scripts where to find the Aztec node. For local development, this points to the default local network port. When using the wallet extension, it manages the node connection.
-
-In v6.0.0 the browser app does not read this file: its Vite config does not pass `AZTEC_NODE_URL` through, so the app always connects to `http://localhost:8080`. To use another node in the browser, change the default in `src/config.ts`.
+This tells the app where to find the Aztec node. For local development, this points to the default local network port. When using the wallet extension, it manages the node connection.
 
 ## Compiling the contract
 

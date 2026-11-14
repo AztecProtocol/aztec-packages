@@ -135,7 +135,7 @@ let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: 
 // Verify signature of the payload bytes
 schnorr::verify_signature(pub_key, signature, outer_hash)
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L67-L83" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L67-L83</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L67-L83" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L67-L83</a></sub></sup>
 
 
 The flexibility of signing key storage and rotation is entirely up to your account contract implementation.

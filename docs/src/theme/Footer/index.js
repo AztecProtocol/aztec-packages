@@ -1,17 +1,34 @@
-import React, { useState } from 'react';
-import Footer from '@theme-original/Footer';
+import { useState } from 'react';
 import Link from '@docusaurus/Link';
+import { useThemeConfig } from '@docusaurus/theme-common';
+import FooterCopyright from '@theme/Footer/Copyright';
 import styles from './Footer.module.css';
 import { isValidEmail } from '@site/src/utils/emailValidation';
 import { analytics } from '@site/src/utils/analytics';
 
-export default function FooterWrapper(props) {
+// A plain <a> for `href`: @docusaurus/Link would open external links in a new tab, and this footer keeps them in the same one.
+function FooterLink({ label, to, href }) {
+  return href ? (
+    <a className="footer__link-item" href={href}>
+      {label}
+      <svg width="13.5" height="13.5" aria-hidden="true" className={styles.externalLinkIcon}>
+        <use href="#theme-svg-external-link"></use>
+      </svg>
+    </a>
+  ) : (
+    <Link className="footer__link-item" to={to}>{label}</Link>
+  );
+}
+
+export default function FooterWrapper(_props) {
+  const { footer } = useThemeConfig();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -144,83 +161,25 @@ export default function FooterWrapper(props) {
           {/* Right side - Original Docusaurus footer content */}
           <div className={styles.footerRight}>
             <div className="row footer__links">
-              <div className="col footer__col">
-                <div className="footer__title">Docs</div>
-                <ul className="footer__items clean-list">
-                  <li className="footer__item">
-                    <Link className="footer__link-item" to="/">Introduction</Link>
-                  </li>
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://github.com/aztec-labs-eng/aztec-nr">
-                      Aztec.nr
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="col footer__col">
-                <div className="footer__title">Community</div>
-                <ul className="footer__items clean-list">
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://forum.aztec.network">
-                      Forum
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://discord.com/invite/JtqzkdeQ6G">
-                      Noir Discord
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://x.com/aztecnetwork">
-                      X (Twitter)
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="col footer__col">
-                <div className="footer__title">More</div>
-                <ul className="footer__items clean-list">
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://github.com/AztecProtocol">
-                      GitHub
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                  <li className="footer__item">
-                    <a className="footer__link-item" href="https://github.com/AztecProtocol/awesome-aztec">
-                      Awesome Aztec
-                      <svg width="13.5" height="13.5" aria-hidden="true" className="iconExternalLink_nPIU">
-                        <use href="#theme-svg-external-link"></use>
-                      </svg>
-                    </a>
-                  </li>
-                </ul>
-              </div>
+              {footer.links.map((column) => (
+                <div key={column.title} className="col footer__col">
+                  <div className="footer__title">{column.title}</div>
+                  <ul className="footer__items clean-list">
+                    {column.items.map((item) => (
+                      <li key={item.label} className="footer__item">
+                        <FooterLink {...item} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-        
+
         {/* Bottom copyright - using original Docusaurus styling */}
         <div className="footer__bottom text--center">
-          <div className="footer__copyright">
-            © {new Date().getFullYear()} Aztec Labs. Freedom to move unseen.
-          </div>
+          <FooterCopyright copyright={footer.copyright} />
         </div>
       </div>
     </footer>

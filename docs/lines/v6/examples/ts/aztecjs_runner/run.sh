@@ -9,10 +9,13 @@
 #
 # Usage:
 #   ./run.sh                # Run all examples
+#   ./run.sh --half 1       # Run one half of them (HALF_1 or HALF_2 below)
 #   ./run.sh connection     # Run specific example
 #   ./run.sh getting_started advanced  # Run multiple examples
+#   ./run.sh --clean [...]  # Only remove what setup and run leave in those examples (no network needed)
 #
-# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification
+# Available examples: connection, getting_started, advanced, authwit, testing, swap, aave_bridge, recursive_verification,
+# or any example directory's name (bob_token_contract, token_bridge, kernelless_simulation, ...)
 
 set -euo pipefail
 
@@ -32,21 +35,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║      Aztec.js Documentation Examples Test Runner           ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Check if network is running
-echo -e "${YELLOW}Checking network connection at $AZTEC_NODE_URL...${NC}"
-if ! curl -s "$AZTEC_NODE_URL" > /dev/null 2>&1; then
-    echo -e "${RED}ERROR: Cannot connect to Aztec network at $AZTEC_NODE_URL${NC}"
-    echo "Please start the network with: aztec start --local-network"
-    exit 1
-fi
-echo -e "${GREEN}✓ Network is running${NC}"
-echo ""
 
 # Run `yarn add` with retries, keeping every attempt's output so transient flakes and
 # install warnings stay visible under set -euo pipefail.
@@ -76,6 +64,9 @@ setup_project() {
     # Clean up any previous setup (include codegenCache.json so codegen re-generates artifacts/)
     rm -rf node_modules .yarn package.json tsconfig.json artifacts codegenCache.json 2>/dev/null || true
     if is_hardhat_project; then clean_hardhat_project; fi
+    # An empty yarn.lock makes the example a Yarn project of its own, not part of docs/'s. Truncated
+    # rather than created, so a lockfile an interrupted run filled starts over.
+    : > yarn.lock
 
     # Run codegen for custom contracts if specified in config.yaml
     local contract_count
@@ -100,9 +91,9 @@ setup_project() {
         ls -la "$(codegen_dir)/" 2>/dev/null || echo -e "${RED}  ERROR: $(codegen_dir)/ does not exist after codegen${NC}"
     fi
 
-    # Initialize yarn. `yarn init` also runs `git init` and writes the files below; the compose run is root, so anything
-    # it leaves in the checkout outlives the checkout's owner. Remove the nested repository, and the files it created,
-    # even when it fails: its install step runs after it writes them.
+    # Initialize yarn. `yarn init` also runs `git init` and writes the files below into the mounted checkout, where they
+    # would stay as a nested repository and untracked files. Remove them even when it fails: its install step runs after
+    # it writes them.
     local init_file created_files=() init_status=0
     for init_file in .gitignore .editorconfig .gitattributes README.md; do
         [ -e "$init_file" ] || created_files+=("$init_file")
@@ -197,21 +188,36 @@ cleanup_project() {
            "$project_dir/package.json" \
            "$project_dir/tsconfig.json" \
            "$project_dir/.yarnrc.yml" \
+           "$project_dir/yarn.lock" \
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
+    # yarn init's files, which setup removes right after it: a stop in between leaves them. No example may track one.
+    rm -rf "$project_dir/.git" "$project_dir/.gitignore" "$project_dir/.editorconfig" \
+           "$project_dir/.gitattributes" "$project_dir/README.md"
     if is_hardhat_project "$project_dir"; then (cd "$project_dir" && clean_hardhat_project); fi
-    # Keep yarn.lock empty
-    > "$project_dir/yarn.lock"
 }
 
+# Every example is in exactly one half (scripts/__tests__/page_tests.test.mts checks it). CI runs each
+# half in a compose project of its own (examples/bootstrap.sh execute 1|2), so balance them by measured time.
+HALF_1=("first_full_project" "aztecjs_getting_started" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "bob_token_contract" "aave_bridge")
+HALF_2=("aztecjs_connection" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "note_hash_proof" "token_bridge" "aztecjs_kernelless_simulation")
+
+CLEAN_ONLY=0
+if [ "${1:-}" = --clean ]; then
+    CLEAN_ONLY=1
+    shift
+fi
+
 # Determine which examples to run
-# Note: bob_token_contract and other custom contract examples require verification keys
-# which aren't generated during docs compilation, so they're not included by default
 if [ $# -eq 0 ]; then
-    # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
-    # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("first_full_project" "aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "aztecjs_multiple_wallets" "example_swap" "recursive_verification" "note_hash_proof")
+    EXAMPLES=("${HALF_1[@]}" "${HALF_2[@]}")
+elif [ "$1" = --half ]; then
+    case "$#:${2:-}" in
+        2:1) EXAMPLES=("${HALF_1[@]}") ;;
+        2:2) EXAMPLES=("${HALF_2[@]}") ;;
+        *) echo -e "${RED}Usage: $0 --half 1|2${NC}"; exit 1 ;;
+    esac
 else
     EXAMPLES=()
     for arg in "$@"; do
@@ -225,7 +231,11 @@ else
             aave_bridge)     EXAMPLES+=("aave_bridge") ;;
             recursive_verification) EXAMPLES+=("recursive_verification") ;;
             *)
-                if [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
+                # A plain name only: a path would point setup and cleanup at files outside the examples.
+                if [[ ! "$arg" =~ ^[a-z0-9_]+$ ]]; then
+                    echo -e "${RED}Unknown example: $arg${NC}"
+                    exit 1
+                elif [ -d "$EXAMPLES_DIR/aztecjs_$arg" ]; then
                     EXAMPLES+=("aztecjs_$arg")
                 elif [ -d "$EXAMPLES_DIR/$arg" ]; then
                     EXAMPLES+=("$arg")
@@ -238,6 +248,28 @@ else
     done
 fi
 
+if [ "$CLEAN_ONLY" -eq 1 ]; then
+    for example in "${EXAMPLES[@]}"; do
+        cleanup_project "$example"
+    done
+    exit 0
+fi
+
+echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║      Aztec.js Documentation Examples Test Runner           ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Check if network is running
+echo -e "${YELLOW}Checking network connection at $AZTEC_NODE_URL...${NC}"
+if ! curl -s "$AZTEC_NODE_URL" > /dev/null 2>&1; then
+    echo -e "${RED}ERROR: Cannot connect to Aztec network at $AZTEC_NODE_URL${NC}"
+    echo "Please start the network with: aztec start --local-network"
+    exit 1
+fi
+echo -e "${GREEN}✓ Network is running${NC}"
+echo ""
+
 echo "Running ${#EXAMPLES[@]} example(s): ${EXAMPLES[*]}"
 echo ""
 
@@ -246,27 +278,29 @@ PASSED=0
 FAILED=0
 FAILED_EXAMPLES=()
 
-# Setup all projects first
-echo -e "${YELLOW}Setting up projects...${NC}"
+# Setup and run leave files in the example directories; remove them on exit, on an error, or on TERM or
+# INT once the running command returns. A SIGKILL, as when its container is stopped, skips it: --clean
+# removes them afterwards.
+cleanup_all() {
+    echo -e "${YELLOW}Cleaning up...${NC}"
+    for example in "${EXAMPLES[@]}"; do
+        cleanup_project "$example"
+    done
+}
+trap cleanup_all EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+# One example at a time, so the run holds a single install. setup_project stays outside a condition: there
+# set -e would not apply inside it, and a failed setup ends the run.
 for example in "${EXAMPLES[@]}"; do
     setup_project "$example"
-done
-echo ""
-
-# Run all projects
-for example in "${EXAMPLES[@]}"; do
     if run_project "$example"; then
         PASSED=$((PASSED + 1))
     else
         FAILED=$((FAILED + 1))
         FAILED_EXAMPLES+=("$example")
     fi
-done
-
-# Cleanup
-echo ""
-echo -e "${YELLOW}Cleaning up...${NC}"
-for example in "${EXAMPLES[@]}"; do
     cleanup_project "$example"
 done
 

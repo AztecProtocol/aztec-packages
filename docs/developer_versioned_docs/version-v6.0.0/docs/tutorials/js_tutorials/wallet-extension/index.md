@@ -2,7 +2,7 @@
 title: Building a Wallet Extension
 description: Learn how to build a Chrome extension wallet for Aztec with encrypted key storage, SponsoredFPC fee payment, and transaction approval flows
 sidebar_position: 3
-references: ["docs/examples/webapp-tutorial/test-extension/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/*"]
 ---
 
 # Building a Wallet Extension for Aztec
@@ -115,31 +115,11 @@ test-extension/
 
 ## Quick Start
 
-If you want to try the completed wallet before reading the tutorial:
+If you want to try the completed wallet before reading the tutorial, set up the webapp example with its [prerequisites](../webapp/index.md#prerequisites) and [clone steps](../webapp/index.md#clone-the-example), then build the extension from its `webapp-tutorial` directory:
 
 ```bash
-git clone https://github.com/aztec-labs-eng/aztec-node.git
-cd aztec-node
-git checkout v6.0.0
-cd docs/examples/webapp-tutorial
-touch yarn.lock
-./setup.sh
 node esbuild.extension.mjs
 ```
-
-:::warning Fix the wallet method handler in v6.0.0
-In v6.0.0, `test-extension/src/offscreen/offscreen.ts` fails every wallet call that returns nothing, so creating a game from the dApp fails with `"undefined" is not valid JSON` (raised by `registerContract`). Before running `node esbuild.extension.mjs`, change this line in `handleWalletMethod`:
-
-```typescript
-const jsonSafe = JSON.parse(jsonStringify(result));
-```
-
-to:
-
-```typescript
-const jsonSafe = result === undefined ? undefined : JSON.parse(jsonStringify(result));
-```
-:::
 
 Then load it in Chrome:
 

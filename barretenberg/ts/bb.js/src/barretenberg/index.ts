@@ -7,6 +7,9 @@ import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
+const BN254_SRS_CHUNK_POINTS = 2 ** 17;
+// The Grumpkin points IPA uses, and one pinned chunk (GRUMPKIN_G1_CHUNK_SIZE_POINTS in grumpkin_crs_data.hpp).
+const GRUMPKIN_SRS_POINTS = 2 ** 15;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
 const IOS_BB_CRS_SIZE = 2 ** 18;
 
@@ -92,8 +95,10 @@ export class Barretenberg extends AsyncApi {
 
   async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
-    const crs = await Crs.new(srsSize, this.options.crsPath, this.options.logger);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16, this.options.crsPath, this.options.logger);
+    // A verification key can only be computed from whole chunks of the BN254 SRS (SRS_CHUNK_SIZE_POINTS).
+    const bn254Points = Math.ceil(srsSize / BN254_SRS_CHUNK_POINTS) * BN254_SRS_CHUNK_POINTS;
+    const crs = await Crs.new(bn254Points, this.options.crsPath, this.options.logger);
+    const grumpkinCrs = await GrumpkinCrs.new(GRUMPKIN_SRS_POINTS, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
     // srsInitSrs auto-detects compressed (32B/point) vs uncompressed (64B/point).

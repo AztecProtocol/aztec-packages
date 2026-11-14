@@ -20,10 +20,6 @@ export YARN_ENABLE_IMMUTABLE_INSTALLS=false
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
 
-# Ensure all yarn.lock files are empty on exit. The per-project cleanup trap
-# handles the normal case, but parallel's --halt can kill jobs before their trap runs.
-trap 'for lf in */yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
-
 # Validate config.yaml structure before processing
 validate_config() {
     local config_file=$1
@@ -118,14 +114,14 @@ validate_project() {
                 echo_stderr "Cleaning up temporary files for '${project_name}'..."
             fi
             rm -rf .git .gitignore .editorconfig .gitattributes README.md \
-                   node_modules .yarn .yarnrc.yml codegenCache.json \
+                   node_modules .yarn .yarnrc.yml yarn.lock codegenCache.json \
                    package.json tsconfig.json artifacts 2>/dev/null || true
             if is_hardhat_project; then clean_hardhat_project; fi
-            # Keep yarn.lock empty to prevent yarn from using parent monorepo's yarn.lock
-            > yarn.lock
             return $exit_code
         }
         trap cleanup EXIT
+        # Truncated rather than created, so a lockfile an interrupted run filled starts over.
+        : > yarn.lock
 
         # Read contracts from config.yaml (already validated above)
         local contract_count
@@ -218,23 +214,6 @@ get_all_projects() {
         fi
     done
 }
-
-# In CI, validate all yarn.lock files are committed empty (they must exist but contain no content).
-# We check git state (not filesystem) because a previous interrupted validation run may have
-# populated lockfiles on disk via yarn add before cleanup could run.
-# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
-if [ "${CI:-0}" != "0" ]; then
-    for lockfile in */yarn.lock; do
-        [ -f "$lockfile" ] || continue
-        if [ -n "$(git -C "$REPO_ROOT" show HEAD:"$DOCS_PATH/examples/ts/$lockfile" 2>/dev/null)" ]; then
-            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
-            echo_stderr "       Run: > $lockfile && git add $lockfile"
-            exit 1
-        fi
-        # Ensure clean filesystem state (may be dirty from a previous interrupted run)
-        > "$lockfile"
-    done
-fi
 
 case "$cmd" in
     "")

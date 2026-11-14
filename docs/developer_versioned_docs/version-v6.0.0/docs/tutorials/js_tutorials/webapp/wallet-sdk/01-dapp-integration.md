@@ -2,7 +2,7 @@
 title: "1. dApp Integration"
 sidebar_position: 1
 description: "Connect your dApp to Aztec wallet extensions: discovery, secure channels, capabilities, and wallet usage"
-references: ["docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/components/WalletConnect.tsx", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts", "docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # dApp integration
@@ -69,7 +69,7 @@ export function discoverWallets(
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64</a></sub></sup>
 
 
 `WalletManager.configure()` accepts options to filter extensions:
@@ -130,7 +130,7 @@ export async function connectToProvider(
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92</a></sub></sup>
 
 
 `establishSecureChannel()` performs the ECDH P-256 key exchange and returns a `PendingConnection` with:
@@ -194,7 +194,7 @@ export function getAppCapabilities(): AppCapabilities {
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L94-L112</a></sub></sup>
 
 
 ### Capability types
@@ -375,7 +375,7 @@ async function connectExtension(provider: WalletProvider) {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L55-L130</a></sub></sup>
 
 
 ## State types
@@ -401,7 +401,7 @@ export const initialWalletState: WalletDiscoveryState = {
   error: null,
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L6-L24" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L6-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L6-L24" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L6-L24</a></sub></sup>
 
 
 ## Next steps

@@ -289,10 +289,14 @@ CUT=$CUT scripts/promote_line.sh "$LINE" "$LABS_TAG" &&
 `promote_line.sh` refuses, before writing anything, unless it runs in `$CUT`, `docs/` is
 clean, and the tag has the line's major. Then it pins the line to the tag
 (`aztec_node.mts --line $LINE pin`, which also installs the line's l1-artifacts), and
-refuses, restoring the line's pin, unless the pinned commit is on aztec-node's `$LINE` branch.
+refuses, restoring the line's pin, unless the pinned commit is on aztec-node's `$LINE` branch
+or on the tag's own `release/<version>` branch forked from it (v6.0.0 is on `release/6.0.0`).
+For the latter it prints the fork point and the tag's commits the line lacks: Step 12 checks
+the pages against them.
 Only then does it replace `docs-developers/`, `docs-operate/` and both sidebars with the
 line's, and copy the line's pin over `docs/aztec-node.json`. That promotion commit is
-release-only (Step 17). `fetch` then checks main's checkout out at that pin and reports the
+release-only (Step 17). It also makes the line's allowed differences read as stale in the
+cut (`node scripts/line_copies.mts`): that check belongs to the destination (Step 17). `fetch` then checks main's checkout out at that pin and reports the
 same drift as `pin` below. The promotion commit already carries the pin, so the pin commit
 below has something to commit only when l1-artifacts drifted; otherwise `PINNED` is the
 promotion commit.
@@ -471,17 +475,54 @@ networks stay Alpha and Testnet, and CLI, env and Docker values stay `mainnet` a
 
 ### Step 6: Generate API Reference Docs
 
+A docs version links the API reference folder of the first network that reads it (mainnet
+before testnet; `networkApiFolder` in `src/network_docs.js`, which `#api_ref_version` also
+reads), so one version is stored once. Work out the folder this release's pages will link,
+and whether another network, keeping the version it shared with this type, now needs a
+folder of its own:
+
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT/docs"
-docs_env yarn generate:typescript-api <new_version>
-docs_env yarn generate:aztec-nr-api <new_version>
+eval "$(node -e '
+  const { networkApiFolder } = require("./src/network_docs");
+  const [type, version] = process.argv.slice(1);
+  const before = require("./developer_version_config.json");
+  const after = { ...before, [type]: version };
+  const keep = Object.keys(before).filter(
+    (n) => n !== type && networkApiFolder(before, n) !== n && networkApiFolder(after, n) === n);
+  console.log(`API_FOLDER=${networkApiFolder(after, type) ?? ""}`);
+  console.log(`KEEP="${keep.map((n) => `${networkApiFolder(before, n)}:${n}`).join(" ")}"`);
+' <release_type> "$LABS_TAG")"
+echo "API_FOLDER=${API_FOLDER:-none} KEEP=${KEEP:-none}"
+for pair in $KEEP; do
+  for root in aztec-nr-api typescript-api; do
+    dst="static/$root/${pair#*:}"
+    rm -rf "$dst" && mkdir -p "$dst"
+    git -C "$CUT" archive "$PINNED" "docs/static/$root/${pair%%:*}" | tar -x -C "$dst" --strip-components=4
+  done
+done
+if [ "$API_FOLDER" = <release_type> ]; then
+  docs_env yarn generate:typescript-api <new_version>
+  docs_env yarn generate:aztec-nr-api <new_version>
+fi
 docs_env yarn generate:aztecjs-reference
 ```
 
+- `API_FOLDER` is `<release_type>`: the two API generators write it.
+- It names another network: that network's folder already holds this version's reference,
+  so the generators are skipped. Step 16 removes this type's old folders and adds its
+  redirects.
+- Empty (devnet): no network docs version reads this type, so no folder is generated.
+- `KEEP` lists `<folder>:<network>` for a network that stays on the version it shared with
+  this type (mainnet moves on while testnet stays): the loop copies the shared folder to
+  that network from the pin commit, so a rerun after the generators overwrote the folder
+  still copies the old reference, and Step 16 removes its redirects.
+
 This writes:
 
-- `docs/static/typescript-api/<release_type>/`
-- `docs/static/aztec-nr-api/<release_type>/`
+- `docs/static/typescript-api/<release_type>/` and `docs/static/aztec-nr-api/<release_type>/`,
+  when `API_FOLDER` is `<release_type>`
+- the copies `KEEP` names
 - `docs/docs-developers/docs/aztec-js/aztec_js_reference.md`
 
 The generators read the checkout at the tag: TypeDoc over the `yarn-project` Step 2d installed,
@@ -1036,34 +1077,43 @@ Repeat both `update_docs_versions.sh` lines for each other release type this ver
 serves. Verify the new version appears in both `developer_version_config.json` and
 `network_version_config.json`.
 
+**Re-cutting a released version** (a snapshot rebuilt from a newer line, with no new
+release). `docs:version` refuses a version that exists, and Docusaurus refuses a config
+version with no snapshot, so in the cut, remove the old snapshot and set its config entries
+aside first:
+
+```bash
+git rm -r -q "developer_versioned_docs/version-$LABS_TAG" "developer_versioned_sidebars/version-$LABS_TAG-sidebars.json"
+jq --arg v "$LABS_TAG" 'with_entries(select(.value != $v))' developer_version_config.json >c.tmp &&
+  mv c.tmp developer_version_config.json
+CONTEXT=production docs_env yarn docusaurus docs:version:developer "$LABS_TAG"
+```
+
+Then run `update_docs_versions.sh` for each release type the entry served. `CONTEXT=production`
+skips the dev lines, whose config check throws when no network runs the line's major (`no
+network runs v6`); the snapshot does not depend on it. The config and `developer_versions.json`
+must come back unchanged. Step 16 has nothing to delete, but after Step 13 run its
+`check_orphaned_urls.sh` against the live sitemap: no published URL may be lost. Step 19 still
+records the pages the re-cut adds, once they are live.
+
 **Strip the `## TBD` section from the snapshot; it is not cosmetic.** Step 8 leaves
 unshipped items there and the cut copies the file wholesale; in one rehearsal it carried
 ~4,000 characters about an unmerged oracle. Remove the whole `## TBD` section and any
 `## Unreleased (...)`, empty or not, from
-`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`:
+`developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md`.
+
+Then run the snapshot hygiene test, which `bootstrap.sh check` also runs on every PR:
 
 ```bash
-grep -n '^## ' developer_versioned_docs/version-v<new_version>/docs/resources/migration_notes.md | head -3
+node --test scripts/__tests__/snapshot_hygiene.test.mts
 ```
 
-The first heading must be the new version. Then no macro and no moving Aztec version may
-survive in the snapshot:
-
-```bash
-grep -rnE '@next|@latest|VERSION=latest|tag *= *"next"|#include_aztec_version|#include_foundation_version|#release_version|#release_network|#include_code' \
-  developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
-```
-
-The only expected hits are third-party packages versioned on their own: at
-`v6.0.0-rc.3`, the MCP servers in `ai_tooling.md` (`@aztec/mcp-server@latest`,
-`noir-mcp-server@latest`). Fix every other hit.
-
-Hand-written blocks can still carry this repository's `labs/` prefix, which does not exist
-in an aztec-node checkout. Fix every hit:
-
-```bash
-grep -rn '\.\./labs/' developer_versioned_docs/version-v<new_version>/ network_versioned_docs/version-v<new_version>/
-```
+It names the file, line and rule of each leftover in every snapshot: a migration-notes file
+whose first section is not its version, a `## TBD` or `## Unreleased` section, an
+unexpanded macro, a moving version (`@next`, `@latest`, `VERSION=latest`, `tag = "next"`),
+or this repository's `labs/` prefix outside front matter, which does not exist in an
+aztec-node checkout. Fix every hit in the snapshot. A third-party package versioned on its
+own (the MCP servers in `ai_tooling.md`) goes into the test's `ALLOWED` list with its reason.
 
 #### Hardcoded version references
 
@@ -1098,7 +1148,13 @@ done
 
 It prints nothing when every page matches. Fix a mismatch in the snapshot, a release-only
 change (Step 17): the source local network pages install their own line's pin, which the
-cut does not move at the destination.
+cut does not move at the destination. The tutorials that start from the local network state
+the same minimum as a prerequisite (`Node.js (v<node> or later)`): set each to the snapshot's
+local network page's.
+
+```bash
+grep -n 'Node\.js (v' developer_versioned_docs/version-$LABS_TAG/docs/tutorials/*/{first_full_project,note_hash_proof}.md
+```
 
 ### Step 12: Check the Content Against the Tag
 
@@ -1332,6 +1388,20 @@ the Aztec.js examples, which are source-only. Long-running and install-heavy.
      It fetches `DOCS_COMMIT` from this repository and aztec-node at the tag, and fails
      unless that checkout is the tag's commit. Record a failure with its doc line; then walk
      the rest of each tutorial as written.
+   - **The tutorials with a transcript** (`docs/scripts/page_tests.mts`): run each snapshot
+     page's shell blocks, with the files its steps name, in an empty folder, before walking it:
+
+     ```bash
+     . ~/.cache/aztec-docs-cut/<cut>/env.sh && cd "$CUT"
+     pages=$(node docs/scripts/page_tests.mts pages test-page-transcript) || exit 1
+     for key in $pages; do
+       PATH="$NODE_BIN:$CLI_HOME/.aztec/current/internal-bin:$PATH" docs_env docs/scripts/page_transcript_test.sh \
+         "docs/developer_versioned_docs/version-v<new_version>/${key#docs-developers/}"
+     done
+     ```
+
+     A failure names the page line of the command that stopped. Walking each page as written
+     still covers its prose and what needs the running network.
 
 4. **Build and run the Aztec.js examples at the tag**, in the cut, against the local network:
 
@@ -1414,7 +1484,7 @@ A first cut of a release type has nothing to clean up.
 - `docs/developer_versioned_sidebars/version-<old_version>-sidebars.json`
 - the old entry in `developer_version_config.json`
 - any version-named API docs under `docs/static/aztec-nr-api/` or
-  `docs/static/typescript-api/` (the release-type folders are overwritten, not deleted)
+  `docs/static/typescript-api/` (network folders follow "API reference folders" below)
 
 and reconcile so `developer_versions.json` drops it too:
 
@@ -1427,6 +1497,26 @@ scripts/update_docs_versions.sh developer
 If an entry in `developer_version_config.json` or `network_version_config.json` names a
 version whose directory no longer exists, remove that entry: `update_docs_versions.sh`
 reconciles one release type at a time and does not remove other types' orphans.
+
+#### API reference folders
+
+After Step 11 each network links its own folder, or the folder of the first network on its
+version (Step 6). Make `static/` and `docs/netlify.toml` agree for every network, not only
+this release type:
+
+- `git rm -r` each `docs/static/aztec-nr-api/<network>/` and
+  `docs/static/typescript-api/<network>/` that no version links any more, and append it to
+  `$STATE/deleted.txt`.
+- A network on another network's folder has two redirects in the "API REFERENCE FOLDERS"
+  section of `docs/netlify.toml`: `/aztec-nr-api/<network>/*` and `/typescript-api/<network>/*`
+  to `/<root>/<folder>/:splat`, `status = 302`, without `force`. A network on its own
+  folder has neither: delete them.
+
+Then check the cut:
+
+```bash
+node --test scripts/__tests__/api_reference_folders.test.mts scripts/__tests__/netlify_redirects.test.mts
+```
 
 #### Network/operator docs (mainnet and testnet only)
 
@@ -1503,7 +1593,7 @@ Sort every listed path into exactly one class:
    ```bash
    . ~/.cache/aztec-docs-cut/<cut>/env.sh
    for d in developer_versioned_docs/version-$LABS_TAG network_versioned_docs/version-$LABS_TAG \
-       static/aztec-nr-api/<release_type> static/typescript-api/<release_type>; do
+       static/{aztec-nr-api,typescript-api}/{mainnet,testnet}; do
      [ -d "$CUT/docs/$d" ] && rsync -a --delete "$CUT/docs/$d/" "$DEST_ROOT/docs/$d/"
    done
    for f in developer_versioned_sidebars/version-$LABS_TAG-sidebars.json \
@@ -1521,7 +1611,8 @@ Sort every listed path into exactly one class:
 
 2. **Shared source repairs**: edits to files the destination also has that hold at the
    destination's pin too (source fixes from Steps 8, 8b, 10 and 15, a new
-   `release_names.json` entry from Step 5, edits to existing snapshots). Carry them as
+   `release_names.json` entry from Step 5, Step 16's `netlify.toml` redirects, edits to
+   existing snapshots). Carry them as
    reviewed hunks; the cut shares this repository's objects, so
    `-3` can merge them:
 
@@ -1547,6 +1638,10 @@ Sort every listed path into exactly one class:
    (`docs/CLAUDE.md`): apply the same hunks to `docs/docs-developers/` and
    `docs/docs-operate/`, resolving by hand where main's copy differs. Other repairs reach
    main's pages only when the code they describe is the same at main's pin (the same rule).
+   The destination's `./bootstrap.sh check` fails on every page whose line copy now differs
+   from main's (`node scripts/line_copies.mts` in `docs/` lists them): carry the repair to
+   main's page, or list the page in `docs/lines/$LINE/allowed-differences.txt` with the
+   reason main keeps its text.
 
 3. **Release-only changes** stay in the cut: the promotion and pin commits
    (`docs/aztec-node.json`, `docs/package.json`, `docs/yarn.lock`, a line's pin), generated source pages (`aztec_js_reference.md`,
@@ -1620,11 +1715,26 @@ minutes later, unversioned pages included, so merge only when the release may go
 ```bash
 . ~/.cache/aztec-docs-cut/<cut>/env.sh
 "$DEST_ROOT/.claude/skills/release-docs/local_network.sh" stop "$STATE"
-git -C "$DEST_ROOT" worktree remove "$CUT"
+held=$(
+  git -C "$CUT" status --porcelain --ignore-submodules=none
+  find "$(git -C "$CUT" rev-parse --absolute-git-dir)/modules" -type d -name objects -prune 2>/dev/null |
+    while read -r objects; do
+      m=${objects%/objects}
+      { git --git-dir="$m" log --oneline --branches --tags --not --remotes
+        git --git-dir="$m" log --oneline --reflog --not --remotes HEAD
+        git --git-dir="$m" stash list; } | sed "s|^|$m: |"
+    done
+)
+if [ -z "$held" ]; then git -C "$DEST_ROOT" worktree remove --force "$CUT"; else printf 'Stop, the cut holds:\n%s\n' "$held" >&2; fi
 ```
 
-`worktree remove` refuses while the cut has uncommitted changes (Step 17 committed
-everything); ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
+The cut has checked-out submodules, and git removes such a worktree only with `--force`,
+which also discards uncommitted changes and the submodules' local commits and stashes. So
+it runs only once the cut's status and every submodule repository under its git directory
+come back empty (Step 17 committed everything): no commit that only a local branch, tag or
+reflog reaches, and no stash. The reflog pass leaves out `HEAD`, the commit the cut records,
+which the submodule fetched by its hash, so no remote branch holds it. Otherwise it prints
+what they hold: stop and report it. Ignored files such as `docs/node_modules/` and `docs/.aztec-node/` go with it.
 The branch `docs-cut/<cut>` stays as the record of the cut until the destination
 commit has merged. `$STATE` holds the CLI's home, the checkout and the logs; remove it once
 the release is out.

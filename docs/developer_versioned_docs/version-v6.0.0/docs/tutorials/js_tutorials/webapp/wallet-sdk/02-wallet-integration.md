@@ -2,12 +2,12 @@
 title: "2. Wallet Extension Integration"
 sidebar_position: 2
 description: "Build an Aztec wallet extension: handle discovery, manage sessions, route messages, and extend BaseWallet"
-references: ["docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "labs/yarn-project/wallet-sdk/src/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "labs/yarn-project/wallet-sdk/src/*"]
 ---
 
 # Wallet extension integration
 
-This page is a reference for wallet extension developers. It walks through each component of the SDK integration; you don't need to follow it step-by-step. For the full source, see the [`test-extension/`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension) directory.
+This page is a reference for wallet extension developers. It walks through each component of the SDK integration; you don't need to follow it step-by-step. For the full source, see the [`test-extension/`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension) directory.
 
 ## What you'll learn
 
@@ -29,7 +29,7 @@ A wallet extension has three components that use the SDK:
 
 ## Content script
 
-The content script is the simplest piece: it relays messages between the page and the background service worker, and never sees encryption keys. Create a `ContentScriptConnectionHandler` with a transport that provides `sendToBackground(message)` and `addBackgroundListener(handler)`, then call `handler.start()`. See [`test-extension/src/content-script.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/content-script.ts) for the full implementation.
+The content script is the simplest piece: it relays messages between the page and the background service worker, and never sees encryption keys. Create a `ContentScriptConnectionHandler` with a transport that provides `sendToBackground(message)` and `addBackgroundListener(handler)`, then call `handler.start()`. See [`test-extension/src/content-script.ts`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts) for the full implementation.
 
 ## Background service worker
 
@@ -37,11 +37,11 @@ The background script is where most of the SDK integration happens.
 
 ### Configuration
 
-Define your wallet's identity in a config object with `walletId`, `name`, `icon`, and `chainId`. See [`test-extension/src/config.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/config.ts).
+Define your wallet's identity in a config object with `walletId`, `name`, `icon`, and `chainId`. See [`test-extension/src/config.ts`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts).
 
 ### Transport
 
-The background transport sends messages to content scripts via `chrome.tabs.sendMessage` and filters incoming messages. Only discovery, key exchange, and encrypted wallet messages reach the handler (popup and storage proxy messages are filtered out). See the transport setup in [`test-extension/src/background.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts).
+The background transport sends messages to content scripts via `chrome.tabs.sendMessage` and filters incoming messages. Only discovery, key exchange, and encrypted wallet messages reach the handler (popup and storage proxy messages are filtered out). See the transport setup in [`test-extension/src/background.ts`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts).
 
 ### Handler initialization
 
@@ -199,7 +199,7 @@ const callbacks: BackgroundConnectionCallbacks = {
   },
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L744-L884</a></sub></sup>
 
 
 Key responsibilities:
@@ -254,7 +254,7 @@ onWalletMessage: async (session: ActiveSession, message: any) => {
   await processWalletMessage(session, message);
 },
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L850-L882" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L850-L882</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L850-L882" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L850-L882</a></sub></sup>
 
 
 ## Message routing
@@ -303,7 +303,7 @@ if (needsApproval) {
   return;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L582-L623" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L582-L623</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L582-L623" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L582-L623</a></sub></sup>
 
 
 The approval matrix:
@@ -446,7 +446,7 @@ async function sendToOffscreen(message: any, _retried = false): Promise<any> {
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L72-L176</a></sub></sup>
 
 
 ## Extending BaseWallet
@@ -677,7 +677,7 @@ async function getWallet() {
   return walletInstance;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L157-L382</a></sub></sup>
 
 
 ### What you must implement
@@ -688,7 +688,7 @@ async function getWallet() {
 | `getAccounts()` | Return all accounts (with aliases) |
 
 :::tip Custom Fee Payment
-`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this; see [`test-extension/src/offscreen/offscreen.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts) for the implementation.
+`completeFeeOptions` has a default implementation that uses the sender's fee juice balance. Override it to inject a custom fee payment strategy (e.g., `SponsoredFPC`). The tutorial wallet overrides this; see [`test-extension/src/offscreen/offscreen.ts`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts) for the implementation.
 :::
 
 ### What BaseWallet provides
@@ -758,12 +758,13 @@ async function handleWalletMethod(method: string, args: any[]): Promise<any> {
   const result = await walletObj[method](...parsedArgs);
 
   // Serialize to JSON-safe format before returning through Chrome messaging
-  const jsonSafe = JSON.parse(jsonStringify(result));
+  // Methods like registerContract return nothing, and JSON.parse rejects what jsonStringify returns for undefined.
+  const jsonSafe = result === undefined ? undefined : JSON.parse(jsonStringify(result));
   log.debug('[offscreen] Wallet method completed:', method);
   return jsonSafe;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L524" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L524</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L525" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L473-L525</a></sub></sup>
 
 
 ## Session lifecycle
@@ -798,7 +799,7 @@ The `BackgroundConnectionHandler`'s internal state (active sessions, pending dis
 
 ## Extension lifecycle
 
-On install/update, clear pending state since sessions don't survive reloads. On startup, restore persisted state and preload the offscreen document to warm up WASM. See the lifecycle handlers in [`test-extension/src/background.ts`](https://github.com/aztec-labs-eng/aztec-node/tree/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts).
+On install/update, clear pending state since sessions don't survive reloads. On startup, restore persisted state and preload the offscreen document to warm up WASM. See the lifecycle handlers in [`test-extension/src/background.ts`](https://github.com/AztecProtocol/aztec-packages/tree/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts).
 
 ## Next steps
 

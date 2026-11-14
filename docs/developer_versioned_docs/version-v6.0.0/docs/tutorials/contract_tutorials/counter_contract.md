@@ -2,7 +2,7 @@
 title: Counter contract
 description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
-references: ["docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -23,6 +23,7 @@ Run this to create a new contract project:
 
 ```bash
 aztec new counter
+cd counter
 ```
 
 Your structure should look like this:
@@ -47,8 +48,8 @@ Add the following dependency to `counter_contract/Nargo.toml` under the existing
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="v6.0.0", directory="aztec" }
-balance_set = { git="https://github.com/aztec-labs-eng/aztec-nr/", tag="v6.0.0", directory="balance-set" }
+aztec = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="v6.0.0", directory="aztec" }
+balance_set = { git="https://github.com/aztec-labs-eng/aztec-nr", tag="v6.0.0", directory="balance-set" }
 ```
 
 ## Define the functions
@@ -95,7 +96,7 @@ use aztec::{
 };
 use balance_set::BalanceSet;
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L7-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L7-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L7-L16" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L7-L16</a></sub></sup>
 
 
 - `macros::{functions::{external, initializer}, storage::storage}`
@@ -126,7 +127,7 @@ struct Storage<Context> {
     counters: Owned<BalanceSet<Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L18-L23" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L18-L23</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L18-L23" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L18-L23</a></sub></sup>
 
 
 ## Keep the counter private
@@ -145,7 +146,7 @@ fn constructor(initial_value: u128, owner: AztecAddress) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L25-L34" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L25-L34</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L25-L34" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L25-L34</a></sub></sup>
 
 
 This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery::onchain_constrained())` to ensure the note is delivered onchain.
@@ -163,7 +164,7 @@ fn increment(owner: AztecAddress) {
     self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L36-L42</a></sub></sup>
 
 
 The `increment` function works similarly to the `constructor`. It logs a debug message, then adds 1 to the `owner`'s counter and delivers the note onchain.
@@ -178,7 +179,7 @@ unconstrained fn get_counter(owner: AztecAddress) -> pub u128 {
     self.storage.counters.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L44-L49" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L44-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L44-L49" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L44-L49</a></sub></sup>
 
 
 This is a `utility` function used to obtain the counter value outside of a transaction. We access the `owner`'s balance from the `counters` storage variable using `at(owner)`, then call `balance_of()` to retrieve the current count. This yields a private counter that only the owner can decrypt.

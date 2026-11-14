@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import { useOperatorConfig } from './context';
 import styles from './fundingCalculator.module.css';
@@ -24,7 +24,7 @@ const isAddress = (s) => /^0x[0-9a-fA-F]{40}$/.test(s);
 const safeHostname = (url) => {
   try {
     return new URL(url).hostname;
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -67,6 +67,8 @@ const SEL = {
   isRewardsClaimable: '0xfcb3f6ba',
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function Claimer() {
   const { values } = useOperatorConfig();
   const configRpc = (values && values.ETH_RPC) || '';
@@ -80,6 +82,7 @@ function Claimer() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: baselined 2026-11-12: a changed dependency list would change when the hook runs
   useEffect(() => {
     if (configRpc && !rpcUrl) setRpcUrl(configRpc);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,6 +100,7 @@ function Claimer() {
   const proverOk = isAddress(prover);
   const canScan = rpcOk && rollupOk && proverOk && !scanning;
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   async function scan() {
     setScanning(true);
     setError(null);
@@ -125,7 +129,7 @@ function Claimer() {
         let rewHex;
         try {
           rewHex = await ethCall(rpcUrl, rollup, data, 8000);
-        } catch (e) {
+        } catch {
           continue;
         }
         const rew = BigInt(rewHex || '0x0');

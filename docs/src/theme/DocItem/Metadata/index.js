@@ -1,4 +1,3 @@
-import React from 'react';
 import Metadata from '@theme-original/DocItem/Metadata';
 import Head from '@docusaurus/Head';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';

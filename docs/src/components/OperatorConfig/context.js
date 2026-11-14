@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import networkVersionConfig from '@site/network_version_config.json';
 
 // Default to the testnet version, fall back to mainnet, then to a sane string.
@@ -47,6 +47,7 @@ function sanitizePort(raw) {
   return n;
 }
 
+// biome-ignore lint/performance/noAccumulatingSpread: baselined 2026-11-12: runs once over a few dozen fields
 const DEFAULT_VALUES = ALL_FIELDS.reduce((acc, k) => ({ ...acc, [k]: '' }), {});
 
 const DEFAULT_TRACK = {
@@ -113,6 +114,7 @@ function readTrackFromQuery(base) {
   return changed ? next : base;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function loadInitial() {
   if (typeof window === 'undefined') {
     return {
@@ -337,7 +339,9 @@ export function substitute(template, values, { mask = false, track, sequencerCou
     AZTEC_PORT: String(port),
   };
   return template.replace(/\{\{([A-Z_][A-Z0-9_]*)\}\}/g, (_, key) => {
+    // biome-ignore lint/suspicious/noPrototypeBuiltins: baselined 2026-11-12: Object.hasOwn is missing in older browsers the site supports
     if (Object.prototype.hasOwnProperty.call(derivedTokens, key)) return derivedTokens[key];
+    // biome-ignore lint/suspicious/noPrototypeBuiltins: baselined 2026-11-12: Object.hasOwn is missing in older browsers the site supports
     if (Object.prototype.hasOwnProperty.call(tokens, key)) return tokens[key];
     const raw = values[key];
     if (!raw) return `{{${key}}}`;

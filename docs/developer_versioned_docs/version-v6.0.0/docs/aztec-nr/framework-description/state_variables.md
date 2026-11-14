@@ -126,7 +126,7 @@ For example, storing the address of the collateral asset in a lending contract:
 ```rust title="public_mutable" showLineNumbers 
 collateral_asset: PublicMutable<AztecAddress, Context>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L46-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L46-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L46-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L46-L48</a></sub></sup>
 
 
 #### `read`
@@ -140,7 +140,7 @@ fn get_assets() -> pub [AztecAddress; 2] {
     [self.storage.collateral_asset.read(), self.storage.stable_coin.read()]
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L273-L279" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L273-L279</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L273-L279" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L273-L279</a></sub></sup>
 
 
 #### `write`
@@ -150,7 +150,7 @@ The `write` method on `PublicMutable` variables takes the value to write as an i
 ```rust title="public_mutable_write" showLineNumbers 
 self.storage.collateral_asset.write(collateral_asset);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L74-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L74-L76</a></sub></sup>
 
 
 ### PublicImmutable
@@ -168,7 +168,7 @@ symbol: PublicImmutable<FieldCompressedString, Context>,
 name: PublicImmutable<FieldCompressedString, Context>,
 decimals: PublicImmutable<u8, Context>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L58-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L58-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L58-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L58-L62</a></sub></sup>
 
 
 #### `initialize`
@@ -180,7 +180,7 @@ self.storage.name.initialize(FieldCompressedString::from_string(name));
 self.storage.symbol.initialize(FieldCompressedString::from_string(symbol));
 self.storage.decimals.initialize(decimals);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L68-L72" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L68-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L68-L72" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L68-L72</a></sub></sup>
 
 
 :::warning
@@ -198,7 +198,7 @@ fn public_get_name() -> FieldCompressedString {
     self.storage.name.read()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L75-L81" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L75-L81</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L75-L81" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/simple_token_contract/src/main.nr#L75-L81</a></sub></sup>
 
 
 ### DelayedPublicMutable
@@ -224,7 +224,7 @@ struct Storage<Context> {
     authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L30-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L30-L40</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L30-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L30-L40</a></sub></sup>
 
 
 #### `schedule_value_change`
@@ -238,7 +238,7 @@ fn set_authorized(authorized: AztecAddress) {
     self.storage.authorized.schedule_value_change(authorized);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L49-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L49-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L49-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L49-L55</a></sub></sup>
 
 
 #### `get_current_value`
@@ -252,7 +252,7 @@ fn get_authorized() -> AztecAddress {
     self.storage.authorized.get_current_value()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L57-L63" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L57-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L57-L63" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L57-L63</a></sub></sup>
 
 
 :::warning Privacy Consideration
@@ -270,7 +270,7 @@ fn get_scheduled_authorized() -> (AztecAddress, u64) {
     self.storage.authorized.get_scheduled_value()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L65-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L65-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L65-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L65-L71</a></sub></sup>
 
 
 ## Private State Variables
@@ -370,7 +370,7 @@ fn mint(amount: u128, recipient: AztecAddress) {
     self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::onchain_constrained());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L63-L82" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L63-L82</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L63-L82" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L63-L82</a></sub></sup>
 
 
 Methods that return `NoteMessage` include `initialize()`, `get_note()`, and `replace()` on `PrivateMutable`, `initialize()` on `PrivateImmutable`, and `insert()` on `PrivateSet` (more on these methods and private state variable types shortly).
@@ -456,7 +456,7 @@ Access the underlying state variable for a specific owner using `.at(owner)`
 ```rust title="owned_private_mutable" showLineNumbers 
 subscriptions: Owned<PrivateMutable<SubscriptionNote, Context>, Context>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L74-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L74-L76</a></sub></sup>
 
 
 #### `is_initialized`
@@ -469,7 +469,7 @@ unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
     self.storage.subscriptions.at(subscriber).is_initialized()
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L171-L176" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L171-L176</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L171-L176" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L171-L176</a></sub></sup>
 
 
 #### `initialize` and `initialize_or_replace`
@@ -484,7 +484,7 @@ self
     .initialize_or_replace(|_| SubscriptionNote { expiry_block_number, remaining_txs: tx_count })
     .deliver(MessageDelivery::onchain_constrained());
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L161-L168" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L161-L168</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L161-L168" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/app_subscription_contract/src/main.nr#L161-L168</a></sub></sup>
 
 
 #### `get_note`
@@ -525,7 +525,7 @@ fn transfer_admin(new_admin: AztecAddress) {
         .deliver(MessageDelivery::onchain_constrained());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L85-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L85-L100</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L85-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr#L85-L100</a></sub></sup>
 
 
 ### PrivateImmutable
@@ -539,7 +539,7 @@ Unlike `PrivateMutable`, the `get_note` function for a `PrivateImmutable` doesn'
 ```rust title="private_immutable" showLineNumbers 
 note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L92-L94" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L92-L94</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L92-L94" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L92-L94</a></sub></sup>
 
 
 `PrivateImmutable` variables also have the `initialize` and `get_note` functions on them but no `initialize_or_replace` since they cannot be modified.
@@ -563,7 +563,7 @@ struct Storage<Context> {
     balances: Owned<PrivateSet<FieldNote, Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L27-L32</a></sub></sup>
 
 
 #### `insert`
@@ -573,7 +573,7 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`:
 ```rust title="private_set_insert" showLineNumbers 
 owner_balance.insert(note).deliver(MessageDelivery::onchain_unconstrained());
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L47-L49</a></sub></sup>
 
 
 Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying `PrivateSet` for a specific owner. This binds the owner to the state variable instance.
@@ -587,7 +587,7 @@ let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
 // get note (note inserted at bottom of function shouldn't exist yet)
 let notes = owner_balance.get_notes(options);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L66-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L66-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L66-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L66-L70</a></sub></sup>
 
 
 #### `pop_notes`
@@ -598,7 +598,7 @@ This function pops (gets, removes and returns) the notes the account has access 
 let options = NoteGetterOptions::new().set_limit(1);
 let note = owner_balance.pop_notes(options).get(0);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr#L146-L149</a></sub></sup>
 
 
 #### `remove`

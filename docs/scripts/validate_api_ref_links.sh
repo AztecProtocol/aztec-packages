@@ -18,7 +18,7 @@ set -euo pipefail
 #
 # Usage: validate_api_ref_links.sh   (DOCS_ROOT overrides the docs/ directory it reads)
 #
-# Exit code: Always 0 (warnings only) to avoid breaking builds initially.
+# Exit code: 1 if a link is broken. A version mismatch only warns.
 
 # Lowercase a string. The `${var,,}` form this replaces is bash 4 only: macOS
 # ships bash 3.2, where it aborts with "bad substitution".
@@ -41,7 +41,7 @@ docs_routes_init_api_indexes
 echo "Validating API reference links..."
 
 # Collect directories to scan.
-# 1. processed-docs/ — current docs with macros resolved (available during build after preprocess:move)
+# 1. processed-docs/ — current docs with macros resolved (written by `yarn preprocess`)
 # 2. developer_versioned_docs/ — pinned version snapshots (macros already resolved at version time)
 # 3. docs-developers/ — source files (for TypeScript API JSX components that don't use macros)
 # We skip docs-developers/ for aztec-nr-api links because they contain unresolved #api_ref_version macros,
@@ -248,7 +248,7 @@ process_link() {
     return
   fi
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Version mismatch check: verify the link uses the expected API version
   if [[ -n "$expected_version" ]]; then
@@ -324,7 +324,7 @@ process_ts_api_link() {
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Check if the file exists under static/typescript-api/{version}/
   local full_path="$TS_STATIC_API_DIR/$expected_version/$file_path"
@@ -354,7 +354,7 @@ TS_JSX_HREF_PATTERN='href="/typescript-api/([^"]*)"'
 # Scan files for links
 for search_dir in "${SEARCH_DIRS[@]}"; do
   expected_version=$(get_expected_api_version "$search_dir")
-  rel_search_dir="${search_dir#$DOCS_ROOT/}"
+  rel_search_dir="${search_dir#"$DOCS_ROOT"/}"
   if [[ -n "$expected_version" ]]; then
     echo "  $rel_search_dir (expected API version: $expected_version)"
   else
@@ -366,6 +366,7 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
   # Find all .md and .mdx files
   while IFS= read -r -d '' file; do
     local_line_num=0
+    # shellcheck disable=SC2094 # the link checks only read "$file"
     while IFS= read -r line; do
       local_line_num=$((local_line_num + 1))
 
@@ -439,7 +440,7 @@ echo "  - Version mismatches: $VERSION_MISMATCH_COUNT"
 
 if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo ""
-  echo "WARNING: $BROKEN_COUNT broken API reference link(s) found."
+  echo "ERROR: $BROKEN_COUNT broken API reference link(s) found."
   echo "These links point to files that don't exist in static/aztec-nr-api/ or static/typescript-api/."
   echo "Run 'yarn generate:aztec-nr-api' or 'yarn generate:typescript-api' to regenerate the API docs."
 fi
@@ -450,5 +451,5 @@ if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
   echo "These links reference the wrong API version for their docs directory."
 fi
 
-# Exit 0 with warnings to avoid breaking builds initially
-exit 0
+# pathname:/// links bypass Docusaurus's link check, so this is the only gate for them.
+[[ $BROKEN_COUNT -eq 0 ]]

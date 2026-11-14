@@ -20,7 +20,7 @@ Every class, function and type also has its own short page. Start from the [Type
 
 *Package: @aztec-labs/aztec.js*
 
-*Generated: 2026-10-27T18:12:36.639Z*
+*Generated: 2026-11-12T14:58:05.564Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 

@@ -2,7 +2,7 @@
 title: "3. Network & Wallet"
 sidebar_position: 3
 description: "Connect to Aztec using an embedded wallet for local dev or the wallet SDK for browser extensions"
-references: ["docs/examples/webapp-tutorial/src/config.ts", "docs/examples/webapp-tutorial/src/embedded-wallet.ts", "docs/examples/webapp-tutorial/src/wallet-connection.ts", "docs/examples/webapp-tutorial/src/fees.ts", "docs/examples/webapp-tutorial/src/components/*"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/config.ts", "docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts", "docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts", "docs/lines/v6/examples/webapp-tutorial/src/fees.ts", "docs/lines/v6/examples/webapp-tutorial/src/components/*"]
 ---
 
 # Network & Wallet
@@ -58,7 +58,7 @@ export async function createLocalPXE(nodeUrl: string) {
   return { pxe, aztecNode };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/config.ts#L1-L33" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/config.ts#L1-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/config.ts#L1-L33" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/config.ts#L1-L33</a></sub></sup>
 
 
 `createLocalPXE` sets up PXE in three steps:
@@ -93,11 +93,12 @@ import { Fr } from '@aztec-labs/aztec.js/fields';
 import { SPONSORED_FPC_SALT } from '@aztec-labs/constants';
 import { AccountFeePaymentMethodOptions } from '@aztec-labs/entrypoints/account';
 import { getInitialTestAccountsData } from '@aztec-labs/accounts/testing/lazy';
+import { openTmpStore } from '@aztec-labs/kv-store/sqlite-opfs';
 import type { ContractArtifact } from '@aztec-labs/stdlib/abi';
 import { type CompleteFeeOptionsConfig, type FeeOptions } from '@aztec-labs/wallet-sdk/base-wallet';
 import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec-labs/wallets/embedded';
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L13" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L13</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L14" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L1-L14</a></sub></sup>
 
 
 ### Initialization
@@ -113,6 +114,9 @@ static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
   const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
     ephemeral: true,
     pxeConfig: { proverEnabled: !isLocal },
+    // In the browser, createPXE opens one persistent store per chain and rollup and ignores `ephemeral`, so a
+    // second wallet on the same page (the two-player view) would collide with the first. Give each its own.
+    pxeOptions: { store: await openTmpStore(true) },
   });
 
   // Register SponsoredFPC so we can pay fees
@@ -122,7 +126,7 @@ static async initialize(nodeUrl: string): Promise<EmbeddedWallet> {
   return wallet;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L53-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L53-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L54-L76" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L54-L76</a></sub></sup>
 
 
 The `initialize` factory calls the inherited `create()` method, which sets up an in-browser PXE and account storage. It then registers the SponsoredFPC contract with PXE so that fee payment works out of the box.
@@ -151,8 +155,10 @@ async connectTestAccount(index: number) {
   return this.connectedAccount;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L89-L108" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L89-L108</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L93-L112" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L93-L112</a></sub></sup>
 
+
+Test accounts exist only on the local network. To create and deploy a new account, as users do on other networks, see [Creating accounts](../../../aztec-js/how_to_create_account.md).
 
 ### Fee payment
 
@@ -184,7 +190,7 @@ override async completeFeeOptions(config: CompleteFeeOptionsConfig): Promise<Fee
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L30-L51" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L30-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L31-L52" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L31-L52</a></sub></sup>
 
 
 ### Full class
@@ -237,6 +243,9 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     const wallet = await EmbeddedWallet.create<EmbeddedWallet>(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
+      // In the browser, createPXE opens one persistent store per chain and rollup and ignores `ephemeral`, so a
+      // second wallet on the same page (the two-player view) would collide with the first. Give each its own.
+      pxeOptions: { store: await openTmpStore(true) },
     });
 
     // Register SponsoredFPC so we can pay fees
@@ -296,7 +305,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
     await this.registerContract(instance, artifact);
   }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/embedded-wallet.ts#L15-L125" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/embedded-wallet.ts#L15-L125</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L16-L129" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/embedded-wallet.ts#L16-L129</a></sub></sup>
 
 
 ## Wallet SDK (browser extension)
@@ -384,7 +393,7 @@ export function discoverWallets(
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L26-L64</a></sub></sup>
 
 
 ### Step 2: Connect and verify
@@ -424,7 +433,7 @@ export async function connectToProvider(
   };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/wallet-connection.ts#L66-L92</a></sub></sup>
 
 
 ## Fee payment helpers
@@ -450,7 +459,7 @@ export async function getSponsoredFPCContract() {
   return { instance, artifact: SponsoredFPCContractArtifact };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/fees.ts#L8-L24" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/fees.ts#L8-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L8-L24" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L8-L24</a></sub></sup>
 
 
 PXE needs the SponsoredFPC artifact registered so it can include fee payment logic when constructing transaction proofs. Without this registration, PXE wouldn't know how to interact with the fee contract:
@@ -467,7 +476,7 @@ export async function registerSponsoredFPC(pxe: PXE) {
   return contract.instance.address;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/fees.ts#L26-L37" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/fees.ts#L26-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L26-L37" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L26-L37</a></sub></sup>
 
 
 ## Components
@@ -507,7 +516,7 @@ export function NetworkPicker({ network, onNetworkChange, disabled }: NetworkPic
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/NetworkPicker.tsx#L1-L29" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/NetworkPicker.tsx#L1-L29</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/NetworkPicker.tsx#L1-L29" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/NetworkPicker.tsx#L1-L29</a></sub></sup>
 
 
 ### Wallet connect (`src/components/WalletConnect.tsx`)
@@ -531,7 +540,7 @@ interface WalletConnectProps {
   onWalletConnected: (wallet: Wallet | EmbeddedWallet) => void;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L1-L15" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L1-L15</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L1-L15" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L1-L15</a></sub></sup>
 
 
 ```typescript title="wallet-connect-component" showLineNumbers 
@@ -714,7 +723,7 @@ export function WalletConnect({ network, onWalletConnected }: WalletConnectProps
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L17-L198" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/WalletConnect.tsx#L17-L198</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L17-L198" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/WalletConnect.tsx#L17-L198</a></sub></sup>
 
 
 ### Account info (`src/components/AccountInfo.tsx`)
@@ -744,7 +753,7 @@ export function AccountInfo({ address }: AccountInfoProps) {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/AccountInfo.tsx#L1-L23" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/AccountInfo.tsx#L1-L23</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/AccountInfo.tsx#L1-L23" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/AccountInfo.tsx#L1-L23</a></sub></sup>
 
 
 ## Next steps

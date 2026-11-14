@@ -383,6 +383,12 @@ function test_cmds_wasm_threads {
   echo "$hash:CPUS=8 HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
 }
 
+function test_cmds_wasm {
+  # The AVM simulator's in-process service, from the single-threaded build bb-avm-sim.wasm comes from. It reads
+  # its fixture from the checkout, the directory wasmtime.sh preopens.
+  echo "$hash SINGLE_THREADED=1 AZTEC_REPO_ROOT=. barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm/bin/avm_ffi_tests"
+}
+
 function test_cmds_asan {
   local prefix="$hash:CPUS=4:MEM=8g"
 
@@ -420,6 +426,7 @@ function test_cmds_nightly {
 function test_cmds {
   if [ -z "${1:-}" ]; then
     test_cmds_native
+    test_cmds_wasm
     if [ "$CI_FULL" -eq 1 ]; then
       test_cmds_wasm_threads
       test_cmds_asan

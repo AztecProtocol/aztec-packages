@@ -32,8 +32,9 @@ function generate_bb_avm_sim_package {
     --binary-name "$BB_AVM_SIM_BINARY" \
     --prefix Avm \
     --strip-method-prefix \
-    --package-transports uds \
-    --package-ipc-path-args 'msgpack,run,--input,{path}'
+    --package-transports uds,wasm \
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-wasm-module "bb-avm-sim.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm"
 }
 
 # Server binding package for the AVM CDB protocol: generated wire types +
@@ -223,8 +224,17 @@ function build {
   build_cdb
 }
 
+# `test_cmds bb_avm_sim` lists the bb-avm-sim package's tests alone: they need its build
+# (bb-avm-sim), which bb.js's tests do not.
 function test_cmds {
-  (cd bb.js && ./bootstrap.sh test_cmds)
+  case "${1:-}" in
+    bb_avm_sim)
+      echo "$hash barretenberg/ts/scripts/bb_avm_sim_test.sh"
+      ;;
+    *)
+      (cd bb.js && ./bootstrap.sh test_cmds)
+      ;;
+  esac
 }
 
 function bench_cmds {

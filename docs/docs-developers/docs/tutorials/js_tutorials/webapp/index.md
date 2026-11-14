@@ -57,10 +57,10 @@ git -c advice.detachedHead=false clone --depth 1 --filter=blob:none --sparse --b
   https://github.com/aztec-labs-eng/aztec-node.git docs/.aztec-node/tree
 git -C docs/.aztec-node/tree sparse-checkout set noir-projects
 cd docs/examples/webapp-tutorial
-./setup.sh #include_version_without_prefix
+./setup.sh #include_version_without_prefix #include_foundation_version_without_prefix
 ```
 
-This checks out the docs examples with their Noir workspace (`docs/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/`, the workspace root. `setup.sh` writes the Aztec version into `package.json` and installs the dependencies.
+This checks out the docs examples with their Noir workspace (`docs/Nargo.toml`), and aztec-node's `noir-projects` at the version above, where the contract's `Nargo.toml` finds aztec-nr. Keep this layout: `yarn prep` compiles from `docs/`, the workspace root. `setup.sh` writes the Aztec version into `package.json` and both versions into `.yarnrc.yml`, which lets only those versions of the Aztec packages skip Yarn's 7-day age gate. Then it installs the dependencies.
 
 ## Architecture
 

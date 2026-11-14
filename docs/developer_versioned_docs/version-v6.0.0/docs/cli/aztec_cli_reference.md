@@ -10,7 +10,7 @@ sidebar_position: 1
 *This documentation is auto-generated from the `aztec` CLI help output.*
 
 
-*Generated: Tue 27 Oct 2026 21:26:48 UTC*
+*Generated: Thu 12 Nov 2026 14:58:06 UTC*
 
 *Command: `aztec`*
 
@@ -1909,7 +1909,7 @@ aztec sign-attester-exit [options]
 
 ### aztec test
 
-*No help information available for this command.*
+*Help for this command is currently unavailable.*
 
 ### aztec trigger-seed-snapshot
 

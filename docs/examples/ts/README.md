@@ -7,7 +7,8 @@ This directory contains TypeScript examples used in the Aztec documentation. Eac
 Each example directory contains:
 - `index.ts` - The example code with `docs:start:` and `docs:end:` markers for inclusion in documentation
 - `config.yaml` - Specifies dependencies and any custom contract artifacts needed
-- `yarn.lock` - Empty file to prevent yarn from using parent monorepo's yarn.lock
+
+Validation and the runner create an empty, gitignored `yarn.lock` in each example before installing, so Yarn treats it as a project of its own instead of part of `docs/`'s.
 
 The bridge tutorials' examples (`token_bridge`, `aave_bridge`) are Hardhat projects in the reader's layout instead: `scripts/index.ts`, `contracts/*.sol`, `hardhat.config.ts` and `remappings.txt`. For them, validation and the runner link `l1-contracts` to the `@aztec-foundation/l1-artifacts` sources the remappings name, run `npx hardhat compile`, and write the Aztec bindings to `contracts/aztec/artifacts/`.
 
@@ -32,15 +33,13 @@ The `aztecjs_runner/run.sh` script executes examples against a live local Aztec 
 
 ### CI Execution (Docker Compose)
 
-In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. This is triggered by `docs/examples/bootstrap.sh execute` (called from `docs/bootstrap.sh ci`).
+In CI, examples run via `docker-compose.yml` which spins up an Anvil fork, a local Aztec network, and runs the examples automatically. Full CI runs `docs/examples/bootstrap.sh execute 1` and `execute 2` at once, one compose project per half; `execute` with no half runs every example. Two `execute` calls started by hand at the same moment on a stale checkout or toolchain can break each other, since each updates the submodules and reinstalls the shared CLI; `docs/examples/bootstrap.sh test` does both once before it starts them.
 
 ```bash
-# Run via bootstrap (recommended for CI)
 cd docs/examples && ./bootstrap.sh execute
-
-# Or invoke docker-compose directly
-cd docs/examples/ts && run_compose_test docs_examples docs-examples .
 ```
+
+Run the compose file only through `execute`: it exports the pinned `AZTEC_VERSION` and `BB_VERSION`, creates `~/.bb-crs` as your user, and passes your user and group as `DOCS_UID` and `DOCS_GID`, so the runner writes the checkout as you and leaves no root-owned files.
 
 ### Local Execution
 
@@ -89,15 +88,10 @@ The `AZTEC_NODE_URL` env var is used by the runner script and the example `index
 | `aztecjs_testing` | Test patterns: minting, transfers, revert testing |
 | `example_swap` | Cross-chain token swap via L1 uniswap portal (L2→L1→L2) |
 | `recursive_verification` | Recursive proof generation and onchain verification flow |
-
-### Examples Not Executed (Type-Checked Only)
-
-These examples require additional infrastructure or custom contracts with verification keys:
-
-| Example | Reason |
-|---------|--------|
-| `bob_token_contract` | Custom contract requires verification keys |
-| `token_bridge` | Requires L1 contracts and bridge infrastructure |
+| `bob_token_contract` | The token contract tutorial's custom contract: deploy, mint, transfer |
+| `token_bridge` | The NFT bridge tutorial: L1 portal, L2 bridge, deposit and withdrawal |
+| `aave_bridge` | The Aave bridge tutorial: L1 portal and Aave pool, L2 bridge, deposit and claim |
+| `aztecjs_kernelless_simulation` | Simulating a transaction without kernel circuits |
 
 ## Adding New Examples
 
@@ -116,9 +110,8 @@ dependencies:
   - "@aztec-labs/noir-contracts.js"
 ```
 
-4. Create empty `yarn.lock` file
-5. Run `./bootstrap.sh your_example_name` to validate
-6. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
+4. Run `./bootstrap.sh your_example_name` to validate
+5. Add it to one of the halves in `aztecjs_runner/run.sh` (`HALF_1` or `HALF_2`), keeping their measured times close
 
 ## File Management
 
@@ -127,6 +120,5 @@ The validation and runner scripts generate temporary files during execution. The
 ```bash
 # In each example directory
 rm -rf node_modules .yarn artifacts package.json tsconfig.json .yarnrc.yml
-rm -f .editorconfig .gitattributes .gitignore README.md codegenCache.json
-> yarn.lock  # Keep empty
+rm -f .editorconfig .gitattributes .gitignore README.md codegenCache.json yarn.lock
 ```

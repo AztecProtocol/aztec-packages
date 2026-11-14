@@ -3,7 +3,7 @@ title: Ethereum<>Aztec Messaging
 tags: [contracts, portals]
 sidebar_position: 12
 description: Send messages and data between L1 and L2 contracts using portal contracts and cross-chain messaging.
-references: ["docs/examples/solidity/example_swap/ExampleTokenPortal.sol", "labs/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol", "labs/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr"]
 ---
 
 This guide covers cross-chain communication between Ethereum (L1) and Aztec (L2) using portal contracts.
@@ -44,7 +44,7 @@ function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     return inbox.sendL2Message(actor, contentHash, _secretHash);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L43-L59</a></sub></sup>
 
 
 :::note Message availability
@@ -72,7 +72,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
     self.call(Token::at(config.token).mint_to_public(to, amount));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L63-L77" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L63-L77</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L63-L77" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L63-L77</a></sub></sup>
 
 
 This function works in both public and private contexts.
@@ -105,7 +105,7 @@ fn exit_to_l1_public(
     self.call(Token::at(config.token).burn_public(self.msg_sender(), amount, authwit_nonce));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L79-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L79-L100</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L79-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L79-L100</a></sub></sup>
 
 
 This function works in both public and private contexts.
@@ -142,7 +142,7 @@ function withdraw(
     underlying.safeTransfer(_recipient, _amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol#L72-L95</a></sub></sup>
 
 
 :::info Getting the membership witness
@@ -172,7 +172,7 @@ const witness = await aztecNode.getL2ToL1MembershipWitness(
 
 ## Example implementations
 
-- [Token Portal (L1)](https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/example_swap/ExampleTokenPortal.sol)
+- [Token Portal (L1)](https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/solidity/example_swap/ExampleTokenPortal.sol)
 - [Token Bridge (L2)](https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
 
 ## Next steps
