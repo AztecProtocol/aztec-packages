@@ -6,7 +6,7 @@ import {
   hostCallOn,
   synchronousAnswers,
 } from "./wasm/host_call.js";
-import { type WasmWorker, isWasmWorker } from "./wasm/backend.js";
+import { type ServiceThread, isServiceThread } from "./wasm/backend.js";
 
 /** An instance of a library's service, opaque to JS. */
 export type NapiInstance = { readonly __napiInstance: unique symbol };
@@ -43,11 +43,11 @@ export interface NapiInstanceOptions {
   /** The name the library's FFI symbols carry. */
   ffiName: string;
   /**
-   * Where the instance runs, for the asynchronous backend: a WasmWorker shared with the other
+   * Where the instance runs, for the asynchronous backend: a ServiceThread shared with the other
    * instances on it (wasm modules or napi instances), which can then be its host-call targets
    * synchronously; default a worker of its own.
    */
-  worker?: WasmWorker;
+  worker?: ServiceThread;
   /** The services the instance reaches through its host (see HostCallTarget). */
   hostCall?: HostCallTargets;
   logger?: (msg: string) => void;
@@ -105,11 +105,11 @@ export class NapiFfiBackend implements IpcClientAsync {
    */
   static async instance(
     options: NapiInstanceOptions,
-    createWorker: () => WasmWorker,
+    createWorker: () => ServiceThread,
   ): Promise<NapiInstanceBackend> {
     const library = loadNapiFfiLibrary(options.libraryPath, options.ffiName);
     requireInstances(library);
-    const ownsWorker = !isWasmWorker(options.worker);
+    const ownsWorker = !isServiceThread(options.worker);
     const worker = options.worker ?? createWorker();
     try {
       const slot = await worker.load(
@@ -148,13 +148,13 @@ export class NapiFfiBackend implements IpcClientAsync {
 export class NapiInstanceBackend implements IpcClientAsync {
   /** @internal */
   constructor(
-    private readonly worker: WasmWorker,
+    private readonly worker: ServiceThread,
     private readonly slot: number,
     private readonly ownsWorker: boolean,
   ) {}
 
   /** @internal This instance's slot when it runs on `worker`, for host-call targets beside it. */
-  slotOn(worker: WasmWorker): number | undefined {
+  slotOn(worker: ServiceThread): number | undefined {
     return this.worker === worker ? this.slot : undefined;
   }
 
