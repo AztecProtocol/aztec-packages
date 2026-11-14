@@ -23,7 +23,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
 
 diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
-index e7e33f141494c4d7d58693133412283e23257db8..d3f7006bc2ba804897362dace24c99539e43dd8e 100755
+index a0e4aa0c5d36e34adb50b0fd93db5c49fcdec0be..6936d5345f75b3c39a372026d63933db2a532899 100755
 --- a/labs-aztec-toolchain/pins.mjs
 +++ b/labs-aztec-toolchain/pins.mjs
 @@ -75,6 +75,15 @@ const LOCAL_PACKAGES = {
@@ -43,13 +43,13 @@ index e7e33f141494c4d7d58693133412283e23257db8..d3f7006bc2ba804897362dace24c9953
    "@aztec-labs/kvdb-darwin-arm64":
      "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index cf4f34386e75ca04cdc4704c529cdb69b2c4fb69..6cd46cc9c0e5b80a64460de866360e8522e6225c 100644
+index 550e8aa383c890771a872aa9fcb0fb089f30f4a9..fe7fdb2fb9e4d3e7f87aa0ea84b76d837d4d5317 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
-@@ -102,6 +102,11 @@
-     "@aztec-foundation/mock-protocol-circuits-artifacts": "7.0.0-nightly.20261110",
+@@ -103,6 +103,11 @@
      "@aztec-foundation/protocol-circuits-artifacts": "7.0.0-nightly.20261110",
      "@aztec-foundation/protocol-contracts-artifacts": "7.0.0-nightly.20261110",
+     "@aztec-foundation/protocol-genesis": "7.0.0-nightly.20261110",
 +    "@aztec-foundation/wsdb-ref": "7.0.0-nightly.20261110",
 +    "@aztec-foundation/wsdb-ref-darwin-arm64": "7.0.0-nightly.20261110",
 +    "@aztec-foundation/wsdb-ref-darwin-x64": "7.0.0-nightly.20261110",
@@ -278,58 +278,25 @@ index 209dcbba56eb13897e851f860b2c056de8a0bc21..b153448c65ca57d2356b77a6a92f6702
  
      const synchronizer = new this(nativeWorldStateService);
 diff --git a/yarn-project/world-state/src/native/index.ts b/yarn-project/world-state/src/native/index.ts
-index fc8aaf795cca7ae2dfd7f1ac652944c0bce97f61..caa7ea942b3d67f6959ec50ccef8e176021fe9ab 100644
+index 34f10b02f245bc47d04d57167d2c54a8fe283d63..52a58c73aa323ea8a7cc11394ebb265e986c077b 100644
 --- a/yarn-project/world-state/src/native/index.ts
 +++ b/yarn-project/world-state/src/native/index.ts
 @@ -1,3 +1,9 @@
  export * from './native_world_state.js';
  export * from './fork_checkpoint.js';
--export { IpcWorldState, getWsdbOptions } from './ipc_world_state_instance.js';
+-export { IpcWorldState, getWsdbInit, getWsdbOptions } from './ipc_world_state_instance.js';
 +export {
 +  IpcWorldState,
 +  type WsdbApi,
 +  type WsdbBackend,
-+  getWsdbGenesis,
++  getWsdbInit,
 +  getWsdbOptions,
 +} from './ipc_world_state_instance.js';
 diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-index 2ff91463b74748f81cf75f246eae19fca335d491..5ef53003badf3570af2371355308bb463aa37884 100644
+index 1e695bdb30815be7e1a7732335c0909368d9d62f..54573778a0ac2daaef782092ebb4a764d0627329 100644
 --- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
 +++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-@@ -232,6 +232,32 @@ function getWsdbExtraArgs(
-   return args;
- }
- 
-+/**
-+ * The genesis `getWsdbExtraArgs` puts on aztec-wsdb's command line, as the Init command: how a wsdb service that
-+ * is not spawned from a command line, such as wsdb-ref, is given it.
-+ */
-+export function getWsdbGenesis(genesis: GenesisData): Parameters<WsdbApi['init']>[0] {
-+  const options = getWsdbOptions('', {
-+    archiveTreeMapSizeKb: 0,
-+    nullifierTreeMapSizeKb: 0,
-+    noteHashTreeMapSizeKb: 0,
-+    messageTreeMapSizeKb: 0,
-+    publicDataTreeMapSizeKb: 0,
-+  });
-+  const entries = (map: Record<number, number>) => Object.entries(map).map(([treeId, n]) => [Number(treeId), n]);
-+  return {
-+    treeHeights: entries(options.treeHeights).map(([treeId, height]) => ({ treeId, height })),
-+    treePrefill: entries(options.treePrefill).map(([treeId, size]) => ({ treeId, size })),
-+    prefilledPublicData: genesis.prefilledPublicData.map(data => ({
-+      slot: new Uint8Array(data.slot.toBuffer()),
-+      value: new Uint8Array(data.value.toBuffer()),
-+    })),
-+    prefilledNullifiers: genesis.prefilledNullifiers.map(nullifier => new Uint8Array(nullifier.toBuffer())),
-+    genesisTimestamp: Number(genesis.genesisTimestamp),
-+    initialHeaderGeneratorPoint: options.initialHeaderGeneratorPoint,
-+  };
-+}
-+
- // ————— Response conversion helpers —————
- 
- /** Convert Uint8Array fields to Buffer recursively (for opaque blob responses). */
-@@ -351,6 +377,15 @@ function convertSiblingPathAndIndex(
+@@ -334,6 +334,15 @@ function convertSiblingPathAndIndex(
  
  // ————— Public API —————
  
@@ -345,7 +312,7 @@ index 2ff91463b74748f81cf75f246eae19fca335d491..5ef53003badf3570af2371355308bb46
  /**
   * IPC-backed world state instance.
   * Uses WsdbService (spawns aztec-wsdb binary) and the generated AsyncApi
-@@ -358,12 +393,12 @@ function convertSiblingPathAndIndex(
+@@ -341,12 +350,12 @@ function convertSiblingPathAndIndex(
   */
  export class IpcWorldState implements NativeWorldStateInstance {
    private open = true;
@@ -360,7 +327,7 @@ index 2ff91463b74748f81cf75f246eae19fca335d491..5ef53003badf3570af2371355308bb46
      private readonly instrumentation: WorldStateInstrumentation,
      bindings?: LoggerBindings,
      private readonly log: Logger = createLogger('world-state:ipc-database', bindings),
-@@ -396,6 +431,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
+@@ -385,6 +394,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
    }
  
    getIpcPath(): string {
@@ -371,7 +338,7 @@ index 2ff91463b74748f81cf75f246eae19fca335d491..5ef53003badf3570af2371355308bb46
    }
  
 diff --git a/yarn-project/world-state/src/native/native_world_state.ts b/yarn-project/world-state/src/native/native_world_state.ts
-index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..550b278f52ac38ee8988f718b14ed640213bf571 100644
+index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..9d658213ef97966173599005454756495ab6ff34 100644
 --- a/yarn-project/world-state/src/native/native_world_state.ts
 +++ b/yarn-project/world-state/src/native/native_world_state.ts
 @@ -25,7 +25,7 @@ import { join } from 'path';
@@ -379,7 +346,7 @@ index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..550b278f52ac38ee8988f718b14ed640
  import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
  import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 -import { IpcWorldState } from './ipc_world_state_instance.js';
-+import { IpcWorldState, type WsdbBackend, getWsdbGenesis } from './ipc_world_state_instance.js';
++import { IpcWorldState, type WsdbBackend, getWsdbInit } from './ipc_world_state_instance.js';
  import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
  import {
    type WorldStateStatusFull,
@@ -399,7 +366,7 @@ index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..550b278f52ac38ee8988f718b14ed640
 +    bindings?: LoggerBindings,
 +    cleanup = () => Promise.resolve(),
 +  ): Promise<NativeWorldStateService> {
-+    await wsdb.init(getWsdbGenesis(genesis));
++    await wsdb.init(getWsdbInit(genesis));
 +    return this.fromIpc(wsdb, instrumentation, bindings, genesis, cleanup);
 +  }
 +
