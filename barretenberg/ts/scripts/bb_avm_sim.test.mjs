@@ -1,7 +1,7 @@
 // Tests of the generated @aztec-foundation/bb-avm-sim package, from its build: one public transaction through the
 // spawned bb-avm-sim binary and through the wasm module (the browser's backend) gives the same result, and the wasm
-// module and instances of its shared library (napi) simulate against a world state and contract DB they reach through their host
-// (hostCall): wsdb-ref on the same thread, and a contract DB answered on this thread.
+// module and instances of its shared library (napi) simulate against a world state and contract DB they reach through
+// their host (hostCall): wsdb-ref on the same thread, and a contract DB answered on this thread.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
