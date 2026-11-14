@@ -356,7 +356,7 @@ TEST(ReferenceWorldState, DuplicateNullifiersNameTheTreeAsAztecWsdbDoes)
         }
         return std::string("no error");
     };
-    ReferenceWorldState ws;
+    ReferenceWorldState ws(test_genesis());
     std::vector<NullifierLeafValue> leaves{ NullifierLeafValue(FF(0x1234)) };
     ws.sequential_insert_nullifiers(CANONICAL, leaves);
     const std::string expected = "Unable to insert values into tree NullifierTree leaf type NullifierLeafValue is not "
