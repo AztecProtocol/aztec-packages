@@ -2,9 +2,9 @@
  * @file wsdb_ref_diff.test.cpp
  * @brief aztec-wsdb against wsdb-ref, barretenberg's reference world state, request for request.
  *
- * Both serve wsdb_schema.jsonc and both are linked in, each behind its generated FFI entry: aztec-wsdb's
- * (wsdb_labs_ipc_ffi_entry) from this package's sources, wsdb-ref's (wsdb_ref_ipc_ffi_entry) from barretenberg's
- * static library. The test drives each through the generated typed client, WsdbApi. A seeded random run builds blocks
+ * Both serve wsdb_schema.jsonc and both are linked in: aztec-wsdb as a WsdbService run in-process, wsdb-ref behind its
+ * FFI entry (wsdb_ref_ipc_ffi_entry) from barretenberg's static library. The test sends both the same Init and then
+ * drives each through the generated typed client, WsdbApi. A seeded random run builds blocks
  * the way a node does (effects on a fork, then SyncBlock), interleaved with reads at every revision, writes and
  * checkpoints on forks, unwinds, finalization and history removal. A request must fail on both or on neither, and
  * every success must be equal, apart from the store statistics a full status carries. Error messages are counted, not
@@ -12,14 +12,16 @@
  *
  * WSDB_DIFF_SEEDS (default 4) and WSDB_DIFF_STEPS (default 400) size the run; WSDB_DIFF_TRACE prints every request.
  */
+// The world state before the generated wire types: both declare MerkleTreeId, and the wire one must not be found
+// first while the world state headers are parsed.
+#include "wsdb/wsdb_service.hpp"
+
 #include "common/aztec_constants.hpp"
 #include "field/field_element.hpp"
 #include "world_state/test_genesis.hpp"
 #include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
-#include "wsdb/generated/wsdb_ffi_backend.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
-#include "wsdb/wsdb_ffi_service.hpp"
 
 #include <gtest/gtest.h>
 
@@ -48,7 +50,7 @@ namespace {
 
 constexpr uint32_t LATEST = std::numeric_limits<uint32_t>::max();
 
-/** An ipc_codegen::Backend over wsdb-ref's FFI entry, as the generated FfiBackend is over aztec-wsdb's. */
+/** An ipc_codegen::Backend over wsdb-ref's FFI entry. */
 class WsdbRefBackend {
   public:
     std::vector<uint8_t> call(std::span<const uint8_t> request)
@@ -62,8 +64,20 @@ class WsdbRefBackend {
     }
 };
 
+/** An ipc_codegen::Backend over an aztec-wsdb service in this process. */
+class WsdbServiceBackend {
+  public:
+    explicit WsdbServiceBackend(WsdbService* service)
+        : service_(service)
+    {}
+    std::vector<uint8_t> call(std::span<const uint8_t> request) { return service_->call(request); }
+
+  private:
+    WsdbService* service_;
+};
+
 using RefApi = WsdbApi<WsdbRefBackend>;
-using LabsApi = WsdbApi<FfiBackend>;
+using LabsApi = WsdbApi<WsdbServiceBackend>;
 
 template <typename W> W bytes_of(const fr& value)
 {
@@ -100,59 +114,7 @@ struct InitialSizes {
     uint64_t public_data;
 };
 
-/** aztec-wsdb's open options: this test's tree shapes and genesis, its stores in `data_dir`. */
-std::vector<std::string> aztec_wsdb_options(const std::filesystem::path& data_dir, const InitialSizes& sizes)
-{
-    std::filesystem::create_directories(data_dir);
-    std::ostringstream nullifiers;
-    nullifiers << "[";
-    auto seeds = world_state::test_genesis_nullifiers();
-    for (size_t i = 0; i < seeds.size(); ++i) {
-        std::ostringstream hex;
-        hex << seeds[i];
-        nullifiers << (i > 0 ? "," : "") << "\"" << hex.str().substr(2) << "\"";
-    }
-    nullifiers << "]";
-    std::ostringstream heights;
-    heights << "{0:" << NULLIFIER_TREE_HEIGHT << ",1:" << NOTE_HASH_TREE_HEIGHT << ",2:" << PUBLIC_DATA_TREE_HEIGHT
-            << ",3:" << L1_TO_L2_MSG_TREE_HEIGHT << ",4:" << ARCHIVE_HEIGHT << "}";
-    return {
-        "-d",
-        data_dir.string(),
-        "-t",
-        "4",
-        "--tree-heights",
-        heights.str(),
-        "--tree-prefill",
-        "{0:" + std::to_string(sizes.nullifier) + ",2:" + std::to_string(sizes.public_data) + "}",
-        "--initial-header-generator-point",
-        std::to_string(DOM_SEP__BLOCK_HEADER_HASH),
-        "--prefilled-public-data",
-        R"([["00000000000000000000000000000000000000000000000000000000000003e8","0000000000000000000000000000000000000000000000000000000000000007"]])",
-        "--prefilled-nullifiers",
-        nullifiers.str()
-    };
-}
 
-/** aztec-wsdb in-process, open for one run: closed, with its stores, when the run ends. */
-class AztecWsdb {
-  public:
-    explicit AztecWsdb(const std::vector<std::string>& options)
-    {
-        std::vector<const char*> args;
-        for (const auto& option : options) {
-            args.push_back(option.c_str());
-        }
-        if (wsdb_labs_ffi_open(static_cast<int>(args.size()), args.data()) != 0) {
-            throw std::runtime_error("wsdb_labs_ffi_open failed");
-        }
-    }
-    ~AztecWsdb() { wsdb_labs_ffi_close(); }
-    AztecWsdb(const AztecWsdb&) = delete;
-    AztecWsdb& operator=(const AztecWsdb&) = delete;
-    AztecWsdb(AztecWsdb&&) = delete;
-    AztecWsdb& operator=(AztecWsdb&&) = delete;
-};
 
 // Sends one command to both: `BOTH(get_tree_info, cmd)` calls api.get_tree_info(cmd) on each, building the command
 // once so both get the same request.
@@ -165,8 +127,9 @@ class AztecWsdb {
 /** One differential run: a random but node-shaped workload, every request answered by both. */
 class DiffRun {
   public:
-    DiffRun(const InitialSizes& sizes, uint64_t seed)
-        : sizes_(sizes)
+    DiffRun(WsdbService& aztec_wsdb, const InitialSizes& sizes, uint64_t seed)
+        : labs_(WsdbServiceBackend(&aztec_wsdb))
+        , sizes_(sizes)
         , rng_(seed)
     {}
 
@@ -358,8 +321,7 @@ class DiffRun {
 
     void init()
     {
-        // The genesis aztec-wsdb was started with: the protocol's tree heights, this run's initial sizes, the
-        // protocol nullifiers and one public-data slot.
+        // The protocol's tree heights, this run's initial sizes, the test nullifiers and one public-data slot.
         wire::WsdbInit genesis{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
                                                  { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
                                                  { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
@@ -375,8 +337,9 @@ class DiffRun {
         for (const auto& seed : world_state::test_genesis_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
-        // aztec-wsdb takes its genesis when it is opened; wsdb-ref, from Init, which replaces any earlier state.
-        ref_.init(genesis);
+        // Both start from this Init. wsdb-ref is one per process and takes a second Init as a restart, which each run
+        // relies on; aztec-wsdb is a fresh service per run.
+        BOTH(init, genesis);
         slots_.push_back(fr(1000));
         BOTH(get_initial_state_reference);
     }
@@ -781,8 +744,10 @@ TEST(WsdbRefDiff, MatchesWsdbRefRequestForRequest)
         {
             // Odd seeds run the protocol's initial sizes, even ones others.
             InitialSizes sizes = seed % 2 == 1 ? InitialSizes{ 128, 128 } : InitialSizes{ 64, 256 };
-            AztecWsdb aztec_wsdb(aztec_wsdb_options(dir / "data", sizes));
-            DiffRun run(sizes, seed);
+            std::filesystem::create_directories(dir / "data");
+            WsdbService aztec_wsdb(WsdbConfig{ .data_dir = (dir / "data").string(), .threads = 4 },
+                                   []() { return false; });
+            DiffRun run(aztec_wsdb, sizes, seed);
             run.run(steps);
             std::cout << "seed " << seed << ": " << run.requests << " requests, " << run.errors
                       << " answered with errors on both, " << run.message_mismatches.size()
