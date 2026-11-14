@@ -35,8 +35,12 @@ export {
 } from "./native_loader.js";
 export {
   type NapiFfiLibrary,
+  type NapiInstance,
+  type NapiInstanceOptions,
   NapiFfiBackend,
   NapiFfiBackendSync,
+  NapiInstanceBackend,
+  NapiInstanceBackendSync,
   loadNapiFfiLibrary,
 } from "./napi_ffi.js";
 export {

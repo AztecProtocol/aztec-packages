@@ -4,7 +4,13 @@ import {
   type HostCallAnswer,
   WasmInstanceHost,
 } from "./host.js";
-import { type HostCallTargets, hostCallOn, unwrapTarget } from "./host_call.js";
+import {
+  type HostCallTargets,
+  answerHostCall,
+  createHostCallChannel,
+  hostCallOn,
+  unwrapTarget,
+} from "./host_call.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
@@ -89,7 +95,15 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
 
 const WASM_WORKER = Symbol.for("@aztec-foundation/ipc-runtime/wasm-worker");
 
-function isWasmWorker(value: unknown): value is WasmWorker {
+/** What a worker slot runs: a wasm module's main instance, or an instance of a service's shared library (node). */
+export type WorkerInstanceSource =
+  | {
+      module: WebAssembly.Module;
+      options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">;
+    }
+  | { napi: { libraryPath: string; ffiName: string } };
+
+export function isWasmWorker(value: unknown): value is WasmWorker {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -450,6 +464,8 @@ export class WasmWorker {
 
   private constructor(
     private readonly worker: WorkerHandle,
+    /** Where a napi instance, blocked on its native stack, gets the owner's answers. */
+    private readonly channel: SharedArrayBuffer,
     readonly binding: WasmFfiBinding,
   ) {
     worker.onMessage((msg) => this.onMessage(msg));
@@ -458,13 +474,15 @@ export class WasmWorker {
 
   /** Spawn the worker; nothing runs on it until a module is loaded. */
   static create(binding: WasmFfiBinding): WasmWorker {
-    return new WasmWorker(binding.createMainWorker(), binding);
+    const channel = createHostCallChannel();
+    const worker = binding.createMainWorker();
+    worker.postMessage({ type: "channel", channel });
+    return new WasmWorker(worker, channel, binding);
   }
 
   /** @internal Load a module into a new slot; host-call targets are already described for it. */
   async load(
-    module: WebAssembly.Module,
-    options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">,
+    source: WorkerInstanceSource,
     hostCall: HostCallTargets | undefined,
     logger: ((msg: string) => void) | undefined,
   ): Promise<number> {
@@ -504,8 +522,7 @@ export class WasmWorker {
       this.worker.postMessage({
         type: "load",
         slot,
-        module,
-        options,
+        ...source,
         hostCall: targets,
       });
     });
@@ -551,7 +568,7 @@ export class WasmWorker {
       case "host-call":
         void this.answer(
           msg.slot,
-          msg.id,
+          msg.blocking ? undefined : msg.id,
           msg.target,
           new Uint8Array(msg.request),
         );
@@ -584,10 +601,13 @@ export class WasmWorker {
     }
   }
 
-  /** Run the owner's handler for a module's host call and send the answer to the waiting module. */
+  /**
+   * Run the owner's handler for an instance's host call and send the answer to it: by message to a
+   * suspended wasm module (`id`), or through the channel to a blocked napi instance.
+   */
   private async answer(
     slot: number,
-    id: number,
+    id: number | undefined,
     target: string,
     request: Uint8Array,
   ): Promise<void> {
@@ -604,6 +624,10 @@ export class WasmWorker {
       bytes = new TextEncoder().encode(
         e instanceof Error ? e.message : String(e),
       );
+    }
+    if (id === undefined) {
+      answerHostCall(this.channel, status, bytes);
+      return;
     }
     // A private copy to transfer, for the reason `call` makes one.
     const copy = new Uint8Array(bytes.byteLength);
@@ -699,18 +723,20 @@ export class WasmFfiBackend implements IpcClientAsync {
       : WasmWorker.create(bound);
     try {
       const slot = await worker.load(
-        module,
         {
-          threads: opts.threads,
-          memory: {
-            ...opts.memory,
-            // The worker cannot tell an iPad from a Mac: its navigator has no maxTouchPoints.
-            maximum:
-              opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
+          module,
+          options: {
+            threads: opts.threads,
+            memory: {
+              ...opts.memory,
+              // The worker cannot tell an iPad from a Mac: its navigator has no maxTouchPoints.
+              maximum:
+                opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
+            },
+            moduleMemory: opts.moduleMemory,
+            env: opts.env,
+            entry: opts.entry,
           },
-          moduleMemory: opts.moduleMemory,
-          env: opts.env,
-          entry: opts.entry,
         },
         opts.hostCall,
         opts.logger,
