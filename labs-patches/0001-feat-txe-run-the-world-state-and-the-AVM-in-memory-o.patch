@@ -12,7 +12,7 @@ TXE_WORLD_STATE=native runs the processes as before.
 
 - world-state: IpcWorldState takes any service over the wsdb API, and
   NativeWorldStateService.fromService starts one at a genesis sent over
-  InitGenesis.
+  Init.
 - simulator: the CDB server opens its socket only when a process asks for its
   path, and spawners also get its dispatch for an AVM in this process.
 - txe: depends on wsdb-ref, bb-avm-sim and ipc-runtime, kept out of the bundle
@@ -23,7 +23,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01G5s7nEWrYapDK2CWpEzcAf
 
 diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
-index 6820997b0d11ab4592063e59f7dac570d78179c2..8fdb787371100422d12fb6b8e11706ac9a0c245f 100755
+index e7e33f141494c4d7d58693133412283e23257db8..d3f7006bc2ba804897362dace24c99539e43dd8e 100755
 --- a/labs-aztec-toolchain/pins.mjs
 +++ b/labs-aztec-toolchain/pins.mjs
 @@ -75,6 +75,15 @@ const LOCAL_PACKAGES = {
@@ -43,23 +43,23 @@ index 6820997b0d11ab4592063e59f7dac570d78179c2..8fdb787371100422d12fb6b8e11706ac
    "@aztec-labs/kvdb-darwin-arm64":
      "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index ee783a94ab422ff67d1169dac69b4d5ce7320aa4..8d71dff523da241b2918c71532de6c8965713fd1 100644
+index cf4f34386e75ca04cdc4704c529cdb69b2c4fb69..6cd46cc9c0e5b80a64460de866360e8522e6225c 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
 @@ -102,6 +102,11 @@
-     "@aztec-foundation/mock-protocol-circuits-artifacts": "6.0.0-rc.7",
-     "@aztec-foundation/protocol-circuits-artifacts": "6.0.0-rc.7",
-     "@aztec-foundation/protocol-contracts-artifacts": "6.0.0-rc.7",
-+    "@aztec-foundation/wsdb-ref": "6.0.0-rc.7",
-+    "@aztec-foundation/wsdb-ref-darwin-arm64": "6.0.0-rc.7",
-+    "@aztec-foundation/wsdb-ref-darwin-x64": "6.0.0-rc.7",
-+    "@aztec-foundation/wsdb-ref-linux-arm64": "6.0.0-rc.7",
-+    "@aztec-foundation/wsdb-ref-linux-x64": "6.0.0-rc.7",
-     "@aztec-labs/wsdb": "6.0.0-rc.7",
-     "@aztec-labs/wsdb-darwin-arm64": "6.0.0-rc.7",
-     "@aztec-labs/wsdb-darwin-x64": "6.0.0-rc.7",
+     "@aztec-foundation/mock-protocol-circuits-artifacts": "7.0.0-nightly.20261110",
+     "@aztec-foundation/protocol-circuits-artifacts": "7.0.0-nightly.20261110",
+     "@aztec-foundation/protocol-contracts-artifacts": "7.0.0-nightly.20261110",
++    "@aztec-foundation/wsdb-ref": "7.0.0-nightly.20261110",
++    "@aztec-foundation/wsdb-ref-darwin-arm64": "7.0.0-nightly.20261110",
++    "@aztec-foundation/wsdb-ref-darwin-x64": "7.0.0-nightly.20261110",
++    "@aztec-foundation/wsdb-ref-linux-arm64": "7.0.0-nightly.20261110",
++    "@aztec-foundation/wsdb-ref-linux-x64": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb-darwin-arm64": "7.0.0-nightly.20261110",
+     "@aztec-labs/wsdb-darwin-x64": "7.0.0-nightly.20261110",
 diff --git a/yarn-project/simulator/src/public/avm_simulator_pool.ts b/yarn-project/simulator/src/public/avm_simulator_pool.ts
-index 0c1514dd9b1107f91f889c6851d3c7749a4570d9..85e7b2619eaef23039652431263cada19512f262 100644
+index 4442c1207a3d23d5a8634d4f53220730d4a727c1..f7b5f0f8d23d7834e90dddaed3e69104b090aa78 100644
 --- a/yarn-project/simulator/src/public/avm_simulator_pool.ts
 +++ b/yarn-project/simulator/src/public/avm_simulator_pool.ts
 @@ -13,8 +13,8 @@ export interface AvmSimulatorPoolOptions {
@@ -87,7 +87,7 @@ index 0c1514dd9b1107f91f889c6851d3c7749a4570d9..85e7b2619eaef23039652431263cada1
    logger?: (msg: string) => void;
  }
  
-@@ -287,10 +290,14 @@ export class AvmSimulatorPool implements AvmSimulator {
+@@ -288,10 +291,14 @@ export class AvmSimulatorPool implements AvmSimulator {
          throw new AbortError('AVM process spawn aborted');
        }
        try {
@@ -103,7 +103,7 @@ index 0c1514dd9b1107f91f889c6851d3c7749a4570d9..85e7b2619eaef23039652431263cada1
            logger: this.options.logger,
          });
        } catch (err) {
-@@ -311,6 +318,9 @@ class AvmSimulatorProcess implements AvmProcessHandle {
+@@ -312,6 +319,9 @@ class AvmSimulatorProcess implements AvmProcessHandle {
    private constructor(private service: AvmService) {}
  
    static async spawn(options: AvmProcessSpawnOptions): Promise<AvmSimulatorProcess> {
@@ -203,7 +203,7 @@ index 23b826c99aafd532e93c3661cb13ea92b9c6b0eb..9df91d699997d5c3cf72f89fe31a85ee
      // as large JSON files and get re-exported from a barrel without proper `sideEffects: false`,
      // so esbuild can't tree-shake them. Externalizing the whole package keeps them off the
 diff --git a/yarn-project/txe/package.json b/yarn-project/txe/package.json
-index 4444c312a749623e62b90ea6bf375d590f1db5ac..2ca01aa8d1b60ba8fca8016b23d5ced2df3c8103 100644
+index cb3577466adf816718910eb180ee464107983fb9..22859415fb2571907c79ab9293c49bd5e1e42b62 100644
 --- a/yarn-project/txe/package.json
 +++ b/yarn-project/txe/package.json
 @@ -69,7 +69,10 @@
@@ -293,18 +293,18 @@ index fc8aaf795cca7ae2dfd7f1ac652944c0bce97f61..caa7ea942b3d67f6959ec50ccef8e176
 +  getWsdbOptions,
 +} from './ipc_world_state_instance.js';
 diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-index 2c6fedd7a0a5de59c535ac1a65927be8f2893eab..521608abb04dca8bf31a9b62081c02753f928c6b 100644
+index 2ff91463b74748f81cf75f246eae19fca335d491..5ef53003badf3570af2371355308bb463aa37884 100644
 --- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
 +++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-@@ -231,6 +231,32 @@ function getWsdbExtraArgs(
+@@ -232,6 +232,32 @@ function getWsdbExtraArgs(
    return args;
  }
  
 +/**
-+ * The genesis `getWsdbExtraArgs` puts on aztec-wsdb's command line, as the InitGenesis command: how a wsdb service that
++ * The genesis `getWsdbExtraArgs` puts on aztec-wsdb's command line, as the Init command: how a wsdb service that
 + * is not spawned from a command line, such as wsdb-ref, is given it.
 + */
-+export function getWsdbGenesis(genesis: GenesisData): Parameters<WsdbApi['initGenesis']>[0] {
++export function getWsdbGenesis(genesis: GenesisData): Parameters<WsdbApi['init']>[0] {
 +  const options = getWsdbOptions('', {
 +    archiveTreeMapSizeKb: 0,
 +    nullifierTreeMapSizeKb: 0,
@@ -329,7 +329,7 @@ index 2c6fedd7a0a5de59c535ac1a65927be8f2893eab..521608abb04dca8bf31a9b62081c0275
  // ————— Response conversion helpers —————
  
  /** Convert Uint8Array fields to Buffer recursively (for opaque blob responses). */
-@@ -350,6 +376,15 @@ function convertSiblingPathAndIndex(
+@@ -351,6 +377,15 @@ function convertSiblingPathAndIndex(
  
  // ————— Public API —————
  
@@ -345,7 +345,7 @@ index 2c6fedd7a0a5de59c535ac1a65927be8f2893eab..521608abb04dca8bf31a9b62081c0275
  /**
   * IPC-backed world state instance.
   * Uses WsdbService (spawns aztec-wsdb binary) and the generated AsyncApi
-@@ -357,12 +392,12 @@ function convertSiblingPathAndIndex(
+@@ -358,12 +393,12 @@ function convertSiblingPathAndIndex(
   */
  export class IpcWorldState implements NativeWorldStateInstance {
    private open = true;
@@ -360,7 +360,7 @@ index 2c6fedd7a0a5de59c535ac1a65927be8f2893eab..521608abb04dca8bf31a9b62081c0275
      private readonly instrumentation: WorldStateInstrumentation,
      bindings?: LoggerBindings,
      private readonly log: Logger = createLogger('world-state:ipc-database', bindings),
-@@ -395,6 +430,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
+@@ -396,6 +431,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
    }
  
    getIpcPath(): string {
@@ -371,7 +371,7 @@ index 2c6fedd7a0a5de59c535ac1a65927be8f2893eab..521608abb04dca8bf31a9b62081c0275
    }
  
 diff --git a/yarn-project/world-state/src/native/native_world_state.ts b/yarn-project/world-state/src/native/native_world_state.ts
-index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..f6d2037e8644529a87169899d601326a6fe79320 100644
+index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..550b278f52ac38ee8988f718b14ed640213bf571 100644
 --- a/yarn-project/world-state/src/native/native_world_state.ts
 +++ b/yarn-project/world-state/src/native/native_world_state.ts
 @@ -25,7 +25,7 @@ import { join } from 'path';
@@ -389,7 +389,7 @@ index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..f6d2037e8644529a87169899d601326a
  
 +  /**
 +   * A world state over a wsdb service the caller runs (such as wsdb-ref, in memory, in-process), started at `genesis`:
-+   * the service is given the genesis over InitGenesis rather than on a command line. `cleanup` runs after the service
++   * the service is given the genesis over Init rather than on a command line. `cleanup` runs after the service
 +   * is destroyed on close.
 +   */
 +  static async fromService(
@@ -399,7 +399,7 @@ index b706e5cedc9f1140329d1ea6fbc5685efb28d43f..f6d2037e8644529a87169899d601326a
 +    bindings?: LoggerBindings,
 +    cleanup = () => Promise.resolve(),
 +  ): Promise<NativeWorldStateService> {
-+    await wsdb.initGenesis(getWsdbGenesis(genesis));
++    await wsdb.init(getWsdbGenesis(genesis));
 +    return this.fromIpc(wsdb, instrumentation, bindings, genesis, cleanup);
 +  }
 +

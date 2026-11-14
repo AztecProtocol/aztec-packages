@@ -11,7 +11,6 @@
 #include "barretenberg/vm2_wsdb/generated/ipc_codegen/host_call_backend.hpp"
 #include "barretenberg/vm2_wsdb/wsdb_ipc_client.hpp"
 #include "barretenberg/vm2_wsdb/wsdb_wire.hpp"
-#include "barretenberg/world_state_reference/genesis_protocol_nullifiers.hpp"
 
 #include <gtest/gtest.h>
 
@@ -186,8 +185,8 @@ struct FixtureContractDB {
     }
 };
 
-/** The canonical genesis: the protocol's tree heights and initial sizes, and the protocol contracts' nullifiers. */
-wsdb::WsdbInit canonical_genesis()
+/** A genesis of the protocol's tree heights and initial sizes, with no prefilled leaves. */
+wsdb::WsdbInit protocol_sized_genesis()
 {
     wsdb::WsdbInit init{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
                                           { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
@@ -199,11 +198,6 @@ wsdb::WsdbInit canonical_genesis()
                          .prefilledNullifiers = {},
                          .genesisTimestamp = 0,
                          .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
-    for (const auto& nullifier : world_state::genesis_protocol_nullifiers()) {
-        std::array<uint8_t, 32> bytes{};
-        fr::serialize_to_buffer(nullifier, bytes.data());
-        init.prefilledNullifiers.push_back(bytes);
-    }
     return init;
 }
 
@@ -299,7 +293,7 @@ TEST(AvmFfi, SimulateReachesTheWorldStateAndContractDBThroughTheHost)
     g_contract_db = &contract_db;
 
     wsdb::WsdbIpcClient wsdb(ipc_codegen::AnyBackend(ipc_codegen::HostCallBackend("wsdb")));
-    wsdb.init(canonical_genesis());
+    wsdb.init(protocol_sized_genesis());
     uint64_t fork_id = wsdb.create_fork(wsdb::WsdbCreateFork{ .latest = true, .blockNumber = 0 }).forkId;
     // The fork as it stands, uncommitted leaves included: what the simulation reads and writes.
     world_state::WorldStateRevision fork{ .forkId = fork_id,
