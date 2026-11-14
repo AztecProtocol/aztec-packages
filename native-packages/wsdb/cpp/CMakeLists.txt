@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
-# aztec-wsdb: the world-state DB service. Compiles no barretenberg header. What it needs from outside
-# this directory (barretenberg's libwsdb-ref.a, ipc-runtime, ipc-codegen and the schema) comes from
-# this aztec-packages checkout; only the protocol constants come from the release pinned by tag in
-# ../foundation.pin.
+# aztec-wsdb: the world-state DB service. Its own code includes no barretenberg header. What it needs
+# from outside this directory (barretenberg's wsdb-ref library, ipc-runtime, ipc-codegen and the
+# schema) comes from this aztec-packages checkout; only the protocol constants come from the release
+# pinned by tag in ../foundation.pin.
 # NOTE: when native-packages moves out of aztec-packages, take all of it from the pinned release
-# again: libwsdb-ref.a from the release's barretenberg-static-<arch>-<os>.tar.gz, and ipc-runtime/cpp,
-# ipc-codegen and the schema from a sparse clone of aztec-packages at the tag.
+# again: FetchContent wsdb-ref's standalone project, ipc-runtime/cpp, ipc-codegen and the schema from a
+# sparse clone of aztec-packages at the tag.
 project(aztec_wsdb CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,21 +17,27 @@ endif()
 set(pkg "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(deps "${CMAKE_BINARY_DIR}/_deps")
 
+# --- Toolchain ----------------------------------------------------------------------------------
+# Set before the dependencies so they are compiled the same way: libc++, and barretenberg's
+# -march=skylake on x86_64.
+add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    add_compile_options(-march=skylake)
+endif()
+add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024 $<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>
+                    -Wno-deprecated-declarations -Wno-missing-field-initializers)
+add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+
 # --- Dependencies -------------------------------------------------------------------------------
 include(FetchContent)
-# barretenberg's libwsdb-ref.a: the poseidon2 C bindings, and wsdb-ref (the reference world state)
-# behind its FFI entry, which the differential test drives. It exports only those C symbols, so
-# barretenberg's C++ (its own msgpack-c among it) cannot collide with this package's. bb-cpp-native
-# builds it.
 file(READ "${pkg}/foundation.pin" tag)
 string(STRIP "${tag}" tag)
 string(REGEX REPLACE "^v" "" version "${tag}")
 set(foundation "${pkg}/../..")
-set(bb_archive "${foundation}/barretenberg/cpp/build/lib/libwsdb-ref.a" CACHE FILEPATH
-    "barretenberg's libwsdb-ref.a")
-if(NOT EXISTS "${bb_archive}")
-    message(FATAL_ERROR "No libwsdb-ref.a at ${bb_archive}: build barretenberg/cpp first")
-endif()
+# barretenberg's wsdb-ref library, built from source here: the poseidon2 C bindings, and wsdb-ref (the
+# reference world state) behind its FFI entry, which the differential test drives.
+FetchContent_Declare(wsdb_ref SOURCE_DIR ${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/standalone)
+FetchContent_MakeAvailable(wsdb_ref)
 option(WSDB_BUILD_TESTS "Build wsdb_tests and wsdb_bench" ON)
 # The lmdblib sibling package (the lmdb C++ wrapper, with the lmdb and msgpack-c sources it fetches),
 # built here for this toolchain and target.
@@ -40,14 +46,6 @@ set(LMDBLIB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(${lmdblib} ${deps}/lmdblib)
 FetchContent_GetProperties(msgpack)
 # --- Build --------------------------------------------------------------------------------------
-# Match barretenberg's archive build (-march=skylake on x86_64, libc++, Release).
-add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_ALGOS)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    add_compile_options(-march=skylake)
-endif()
-add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024 -stdlib=libc++
-                    -Wno-deprecated-declarations -Wno-missing-field-initializers)
-add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
 include_directories(src ${lmdblib}/src ${msgpack_SOURCE_DIR}/include)
 
 set(IPC_RUNTIME_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -87,7 +85,7 @@ file(GLOB_RECURSE sources CONFIGURE_DEPENDS src/*.cpp)
 file(GLOB_RECURSE tests CONFIGURE_DEPENDS src/*.test.cpp)
 file(GLOB_RECURSE benches CONFIGURE_DEPENDS src/*.bench.cpp)
 list(REMOVE_ITEM sources ${tests} ${benches})
-set(libs ${bb_archive} lmdblib ipc_runtime lmdb pthread)
+set(libs wsdb_ref lmdblib ipc_runtime lmdb pthread)
 
 add_executable(aztec-wsdb ${sources})
 target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)

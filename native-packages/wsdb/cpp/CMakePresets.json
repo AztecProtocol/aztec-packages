@@ -21,8 +21,7 @@
         "CMAKE_AR": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-ar.sh",
         "CMAKE_RANLIB": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-ranlib.sh",
         "CMAKE_BUILD_TYPE": "Release",
-        "WSDB_BUILD_TESTS": "OFF",
-        "bb_archive": "${sourceDir}/../../../barretenberg/cpp/build-${presetName}/lib/libwsdb-ref.a"
+        "WSDB_BUILD_TESTS": "OFF"
       }
     },
     {

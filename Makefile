@@ -430,8 +430,8 @@ lmdblib:
 kvdb:
 	$(call build,$@,native-packages/kvdb)
 
-# wsdb links the working tree's barretenberg static library (see native-packages/wsdb/README.md).
-wsdb: bb-cpp-native
+# wsdb builds barretenberg's wsdb-ref sources itself (see native-packages/wsdb/README.md), so it needs no bb build.
+wsdb:
 	$(call build,$@,native-packages/wsdb)
 
 # Native-package tests. lmdblib and wsdb are self-contained gtest binaries. kvdb has no
