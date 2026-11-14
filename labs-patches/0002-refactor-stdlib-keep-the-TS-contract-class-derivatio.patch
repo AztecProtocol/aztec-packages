@@ -81,11 +81,11 @@ index 708e64bea568af57028ea001a7c3df6652114b5e..d06785243b0302c1b481604e3aa19acc
  
 diff --git a/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..f6eb132dce3312d8fb0adb7e82da94e5a61ceecc
+index 0000000000000000000000000000000000000000..e773697ac6ca4dc1524d0a7eae3d5c2a3c14e4bf
 --- /dev/null
 +++ b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
-@@ -0,0 +1,45 @@
-+import { BarretenbergSync } from '@aztec-foundation/bb.js';
+@@ -0,0 +1,46 @@
++import { BackendType, BarretenbergSync } from '@aztec-foundation/bb.js';
 +
 +import { Fr } from '@aztec-labs/foundation/curves/bn254';
 +import { Buffer } from 'buffer';
@@ -101,7 +101,8 @@ index 0000000000000000000000000000000000000000..f6eb132dce3312d8fb0adb7e82da94e5
 +// computes.
 +describe('contract class derivation matches barretenberg', () => {
 +  beforeAll(async () => {
-+    await BarretenbergSync.initSingleton();
++    // In-process wasm: an artifact can exceed the shared-memory ring the native sync backend sends requests through.
++    await BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 +  });
 +
 +  it.each(['Benchmarking.test.json', 'Test.test.json', 'Token.test.json'])('%s', async fixture => {
