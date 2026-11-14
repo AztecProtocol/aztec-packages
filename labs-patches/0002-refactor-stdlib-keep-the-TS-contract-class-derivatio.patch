@@ -81,13 +81,14 @@ index 708e64bea568af57028ea001a7c3df6652114b5e..d06785243b0302c1b481604e3aa19acc
  
 diff --git a/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..13de6cae6994d2cd98eec15fade4aed68c6b64e5
+index 0000000000000000000000000000000000000000..f6eb132dce3312d8fb0adb7e82da94e5a61ceecc
 --- /dev/null
 +++ b/yarn-project/stdlib/src/contract/derivation/bb_parity.test.ts
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,45 @@
 +import { BarretenbergSync } from '@aztec-foundation/bb.js';
 +
 +import { Fr } from '@aztec-labs/foundation/curves/bn254';
++import { Buffer } from 'buffer';
 +import { readFileSync } from 'fs';
 +
 +import { FunctionSelector, loadContractArtifact } from '../../abi/index.js';
