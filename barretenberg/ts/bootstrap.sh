@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 ROOT=$(git rev-parse --show-toplevel)
 BB_AVM_SIM_BINARY=bb-avm-sim
+BB_AVM_SIM_LIBRARY=libbb_avm_sim.so
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
@@ -35,8 +36,10 @@ function generate_bb_avm_sim_package {
     --binary-name "$BB_AVM_SIM_BINARY" \
     --prefix Avm \
     --strip-method-prefix \
-    --package-transports uds,wasm \
+    --package-transports uds,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-napi-library "$BB_AVM_SIM_LIBRARY" \
+    --package-napi-library-env-var BB_AVM_SIM_NAPI_PATH \
     --package-wasm-module "bb-avm-sim.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm" \
     "$@"
 }
@@ -111,8 +114,8 @@ function generate_wsdb_ref_package {
 CROSS_BUILD_DIRS=(arm64-linux=build-arm64-linux amd64-macos=build-amd64-macos arm64-macos=build-arm64-macos)
 
 # Generates every package. The wasm modules are copied in from their builds, and the native packages' per-platform
-# binaries (bb, bb-avm-sim, wsdb-ref and its Node-API addon) from the barretenberg/cpp build directories given as
-# <platform>=<build dir> arguments; without any, the packages ship no native files (enough for type-checking and lint).
+# binaries and libraries (bb, bb-avm-sim and libbb_avm_sim.so, wsdb-ref and libwsdb_ref.so) from the barretenberg/cpp
+# build directories given as <platform>=<build dir> arguments; without any, the packages ship no native files (enough for type-checking and lint).
 # --every-platform makes a platform not given an error, as publishing requires.
 function generate_packages {
   local cpp=$ROOT/barretenberg/cpp every=() bb_js_api=() bb_avm_sim=() wsdb_ref=() arg platform dir
@@ -125,6 +128,7 @@ function generate_packages {
     dir=$cpp/${arg#*=}
     bb_js_api+=(--package-native "$platform=$dir/bin/dist/bb")
     bb_avm_sim+=(--package-native "$platform=$dir/bin/$BB_AVM_SIM_BINARY")
+    bb_avm_sim+=(--package-native "$platform:$BB_AVM_SIM_LIBRARY=$dir/lib/$BB_AVM_SIM_LIBRARY")
     wsdb_ref+=(--package-native "$platform=$dir/bin/$WSDB_REF_BINARY")
     wsdb_ref+=(--package-native "$platform:$WSDB_REF_LIBRARY=$dir/lib/$WSDB_REF_LIBRARY")
   done
