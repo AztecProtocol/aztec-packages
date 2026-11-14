@@ -591,6 +591,71 @@ TEST_F(WorldStateTest, NullifierBatchInsert)
     }
 }
 
+TEST_F(WorldStateTest, FailedIndexedInsertionsLeaveTheForkUnchanged)
+{
+    // Failed insertions that repeat 150 sit between inserting 150 and 160: the later witnesses and state must match a
+    // world state that never saw them.
+    std::string clean_dir = random_temp_directory();
+    std::filesystem::create_directories(clean_dir);
+    {
+        WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        WorldState clean(
+            thread_pool_size, clean_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+        auto id = MerkleTreeId::NULLIFIER_TREE;
+        ws.batch_insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(150) }, 0);
+        clean.batch_insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(150) }, 0);
+
+        EXPECT_THROW(ws.batch_insert_indexed_leaves<NullifierLeafValue>(
+                         id, { NullifierLeafValue(170), NullifierLeafValue(150) }, 1),
+                     std::runtime_error);
+        EXPECT_THROW(
+            ws.insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(180), NullifierLeafValue(150) }),
+            std::runtime_error);
+
+        auto batch = ws.batch_insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(160) }, 0);
+        auto clean_batch = clean.batch_insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(160) }, 0);
+        EXPECT_EQ(batch.lowLeafWitnessData, clean_batch.lowLeafWitnessData);
+        auto sequential = ws.insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(175) });
+        auto clean_sequential = clean.insert_indexed_leaves<NullifierLeafValue>(id, { NullifierLeafValue(175) });
+        EXPECT_EQ(sequential.lowLeafWitnessData, clean_sequential.lowLeafWitnessData);
+        EXPECT_EQ(sequential.insertionWitnessData, clean_sequential.insertionWitnessData);
+        EXPECT_EQ(ws.get_state_reference(uncommitted_revision()), clean.get_state_reference(uncommitted_revision()));
+    }
+    std::filesystem::remove_all(clean_dir);
+}
+
+TEST_F(WorldStateTest, CommitReportsTheStatusSummary)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(42) });
+
+    WorldStateStatusFull status;
+    status.summary = {
+        .unfinalizedBlockNumber = 99, .finalizedBlockNumber = 99, .oldestHistoricalBlock = 99, .treesAreSynched = false
+    };
+    EXPECT_TRUE(ws.commit(status).first);
+
+    WorldStateStatusSummary expected;
+    ws.get_status_summary(expected);
+    EXPECT_EQ(status.summary, expected);
+}
+
+TEST_F(WorldStateTest, EmptySlotsOfABatchReadAsTheEmptyLeaf)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    auto id = MerkleTreeId::NULLIFIER_TREE;
+    // A batch of zeros fills slots 128 to 131 with empty leaves; no node is stored beneath their subtree's root.
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(id, std::vector(4, NullifierLeafValue(0)), 2);
+    WorldStateStatusFull status;
+    ws.commit(status);
+
+    WorldStateRevision block_1{ .forkId = CANONICAL_FORK_ID, .blockNumber = 1, .includeUncommitted = false };
+    for (const auto& revision : { uncommitted_revision(), committed_revision(), block_1 }) {
+        EXPECT_EQ(ws.get_indexed_leaf<NullifierLeafValue>(revision, id, 130), IndexedLeaf<NullifierLeafValue>::empty());
+        EXPECT_THROW(ws.get_indexed_leaf<NullifierLeafValue>(revision, id, 132), std::runtime_error);
+    }
+}
+
 TEST_F(WorldStateTest, PublicDataTree)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);

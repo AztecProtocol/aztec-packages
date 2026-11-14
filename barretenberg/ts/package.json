@@ -12,7 +12,9 @@
     "bb.js-api/packages/*",
     "bb-avm-sim",
     "bb-avm-sim/packages/*",
-    "cdb"
+    "cdb",
+    "wsdb-ref",
+    "wsdb-ref/packages/*"
   ],
   "resolutions": {
     "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts"

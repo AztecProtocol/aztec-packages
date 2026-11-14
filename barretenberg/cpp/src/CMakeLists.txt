@@ -54,7 +54,8 @@ endif()
 
 # The build tree's src/ holds generated code (e.g. barretenberg/bbapi/generated/), included by the same
 # paths as sources.
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE} ${CMAKE_CURRENT_SOURCE_DIR}/../../../ipc-runtime/cpp)
+include_directories(SYSTEM ${MSGPACK_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE} ${CMAKE_CURRENT_SOURCE_DIR}/../../../ipc-runtime/cpp)
 
 # Add avm-transpiler include path when library is provided
 if(AVM_TRANSPILER_LIB)
@@ -121,6 +122,7 @@ add_subdirectory(barretenberg/vm2_stub)
 #   AVM simulator (aztec, world_state_reference,     yes    yes    -    FUZZING_AVM
 #     vm2; vm2 defines vm2_sim whatever AVM says)
 #   bb-avm-sim (avm)                                 yes    yes    -     -
+#   wsdb-ref (wsdb_ref)                              yes    yes    -     -
 #   wsdb and cdb IPC clients (vm2_wsdb, cdb)         yes     -     -     -
 #   ipc-runtime                                      yes    yes    -     -
 #   world_state_reference and api in the archives    yes     -     -     -
@@ -128,18 +130,21 @@ add_subdirectory(barretenberg/vm2_stub)
 # The AVM fuzzer (FUZZING_AVM) builds on top of either a fuzzing or a native build.
 set(BB_WITH_AVM_SIM OFF)
 set(BB_WITH_AVM_SERVICE OFF)
+set(BB_WITH_WSDB_REF OFF)
 set(BB_WITH_IPC_CLIENTS OFF)
 set(BB_WITH_IPC_RUNTIME OFF)
 set(BB_ARCHIVE_WORLD_STATE_REFERENCE OFF)
 if(WASM)
     set(BB_WITH_AVM_SIM ON)
     set(BB_WITH_AVM_SERVICE ON)
+    set(BB_WITH_WSDB_REF ON)
     set(BB_WITH_IPC_RUNTIME ON)
 elseif(FUZZING)
     set(BB_WITH_AVM_SIM ${FUZZING_AVM})
 elseif(NOT BB_LITE)
     set(BB_WITH_AVM_SIM ON)
     set(BB_WITH_AVM_SERVICE ON)
+    set(BB_WITH_WSDB_REF ON)
     set(BB_WITH_IPC_CLIENTS ON)
     set(BB_WITH_IPC_RUNTIME ON)
     set(BB_ARCHIVE_WORLD_STATE_REFERENCE ON)
@@ -150,6 +155,9 @@ if(BB_WITH_AVM_SIM)
     add_subdirectory(barretenberg/world_state_reference)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
+endif()
+if(BB_WITH_WSDB_REF)
+    add_subdirectory(barretenberg/wsdb_ref)
 endif()
 if(BB_WITH_IPC_CLIENTS)
     add_subdirectory(barretenberg/vm2_wsdb)
@@ -224,14 +232,12 @@ set(BARRETENBERG_TARGET_OBJECTS
 # The core object list: what FFI consumers of bb-external need (bb_ipc_ffi_entry()).
 set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
 
-# world_state_reference is the in-memory reference merkle DB and its bb_wsref_* C ABI, which external
-# world-state implementations link for their conformance tests. It is vm2-free; vm2_stub satisfies its
+# world_state_reference is the in-memory reference world state. It is vm2-free; vm2_stub satisfies its
 # Stats references.
 if(BB_ARCHIVE_WORLD_STATE_REFERENCE)
     list(APPEND BARRETENBERG_TARGET_OBJECTS
         $<TARGET_OBJECTS:world_state_reference_objects>
         $<TARGET_OBJECTS:api_objects>)
-    list(APPEND BB_EXTERNAL_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_reference_objects>)
 endif()
 
 add_library(

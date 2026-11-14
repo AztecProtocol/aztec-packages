@@ -543,8 +543,11 @@ void handle_update_archive(WsdbRequest& ctx,
 void handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire::WsdbCommitResponse> respond)
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx]() -> wire::WsdbCommitResponse {
-        WorldStateStatusFull status;
-        ctx.world_state.commit(status);
+        WorldStateStatusFull status{};
+        auto [committed, message] = ctx.world_state.commit(status);
+        if (!committed) {
+            throw std::runtime_error(message);
+        }
         return wire::WsdbCommitResponse{ .status = status };
     });
 }
@@ -757,6 +760,12 @@ void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<
         ctx.world_state.copy_stores(cmd.dstPath, cmd.compact.value_or(false));
         return wire::WsdbCopyStoresResponse{};
     });
+}
+
+// aztec-wsdb opens its stores at its genesis when it is constructed, so it cannot take a genesis afterwards.
+void handle_init(WsdbRequest& /*ctx*/, wire::WsdbInit&& /*cmd*/, Responder<wire::WsdbInitResponse> respond)
+{
+    respond.error("aztec-wsdb does not support Init: its genesis is fixed when the service is created");
 }
 
 } // namespace azteclabs::wsdb

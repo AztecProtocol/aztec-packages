@@ -29,6 +29,15 @@ export interface ServiceBinary {
   packageDir: string;
 }
 
+/**
+ * A per-platform native file a generated package ships in its arch packages: the service binary,
+ * or a Node-API addon over the service's FFI entry. Resolved the same way for both.
+ */
+export type ServiceNativeFile = Pick<
+  ServiceBinary,
+  "name" | "envVar" | "archPackages" | "packageDir"
+>;
+
 /** Options a caller may give when the service runs as a spawned process. */
 export interface ServiceProcessOptions {
   binaryPath?: string;
@@ -50,7 +59,7 @@ function platformKey(): string {
   return `${process.arch}-${process.platform}`;
 }
 
-function archPackageDir(binary: ServiceBinary): string | null {
+function archPackageDir(binary: ServiceNativeFile): string | null {
   const packageName = binary.archPackages[platformKey()];
   if (!packageName) {
     return null;
@@ -75,7 +84,7 @@ function archPackageDir(binary: ServiceBinary): string | null {
  * installed arch package for this platform. Null when none of those yields an existing file.
  */
 export function findServiceBinary(
-  binary: ServiceBinary,
+  binary: ServiceNativeFile,
   customPath?: string,
 ): string | null {
   const explicit = customPath ?? process.env[binary.envVar];
@@ -195,43 +204,62 @@ export function runServiceBinary(
   process.exit(result.status ?? 1);
 }
 
+/** One backend a host can offer, for pickServiceBackend. */
+export interface ServiceBackendChoice<T> {
+  /** Whether the default policy should try it; absent means always (it is the last resort). */
+  available?: () => boolean;
+  create: () => Promise<T>;
+}
+
 /**
- * Which backend to use, given what this host can offer. Unset: the process when its binary
- * resolves, else wasm. A name forces one, with no fallback to the other.
+ * Which backend to use, given what this host can offer. Unset: the first of process, napi, wasm
+ * whose `available()` holds (or that has no such check), trying the next one if creating it
+ * fails; the last candidate is tried regardless. A name forces one, with no fallback.
  */
 export async function pickServiceBackend<
   T extends IpcClientAsync | IpcClientSync,
 >(
-  wanted: "process" | "wasm" | T | undefined,
+  wanted: "process" | "napi" | "wasm" | T | undefined,
   choices: {
     label: string;
-    process?: { available: () => boolean; create: () => Promise<T> };
-    wasm?: { create: () => Promise<T> };
+    process?: ServiceBackendChoice<T>;
+    napi?: ServiceBackendChoice<T>;
+    wasm?: ServiceBackendChoice<T>;
     logger?: (msg: string) => void;
   },
 ): Promise<T> {
   if (typeof wanted === "object") {
     return wanted;
   }
-  const { process: proc, wasm } = choices;
-  if (
-    proc &&
-    (wanted === "process" ||
-      (wanted === undefined && (!wasm || proc.available())))
-  ) {
+  const candidates = (["process", "napi", "wasm"] as const)
+    .map((name) => ({ name, choice: choices[name] }))
+    .filter(
+      (c): c is { name: "process" | "napi" | "wasm"; choice: ServiceBackendChoice<T> } =>
+        c.choice !== undefined,
+    );
+  if (wanted !== undefined) {
+    const forced = candidates.find((c) => c.name === wanted);
+    if (!forced) {
+      throw new Error(`${choices.label}: no such backend here: ${String(wanted)}`);
+    }
+    return forced.choice.create();
+  }
+  for (let i = 0; i < candidates.length; i++) {
+    const { name, choice } = candidates[i]!;
+    const last = i === candidates.length - 1;
+    if (!last && choice.available && !choice.available()) {
+      continue;
+    }
     try {
-      return await proc.create();
+      return await choice.create();
     } catch (err) {
-      if (wanted === "process" || !wasm) {
+      if (last) {
         throw err;
       }
       choices.logger?.(
-        `${choices.label} process unavailable (${(err as Error).message}); falling back to wasm`,
+        `${choices.label} ${name} unavailable (${(err as Error).message}); falling back to ${candidates[i + 1]!.name}`,
       );
     }
   }
-  if (wasm && (wanted === undefined || wanted === "wasm")) {
-    return wasm.create();
-  }
-  throw new Error(`${choices.label}: no such backend here: ${String(wanted)}`);
+  throw new Error(`${choices.label}: no backend available`);
 }

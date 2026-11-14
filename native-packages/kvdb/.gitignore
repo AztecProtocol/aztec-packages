@@ -1,4 +1,5 @@
 cpp/build/
+cpp/build-*/
 ts/dest/
 ts/build/
 ts/packages/

@@ -100,10 +100,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
             endif()
         endif()
 
-        # enable msgpack downloading via dependency (solves race condition)
-        add_dependencies(${MODULE_NAME} msgpack-c)
-        add_dependencies(${MODULE_NAME}_objects msgpack-c)
-
         # enable lmdb downloading via dependency (solves race condition)
         if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
             add_dependencies(${MODULE_NAME} lmdb_repo)
@@ -192,10 +188,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
             ${TRACY_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
-
-        # enable msgpack downloading via dependency (solves race condition)
-        add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
-        add_dependencies(${MODULE_NAME}_tests msgpack-c)
 
         # enable lmdb downloading via dependency (solves race condition)
         if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
@@ -306,10 +298,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
                     -ldw -lelf
                 )
             endif()
-
-            # enable msgpack downloading via dependency (solves race condition)
-            add_dependencies(${BENCHMARK_NAME}_bench_objects msgpack-c)
-            add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
 
             # enable lmdb downloading via dependency (solves race condition)
             if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)

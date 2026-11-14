@@ -1,13 +1,10 @@
 # VM2 binding to the wsdb service: the generated IPC client plus the AVM adapter
 # (WsdbIpcMerkleDB) that drives native AVM simulation against aztec-wsdb.
 #
-# The wsdb wire contract (wsdb_schema.jsonc) and the server live in the
-# top-level native-packages/wsdb package, which owns the service. bb only
-# needs the generated CLIENT, so it codegens from that external schema path.
-# This is a deliberate (and currently the only) build-order inversion:
-# bb reads native-packages/wsdb/wsdb_schema.jsonc at configure/build time.
+# The wsdb wire contract (wsdb_schema.jsonc) lives with wsdb-ref, its reference implementation, in
+# ../wsdb_ref. The AVM only needs the generated client.
 if(TARGET vm2_sim)
-    set(WSDB_SCHEMA ${CMAKE_SOURCE_DIR}/../../native-packages/wsdb/wsdb_schema.jsonc)
+    set(WSDB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/../wsdb_ref/wsdb_schema.jsonc)
     # Generated code is per build tree (each preset generates its own, so presets building at once never
     # share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
     file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/generated)
@@ -37,7 +34,7 @@ if(TARGET vm2_sim)
                 --cpp-namespace bb::wsdb
                 --cpp-include-dir barretenberg/vm2_wsdb/generated
         DEPENDS ${WSDB_SCHEMA} ${IPC_CODEGEN_SRC}
-        COMMENT "Generating WSDB IPC client from native-packages/wsdb/wsdb_schema.jsonc"
+        COMMENT "Generating WSDB IPC client from wsdb_ref/wsdb_schema.jsonc"
         VERBATIM
     )
     add_custom_target(wsdb_ipc_generated DEPENDS ${WSDB_GEN_OUTPUTS})
