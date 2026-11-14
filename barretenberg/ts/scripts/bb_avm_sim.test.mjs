@@ -28,6 +28,34 @@ const inputs = readFileSync(
   ),
 );
 
+// The world state wsdb-ref starts from: protocol-sized trees with no prefilled leaves.
+const constantsNr = readFileSync(
+  join(
+    root,
+    "noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr",
+  ),
+  "utf8",
+);
+const GENESIS = {
+  treeHeights: [
+    { treeId: 0, height: 42 },
+    { treeId: 1, height: 42 },
+    { treeId: 2, height: 40 },
+    { treeId: 3, height: 36 },
+    { treeId: 4, height: 30 },
+  ],
+  treePrefill: [
+    { treeId: 0, size: 128 },
+    { treeId: 2, size: 128 },
+  ],
+  prefilledPublicData: [],
+  prefilledNullifiers: [],
+  genesisTimestamp: 0,
+  initialHeaderGeneratorPoint: Number(
+    constantsNr.match(/pub global DOM_SEP__BLOCK_HEADER_HASH: u32 = (\d+);/)[1],
+  ),
+};
+
 /** The simulation result, less its stats, which include timings. */
 function decodeResult({ result }) {
   const { stats, ...rest } = unpack(result);
@@ -226,6 +254,7 @@ test("on a shared worker, Simulate reaches wsdb-ref beside it and a contract DB 
     backend: "wasm",
     wasm: { worker },
   });
+  await wsdb.init(GENESIS);
   // An asynchronous handler: the worker waits for this thread's answer.
   const avm = await AvmService.create({
     backend: "wasm",
@@ -264,6 +293,7 @@ test("on the calling thread, the asynchronous service waits on an asynchronous c
     backend: "wasm",
     wasm: { worker: false },
   });
+  await wsdb.init(GENESIS);
   // JSPI suspends the AVM's module while this thread answers; wsdb-ref, making no host calls, answers it directly.
   const avm = await AvmService.create({
     backend: "wasm",
@@ -302,6 +332,7 @@ test("on the calling thread, the asynchronous service waits on an asynchronous c
 test("on the calling thread, Simulate reaches synchronous services, and an asynchronous one fails the call", async () => {
   const contractDB = fixtureContractDB();
   const wsdb = await WsdbServiceSync.create({ backend: "wasm" });
+  wsdb.init(GENESIS);
   const avm = await AvmServiceSync.create({
     backend: "wasm",
     wasm: { hostCall: { wsdb, cdb: contractDB.handle } },
