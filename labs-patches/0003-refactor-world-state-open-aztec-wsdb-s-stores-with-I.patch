@@ -12,8 +12,17 @@ fails, the process is destroyed and the error rethrown.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
 
+diff --git a/yarn-project/world-state/src/native/index.ts b/yarn-project/world-state/src/native/index.ts
+index fc8aaf795cca7ae2dfd7f1ac652944c0bce97f61..34f10b02f245bc47d04d57167d2c54a8fe283d63 100644
+--- a/yarn-project/world-state/src/native/index.ts
++++ b/yarn-project/world-state/src/native/index.ts
+@@ -1,3 +1,3 @@
+ export * from './native_world_state.js';
+ export * from './fork_checkpoint.js';
+-export { IpcWorldState, getWsdbOptions } from './ipc_world_state_instance.js';
++export { IpcWorldState, getWsdbInit, getWsdbOptions } from './ipc_world_state_instance.js';
 diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
-index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed121068481b6afc3a 100644
+index 0fc4a3c704172100faf36313552b5175540c331e..1e695bdb30815be7e1a7732335c0909368d9d62f 100644
 --- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
 +++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
 @@ -9,7 +9,7 @@ import { Timer } from '@aztec-labs/foundation/timer';
@@ -25,7 +34,27 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
  import type {
    WorldStateDBStats as WsdbDBStats,
    DBStats as WsdbDBStatsInner,
-@@ -160,13 +160,7 @@ function getWsdbThreadCount(): number {
+@@ -153,6 +153,19 @@ function formatMap(map: Record<number, number> | undefined): string | undefined
+     .join(',')}}`;
+ }
+ 
++const WSDB_TREE_HEIGHTS: Record<number, number> = {
++  [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treeHeights.nullifierTree,
++  [MerkleTreeId.NOTE_HASH_TREE]: GENESIS.inputs.treeHeights.noteHashTree,
++  [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treeHeights.publicDataTree,
++  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: GENESIS.inputs.treeHeights.l1ToL2MessageTree,
++  [MerkleTreeId.ARCHIVE]: GENESIS.inputs.treeHeights.archive,
++};
++
++const WSDB_TREE_PREFILL: Record<number, number> = {
++  [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treePrefill.nullifierTree,
++  [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treePrefill.publicDataTree,
++};
++
+ /** SHM request/response ring size for the spawned aztec-wsdb process (32 MiB). */
+ const WSDB_SHM_RING_SIZE = 32 * 1024 * 1024;
+ 
+@@ -160,13 +173,7 @@ function getWsdbThreadCount(): number {
    return Math.min(16, cpus().length);
  }
  
@@ -40,7 +69,7 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
    const args = ['--data-dir', dataDir, '--threads', threads.toString()];
  
    // Size the SHM rings generously. Responses such as batch-insertion witnesses
-@@ -177,50 +171,33 @@ function getWsdbExtraArgs(
+@@ -177,50 +184,35 @@ function getWsdbExtraArgs(
    args.push('--request-ring-size', WSDB_SHM_RING_SIZE.toString());
    args.push('--response-ring-size', WSDB_SHM_RING_SIZE.toString());
  
@@ -72,9 +101,11 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
 -    args.push('--prefilled-public-data', JSON.stringify(pairs));
 -  }
 -
-+/** The Init message that opens aztec-wsdb's stores at the protocol's trees and this node's genesis. */
-+function getWsdbInit(dataDir: string, wsTreeMapSizes: WorldStateTreeMapSizes, genesis: GenesisData): WsdbInit {
-+  const options = getWsdbOptions(dataDir, wsTreeMapSizes);
++/**
++ * The Init message that opens a wsdb service's stores at the protocol's trees (from
++ * `@aztec-foundation/protocol-genesis`) and at `genesis`.
++ */
++export function getWsdbInit(genesis: GenesisData): WsdbInit {
    const prefilledNullifiers = genesis.prefilledNullifiers;
    for (let i = 1; i < prefilledNullifiers.length; i++) {
      if (prefilledNullifiers[i].toBigInt() <= prefilledNullifiers[i - 1].toBigInt()) {
@@ -95,20 +126,20 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
 -
 -  return args;
 +  return {
-+    treeHeights: Object.entries(options.treeHeights).map(([treeId, height]) => ({ treeId: Number(treeId), height })),
-+    treePrefill: Object.entries(options.treePrefill).map(([treeId, size]) => ({ treeId: Number(treeId), size })),
++    treeHeights: Object.entries(WSDB_TREE_HEIGHTS).map(([treeId, height]) => ({ treeId: Number(treeId), height })),
++    treePrefill: Object.entries(WSDB_TREE_PREFILL).map(([treeId, size]) => ({ treeId: Number(treeId), size })),
 +    prefilledPublicData: genesis.prefilledPublicData.map(data => ({
 +      slot: new Uint8Array(data.slot.toBuffer()),
 +      value: new Uint8Array(data.value.toBuffer()),
 +    })),
 +    prefilledNullifiers: prefilledNullifiers.map(nullifier => new Uint8Array(nullifier.toBuffer())),
 +    genesisTimestamp: Number(genesis.genesisTimestamp),
-+    initialHeaderGeneratorPoint: options.initialHeaderGeneratorPoint,
++    initialHeaderGeneratorPoint: GENESIS.inputs.initialHeaderGeneratorPoint,
 +  };
  }
  
  // ————— Response conversion helpers —————
-@@ -365,9 +342,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
+@@ -365,9 +357,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
  
    /**
     * Spawn an `aztec-wsdb` subprocess and return an IPC-backed world state wrapping it.
@@ -120,11 +151,11 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
     */
    static async spawn(
      dataDir: string,
-@@ -378,11 +354,18 @@ export class IpcWorldState implements NativeWorldStateInstance {
+@@ -378,11 +369,18 @@ export class IpcWorldState implements NativeWorldStateInstance {
      threads: number = getWsdbThreadCount(),
    ): Promise<IpcWorldState> {
      const transport = getEnv().WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
-+    const init = getWsdbInit(dataDir, wsTreeMapSizes, genesis);
++    const init = getWsdbInit(genesis);
      const wsdb = await WsdbService.spawn({
        transport,
 -      extraArgs: getWsdbExtraArgs(dataDir, wsTreeMapSizes, genesis, threads),
@@ -140,7 +171,7 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
      return new IpcWorldState(wsdb, instrumentation, bindings);
    }
  
-@@ -826,8 +809,8 @@ function exitOnWsdbDeath(operation: WorldStateOperationName, error: IpcProcessEx
+@@ -826,8 +824,8 @@ function exitOnWsdbDeath(operation: WorldStateOperationName, error: IpcProcessEx
  }
  
  /**
@@ -151,3 +182,23 @@ index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed12106848
   */
  export function getWsdbOptions(
    dataDir: string,
+@@ -839,17 +837,8 @@ export function getWsdbOptions(
+   initialHeaderGeneratorPoint: number;
+ } {
+   return {
+-    treeHeights: {
+-      [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treeHeights.nullifierTree,
+-      [MerkleTreeId.NOTE_HASH_TREE]: GENESIS.inputs.treeHeights.noteHashTree,
+-      [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treeHeights.publicDataTree,
+-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: GENESIS.inputs.treeHeights.l1ToL2MessageTree,
+-      [MerkleTreeId.ARCHIVE]: GENESIS.inputs.treeHeights.archive,
+-    },
+-    treePrefill: {
+-      [MerkleTreeId.NULLIFIER_TREE]: GENESIS.inputs.treePrefill.nullifierTree,
+-      [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treePrefill.publicDataTree,
+-    },
++    treeHeights: WSDB_TREE_HEIGHTS,
++    treePrefill: WSDB_TREE_PREFILL,
+     mapSizes: {
+       [MerkleTreeId.NULLIFIER_TREE]: wsTreeMapSizes.nullifierTreeMapSizeKb,
+       [MerkleTreeId.NOTE_HASH_TREE]: wsTreeMapSizes.noteHashTreeMapSizeKb,
