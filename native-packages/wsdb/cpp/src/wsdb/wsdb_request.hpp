@@ -21,8 +21,8 @@ class WsdbScheduler;
 
 struct WsdbRequest {
     /**
-     * The world state every command but Init runs on. A command that arrives before there is one (the service was
-     * started without a genesis and has not been sent Init) is answered with an error.
+     * The world state every command but Init runs on. A command that arrives before Init is answered with an
+     * error.
      */
     world_state::WorldState& world_state() const
     {
@@ -33,7 +33,7 @@ struct WsdbRequest {
         return *state;
     }
 
-    // Set by the service: from its genesis options when it starts, or by `init` when Init arrives.
+    // Set by `init` when Init arrives.
     std::atomic<world_state::WorldState*> world_state_{ nullptr };
     // Creates the world state at Init's genesis; throws if the service already has one.
     std::function<void(wire::WsdbInit&&)> init;

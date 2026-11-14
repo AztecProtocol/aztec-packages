@@ -20,12 +20,10 @@ checkout; only the protocol constants come from the release pinned by tag in `fo
 When native-packages leaves aztec-packages, all of these come from the pinned release again (see the
 NOTE in `cpp/CMakeLists.txt`).
 
-aztec-wsdb serves the schema over IPC (the `aztec-wsdb` binary). Started with the genesis options
-(`--tree-heights` and the rest), it opens its stores at that genesis; started without them, it waits for
-`Init`, which carries the same genesis over the wire. The data directory, map sizes and threads are
-always options. The differential test, `wsdb_ref_diff.test.cpp`, runs a `WsdbService` in-process beside
-wsdb-ref's FFI entry, sends both the same `Init`, drives both with the generated typed client and
-requires them to answer every request alike.
+aztec-wsdb serves the schema over IPC (the `aztec-wsdb` binary). It opens no stores until its client
+sends `Init`, which carries the genesis; the data directory, map sizes and threads are options. The
+differential test, `wsdb_ref_diff.test.cpp`, holds two generated typed clients, one over a `WsdbService`
+in-process and one over wsdb-ref's FFI entry, sends both the same requests and requires the same answers.
 
 The lmdblib sibling package (`../lmdblib`) is built from source as part of this build too. Both it
 and wsdb-ref declare the same msgpack-c, so the build has one. The

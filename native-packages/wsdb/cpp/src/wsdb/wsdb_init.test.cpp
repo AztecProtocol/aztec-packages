@@ -1,6 +1,6 @@
 /**
  * @file wsdb_init.test.cpp
- * @brief aztec-wsdb started without a genesis takes it from Init, once.
+ * @brief aztec-wsdb takes its genesis from Init, once.
  */
 // The world state before the generated wire types: both declare MerkleTreeId, and the wire one must not be found
 // first while the world state headers are parsed.
@@ -15,7 +15,6 @@
 
 #include <filesystem>
 #include <functional>
-#include <sstream>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -44,18 +43,6 @@ template <typename W = wire::Fr> W wire_fr(const fr& value)
     return w;
 }
 
-std::string hex(const fr& value)
-{
-    std::ostringstream out;
-    out << value;
-    return out.str().substr(2);
-}
-
-// One genesis, as Init and as the options that give the same one.
-constexpr uint64_t NULLIFIER_PREFILL = 128;
-constexpr uint64_t PUBLIC_DATA_PREFILL = 64;
-constexpr uint64_t TIMESTAMP = 1234;
-
 wire::WsdbInit genesis_init()
 {
     wire::WsdbInit init{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
@@ -63,36 +50,16 @@ wire::WsdbInit genesis_init()
                                           { .treeId = 2, .height = PUBLIC_DATA_TREE_HEIGHT },
                                           { .treeId = 3, .height = L1_TO_L2_MSG_TREE_HEIGHT },
                                           { .treeId = 4, .height = ARCHIVE_HEIGHT } },
-                         .treePrefill = { { .treeId = 0, .size = NULLIFIER_PREFILL },
-                                          { .treeId = 2, .size = PUBLIC_DATA_PREFILL } },
+                         .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 64 } },
                          .prefilledPublicData = { { .slot = wire_fr<wire::PublicDataSlot>(fr(1000)),
-                                                   .value = wire_fr<wire::PublicDataValue>(fr(7)) } },
+                                                    .value = wire_fr<wire::PublicDataValue>(fr(7)) } },
                          .prefilledNullifiers = {},
-                         .genesisTimestamp = TIMESTAMP,
+                         .genesisTimestamp = 1234,
                          .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
     for (const auto& nullifier : world_state::test_genesis_nullifiers()) {
         init.prefilledNullifiers.push_back(wire_fr(nullifier));
     }
     return init;
-}
-
-WsdbConfig with_genesis_options(WsdbConfig config)
-{
-    std::ostringstream heights;
-    heights << "{0:" << NULLIFIER_TREE_HEIGHT << ",1:" << NOTE_HASH_TREE_HEIGHT << ",2:" << PUBLIC_DATA_TREE_HEIGHT
-            << ",3:" << L1_TO_L2_MSG_TREE_HEIGHT << ",4:" << ARCHIVE_HEIGHT << "}";
-    config.tree_heights_json = heights.str();
-    config.tree_prefill_json =
-        "{0:" + std::to_string(NULLIFIER_PREFILL) + ",2:" + std::to_string(PUBLIC_DATA_PREFILL) + "}";
-    config.initial_header_generator_point = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH);
-    config.genesis_timestamp = TIMESTAMP;
-    config.prefilled_public_data_json = "[[\"" + hex(fr(1000)) + "\",\"" + hex(fr(7)) + "\"]]";
-    std::string nullifiers = "[";
-    for (const auto& nullifier : world_state::test_genesis_nullifiers()) {
-        nullifiers += (nullifiers.size() > 1 ? ",\"" : "\"") + hex(nullifier) + "\"";
-    }
-    config.prefilled_nullifiers_json = nullifiers + "]";
-    return config;
 }
 
 class WsdbInitTest : public ::testing::Test {
@@ -106,7 +73,7 @@ class WsdbInitTest : public ::testing::Test {
     }
     void TearDown() override { std::filesystem::remove_all(root_); }
 
-    /** Resource options only, with stores in their own directory under this test's. */
+    /** Stores in their own directory under this test's. */
     WsdbConfig config(const std::string& name) const
     {
         auto dir = root_ / name;
@@ -130,26 +97,6 @@ void expect_error_containing(const std::function<void()>& call, const std::strin
 
 } // namespace
 
-TEST_F(WsdbInitTest, InitGivesTheGenesisTheOptionsGive)
-{
-    WsdbService from_init(config("init"), []() { return false; });
-    WsdbService from_options(with_genesis_options(config("options")), []() { return false; });
-    Api init_api{ ServiceBackend(&from_init) };
-    Api options_api{ ServiceBackend(&from_options) };
-
-    init_api.init(genesis_init());
-
-    EXPECT_EQ(init_api.get_initial_state_reference(), options_api.get_initial_state_reference());
-    wire::WorldStateRevision latest{ .forkId = 0, .blockNumber = 0, .includeUncommitted = false };
-    for (uint32_t tree = 0; tree <= 4; ++tree) {
-        EXPECT_EQ(init_api.get_tree_info({ .treeId = tree, .revision = latest }),
-                  options_api.get_tree_info({ .treeId = tree, .revision = latest }))
-            << "tree " << tree;
-    }
-    EXPECT_EQ(init_api.get_state_reference({ .revision = latest }),
-              options_api.get_state_reference({ .revision = latest }));
-}
-
 TEST_F(WsdbInitTest, RefusesCommandsBeforeInit)
 {
     WsdbService service(config("service"), []() { return false; });
@@ -172,19 +119,4 @@ TEST_F(WsdbInitTest, InitIsSentOnce)
 
     expect_error_containing([&] { api.init(genesis_init()); }, "already has a world state");
     EXPECT_EQ(api.get_initial_state_reference(), genesis);
-}
-
-TEST_F(WsdbInitTest, ServiceStartedWithAGenesisRefusesInit)
-{
-    WsdbService service(with_genesis_options(config("service")), []() { return false; });
-    Api api{ ServiceBackend(&service) };
-
-    expect_error_containing([&] { api.init(genesis_init()); }, "already has a world state");
-}
-
-TEST_F(WsdbInitTest, GenesisOptionsNeedTreeHeights)
-{
-    WsdbConfig partial = with_genesis_options(config("service"));
-    partial.tree_heights_json.clear();
-    expect_error_containing([&] { WsdbService service(partial, []() { return false; }); }, "need --tree-heights");
 }
