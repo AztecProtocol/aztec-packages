@@ -44,7 +44,7 @@ void handle_get_tree_info(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetTreeInfoResponse {
-                      auto info = ctx.world_state.get_tree_info(cmd.revision, from_wire<MerkleTreeId>(cmd.treeId));
+                      auto info = ctx.world_state().get_tree_info(cmd.revision, from_wire<MerkleTreeId>(cmd.treeId));
                       return wire::WsdbGetTreeInfoResponse{
                           .treeId = cmd.treeId,
                           .root = info.meta.root,
@@ -63,7 +63,7 @@ void handle_get_state_reference(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetStateReferenceResponse {
-                      auto state = ctx.world_state.get_state_reference(cmd.revision);
+                      auto state = ctx.world_state().get_state_reference(cmd.revision);
                       return wire::WsdbGetStateReferenceResponse{ .state = to_wire(state) };
                   });
 }
@@ -75,7 +75,7 @@ void handle_get_initial_state_reference(WsdbRequest& ctx,
     // No revision: reads the canonical initial state. Ordered against fork 0
     // (matches the historical client contract of committedOnly=false).
     schedule_read(ctx, 0, false, std::move(respond), [&ctx]() -> wire::WsdbGetInitialStateReferenceResponse {
-        auto state = ctx.world_state.get_initial_state_reference();
+        auto state = ctx.world_state().get_initial_state_reference();
         return wire::WsdbGetInitialStateReferenceResponse{ .state = to_wire(state) };
     });
 }
@@ -101,7 +101,7 @@ void handle_get_leaf_value(WsdbRequest& ctx,
                       case world_state::MerkleTreeId::NOTE_HASH_TREE:
                       case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
                       case world_state::MerkleTreeId::ARCHIVE: {
-                          auto leaf = ctx.world_state.get_leaf<fr>(revision, tree_id, leaf_index);
+                          auto leaf = ctx.world_state().get_leaf<fr>(revision, tree_id, leaf_index);
                           return wire::WsdbGetLeafValueResponse{ .value = leaf.has_value()
                                                                               ? std::optional<wire::Fr>(*leaf)
                                                                               : std::nullopt };
@@ -122,7 +122,7 @@ void handle_get_public_data_leaf_value(WsdbRequest& ctx,
         !cmd.revision.includeUncommitted,
         std::move(respond),
         [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetPublicDataLeafValueResponse {
-            auto leaf = ctx.world_state.get_leaf<PublicDataLeafValue>(
+            auto leaf = ctx.world_state().get_leaf<PublicDataLeafValue>(
                 cmd.revision, world_state::MerkleTreeId::PUBLIC_DATA_TREE, static_cast<index_t>(cmd.leafIndex));
             return wire::WsdbGetPublicDataLeafValueResponse{
                 .value = leaf.has_value() ? std::optional<wire::PublicDataLeafValue>(to_wire(*leaf)) : std::nullopt
@@ -139,7 +139,7 @@ void handle_get_nullifier_leaf_value(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetNullifierLeafValueResponse {
-                      auto leaf = ctx.world_state.get_leaf<NullifierLeafValue>(
+                      auto leaf = ctx.world_state().get_leaf<NullifierLeafValue>(
                           cmd.revision, world_state::MerkleTreeId::NULLIFIER_TREE, static_cast<index_t>(cmd.leafIndex));
                       return wire::WsdbGetNullifierLeafValueResponse{
                           .value =
@@ -158,7 +158,7 @@ void handle_get_public_data_leaf_preimage(WsdbRequest& ctx,
         !cmd.revision.includeUncommitted,
         std::move(respond),
         [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetPublicDataLeafPreimageResponse {
-            auto leaf = ctx.world_state.get_indexed_leaf<PublicDataLeafValue>(
+            auto leaf = ctx.world_state().get_indexed_leaf<PublicDataLeafValue>(
                 cmd.revision, world_state::MerkleTreeId::PUBLIC_DATA_TREE, static_cast<index_t>(cmd.leafIndex));
             return wire::WsdbGetPublicDataLeafPreimageResponse{
                 .preimage =
@@ -176,7 +176,7 @@ void handle_get_nullifier_leaf_preimage(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetNullifierLeafPreimageResponse {
-                      auto leaf = ctx.world_state.get_indexed_leaf<NullifierLeafValue>(
+                      auto leaf = ctx.world_state().get_indexed_leaf<NullifierLeafValue>(
                           cmd.revision, world_state::MerkleTreeId::NULLIFIER_TREE, static_cast<index_t>(cmd.leafIndex));
                       return wire::WsdbGetNullifierLeafPreimageResponse{
                           .preimage = leaf.has_value() ? std::optional<wire::IndexedNullifierLeafValue>(to_wire(*leaf))
@@ -194,7 +194,7 @@ void handle_get_sibling_path(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbGetSiblingPathResponse {
-                      fr_sibling_path path = ctx.world_state.get_sibling_path(
+                      fr_sibling_path path = ctx.world_state().get_sibling_path(
                           cmd.revision, from_wire<MerkleTreeId>(cmd.treeId), static_cast<index_t>(cmd.leafIndex));
                       return wire::WsdbGetSiblingPathResponse{ .path = to_wire(path) };
                   });
@@ -215,7 +215,7 @@ void handle_get_block_numbers_for_leaf_indices(WsdbRequest& ctx,
                           leaf_indices.push_back(static_cast<index_t>(i));
                       }
                       std::vector<std::optional<block_number_t>> block_numbers;
-                      ctx.world_state.get_block_numbers_for_leaf_indices(
+                      ctx.world_state().get_block_numbers_for_leaf_indices(
                           cmd.revision, from_wire<MerkleTreeId>(cmd.treeId), leaf_indices, block_numbers);
                       std::vector<std::optional<uint32_t>> wire_block_numbers;
                       wire_block_numbers.reserve(block_numbers.size());
@@ -250,7 +250,7 @@ void handle_find_leaf_indices(WsdbRequest& ctx,
                       case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
                       case world_state::MerkleTreeId::ARCHIVE: {
                           auto typed_leaves = from_wire<std::vector<fr>>(cmd.leaves);
-                          ctx.world_state.find_leaf_indices<fr>(revision, tree_id, typed_leaves, indices, start_index);
+                          ctx.world_state().find_leaf_indices<fr>(revision, tree_id, typed_leaves, indices, start_index);
                           break;
                       }
                       default:
@@ -276,7 +276,7 @@ void handle_find_public_data_leaf_indices(WsdbRequest& ctx,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFindPublicDataLeafIndicesResponse {
                       std::vector<std::optional<index_t>> indices;
-                      ctx.world_state.find_leaf_indices<PublicDataLeafValue>(
+                      ctx.world_state().find_leaf_indices<PublicDataLeafValue>(
                           cmd.revision,
                           world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                           from_wire<std::vector<PublicDataLeafValue>>(cmd.leaves),
@@ -302,7 +302,7 @@ void handle_find_nullifier_leaf_indices(WsdbRequest& ctx,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFindNullifierLeafIndicesResponse {
                       std::vector<std::optional<index_t>> indices;
-                      ctx.world_state.find_leaf_indices<NullifierLeafValue>(
+                      ctx.world_state().find_leaf_indices<NullifierLeafValue>(
                           cmd.revision,
                           world_state::MerkleTreeId::NULLIFIER_TREE,
                           from_wire<std::vector<NullifierLeafValue>>(cmd.leaves),
@@ -327,7 +327,7 @@ void handle_find_low_leaf(WsdbRequest& ctx,
                   !cmd.revision.includeUncommitted,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFindLowLeafResponse {
-                      auto low_leaf_info = ctx.world_state.find_low_leaf_index(
+                      auto low_leaf_info = ctx.world_state().find_low_leaf_index(
                           cmd.revision, from_wire<MerkleTreeId>(cmd.treeId), cmd.key);
                       return wire::WsdbFindLowLeafResponse{
                           .alreadyPresent = low_leaf_info.is_already_present,
@@ -353,7 +353,7 @@ void handle_find_sibling_paths(WsdbRequest& ctx,
                       case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
                       case world_state::MerkleTreeId::ARCHIVE: {
                           auto typed_leaves = from_wire<std::vector<fr>>(cmd.leaves);
-                          ctx.world_state.find_sibling_paths<fr>(revision, tree_id, typed_leaves, paths);
+                          ctx.world_state().find_sibling_paths<fr>(revision, tree_id, typed_leaves, paths);
                           break;
                       }
                       default:
@@ -373,7 +373,7 @@ void handle_find_public_data_sibling_paths(WsdbRequest& ctx,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFindPublicDataSiblingPathsResponse {
                       std::vector<std::optional<SiblingPathAndIndex>> paths;
-                      ctx.world_state.find_sibling_paths<PublicDataLeafValue>(
+                      ctx.world_state().find_sibling_paths<PublicDataLeafValue>(
                           cmd.revision,
                           world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                           from_wire<std::vector<PublicDataLeafValue>>(cmd.leaves),
@@ -392,7 +392,7 @@ void handle_find_nullifier_sibling_paths(WsdbRequest& ctx,
                   std::move(respond),
                   [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFindNullifierSiblingPathsResponse {
                       std::vector<std::optional<SiblingPathAndIndex>> paths;
-                      ctx.world_state.find_sibling_paths<NullifierLeafValue>(
+                      ctx.world_state().find_sibling_paths<NullifierLeafValue>(
                           cmd.revision,
                           world_state::MerkleTreeId::NULLIFIER_TREE,
                           from_wire<std::vector<NullifierLeafValue>>(cmd.leaves),
@@ -416,7 +416,7 @@ void handle_append_leaves(WsdbRequest& ctx,
             case world_state::MerkleTreeId::NOTE_HASH_TREE:
             case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
             case world_state::MerkleTreeId::ARCHIVE: {
-                ctx.world_state.append_leaves<fr>(tree_id, from_wire<std::vector<fr>>(cmd.leaves), cmd.forkId);
+                ctx.world_state().append_leaves<fr>(tree_id, from_wire<std::vector<fr>>(cmd.leaves), cmd.forkId);
                 break;
             }
             default:
@@ -434,7 +434,7 @@ void handle_append_public_data_leaves(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbAppendPublicDataLeavesResponse {
-                       ctx.world_state.append_leaves<PublicDataLeafValue>(
+                       ctx.world_state().append_leaves<PublicDataLeafValue>(
                            world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                            from_wire<std::vector<PublicDataLeafValue>>(cmd.leaves),
                            cmd.forkId);
@@ -450,7 +450,7 @@ void handle_append_nullifier_leaves(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbAppendNullifierLeavesResponse {
-                       ctx.world_state.append_leaves<NullifierLeafValue>(
+                       ctx.world_state().append_leaves<NullifierLeafValue>(
                            world_state::MerkleTreeId::NULLIFIER_TREE,
                            from_wire<std::vector<NullifierLeafValue>>(cmd.leaves),
                            cmd.forkId);
@@ -466,7 +466,7 @@ void handle_batch_insert_public_data(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbBatchInsertPublicDataResponse {
-                       auto result = ctx.world_state.batch_insert_indexed_leaves<PublicDataLeafValue>(
+                       auto result = ctx.world_state().batch_insert_indexed_leaves<PublicDataLeafValue>(
                            world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                            from_wire<std::vector<PublicDataLeafValue>>(cmd.leaves),
                            cmd.subtreeDepth,
@@ -483,7 +483,7 @@ void handle_batch_insert_nullifier(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbBatchInsertNullifierResponse {
-                       auto result = ctx.world_state.batch_insert_indexed_leaves<NullifierLeafValue>(
+                       auto result = ctx.world_state().batch_insert_indexed_leaves<NullifierLeafValue>(
                            world_state::MerkleTreeId::NULLIFIER_TREE,
                            from_wire<std::vector<NullifierLeafValue>>(cmd.leaves),
                            cmd.subtreeDepth,
@@ -500,7 +500,7 @@ void handle_sequential_insert_public_data(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbSequentialInsertPublicDataResponse {
-                       auto result = ctx.world_state.insert_indexed_leaves<PublicDataLeafValue>(
+                       auto result = ctx.world_state().insert_indexed_leaves<PublicDataLeafValue>(
                            world_state::MerkleTreeId::PUBLIC_DATA_TREE,
                            from_wire<std::vector<PublicDataLeafValue>>(cmd.leaves),
                            cmd.forkId);
@@ -516,7 +516,7 @@ void handle_sequential_insert_nullifier(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbSequentialInsertNullifierResponse {
-                       auto result = ctx.world_state.insert_indexed_leaves<NullifierLeafValue>(
+                       auto result = ctx.world_state().insert_indexed_leaves<NullifierLeafValue>(
                            world_state::MerkleTreeId::NULLIFIER_TREE,
                            from_wire<std::vector<NullifierLeafValue>>(cmd.leaves),
                            cmd.forkId);
@@ -530,7 +530,7 @@ void handle_update_archive(WsdbRequest& ctx,
 {
     schedule_write(
         ctx, cmd.forkId, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbUpdateArchiveResponse {
-            ctx.world_state.update_archive(
+            ctx.world_state().update_archive(
                 from_wire<StateReference>(cmd.blockStateRef), cmd.blockHeaderHash, cmd.forkId);
             return wire::WsdbUpdateArchiveResponse{};
         });
@@ -544,7 +544,7 @@ void handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire:
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx]() -> wire::WsdbCommitResponse {
         WorldStateStatusFull status{};
-        auto [committed, message] = ctx.world_state.commit(status);
+        auto [committed, message] = ctx.world_state().commit(status);
         if (!committed) {
             throw std::runtime_error(message);
         }
@@ -555,7 +555,7 @@ void handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& /*cmd*/, Responder<wire:
 void handle_rollback(WsdbRequest& ctx, wire::WsdbRollback&& /*cmd*/, Responder<wire::WsdbRollbackResponse> respond)
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx]() -> wire::WsdbRollbackResponse {
-        ctx.world_state.rollback();
+        ctx.world_state().rollback();
         return wire::WsdbRollbackResponse{};
     });
 }
@@ -595,7 +595,7 @@ void handle_sync_block(WsdbRequest& ctx, wire::WsdbSyncBlock&& cmd, Responder<wi
             expected_previous_archive_root = cmd.expectedPreviousArchiveRoot.value();
         }
 
-        WorldStateStatusFull status = ctx.world_state.sync_block(block_state_ref,
+        WorldStateStatusFull status = ctx.world_state().sync_block(block_state_ref,
                                                                  block_header_hash,
                                                                  padded_note_hashes,
                                                                  padded_l1_to_l2_messages,
@@ -617,7 +617,7 @@ void handle_create_fork(WsdbRequest& ctx, wire::WsdbCreateFork&& cmd, Responder<
     schedule_write(ctx, 0, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbCreateForkResponse {
         std::optional<block_number_t> block =
             cmd.latest ? std::nullopt : std::optional<block_number_t>(cmd.blockNumber);
-        uint64_t id = ctx.world_state.create_fork(block);
+        uint64_t id = ctx.world_state().create_fork(block);
         return wire::WsdbCreateForkResponse{ .forkId = id };
     });
 }
@@ -626,7 +626,7 @@ void handle_delete_fork(WsdbRequest& ctx, wire::WsdbDeleteFork&& cmd, Responder<
 {
     schedule_write(
         ctx, cmd.forkId, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbDeleteForkResponse {
-            ctx.world_state.delete_fork(cmd.forkId);
+            ctx.world_state().delete_fork(cmd.forkId);
             return wire::WsdbDeleteForkResponse{};
         });
 }
@@ -641,7 +641,7 @@ void handle_finalize_blocks(WsdbRequest& ctx,
 {
     schedule_write(
         ctx, 0, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbFinalizeBlocksResponse {
-            WorldStateStatusSummary status = ctx.world_state.set_finalized_blocks(cmd.toBlockNumber);
+            WorldStateStatusSummary status = ctx.world_state().set_finalized_blocks(cmd.toBlockNumber);
             return wire::WsdbFinalizeBlocksResponse{ .status = status };
         });
 }
@@ -652,7 +652,7 @@ void handle_unwind_blocks(WsdbRequest& ctx,
 {
     schedule_write(
         ctx, 0, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbUnwindBlocksResponse {
-            WorldStateStatusFull status = ctx.world_state.unwind_blocks(cmd.toBlockNumber);
+            WorldStateStatusFull status = ctx.world_state().unwind_blocks(cmd.toBlockNumber);
             return wire::WsdbUnwindBlocksResponse{ .status = status };
         });
 }
@@ -663,7 +663,7 @@ void handle_remove_historical_blocks(WsdbRequest& ctx,
 {
     schedule_write(
         ctx, 0, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbRemoveHistoricalBlocksResponse {
-            WorldStateStatusFull status = ctx.world_state.remove_historical_blocks(cmd.toBlockNumber);
+            WorldStateStatusFull status = ctx.world_state().remove_historical_blocks(cmd.toBlockNumber);
             return wire::WsdbRemoveHistoricalBlocksResponse{ .status = status };
         });
 }
@@ -676,7 +676,7 @@ void handle_get_status(WsdbRequest& ctx, wire::WsdbGetStatus&& /*cmd*/, Responde
 {
     schedule_read(ctx, 0, false, std::move(respond), [&ctx]() -> wire::WsdbGetStatusResponse {
         WorldStateStatusSummary status;
-        ctx.world_state.get_status_summary(status);
+        ctx.world_state().get_status_summary(status);
         return wire::WsdbGetStatusResponse{ .status = status };
     });
 }
@@ -693,7 +693,7 @@ void handle_create_checkpoint(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbCreateCheckpointResponse {
-                       ctx.world_state.checkpoint(cmd.forkId);
+                       ctx.world_state().checkpoint(cmd.forkId);
                        return wire::WsdbCreateCheckpointResponse{};
                    });
 }
@@ -706,7 +706,7 @@ void handle_commit_checkpoint(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbCommitCheckpointResponse {
-                       ctx.world_state.commit_checkpoint(cmd.forkId);
+                       ctx.world_state().commit_checkpoint(cmd.forkId);
                        return wire::WsdbCommitCheckpointResponse{};
                    });
 }
@@ -719,7 +719,7 @@ void handle_revert_checkpoint(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbRevertCheckpointResponse {
-                       ctx.world_state.revert_checkpoint(cmd.forkId);
+                       ctx.world_state().revert_checkpoint(cmd.forkId);
                        return wire::WsdbRevertCheckpointResponse{};
                    });
 }
@@ -732,7 +732,7 @@ void handle_commit_all_checkpoints(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbCommitAllCheckpointsResponse {
-                       ctx.world_state.commit_all_checkpoints_to(cmd.forkId, 0);
+                       ctx.world_state().commit_all_checkpoints_to(cmd.forkId, 0);
                        return wire::WsdbCommitAllCheckpointsResponse{};
                    });
 }
@@ -745,7 +745,7 @@ void handle_revert_all_checkpoints(WsdbRequest& ctx,
                    cmd.forkId,
                    std::move(respond),
                    [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbRevertAllCheckpointsResponse {
-                       ctx.world_state.revert_all_checkpoints_to(cmd.forkId, 0);
+                       ctx.world_state().revert_all_checkpoints_to(cmd.forkId, 0);
                        return wire::WsdbRevertAllCheckpointsResponse{};
                    });
 }
@@ -757,15 +757,22 @@ void handle_revert_all_checkpoints(WsdbRequest& ctx,
 void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<wire::WsdbCopyStoresResponse> respond)
 {
     schedule_write(ctx, 0, std::move(respond), [&ctx, cmd = std::move(cmd)]() mutable -> wire::WsdbCopyStoresResponse {
-        ctx.world_state.copy_stores(cmd.dstPath, cmd.compact.value_or(false));
+        ctx.world_state().copy_stores(cmd.dstPath, cmd.compact.value_or(false));
         return wire::WsdbCopyStoresResponse{};
     });
 }
 
-// aztec-wsdb opens its stores at its genesis when it is constructed, so it cannot take a genesis afterwards.
-void handle_init(WsdbRequest& /*ctx*/, wire::WsdbInit&& /*cmd*/, Responder<wire::WsdbInitResponse> respond)
+// Opens the stores at Init's genesis. Runs on the submitting thread, not the scheduler: until it returns there is no
+// world state for other work to run on, and a request that arrives meanwhile is refused. A service started with its
+// genesis, or already sent Init, refuses it: its stores already hold a chain.
+void handle_init(WsdbRequest& ctx, wire::WsdbInit&& cmd, Responder<wire::WsdbInitResponse> respond)
 {
-    respond.error("aztec-wsdb does not support Init: its genesis is fixed when the service is created");
+    try {
+        ctx.init(std::move(cmd));
+        respond.ok(wire::WsdbInitResponse{});
+    } catch (const std::exception& e) {
+        respond.error(e.what());
+    }
 }
 
 } // namespace azteclabs::wsdb

@@ -4,9 +4,9 @@
  * @brief The wsdb service without a transport: the world state, the dispatch pool, the per-fork scheduler and the
  * generated async handler over them.
  *
- * The IPC server feeds the handler from its reactor; the in-process FFI entry (wsdb_ffi_service.cpp) feeds it from the
- * caller's thread. Both build it from the same WsdbConfig, which the `msgpack run` CLI and the FFI open call parse
- * with the same options.
+ * The IPC server feeds the handler from its reactor; `call` runs it in-process. A WsdbConfig with genesis options
+ * opens the stores at that genesis; one without them leaves the service waiting for Init, which carries the genesis
+ * over the wire. The data directory, map sizes and threads always come from the config.
  */
 #include "common/thread_pool.hpp"
 #include "world_state/world_state.hpp"
@@ -16,7 +16,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace CLI {
 class App;
@@ -63,7 +65,11 @@ class WsdbService {
      *  must come from one thread at a time. */
     AsyncDispatchHandler& handler() { return handler_; }
 
+    /** Runs one request in-process and waits for its response. Calls must come from one thread at a time. */
+    std::vector<uint8_t> call(std::span<const uint8_t> request);
+
   private:
+    WsdbConfig config_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching
     // them onto the same blocking, non-work-stealing pool could deadlock.
