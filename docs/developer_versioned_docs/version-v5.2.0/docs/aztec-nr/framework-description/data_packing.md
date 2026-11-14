@@ -61,7 +61,7 @@ pub struct OwnerNote {
 
 `Eq` is a Noir standard trait for equality comparisons (see [Noir's `Eq` trait](https://noir-lang.org/docs/language/traits)). `#[note]` does not require it, but deriving it is idiomatic because it enables `assert_eq` in tests and note-equality checks. `Serialize` and `Deserialize` are similarly optional here, and useful when a note type crosses a function boundary.
 
-This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-nr-api/mainnet/address_note/struct.AddressNote) and [`FieldNote`](pathname:///aztec-nr-api/mainnet/field_note/struct.FieldNote) both derive `Packable` directly because their members are already `Field` or `AztecAddress`.
+This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-nr-api/v6.0.0/address_note/struct.AddressNote) and [`FieldNote`](pathname:///aztec-nr-api/v6.0.0/field_note/struct.FieldNote) both derive `Packable` directly because their members are already `Field` or `AztecAddress`.
 
 When a note has members smaller than a `Field` (`bool`, `u8`, `u32`, `u64`), you can skip the `Packable` derive and write a custom implementation that packs multiple values into a single `Field`:
 
@@ -120,7 +120,7 @@ pub struct ServerConfig {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v5.2.0/docs/examples/contracts/packing_example/src/types.nr#L8-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L8-L18</a></sub></sup>
 
 
-For [`PublicMutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
+For [`PublicMutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
 
 When your struct has members smaller than a `Field`, deriving still uses one whole `Field` per member, which is wasteful. The next section shows how to write a manual implementation that collapses them.
 

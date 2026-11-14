@@ -176,10 +176,12 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   fi
 done
 
-cat "$PREAMBLE" > "$TMP"
-echo '```bash' >> "$TMP"
-sed 's/on-chain/onchain/g' "$HELP_FILE" >> "$TMP"
-echo '```' >> "$TMP"
+{
+  cat "$PREAMBLE"
+  echo '```bash'
+  sed 's/on-chain/onchain/g' "$HELP_FILE"
+  echo '```'
+} > "$TMP"
 
 # mktemp creates the temp file 0600; normalize before moving so the generated
 # doc doesn't land owner-only (mv preserves the source mode).

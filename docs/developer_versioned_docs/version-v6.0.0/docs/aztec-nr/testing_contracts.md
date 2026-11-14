@@ -15,7 +15,7 @@ This guide shows you how to test your Aztec smart contracts using Noir's `TestEn
 - Basic understanding of Noir syntax
 
 :::tip
-For complex cross-chain or integration testing, see the [TypeScript testing guide](../aztec-js/how_to_test.md).
+For complex cross-chain or integration testing, see the [TypeScript testing guide](../aztec-js/how_to_test.md). For a worked example, [Testing the Pod Racing contract](../tutorials/js_tutorials/webapp/07-testing-the-contract.md) tests a two-player game: setup helpers, failure cases and one-time guards.
 :::
 
 ## Write Aztec contract tests
@@ -101,7 +101,7 @@ Because tests live in their own crate, we refer to the contract via its crate na
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/mainnet/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
+- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/v6.0.0/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
 - It is always necessary to deploy a contract in order to test it
 :::
 

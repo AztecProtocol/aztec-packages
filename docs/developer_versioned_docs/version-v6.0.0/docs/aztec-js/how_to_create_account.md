@@ -3,7 +3,7 @@ title: Creating Accounts
 tags: [accounts]
 sidebar_position: 2
 description: Step-by-step guide to creating and deploying new user accounts in Aztec.js applications.
-references: ["docs/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/accounts/src/schnorr/*", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_connection/index.ts", "labs/yarn-project/accounts/src/schnorr/*", "labs/yarn-project/wallets/src/embedded/*", "labs/yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts"]
 ---
 
 This guide shows you how to create and deploy a new account on Aztec.
@@ -32,7 +32,7 @@ const signingKey = GrumpkinScalar.random();
 const newAccount = await wallet.createSchnorrAccount(secret, salt, signingKey);
 console.log("New account address:", newAccount.address.toString());
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L47-L55" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L47-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L47-L55" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L47-L55</a></sub></sup>
 
 
 The secret derives the account's encryption keys, the signing key authenticates its transactions, and the salt ensures address uniqueness. The signing key is provided independently and is not derived from the secret: it is an ownership key, so keep it separate from the encryption secret that your PXE holds.
@@ -76,7 +76,7 @@ await deployMethod.send({
   fee: { paymentMethod: sponsoredPaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L57-L83" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L57-L83</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L57-L83" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L57-L83</a></sub></sup>
 
 
 :::info
@@ -102,7 +102,7 @@ const feeJuiceAccount = await wallet.createSchnorrAccount(
   feeJuiceSigningKey,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L85-L97" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L85-L97</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L85-L97" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L85-L97</a></sub></sup>
 
 
 Claim the bridged Fee Juice and deploy in one step:
@@ -124,7 +124,7 @@ await deployMethodBridged.send({
   fee: { paymentMethod: bridgePaymentMethod },
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L166-L182" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L166-L182</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L166-L182" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L166-L182</a></sub></sup>
 
 
 If the account already has Fee Juice on L2 (for example, from a faucet or a previously claimed bridge), no special payment method is needed — just call `send({ from: NO_FROM })` and Fee Juice is used automatically.
@@ -141,7 +141,7 @@ Confirm the account was deployed successfully. Substitute the account variable f
 const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.initializationStatus);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L184-L189" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L184-L189</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L184-L189" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L184-L189</a></sub></sup>
 
 
 ## Next steps

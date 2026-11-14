@@ -98,6 +98,7 @@ export type Problem = { file: string; line?: number; message: string };
  * reference page's absolute links come from upstream doc comments, which only a redirect can fix:
  * check_source_urls.sh checks them in the committed reference, redirects included.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function brokenLinks(
   pages: { file: string; text: string }[],
   files: Set<string>,
@@ -160,6 +161,7 @@ export function startHereProblems(llms: string, expected: { title: string; url: 
  * TypeScript folder every page `namePages` expects (package file → page paths). No two pages may
  * differ only in case.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function apiCoverage(
   files: Set<string>,
   dirs: { kind: string; dir: string }[],
@@ -205,6 +207,7 @@ function walk(dir: string, root = dir, out = new Set<string>()): Set<string> {
   return out;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 export function main(buildDir: string, env = process.env): number {
   const files = walk(buildDir);
   const production = env.CONTEXT === "production";
@@ -220,7 +223,8 @@ export function main(buildDir: string, env = process.env): number {
   const { problems, checked, previewOnly } = brokenLinks(pages, files, { production, llmsOrigin });
   problems.push(...missingTwins(sitemapPaths(read("sitemap.xml")), files));
   problems.push(...startHereProblems(read("llms.txt"), networkDocs.startHereLinks(instances, llmsOrigin)));
-  const apiDirs = networkDocs.apiReferenceDirs(instances[0]);
+  const cut = JSON.parse(fs.readFileSync(new URL("../developer_versions.json", import.meta.url), "utf8"));
+  const apiDirs = networkDocs.apiReferenceDirs(instances[0], cut);
   const namePages = new Map<string, string[]>();
   for (const { kind, dir } of apiDirs) {
     for (const { name: pkg } of kind === "typescript" ? tsPackages.documentedPackages() : []) {

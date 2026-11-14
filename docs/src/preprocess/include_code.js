@@ -173,6 +173,7 @@ function processHighlighting(codeSnippet, identifier) {
     } else {
       // No match: it's an ordinary line of code.
     }
+    // biome-ignore lint/suspicious/noDoubleEquals: baselined 2026-11-12: === could change behaviour where the operands differ in type
     return line.trim() == "//" || line.trim() == "#" ? "" : line;
   };
 
@@ -181,7 +182,7 @@ function processHighlighting(codeSnippet, identifier) {
     return match ? match[0].length : 0;
   };
   let indention = 200;
-  let resultLines = [];
+  const resultLines = [];
 
   for (let line of lines) {
     mutated = false;
@@ -201,7 +202,7 @@ function processHighlighting(codeSnippet, identifier) {
   }
 
   let result = "";
-  for (let line of resultLines) {
+  for (const line of resultLines) {
     result +=
       (line.length > indention ? line.substring(indention) : line).trimEnd() +
       "\n";
@@ -220,7 +221,7 @@ function processHighlighting(codeSnippet, identifier) {
  * @returns the code snippet, and start and end line numbers which can later be used for creating a link to github source code.
  */
 function extractCodeSnippet(filePath, identifier) {
-  let fileContent = fs.readFileSync(filePath, "utf-8");
+  const fileContent = fs.readFileSync(filePath, "utf-8");
   let linesToRemove = [];
 
   const startRegex = /(?:\/\/|#)\s+docs:start:([a-zA-Z0-9-._:]+)/g; // `g` will iterate through the regex.exec loop
@@ -229,21 +230,24 @@ function extractCodeSnippet(filePath, identifier) {
   /**
    * Search for one of the regex statements in the code file. If it's found, return the line as a string and the line number.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
   const lookForMatch = (regex) => {
     let match;
     let matchFound = false;
     let matchedLineNum = null;
     let actualMatch = null;
-    let lines = fileContent.split("\n");
+    const lines = fileContent.split("\n");
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
     while ((match = regex.exec(fileContent))) {
       if (match !== null) {
         const identifiers = match[1].split(":");
-        let tempMatch = identifiers.includes(identifier) ? match : null;
+        const tempMatch = identifiers.includes(identifier) ? match : null;
 
         if (tempMatch === null) {
           // If it's not a match, we'll make a note that we should remove the matched text, because it's from some other identifier and should not appear in the snippet for this identifier.
           for (let i = 0; i < lines.length; i++) {
-            let line = lines[i];
+            const line = lines[i];
+            // biome-ignore lint/suspicious/noDoubleEquals: baselined 2026-11-12: === could change behaviour where the operands differ in type
             if (line.trim() == match[0].trim()) {
               linesToRemove.push(i + 1); // lines are indexed from 1
             }
@@ -302,12 +306,12 @@ function extractCodeSnippet(filePath, identifier) {
   });
 
   // Remove lines which contain `docs:` comments for unrelated identifiers:
-  lines = lines.filter((l, i) => {
+  lines = lines.filter((_l, i) => {
     return !linesToRemove.includes(i + 1); // lines are indexed from 1
   });
 
   // Remove lines from the snippet which fall outside the `docs:start` and `docs:end` values.
-  lines = lines.filter((l, i) => {
+  lines = lines.filter((_l, i) => {
     return i + 1 > startLineNum && i + 1 < endLineNum - linesToRemove.length; // lines are indexed from 1
   });
 
@@ -358,6 +362,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
   let match;
   // A fresh /g regex per call: a shared one keeps lastIndex after a throw and skips the next page's includes.
   const includeRegex = new RegExp(regex.source, regex.flags);
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = includeRegex.exec(markdownContent))) {
     matchesFound = true;
     const fullMatch = match[0];
@@ -366,6 +371,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
     const language = match[3];
     const opts = match[4] || "";
 
+    // biome-ignore lint/suspicious/noDoubleEquals: baselined 2026-11-12: === could change behaviour where the operands differ in type
     if (codeFilePath.slice(0) != "/") {
       // Absolute path to the code file from the root of the Docusaurus project
       // Note: without prefixing with `/`, the later call to `path.resolve()` gives an incorrect path (absolute instead of relative)
@@ -423,6 +429,7 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
 
 module.exports = {
   docsCommit,
+  includeCodeDirective: regex,
   preprocessIncludeCode,
   extractCodeSnippet,
   resolveSnippetSource,

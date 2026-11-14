@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useDoc, useDocsVersion } from '@docusaurus/plugin-content-docs/client';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import { buildAgentLinks } from '@site/src/utils/agentLinks';
@@ -78,6 +78,7 @@ const SparkIcon = () => (
   </svg>
 );
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export default function CopyMarkdownButton() {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);

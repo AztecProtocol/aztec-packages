@@ -1,0 +1,100 @@
+{
+  "biome": "2.6.5",
+  "suppressions": {
+    "biome-ignore lint/complexity/noExcessiveCognitiveComplexity": {
+      "netlify/functions/subscribe.js": 1,
+      "scripts/__tests__/biome_baseline.test.mts": 1,
+      "scripts/__tests__/netlify_redirects.test.mts": 1,
+      "scripts/__tests__/operate_sidebar.test.mts": 1,
+      "scripts/__tests__/preapproved_packages.test.mts": 1,
+      "scripts/append_api_docs_to_llms.js": 2,
+      "scripts/aztec_node.mts": 2,
+      "scripts/aztec_nr_api_markdown.mjs": 1,
+      "scripts/aztecjs_reference_generation/parse_typescript.js": 11,
+      "scripts/check_agent_readiness.mts": 3,
+      "scripts/check_built_site.mts": 1,
+      "scripts/check_search_index.mts": 1,
+      "scripts/labs_release_notes.mts": 1,
+      "scripts/line_copies.mts": 1,
+      "scripts/node_api_reference_generation/generate_node_api_reference.mts": 5,
+      "scripts/node_api_reference_generation/node_api_reference_document.mts": 3,
+      "scripts/production_fingerprint.mts": 1,
+      "scripts/typescript_api_generation/transform_for_llm.ts": 11,
+      "src/components/CopyMarkdownButton/htmlToMarkdown.ts": 1,
+      "src/components/MigrationRangeCopy/index.tsx": 1,
+      "src/components/OperatorConfig/context.js": 1,
+      "src/components/OperatorConfig/ProverRewardClaimer.js": 2,
+      "src/components/OperatorConfig/PublisherFundingCalculator.js": 2,
+      "src/migration_ranges.mjs": 1,
+      "src/plugins/pagefind/index.js": 1,
+      "src/preprocess/conditional_content.js": 1,
+      "src/preprocess/include_code.js": 1,
+      "src/preprocess/include_version.js": 1,
+      "src/preprocess/index.js": 1,
+      "src/theme/Footer/index.js": 1,
+      "src/theme/SearchBar/index.js": 3
+    },
+    "biome-ignore lint/complexity/noExcessiveLinesPerFunction": {
+      "netlify/functions/subscribe.js": 1,
+      "scripts/append_api_docs_to_llms.js": 1,
+      "scripts/node_api_reference_generation/node_api_reference_document.mts": 1,
+      "scripts/typescript_api_generation/transform_for_llm.ts": 2,
+      "src/components/CopyMarkdownButton/htmlToMarkdown.ts": 2,
+      "src/components/CopyMarkdownButton/index.tsx": 1,
+      "src/components/NPSWidget/index.tsx": 1,
+      "src/components/OperatorConfig/ProverRewardClaimer.js": 1,
+      "src/components/OperatorConfig/PublisherFundingCalculator.js": 2,
+      "src/theme/SearchBar/index.js": 1
+    },
+    "biome-ignore lint/correctness/noSwitchDeclarations": {
+      "scripts/typescript_api_generation/transform_for_llm.ts": 2
+    },
+    "biome-ignore lint/correctness/useExhaustiveDependencies": {
+      "src/components/Matomo/matomo.jsx": 2,
+      "src/components/MigrationRangeCopy/index.tsx": 1,
+      "src/components/OperatorConfig/ProverRewardClaimer.js": 1,
+      "src/components/OperatorConfig/PublisherFundingCalculator.js": 1
+    },
+    "biome-ignore lint/correctness/useParseIntRadix": {
+      "src/components/NPSWidget/index.tsx": 2
+    },
+    "biome-ignore lint/performance/noAccumulatingSpread": {
+      "src/components/OperatorConfig/context.js": 1
+    },
+    "biome-ignore lint/suspicious/noArrayIndexKey": {
+      "src/components/LandingPage/ProductCard.tsx": 1,
+      "src/components/OperatorConfig/index.js": 1,
+      "src/theme/SearchBar/index.js": 2
+    },
+    "biome-ignore lint/suspicious/noAssignInExpressions": {
+      "scripts/__tests__/netlify_redirects.test.mts": 1,
+      "scripts/append_api_docs_to_llms.js": 2,
+      "src/preprocess/conditional_content.js": 2,
+      "src/preprocess/include_code.js": 2
+    },
+    "biome-ignore lint/suspicious/noControlCharactersInRegex": {
+      "src/theme/SearchBar/search.mjs": 1
+    },
+    "biome-ignore lint/suspicious/noDoubleEquals": {
+      "src/components/Matomo/matomo.jsx": 2,
+      "src/preprocess/include_code.js": 3
+    },
+    "biome-ignore lint/suspicious/noExplicitAny": {
+      "scripts/check_search_index.mts": 1,
+      "scripts/node_api_reference_generation/generate_node_api_reference.mts": 2
+    },
+    "biome-ignore lint/suspicious/noGlobalIsFinite": {
+      "src/components/OperatorConfig/PublisherFundingCalculator.js": 2
+    },
+    "biome-ignore lint/suspicious/noPrototypeBuiltins": {
+      "src/components/OperatorConfig/context.js": 2
+    },
+    "biome-ignore lint/suspicious/noShadowRestrictedNames": {
+      "scripts/__tests__/preapproved_packages.test.mts": 1,
+      "scripts/aztec_nr_api_markdown.mjs": 1
+    },
+    "biome-ignore lint/suspicious/noTsIgnore": {
+      "docusaurus.config.js": 3
+    }
+  }
+}

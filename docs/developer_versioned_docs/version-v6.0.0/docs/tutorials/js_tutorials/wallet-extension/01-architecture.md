@@ -2,7 +2,7 @@
 title: "1. Extension Architecture"
 description: Understanding Chrome extension architecture for Aztec wallets - service workers, offscreen documents, and message passing
 sidebar_position: 1
-references: ["docs/examples/webapp-tutorial/test-extension/src/content-script.ts", "docs/examples/webapp-tutorial/test-extension/src/background.ts", "docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "docs/examples/webapp-tutorial/test-extension/src/config.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts", "docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts"]
 ---
 
 # Extension Architecture
@@ -70,7 +70,7 @@ const handler = new ContentScriptConnectionHandler(transport);
 handler.start();
 console.log('[content-script] Wallet SDK handler started');
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/content-script.ts#L1-L21" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/content-script.ts#L1-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts#L1-L21" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/content-script.ts#L1-L21</a></sub></sup>
 
 
 It uses the `ContentScriptConnectionHandler` from the wallet SDK, which:
@@ -117,7 +117,7 @@ async function ensureOffscreenDocument(): Promise<void> {
   log.debug("[background] Offscreen document created");
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/background.ts#L36-L70" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/background.ts#L36-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L36-L70" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/background.ts#L36-L70</a></sub></sup>
 
 
 Key responsibilities:
@@ -163,7 +163,7 @@ async function ensurePXE(nodeUrl: string = NODE_URL): Promise<{ pxe: PXE; node: 
   return pxeInitializing;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/offscreen/offscreen.ts#L123-L155</a></sub></sup>
 
 
 It hosts:
@@ -350,7 +350,7 @@ export const log = {
   error: (...args: unknown[]) => console.error(...args),
 };
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/test-extension/src/config.ts#L1-L96" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/test-extension/src/config.ts#L1-L96</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts#L1-L96" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/test-extension/src/config.ts#L1-L96</a></sub></sup>
 
 
 This keeps configuration in one place and provides typed message constants.

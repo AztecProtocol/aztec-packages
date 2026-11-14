@@ -17,12 +17,14 @@ CLI_CONFIG_JSON="$CLI_CONFIG_DIR/cli_docs_config.json"
 if ! command -v jq &> /dev/null; then
   echo "Error: jq is required but not installed" >&2
   echo "  Install with: brew install jq (macOS) or apt install jq (Linux)" >&2
+  # shellcheck disable=SC2317 # exit runs when the file is executed instead of sourced
   return 1 2>/dev/null || exit 1
 fi
 
 # Check config file exists
 if [[ ! -f "$CLI_CONFIG_JSON" ]]; then
   echo "Error: Config file not found: $CLI_CONFIG_JSON" >&2
+  # shellcheck disable=SC2317 # exit runs when the file is executed instead of sourced
   return 1 2>/dev/null || exit 1
 fi
 
@@ -37,6 +39,7 @@ readonly VALID_CLIS
 # Get configuration for a CLI from JSON
 # Sets: CLI_DISPLAY_NAME, CLI_TITLE, CLI_COMMAND, CLI_FORMAT,
 #       CLI_OUTPUT_FILE, CLI_SIDEBAR_POSITION, CLI_TAGS
+# shellcheck disable=SC2034 # the CLI_* variables are read by the scripts that source this file
 get_cli_config() {
   local cli_name="$1"
 

@@ -24,14 +24,16 @@ const [developerDocs, operatorDocs] = docsInstances(
   process.env.CONTEXT === "production",
 );
 
-// One API reference set per docs version a network reads, read from the build, where
-// aztec_nr_api_markdown.mjs and split_typescript_api.mjs have added their pages.
-const API_DIRS = builtApiReferenceDirs(developerDocs, STATIC_DIR)
+// Every served API reference folder, read from the build, where aztec_nr_api_markdown.mjs and
+// split_typescript_api.mjs have added their pages. Each gets its scoped index; only those a network
+// reads are listed in llms.txt and llms-full.txt, which leave historical docs out.
+const API_DIRS = builtApiReferenceDirs(developerDocs, require("../developer_versions.json"), STATIC_DIR)
   .map(({ kind, dir, version, networks }) => {
-    const scope = `${networks.join(" and ")}, ${version}`;
+    const scope = networks.length ? `${networks.join(" and ")}, ${version}` : version;
+    const listed = networks.length > 0;
     return kind === "aztec-nr"
-      ? { name: "Aztec.nr API Reference", dir, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
-      : { name: "TypeScript API Reference", dir, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
+      ? { name: "Aztec.nr API Reference", dir, listed, description: `Auto-generated API documentation for Aztec.nr (${scope})`, root: BUILD_DIR, format: "rustdoc" }
+      : { name: "TypeScript API Reference", dir, listed, description: `Auto-generated TypeScript API documentation for Aztec packages (${scope})`, root: BUILD_DIR, format: "markdown" };
   });
 if (!developerDocs.versions.some((v) => v.networks.length)) {
   console.warn("Warning: No network version found for API docs");
@@ -163,12 +165,14 @@ function extractModuleItems(htmlPath) {
   const sectionRegex =
     /<h2 id="(structs|traits|functions)">[^<]*<\/h2>\s*<ul class="item-list">([\s\S]*?)<\/ul>/g;
   let match;
+  // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
   while ((match = sectionRegex.exec(html)) !== null) {
     const kind = match[1];
     const body = match[2];
     const names = [];
     const itemRegex = /<div class="item-name">[\s\S]*?>([A-Za-z_][\w]*)<\/a>/g;
     let item;
+    // biome-ignore lint/suspicious/noAssignInExpressions: baselined 2026-11-12: assignment in a loop condition, kept as written
     while ((item = itemRegex.exec(body)) !== null) {
       names.push(item[1]);
     }
@@ -420,6 +424,8 @@ function pagesContent(index) {
 /**
  * Main function to complete llms.txt and write llms-full.txt.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 function main() {
   const llmsTxtPath = path.join(BUILD_DIR, "llms.txt");
   const llmsFullTxtPath = path.join(BUILD_DIR, "llms-full.txt");
@@ -449,11 +455,11 @@ function main() {
   // shorter context is needed, so secondary community resources live there and
   // are ordered last. Community resources are independent of the generated API
   // docs, so they are always appended (see write logic below).
-  let communitySection =
+  const communitySection =
     "\n\n## Optional\n\n" +
     "- [Aztec website](https://aztec.network): Aztec Network home page.\n" +
     "- [Noir language documentation](https://noir-lang.org/docs): The language Aztec smart contracts are written in, documented separately.\n" +
-    "- [Aztec.js getting started](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/aztecjs-getting-started): Deploy and call a contract from TypeScript.\n" +
+    "- [Your first full project](https://docs.aztec.network/developers/docs/tutorials/js_tutorials/first_full_project): Create a contract, then deploy and call it from TypeScript, starting from an empty folder.\n" +
     "- [Aztec MCP server](https://github.com/AztecProtocol/mcp-server): Code search, doc search, and example discovery for AI coding tools.\n" +
     "- [Aztec on GitHub](https://github.com/AztecProtocol): Source code, examples, and community resources.\n" +
     "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Community list of third-party Aztec projects, tools and libraries, labelled with the Aztec version each targets where it depends on Aztec.\n" +
@@ -480,16 +486,17 @@ function main() {
     const files = isMarkdown
       ? fs.readdirSync(dirPath).filter((f) => f.endsWith(".md")).sort().map((f) => path.join(dirPath, f))
       : sortByImportance(findMarkdownFiles(dirPath));
-    const ext = ".md";
     console.log(`Found ${files.length} markdown files in ${apiDir.dir}`);
 
     if (files.length === 0) {
       continue;
     }
 
-    sectionsAdded++;
-    fullContentSection += `## ${apiDir.name}\n\n`;
-    fullContentSection += `${apiDir.description}\n\n`;
+    if (apiDir.listed) {
+      sectionsAdded++;
+      fullContentSection += `## ${apiDir.name}\n\n`;
+      fullContentSection += `${apiDir.description}\n\n`;
+    }
 
     // Build the standalone scoped index: its own single H1 + blockquote
     // summary, then the module/package body.
@@ -504,6 +511,7 @@ function main() {
       // are what makes specific types (e.g. SingleUseClaim) findable: an agent
       // searching this index for the name lands on the owning module, then
       // follows the link to the module page.
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);
@@ -583,9 +591,11 @@ function main() {
       console.log(
         `  Wrote scoped index ${path.relative(BUILD_DIR, scopedPath)}`,
       );
-      apiReferenceLinks.push(
-        `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/${SCOPED_API_INDEX}): ${apiDir.description}`,
-      );
+      if (apiDir.listed) {
+        apiReferenceLinks.push(
+          `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/${SCOPED_API_INDEX}): ${apiDir.description}`,
+        );
+      }
     } catch (err) {
       console.error(
         `  Failed to write scoped index for ${apiDir.name}: ${err.message}`,
@@ -593,7 +603,7 @@ function main() {
     }
 
     // Add full content for all files (llms-full.txt)
-    for (const file of files) {
+    for (const file of apiDir.listed ? files : []) {
       try {
         const raw = fs.readFileSync(file, "utf-8");
         const text = raw.trim();

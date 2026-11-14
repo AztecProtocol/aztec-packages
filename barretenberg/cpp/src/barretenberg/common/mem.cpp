@@ -8,8 +8,8 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
-#include <mutex>
 #include <new>
+#include <os/lock.h>
 #include <sys/mman.h>
 #include <type_traits>
 
@@ -32,31 +32,19 @@ void observe(size_t size)
     }
 }
 
-/**
- * @brief A lock that is trivially destructible, unlike std::mutex.
- * @details The block registry below must outlive static destruction: a static object constructed before it can free
- * a mapped block after it has been destroyed, and locking a destroyed std::mutex fails with EINVAL (chonk_tests under
- * BB_SLOW_LOW_MEMORY=1 died at exit with "mutex lock failed"). With no destructor the registry stays usable to the end.
- * The critical sections are a scan of a small array, so spinning is fine.
- */
-class SpinLock {
-  public:
-    void lock()
-    {
-        while (locked_.exchange(true, std::memory_order_acquire)) {
-        }
-    }
-    void unlock() { locked_.store(false, std::memory_order_release); }
-
-  private:
-    std::atomic<bool> locked_{ false };
-};
+// The smallest page size of a supported Apple target (arm64 uses 16 KiB). A mapping starts on a page boundary, which
+// satisfies any alignment up to this.
+constexpr size_t MIN_PAGE_SIZE = 4096;
 
 /**
  * @brief The live directly mapped blocks, so operator delete can tell them from heap pointers.
  * @details A fixed array under a lock; at most a few hundred such blocks are live at once, so a scan is cheap. Most
  * deletes never reach it: a mapped block starts on a page boundary, and a pointer that does not cannot be one. No
  * allocation happens under the lock. When the array is full, new large allocations fall back to the heap.
+ *
+ * The registry must outlive static destruction: a static object constructed before it can free a mapped block after
+ * it would have been destroyed. So it is trivially destructible, and its lock is an os_unfair_lock, not a std::mutex
+ * (locking a destroyed std::mutex fails with EINVAL).
  */
 class MappedBlocks {
   public:
@@ -64,32 +52,38 @@ class MappedBlocks {
 
     bool insert(void* ptr, size_t size)
     {
-        const std::lock_guard<SpinLock> guard(lock_);
-        if (count_ == CAPACITY) {
-            return false;
+        os_unfair_lock_lock(&lock_);
+        const size_t count = count_.load(std::memory_order_relaxed);
+        const bool has_room = count < CAPACITY;
+        if (has_room) {
+            entries_[count] = { ptr, size };
+            count_.store(count + 1, std::memory_order_release);
         }
-        entries_[count_++] = { ptr, size };
-        live_.store(count_, std::memory_order_release);
-        return true;
+        os_unfair_lock_unlock(&lock_);
+        return has_room;
     }
 
     /** @brief Removes ptr and returns its mapping size, or 0 when ptr is not a mapped block. */
     size_t remove(void* ptr)
     {
-        constexpr uintptr_t PAGE_MASK = 4095;
-        if ((reinterpret_cast<uintptr_t>(ptr) & PAGE_MASK) != 0 || live_.load(std::memory_order_acquire) == 0) {
+        // Every supported page size is a multiple of MIN_PAGE_SIZE, so a mapping is aligned to at least that.
+        if ((reinterpret_cast<uintptr_t>(ptr) & (MIN_PAGE_SIZE - 1)) != 0 ||
+            count_.load(std::memory_order_acquire) == 0) {
             return 0;
         }
-        const std::lock_guard<SpinLock> guard(lock_);
-        for (size_t i = 0; i < count_; ++i) {
+        size_t size = 0;
+        os_unfair_lock_lock(&lock_);
+        const size_t count = count_.load(std::memory_order_relaxed);
+        for (size_t i = 0; i < count; ++i) {
             if (entries_[i].ptr == ptr) {
-                const size_t size = entries_[i].size;
-                entries_[i] = entries_[--count_];
-                live_.store(count_, std::memory_order_release);
-                return size;
+                size = entries_[i].size;
+                entries_[i] = entries_[count - 1];
+                count_.store(count - 1, std::memory_order_release);
+                break;
             }
         }
-        return 0;
+        os_unfair_lock_unlock(&lock_);
+        return size;
     }
 
   private:
@@ -98,17 +92,14 @@ class MappedBlocks {
         size_t size;
     };
     std::array<Entry, CAPACITY> entries_{};
-    size_t count_ = 0;
-    std::atomic<size_t> live_{ 0 };
-    SpinLock lock_;
+    // Written under the lock; read without it by remove() to skip the scan while no block is mapped.
+    std::atomic<size_t> count_{ 0 };
+    os_unfair_lock lock_ = OS_UNFAIR_LOCK_INIT;
 };
 static_assert(std::is_trivially_destructible_v<MappedBlocks>);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 MappedBlocks mapped_blocks;
-
-// A mapping starts on a page boundary, which satisfies any alignment up to the page size.
-constexpr size_t PAGE_SIZE = 4096;
 
 void* try_map(size_t size)
 {
@@ -150,7 +141,7 @@ void* allocate(size_t size)
 void* allocate_aligned(size_t size, size_t alignment)
 {
     observe(size);
-    if (alignment <= PAGE_SIZE) {
+    if (alignment <= MIN_PAGE_SIZE) {
         if (void* mapped = try_map(size); mapped != nullptr) {
             return mapped;
         }
@@ -199,11 +190,9 @@ void set_allocation_observer(AllocationObserver observer)
 }
 } // namespace bb::detail
 
+// The array forms, the sized deallocation forms and the nothrow forms are not replaced: the library's defaults forward
+// to these four.
 void* operator new(std::size_t size)
-{
-    return allocate(size);
-}
-void* operator new[](std::size_t size)
 {
     return allocate(size);
 }
@@ -211,39 +200,11 @@ void operator delete(void* ptr) noexcept
 {
     deallocate(ptr);
 }
-void operator delete(void* ptr, std::size_t /*size*/) noexcept
-{
-    deallocate(ptr);
-}
-void operator delete[](void* ptr) noexcept
-{
-    deallocate(ptr);
-}
-void operator delete[](void* ptr, std::size_t /*size*/) noexcept
-{
-    deallocate(ptr);
-}
 void* operator new(std::size_t size, std::align_val_t alignment)
 {
     return allocate_aligned(size, static_cast<size_t>(alignment));
 }
-void* operator new[](std::size_t size, std::align_val_t alignment)
-{
-    return allocate_aligned(size, static_cast<size_t>(alignment));
-}
 void operator delete(void* ptr, std::align_val_t /*alignment*/) noexcept
-{
-    deallocate(ptr);
-}
-void operator delete(void* ptr, std::size_t /*size*/, std::align_val_t /*alignment*/) noexcept
-{
-    deallocate(ptr);
-}
-void operator delete[](void* ptr, std::align_val_t /*alignment*/) noexcept
-{
-    deallocate(ptr);
-}
-void operator delete[](void* ptr, std::size_t /*size*/, std::align_val_t /*alignment*/) noexcept
 {
     deallocate(ptr);
 }

@@ -60,7 +60,7 @@ public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_
 public_teardown_call_request: PublicCallRequest,
 l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L140-L163</a></sub></sup>
 
 
 ### Private Context Broken Down
@@ -81,12 +81,12 @@ pub struct PrivateContextInputs {
     pub protocol_nullifier: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/inputs/private_context_inputs.nr#L7-L18</a></sub></sup>
 
 
 As shown in the snippet, the application context is made up of 3 main structures. The call context, the block header, and the private global variables.
 
-First of all, the [`CallContext`](pathname:///aztec-nr-api/mainnet/noir_aztec/protocol/abis/call_context/struct.CallContext.html), which contains information about the current call being made:
+First of all, the [`CallContext`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/protocol/abis/call_context/struct.CallContext.html), which contains information about the current call being made:
 
 1. Msg Sender
    - The message sender is the account (Aztec Contract) that sent the message to the current context. In the first call of the kernel circuit (often the account contract call), this value will be empty. For all subsequent calls the value will be the previous call.
@@ -105,11 +105,11 @@ First of all, the [`CallContext`](pathname:///aztec-nr-api/mainnet/noir_aztec/pr
 
 ### Block Header
 
-Another structure that is contained within the context is the [`BlockHeader`](pathname:///aztec-nr-api/mainnet/noir_aztec/protocol/abis/block_header/struct.BlockHeader.html) object, which is the header of the block used to generate proofs against.
+Another structure that is contained within the context is the [`BlockHeader`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/protocol/abis/block_header/struct.BlockHeader.html) object, which is the header of the block used to generate proofs against.
 
 ### Transaction Context
 
-The private context provides access to the [`TxContext`](pathname:///aztec-nr-api/mainnet/noir_aztec/protocol/abis/transaction/tx_context/struct.TxContext.html) as well, which holds user-defined values for the transaction in general that stay constant throughout its execution.
+The private context provides access to the [`TxContext`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/protocol/abis/transaction/tx_context/struct.TxContext.html) as well, which holds user-defined values for the transaction in general that stay constant throughout its execution.
 
 ### Args Hash
 
@@ -131,7 +131,7 @@ Some data structures impose time constraints, e.g. they may make it so that a va
 ```rust title="expiration-timestamp" showLineNumbers 
 pub fn set_expiration_timestamp(&mut self, expiration_timestamp: u64) {
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L647-L649</a></sub></sup>
 
 
 A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
@@ -172,4 +172,4 @@ The Public Context includes all of the information passed from the `Public VM` i
 
 ### Public Global Variables
 
-The public global variables ([`GlobalVariables`](pathname:///aztec-nr-api/mainnet/noir_aztec/protocol/abis/global_variables/struct.GlobalVariables.html)) are provided by the rollup sequencer and consequently contain some more values than the private global variables.
+The public global variables ([`GlobalVariables`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/protocol/abis/global_variables/struct.GlobalVariables.html)) are provided by the rollup sequencer and consequently contain some more values than the private global variables.

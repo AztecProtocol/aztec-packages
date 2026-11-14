@@ -21,7 +21,7 @@ export type Hit = { url: string; tags: string[] };
 export const PROBES: Probe[] = [
   { query: "getting started", plugin: "developer", paths: ["getting_started_on_testnet"] },
   { query: "deploy contract", plugin: "developer", paths: ["docs/aztec-js/how_to_deploy_contract"] },
-  { query: "run a node", plugin: "network", paths: ["operators/setup/running_a_node", "operators/full-node/setup"] },
+  { query: "run a node", plugin: "network", paths: ["operators", "operators/setup/running_a_node", "operators/full-node/setup"] },
   { query: "PrivateSet", plugin: "api", paths: ["noir_aztec/state_vars/struct.PrivateSet"] },
 ];
 const RETRIEVAL = 10;
@@ -52,7 +52,7 @@ function latestVersions(docsDir: string): Record<Plugin, string> {
   const [developer, network] = networkDocs
     .docsInstances(config("developer"), config("network"), process.env.CONTEXT === "production")
     .map((instance: { versions: { version: string; path: string }[] }) =>
-      instance.versions.find((v) => v.path === "")?.version);
+      instance.versions.find((v) => v.path === "")?.version as string);
   return { developer, network };
 }
 
@@ -80,6 +80,7 @@ async function loadPagefind(bundleDir: string) {
   return { pagefind, close: () => server.close() };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function check(buildDir: string, docsDir: string) {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -92,6 +93,7 @@ async function check(buildDir: string, docsDir: string) {
     const search = async (query: string | null, tags?: string[], top?: number): Promise<Hit[]> => {
       const { results } = await pagefind.search(query, tags ? { filters: { docusaurus_tag: { any: tags } } } : {});
       const data = await Promise.all(results.slice(0, top).map((r: { data: () => Promise<unknown> }) => r.data()));
+      // biome-ignore lint/suspicious/noExplicitAny: baselined 2026-11-12: untyped external data
       return data.map((d: any) => ({ url: d.url, tags: d.filters.docusaurus_tag ?? [] }));
     };
 

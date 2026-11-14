@@ -10,7 +10,14 @@
  * a typed interface for consumers. The module system caches the underlying
  * import() calls, but this provides a single entry point and avoids repeating
  * the destructuring boilerplate.
+ *
+ * The offscreen entry already loads fields, keys and constants at startup (through
+ * aztec.js/node and the PXE client), so they are imported statically: a dynamic
+ * import cannot defer them.
  */
+import { Fr, GrumpkinScalar } from "@aztec-labs/aztec.js/fields";
+import { SPONSORED_FPC_SALT } from "@aztec-labs/constants";
+import { deriveKeys } from "@aztec-labs/stdlib/keys";
 
 /** Core imports needed for account operations (key derivation, contract setup) */
 export interface AztecCoreImports {
@@ -54,19 +61,15 @@ export async function getAztecCore(): Promise<AztecCoreImports> {
   if (coreCache) return coreCache;
 
   const [
-    fields,
     addresses,
     account,
-    keys,
     accountUtils,
     schnorr,
     contracts,
     wallet,
   ] = await Promise.all([
-    import("@aztec-labs/aztec.js/fields"),
     import("@aztec-labs/aztec.js/addresses"),
     import("@aztec-labs/aztec.js/account"),
-    import("@aztec-labs/stdlib/keys"),
     import("@aztec-labs/accounts/utils"),
     import("@aztec-labs/accounts/schnorr/lazy"),
     import("@aztec-labs/aztec.js/contracts"),
@@ -74,11 +77,11 @@ export async function getAztecCore(): Promise<AztecCoreImports> {
   ]);
 
   coreCache = {
-    Fr: fields.Fr,
-    GrumpkinScalar: fields.GrumpkinScalar,
+    Fr,
+    GrumpkinScalar,
     AztecAddress: addresses.AztecAddress,
     NO_FROM: account.NO_FROM,
-    deriveKeys: keys.deriveKeys,
+    deriveKeys,
     deriveSecretKeyFromSigningKey: accountUtils.deriveSecretKeyFromSigningKey,
     SchnorrAccountContract: schnorr.SchnorrAccountContract,
     getContractInstanceFromInstantiationParams:
@@ -124,18 +127,17 @@ export async function getAztecWallet(): Promise<AztecWalletImports> {
 export async function getAztecDeploy(): Promise<AztecDeployImports> {
   if (deployCache) return deployCache;
 
-  const [core, fee, sponsoredFpc, constants] = await Promise.all([
+  const [core, fee, sponsoredFpc] = await Promise.all([
     getAztecCore(),
     import("@aztec-labs/aztec.js/fee"),
     import("@aztec-labs/noir-contracts.js/SponsoredFPC"),
-    import("@aztec-labs/constants"),
   ]);
 
   deployCache = {
     ...core,
     SponsoredFeePaymentMethod: fee.SponsoredFeePaymentMethod,
     SponsoredFPCContract: sponsoredFpc.SponsoredFPCContract,
-    SPONSORED_FPC_SALT: constants.SPONSORED_FPC_SALT,
+    SPONSORED_FPC_SALT,
   };
 
   return deployCache;

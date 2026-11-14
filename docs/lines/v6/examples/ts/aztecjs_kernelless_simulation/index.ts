@@ -6,6 +6,14 @@ import { CrowdfundingContract } from "@aztec-labs/noir-contracts.js/Crowdfunding
 import { Fr } from "@aztec-labs/aztec.js/fields";
 import { deriveKeys } from "@aztec-labs/aztec.js/keys";
 import { CallAuthorizationRequest } from "@aztec-labs/aztec.js/authorization";
+import {
+  publishContractClass,
+  publishInstance,
+} from "@aztec-labs/aztec.js/deployment";
+import {
+  getStandardPublicChecks,
+  PublicChecksArtifact,
+} from "@aztec-labs/standard-contracts/public-checks";
 
 // Setup: connect to network, create alice and bob, deploy a token, mint to alice.
 // EmbeddedWallet runs every .simulate() call in kernelless mode with a stub-account
@@ -52,6 +60,29 @@ const { result: decimals } = await tokenContract.methods
 
 console.log("Token decimals (read via private view):", decimals);
 // docs:end:simulate-view-without-signing
+
+// Crowdfunding.donate checks its deadline through the standard PublicChecks contract, which a
+// local network does not publish.
+// docs:start:publish-public-checks
+const publicChecks = await getStandardPublicChecks();
+const publicChecksClass = await wallet.getContractClassMetadata(
+  publicChecks.contractClass.id,
+);
+if (!publicChecksClass.isContractClassPubliclyRegistered) {
+  await (
+    await publishContractClass(wallet, PublicChecksArtifact)
+  ).send({ from: aliceAddress });
+}
+const publicChecksInstance = await wallet.getContractMetadata(
+  publicChecks.instance.address,
+);
+if (!publicChecksInstance.isContractPublished) {
+  await publishInstance(wallet, publicChecks.instance).send({
+    from: aliceAddress,
+  });
+}
+await wallet.registerContract(publicChecks.instance, PublicChecksArtifact);
+// docs:end:publish-public-checks
 
 // Deploy a Crowdfunding contract with Bob as the operator and the previously
 // deployed token as the donation token. The contract receives donation notes

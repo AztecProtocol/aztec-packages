@@ -25,10 +25,10 @@ int parse_and_run_avm(int argc, char* argv[])
     msgpack_run_command->add_option("-i,--input", input_path, "IPC socket/shm path (.sock or .shm)")->required();
 
     std::string wsdb_path;
-    msgpack_run_command->add_option("--wsdb", wsdb_path, "WSDB server IPC path")->required();
+    msgpack_run_command->add_option("--wsdb", wsdb_path, "WSDB server IPC path (Simulate needs it)");
 
     std::string cdb_path;
-    msgpack_run_command->add_option("--cdb", cdb_path, "CDB server IPC path")->required();
+    msgpack_run_command->add_option("--cdb", cdb_path, "CDB server IPC path (Simulate needs it)");
 
     // Parse CLI
     try {

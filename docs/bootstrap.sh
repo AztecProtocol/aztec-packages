@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+# shellcheck source=/dev/null # ci3 is linted by its owners, not by the docs lint
+source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
 
 repo_root=$(git rev-parse --show-toplevel)
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
 # Snippets under labs/ come from the aztec-node commit docs/aztec-node.json pins, which ^docs/ already keys.
+# shellcheck disable=SC2046 # the include paths and the directories split into words on purpose
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
@@ -33,23 +35,24 @@ function lines {
 }
 
 function build_docs {
-  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == arm64 ]; then
     echo "Not building docs for arm64 in CI."
     return
   fi
   echo_header "build docs"
   fetch_aztec_node
   npm_install_deps
-  if cache_download docs-$hash.tar.gz; then
+  if cache_download "docs-$hash.tar.gz"; then
     return
   fi
+  # shellcheck source=scripts/node_options.sh
   source "$repo_root/docs/scripts/node_options.sh"
   denoise "yarn build"
-  cache_upload docs-$hash.tar.gz build
+  cache_upload "docs-$hash.tar.gz" build
 }
 
 function check_generated_refs {
-  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == arm64 ]; then
     echo "Not checking generated docs for arm64 in CI."
     return
   fi
@@ -62,7 +65,7 @@ function check_generated_refs {
 }
 
 function test_cmds {
-  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == arm64 ]; then
     # Not running docs tests for arm64 in CI.
     return
   fi
@@ -70,6 +73,7 @@ function test_cmds {
   local test_hash=$hash
   echo "$test_hash cd docs && yarn spellcheck"
   echo "$test_hash cd docs && yarn test"
+  echo "$test_hash cd docs && yarn lint"
 
   # Delegate to examples for their test commands
   (cd examples && ./bootstrap.sh test_cmds)
@@ -165,6 +169,7 @@ function build_line_examples {
   done
 }
 
+# shellcheck disable=SC2154 # set by ci3/source_bootstrap
 case "$cmd" in
   "ci")
     build_examples

@@ -15,7 +15,7 @@ From the `webapp-tutorial` directory:
 
 ```bash
 # Install dependencies, if the clone steps have not already
-./setup.sh #include_version_without_prefix
+./setup.sh #include_version_without_prefix #include_foundation_version_without_prefix
 
 # Build the extension
 node esbuild.extension.mjs

@@ -1,8 +1,8 @@
 ---
 title: Deploying a Token Contract
-sidebar_position: 0
+sidebar_position: 0.5
 description: A tutorial going through how to deploy a token contract to the local network using typescript.
-references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
+references: ["docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts"]
 ---
 
 import Image from "@theme/IdealImage";
@@ -38,6 +38,16 @@ Let's also import the Aztec dependencies for this tutorial:
 ```sh
 yarn add @aztec-labs/aztec.js@6.0.0 @aztec-labs/accounts@6.0.0 @aztec-labs/noir-contracts.js@6.0.0 @aztec-labs/wallets@6.0.0
 ```
+
+:::tip Packages published in the last 24 hours
+Yarn 4.15 and later refuse packages published less than a day ago by default, reporting them as "quarantined". If you install a release on its publication day, add this to `.yarnrc.yml`. It exempts only the versions this page installs, so a later publication still waits out the gate:
+
+```yaml
+npmPreapprovedPackages:
+  - "@aztec-labs/*@6.0.0"
+  - "@aztec-foundation/*@6.0.0"
+```
+:::
 
 Aztec.js assumes your project is using ESM, so make sure you add `"type": "module"` to `package.json`. You probably also want at least a `start` script. For example:
 
@@ -87,7 +97,7 @@ await wallet.createSchnorrInitializerlessAccount(
   bob.signingKey,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L1-L19" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L1-L19</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L1-L19" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L1-L19</a></sub></sup>
 
 
 **Step 3: Verify the script runs**
@@ -117,7 +127,7 @@ const { contract: token } = await TokenContract.deploy(
   18,
 ).send({ from: alice.address });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L21-L31" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L21-L31</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L21-L31" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L21-L31</a></sub></sup>
 
 
 ## Mint and transfer
@@ -129,7 +139,7 @@ await token.methods
   .mint_to_private(alice.address, 100)
   .send({ from: alice.address });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L33-L37" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L33-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L33-L37" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L33-L37</a></sub></sup>
 
 
 Let's check both Alice's and Bob's balances now:
@@ -144,7 +154,7 @@ let { result: bobBalance } = await token.methods
   .simulate({ from: bob.address });
 console.log(`Bob's balance: ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L39-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L39-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L39-L48" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L39-L48</a></sub></sup>
 
 
 Alice should have 100 tokens, while Bob has none yet.
@@ -158,7 +168,7 @@ await token.methods.transfer(bob.address, 10).send({ from: alice.address });
   .simulate({ from: bob.address }));
 console.log(`Bob's balance: ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L50-L56" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L50-L56</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L50-L56" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L50-L56</a></sub></sup>
 
 
 Bob should now see 10 tokens in his balance.
@@ -170,7 +180,7 @@ Say that Alice is nice and wants to set Bob as a minter. Even though it's a publ
 ```typescript title="set_minter" showLineNumbers 
 await token.methods.set_minter(bob.address, true).send({ from: alice.address });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L58-L60" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L58-L60</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L58-L60" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L58-L60</a></sub></sup>
 
 
 Bob is now the minter, so he can mint some tokens to himself:
@@ -184,7 +194,7 @@ await token.methods
   .simulate({ from: bob.address }));
 console.log(`Bob's balance: ${bobBalance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_getting_started/index.ts#L62-L70" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_getting_started/index.ts#L62-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L62-L70" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_getting_started/index.ts#L62-L70</a></sub></sup>
 
 
 :::info
@@ -197,7 +207,7 @@ Have a look at the [contract source](https://github.com/aztec-labs-eng/aztec-nod
 
 The pre-compiled token contract used in this tutorial is Aztec's reference implementation. It covers the core operations you need to get started: minting, private transfers, and public balance management.
 
-For more complete token features, consider the **AIP-20 Token Standard**, maintained by the Aztec Foundation in the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards/tree/v6.0.0/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
+For more complete token features, consider the **AIP-20 Token Standard**, maintained by the Aztec Foundation in the [`aztec-standards` repository](https://github.com/AztecProtocol/aztec-standards/tree/main/src/token_contract). AIP-20 formalizes the same patterns used in the reference contract and adds:
 
 - **Commitment-based transfers** for DeFi protocols where the amount is determined asynchronously
 - **Recursive note consumption** for handling large balances that span many notes

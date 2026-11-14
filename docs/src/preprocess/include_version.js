@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { processConditionalBlocks } = require("./conditional_content");
 const { releaseNameFor, versionLabel } = require("../release_names");
-const { lineApiFolders, networkApiFolder } = require("../network_docs");
+const { apiReferenceFolder, lineApiFolders } = require("../network_docs");
 const { lineOf, readPin } = require("./line");
 const { docsCommit } = require("./include_code");
 
@@ -93,6 +93,7 @@ function pinnedAztecNodeRef() {
  * @param {string} [rootDir] - The repository root; without it every page is main's
  * @returns {Promise<{content: string, isUpdated: boolean}>} - Processed content and update flag
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 async function preprocessIncludeVersion(markdownContent, filePath = "unknown", rootDir = undefined) {
   const originalContent = markdownContent;
   // A line page names its own pin, whatever a release build sets for main's pages.
@@ -129,15 +130,11 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown", r
   );
   const releaseNetwork = getReleaseNetwork(releaseType);
 
-  // The folder the build serves once this release type reads the version being built: a release
-  // cut freezes these links into its snapshot before it maps that version. A testnet on mainnet's
-  // version has no folder of its own. A release that leaves the developer docs alone (a network-only
-  // cut) keeps their versions, so its build links folders it serves.
-  const developerVersions = process.env.KEEP_DEVELOPER_VERSIONS === "1"
-    ? developerVersionConfig
-    : { ...developerVersionConfig, [releaseType]: `v${stripV(releaseVersion)}` };
-  const apiRefVersion = networkApiFolder(developerVersions, releaseType)
-                      ?? (releaseType === "testnet" || releaseType === "mainnet" ? releaseType : "next");
+  // The version being built, whose reference folder a release cut generates before it freezes these
+  // links into its snapshot. A release that leaves the developer docs alone (a network-only cut)
+  // links the version its type already reads.
+  const builtVersion =
+    (process.env.KEEP_DEVELOPER_VERSIONS === "1" && developerVersionConfig[releaseType]) || `v${stripV(releaseVersion)}`;
 
   // Step 1: Process conditional blocks FIRST (before version substitution)
   // This allows conditionals to contain version macros
@@ -163,8 +160,11 @@ async function preprocessIncludeVersion(markdownContent, filePath = "unknown", r
   // The commit the page's snippet links into this repository name, so hand-written links and clones show the same files.
   if (markdownContent.includes("#docs_commit"))
     markdownContent = markdownContent.replaceAll("#docs_commit", docsCommit(rootDir));
-  if (markdownContent.includes("#api_ref_version"))
-    markdownContent = markdownContent.replaceAll(`#api_ref_version`, line ? lineApiRefVersion(line) : apiRefVersion);
+  if (markdownContent.includes("#api_ref_version")) {
+    if (!line && builtVersion === "v0.0.0")
+      throw new Error(`${filePath}: #api_ref_version needs a version: RELEASE_TYPE=${releaseType} resolved none, so set ${releaseType.toUpperCase()}_TAG`);
+    markdownContent = markdownContent.replaceAll(`#api_ref_version`, line ? lineApiRefVersion(line) : apiReferenceFolder(builtVersion));
+  }
   if (markdownContent.includes("#include_foundation_version")) {
     const foundation = linePin ? `v${linePin.toolchain.l1Artifacts}` : foundationVersion();
     // The prefixless name first: the other macro is a prefix of it.

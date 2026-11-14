@@ -13,12 +13,12 @@ set -euo pipefail
 #
 # Checks performed:
 #   1. Broken links - target file does not exist at all
-#   2. Version mismatches - link uses wrong API version for its docs directory (e.g., a devnet
-#      versioned doc linking to nightly API, or vice versa)
+#   2. Version mismatches - a snapshot links an Aztec.nr API folder other than its version's
+#      (`apiReferenceFolder` in src/network_docs.js)
 #
 # Usage: validate_api_ref_links.sh   (DOCS_ROOT overrides the docs/ directory it reads)
 #
-# Exit code: Always 0 (warnings only) to avoid breaking builds initially.
+# Exit code: 1 if a link is broken. A version mismatch only warns.
 
 # Lowercase a string. The `${var,,}` form this replaces is bash 4 only: macOS
 # ships bash 3.2, where it aborts with "bad substitution".
@@ -41,7 +41,7 @@ docs_routes_init_api_indexes
 echo "Validating API reference links..."
 
 # Collect directories to scan.
-# 1. processed-docs/ — current docs with macros resolved (available during build after preprocess:move)
+# 1. processed-docs/ — current docs with macros resolved (written by `yarn preprocess`)
 # 2. developer_versioned_docs/ — pinned version snapshots (macros already resolved at version time)
 # 3. docs-developers/ — source files (for TypeScript API JSX components that don't use macros)
 # We skip docs-developers/ for aztec-nr-api links because they contain unresolved #api_ref_version macros,
@@ -76,37 +76,26 @@ TOTAL_COUNT=0
 BROKEN_DETAILS=()
 VERSION_MISMATCH_DETAILS=()
 
-# Build version-to-type lookup from config files
-# Returns lines like "v4.2.0-aztecnr-rc.2=mainnet"
-DEVELOPER_VERSION_TYPE_MAP=""
-if [[ -f "$DOCS_ROOT/developer_version_config.json" ]]; then
-  DEVELOPER_VERSION_TYPE_MAP=$(node -e "
-    const config = require('$DOCS_ROOT/developer_version_config.json');
-    for (const [type, version] of Object.entries(config)) {
-      if (version) console.log(version + '=' + type);
-    }
-  " 2>/dev/null || echo "")
-fi
+# Lines like "v5.2.0=v6.0.0": a docs version whose pages link another version's API folder.
+API_REFERENCE_STAND_INS=$(cd "$DOCS_ROOT" && node -e '
+  const { API_REFERENCE_STAND_INS } = require("./src/network_docs");
+  for (const [version, folder] of Object.entries(API_REFERENCE_STAND_INS)) console.log(version + "=" + folder);
+')
 
-# Look up a version string in the type map
-# Args: $1 = version string (e.g., "v4.2.0-aztecnr-rc.2")
-# Outputs: the release type (e.g., "mainnet") or empty string if not found
-lookup_version_type() {
-  local version="$1"
-  local result=""
+# Outputs the API reference folder that the pages of docs version $1 link.
+api_reference_folder() {
+  local version="$1" line
   while IFS= read -r line; do
-    local map_version="${line%%=*}"
-    local map_type="${line#*=}"
-    if [[ "$map_version" == "$version" ]]; then
-      result="$map_type"
-      break
+    if [[ -n "$line" ]] && [[ "${line%%=*}" == "$version" ]]; then
+      echo "${line#*=}"
+      return
     fi
-  done <<< "$DEVELOPER_VERSION_TYPE_MAP"
-  echo "$result"
+  done <<< "$API_REFERENCE_STAND_INS"
+  echo "$version"
 }
 
 # Resolve a link path to a file in static/, case-insensitively.
-# Args: $1 = path relative to static/ (e.g., aztec-nr-api/devnet/noir_aztec/state_vars/struct.publicmutable)
+# Args: $1 = path relative to static/ (e.g., aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.publicmutable)
 # Outputs: the matched filesystem path (if found), empty string if not
 # Returns: 0 if found, 1 if not
 resolve_static_path() {
@@ -192,36 +181,14 @@ resolve_static_path() {
   return 0
 }
 
-# Determine the expected API version from a docs directory path.
-# Uses the version config file for explicit type resolution.
+# The Aztec.nr API folder a docs directory's links must name.
 # Args: $1 = search directory path
-# Outputs: release type (e.g., "mainnet", "devnet") or "" (skip version check)
+# Outputs: the folder for a snapshot (version-<v>), or "" (skip the version check) for any other directory
 get_expected_api_version() {
-  local search_dir="$1"
   local dirname
-  dirname=$(basename "$search_dir")
-
-  # Extract version string from directory name (e.g., "version-v4.2.0-aztecnr-rc.2" → "v4.2.0-aztecnr-rc.2")
-  local version_str="${dirname#version-}"
-
-  # Look up in the config-based type map
-  local type_from_config
-  type_from_config=$(lookup_version_type "$version_str")
-  if [[ -n "$type_from_config" ]]; then
-    echo "$type_from_config"
-    return
-  fi
-
-  # Fallback: pattern matching for directories not in the config
-  if [[ "$dirname" =~ devnet ]]; then
-    echo "devnet"
-  elif [[ "$dirname" =~ nightly ]]; then
-    echo "nightly"
-  elif [[ "$dirname" =~ mainnet ]]; then
-    echo "mainnet"
-  else
-    # processed-docs or unrecognized — skip version check
-    echo ""
+  dirname=$(basename "$1")
+  if [[ "$dirname" == version-* ]]; then
+    api_reference_folder "${dirname#version-}"
   fi
 }
 
@@ -248,7 +215,7 @@ process_link() {
     return
   fi
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Version mismatch check: verify the link uses the expected API version
   if [[ -n "$expected_version" ]]; then
@@ -274,35 +241,15 @@ process_link() {
   fi
 }
 
-# Get the expected TypeScript API version from a docs directory path.
-# Uses the version config file for explicit type resolution.
+# The TypeScript API folder that a docs directory's <ApiFile>/<ApiLink> paths resolve against.
 # Args: $1 = search directory path
-# Outputs: release type (e.g., "mainnet", "devnet") or "next"
+# Outputs: the folder for a snapshot (version-<v>), or "next" for any other directory
 get_expected_ts_api_version() {
-  local search_dir="$1"
   local dirname
-  dirname=$(basename "$search_dir")
-
-  # Extract version string from directory name
-  local version_str="${dirname#version-}"
-
-  # Look up in the config-based type map
-  local type_from_config
-  type_from_config=$(lookup_version_type "$version_str")
-  if [[ -n "$type_from_config" ]]; then
-    echo "$type_from_config"
-    return
-  fi
-
-  # Fallback: pattern matching for directories not in the config
-  if [[ "$dirname" =~ devnet ]]; then
-    echo "devnet"
-  elif [[ "$dirname" =~ nightly ]]; then
-    echo "nightly"
-  elif [[ "$dirname" =~ mainnet ]]; then
-    echo "mainnet"
+  dirname=$(basename "$1")
+  if [[ "$dirname" == version-* ]]; then
+    api_reference_folder "${dirname#version-}"
   else
-    # processed-docs maps to "next"
     echo "next"
   fi
 }
@@ -324,15 +271,11 @@ process_ts_api_link() {
 
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
-  local rel_source="${source_file#$DOCS_ROOT/}"
+  local rel_source="${source_file#"$DOCS_ROOT"/}"
 
   # Check if the file exists under static/typescript-api/{version}/
   local full_path="$TS_STATIC_API_DIR/$expected_version/$file_path"
   if [[ ! -f "$full_path" ]]; then
-    # Also try "nightly" as fallback since that's the only generated output currently
-    if [[ "$expected_version" != "nightly" ]] && [[ -f "$TS_STATIC_API_DIR/nightly/$file_path" ]]; then
-      return
-    fi
     resolves_api_index "/typescript-api/$expected_version/$file_path" && return
     BROKEN_COUNT=$((BROKEN_COUNT + 1))
     BROKEN_DETAILS+=("$rel_source:$line_num -> typescript-api/$expected_version/$file_path")
@@ -354,7 +297,7 @@ TS_JSX_HREF_PATTERN='href="/typescript-api/([^"]*)"'
 # Scan files for links
 for search_dir in "${SEARCH_DIRS[@]}"; do
   expected_version=$(get_expected_api_version "$search_dir")
-  rel_search_dir="${search_dir#$DOCS_ROOT/}"
+  rel_search_dir="${search_dir#"$DOCS_ROOT"/}"
   if [[ -n "$expected_version" ]]; then
     echo "  $rel_search_dir (expected API version: $expected_version)"
   else
@@ -366,6 +309,7 @@ for search_dir in "${SEARCH_DIRS[@]}"; do
   # Find all .md and .mdx files
   while IFS= read -r -d '' file; do
     local_line_num=0
+    # shellcheck disable=SC2094 # the link checks only read "$file"
     while IFS= read -r line; do
       local_line_num=$((local_line_num + 1))
 
@@ -439,7 +383,7 @@ echo "  - Version mismatches: $VERSION_MISMATCH_COUNT"
 
 if [[ $BROKEN_COUNT -gt 0 ]]; then
   echo ""
-  echo "WARNING: $BROKEN_COUNT broken API reference link(s) found."
+  echo "ERROR: $BROKEN_COUNT broken API reference link(s) found."
   echo "These links point to files that don't exist in static/aztec-nr-api/ or static/typescript-api/."
   echo "Run 'yarn generate:aztec-nr-api' or 'yarn generate:typescript-api' to regenerate the API docs."
 fi
@@ -450,5 +394,5 @@ if [[ $VERSION_MISMATCH_COUNT -gt 0 ]]; then
   echo "These links reference the wrong API version for their docs directory."
 fi
 
-# Exit 0 with warnings to avoid breaking builds initially
-exit 0
+# pathname:/// links bypass Docusaurus's link check, so this is the only gate for them.
+[[ $BROKEN_COUNT -eq 0 ]]

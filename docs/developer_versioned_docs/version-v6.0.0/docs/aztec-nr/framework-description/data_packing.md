@@ -3,7 +3,7 @@ title: Data Packing and Serialization
 sidebar_position: 7
 tags: [contracts, storage, gas, optimization]
 description: Understand Serialize, Deserialize, and Packable traits, when each is used, how to write custom packing, and the cost implications.
-references: ["docs/examples/contracts/packing_example/src/types.nr"]
+references: ["docs/lines/v6/examples/contracts/packing_example/src/types.nr", "docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr"]
 ---
 
 Aztec contracts use two separate encoding schemes to convert structs into `Field` arrays. This page tells you which one to reach for and when.
@@ -57,12 +57,12 @@ pub struct OwnerNote {
     pub owner: AztecAddress,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L20-L28" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L20-L28</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L20-L28" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L20-L28</a></sub></sup>
 
 
 `Eq` is a Noir standard trait for equality comparisons (see [Noir's `Eq` trait](https://noir-lang.org/docs/language/traits)). `#[note]` does not require it, but deriving it is idiomatic because it enables `assert_eq` in tests and note-equality checks. `Serialize` and `Deserialize` are similarly optional here, and useful when a note type crosses a function boundary.
 
-This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-nr-api/mainnet/address_note/struct.AddressNote) and [`FieldNote`](pathname:///aztec-nr-api/mainnet/field_note/struct.FieldNote) both derive `Packable` directly because their members are already `Field` or `AztecAddress`.
+This is how the built-in note types work too: [`AddressNote`](pathname:///aztec-nr-api/v6.0.0/address_note/struct.AddressNote) and [`FieldNote`](pathname:///aztec-nr-api/v6.0.0/field_note/struct.FieldNote) both derive `Packable` directly because their members are already `Field` or `AztecAddress`.
 
 When a note has members smaller than a `Field` (`bool`, `u8`, `u32`, `u64`), you can skip the `Packable` derive and write a custom implementation that packs multiple values into a single `Field`:
 
@@ -90,7 +90,7 @@ impl Packable for CardNote {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L30-L53" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L30-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L30-L53" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L30-L53</a></sub></sup>
 
 
 Derived `Packable` would give `CardNote` an `N = 2`; the custom impl halves that to `N = 1`. Smaller `N` means fewer inputs to the note hash, which directly reduces the gate count of private functions.
@@ -118,10 +118,10 @@ pub struct ServerConfig {
 }
 // N = 3 (one Field per member)
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L8-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L8-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L8-L18" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L8-L18</a></sub></sup>
 
 
-For [`PublicMutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/mainnet/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
+For [`PublicMutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PublicMutable), each element of the packed `[Field; N]` array maps directly to one `SLOAD` on read and one `SSTORE` on write, so a smaller `N` is a direct gas saving. [`PublicImmutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.PublicImmutable) and [`DelayedPublicMutable<T>`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/state_vars/struct.DelayedPublicMutable) have additional overhead on top (see [Cost impact](#cost-impact) below), but also benefit from a smaller `N`.
 
 When your struct has members smaller than a `Field`, deriving still uses one whole `Field` per member, which is wasteful. The next section shows how to write a manual implementation that collapses them.
 
@@ -182,7 +182,7 @@ impl Packable for GameState {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L112-L156" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L112-L156</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L112-L156" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L112-L156</a></sub></sup>
 
 
 `N = 1` means every storage read or write uses one `SLOAD` / `SSTORE` instead of three. The rest of this section walks through how the implementation was built.
@@ -226,7 +226,7 @@ fn pack(self) -> [Field; Self::N] {
     ]
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L125-L136" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L125-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L125-L136" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L125-L136</a></sub></sup>
 
 
 The bit layout you choose is arbitrary; the only requirement is that `pack` and `unpack` agree. The example above places `score` (a `u32`) at the lowest bits because a truncating cast (`packed[0] as u32`) then extracts it for free, with no subtraction or division. When you have a member whose width matches a standard `uN` type, putting it in the lowest position makes `unpack` cleaner. The remaining members can be placed in any order above it.
@@ -252,12 +252,12 @@ fn unpack(packed: [Field; Self::N]) -> Self {
     Self { started, round, score }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L138-L154" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L138-L154</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L138-L154" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L138-L154</a></sub></sup>
 
 
 ### Step 4: Write roundtrip tests
 
-Always test that `unpack(pack(x)) == x` for boundary values:
+Always test that `unpack(pack(x)) == x` for boundary values. The tests go in the contract's test crate, not in the contract crate (see [Keep tests in the test crate](../testing_contracts.md#keep-tests-in-the-test-crate)), so the contract crate declares `pub mod types;` for the test crate to import the types:
 
 ```rust title="game_state_tests" showLineNumbers 
 #[test]
@@ -271,15 +271,14 @@ fn test_game_state_pack_unpack() {
 
 #[test]
 fn test_game_state_pack_unpack_max() {
-    let state =
-        GameState { started: true, round: 0xffffffff, score: 0xffffffff };
+    let state = GameState { started: true, round: 0xffffffff, score: 0xffffffff };
     let unpacked = GameState::unpack(state.pack());
     assert_eq(unpacked.started, state.started);
     assert_eq(unpacked.round, state.round);
     assert_eq(unpacked.score, state.score);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L204-L223" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L204-L223</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr#L47-L65" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr#L47-L65</a></sub></sup>
 
 
 ## More custom Packable examples
@@ -309,7 +308,7 @@ impl Packable for Card {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L55-L77" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L55-L77</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L55-L77" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L55-L77</a></sub></sup>
 
 
 With derived `Packable`, `Card` would have `N = 2`. The manual implementation achieves `N = 1`, halving the storage cost.
@@ -348,7 +347,7 @@ impl Packable for GameConfig {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L79-L110" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L79-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example/src/types.nr#L79-L110" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example/src/types.nr#L79-L110</a></sub></sup>
 
 
 A `u128` and a `u64` pack into a single `Field` (128 + 64 = 192 bits, well within the 253-bit safe limit), while the `AztecAddress` occupies a full `Field` on its own. This reduces `N` from 3 to 2.
@@ -358,72 +357,70 @@ A `u128` and a `u64` pack into a single `Field` (128 + 64 = 192 bits, well withi
 Always test custom `Packable` implementations at boundary values:
 
 ```rust title="pack_unpack_tests" showLineNumbers 
-mod test {
-    use super::{AztecAddress, Card, FromField, GameConfig, GameState, Packable};
+use aztec::protocol::{address::AztecAddress, traits::{FromField, Packable}};
+use packing_example::types::{Card, GameConfig, GameState};
 
-    #[test]
-    fn test_card_pack_unpack() {
-        let card = Card { strength: 42, points: 100 };
-        let unpacked = Card::unpack(card.pack());
-        assert_eq(unpacked.strength, card.strength);
-        assert_eq(unpacked.points, card.points);
-    }
+#[test]
+fn test_card_pack_unpack() {
+    let card = Card { strength: 42, points: 100 };
+    let unpacked = Card::unpack(card.pack());
+    assert_eq(unpacked.strength, card.strength);
+    assert_eq(unpacked.points, card.points);
+}
 
-    #[test]
-    fn test_card_pack_unpack_max() {
-        let card = Card { strength: 0xffffffff, points: 0xffffffff };
-        let unpacked = Card::unpack(card.pack());
-        assert_eq(unpacked.strength, card.strength);
-        assert_eq(unpacked.points, card.points);
-    }
+#[test]
+fn test_card_pack_unpack_max() {
+    let card = Card { strength: 0xffffffff, points: 0xffffffff };
+    let unpacked = Card::unpack(card.pack());
+    assert_eq(unpacked.strength, card.strength);
+    assert_eq(unpacked.points, card.points);
+}
 
-    #[test]
-    fn test_config_pack_unpack() {
-        let config = GameConfig {
-            interest_accumulator: 1000000,
-            last_updated_ts: 1700000000,
-            admin: AztecAddress::from_field(0xabcdef),
-        };
-        let unpacked = GameConfig::unpack(config.pack());
-        assert_eq(unpacked.interest_accumulator, config.interest_accumulator);
-        assert_eq(unpacked.last_updated_ts, config.last_updated_ts);
-        assert(unpacked.admin.eq(config.admin));
-    }
+#[test]
+fn test_config_pack_unpack() {
+    let config = GameConfig {
+        interest_accumulator: 1000000,
+        last_updated_ts: 1700000000,
+        admin: AztecAddress::from_field(0xabcdef),
+    };
+    let unpacked = GameConfig::unpack(config.pack());
+    assert_eq(unpacked.interest_accumulator, config.interest_accumulator);
+    assert_eq(unpacked.last_updated_ts, config.last_updated_ts);
+    assert(unpacked.admin.eq(config.admin));
+}
 
-    #[test]
-    fn test_config_pack_unpack_max() {
-        let config = GameConfig {
-            interest_accumulator: 0xffffffffffffffffffffffffffffffff,
-            last_updated_ts: 0xffffffffffffffff,
-            admin: AztecAddress::from_field(0xabcdef),
-        };
-        let unpacked = GameConfig::unpack(config.pack());
-        assert_eq(unpacked.interest_accumulator, config.interest_accumulator);
-        assert_eq(unpacked.last_updated_ts, config.last_updated_ts);
-        assert(unpacked.admin.eq(config.admin));
-    }
+#[test]
+fn test_config_pack_unpack_max() {
+    let config = GameConfig {
+        interest_accumulator: 0xffffffffffffffffffffffffffffffff,
+        last_updated_ts: 0xffffffffffffffff,
+        admin: AztecAddress::from_field(0xabcdef),
+    };
+    let unpacked = GameConfig::unpack(config.pack());
+    assert_eq(unpacked.interest_accumulator, config.interest_accumulator);
+    assert_eq(unpacked.last_updated_ts, config.last_updated_ts);
+    assert(unpacked.admin.eq(config.admin));
+}
 
-    #[test]
-    fn test_game_state_pack_unpack() {
-        let state = GameState { started: true, round: 42, score: 1000 };
-        let unpacked = GameState::unpack(state.pack());
-        assert_eq(unpacked.started, state.started);
-        assert_eq(unpacked.round, state.round);
-        assert_eq(unpacked.score, state.score);
-    }
+#[test]
+fn test_game_state_pack_unpack() {
+    let state = GameState { started: true, round: 42, score: 1000 };
+    let unpacked = GameState::unpack(state.pack());
+    assert_eq(unpacked.started, state.started);
+    assert_eq(unpacked.round, state.round);
+    assert_eq(unpacked.score, state.score);
+}
 
-    #[test]
-    fn test_game_state_pack_unpack_max() {
-        let state =
-            GameState { started: true, round: 0xffffffff, score: 0xffffffff };
-        let unpacked = GameState::unpack(state.pack());
-        assert_eq(unpacked.started, state.started);
-        assert_eq(unpacked.round, state.round);
-        assert_eq(unpacked.score, state.score);
-    }
+#[test]
+fn test_game_state_pack_unpack_max() {
+    let state = GameState { started: true, round: 0xffffffff, score: 0xffffffff };
+    let unpacked = GameState::unpack(state.pack());
+    assert_eq(unpacked.started, state.started);
+    assert_eq(unpacked.round, state.round);
+    assert_eq(unpacked.score, state.score);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/packing_example/src/types.nr#L158-L225" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/packing_example/src/types.nr#L158-L225</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr#L1-L66" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/packing_example_test/src/lib.nr#L1-L66</a></sub></sup>
 
 
 ## Cost impact

@@ -1,0 +1,78 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "vcs": { "enabled": false },
+  "files": {
+    "includes": [
+      "scripts/**/*.js",
+      "scripts/**/*.mjs",
+      "scripts/**/*.mts",
+      "scripts/**/*.ts",
+      "src/**/*.js",
+      "src/**/*.jsx",
+      "src/**/*.mjs",
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "netlify/**/*.js",
+      "netlify/**/*.mjs",
+      "*.js"
+    ]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "domains": { "react": "recommended" },
+    "rules": {
+      "preset": "recommended",
+      "a11y": "off",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
+        "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 80, "skipBlankLines": true } },
+        "noExcessiveNestedTestSuites": "error",
+        "useOptionalChain": "off",
+        "noExtraBooleanCast": "warn",
+        "noFlatMapIdentity": "warn",
+        "noUselessCatch": "warn",
+        "noUselessConstructor": "warn",
+        "noUselessContinue": "warn",
+        "noUselessEmptyExport": "warn",
+        "noUselessEscapeInRegex": "warn",
+        "noUselessFragments": "warn",
+        "noUselessLabel": "warn",
+        "noUselessLoneBlockStatements": "warn",
+        "noUselessRename": "warn",
+        "noUselessStringRaw": "warn",
+        "noUselessSwitchCase": "warn",
+        "noUselessTernary": "warn",
+        "noUselessThisAlias": "warn",
+        "noUselessTypeConstraint": "warn",
+        "noUselessUndefinedInitialization": "warn",
+        "useFlatMap": "warn",
+        "useIndexOf": "warn",
+        "useLiteralKeys": "warn"
+      },
+      "correctness": {
+        "useParseIntRadix": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useNodejsImportProtocol": "off",
+        "useTemplate": "off",
+        "useArrayLiterals": "warn",
+        "useExponentiationOperator": "warn",
+        "useShorthandFunctionType": "warn"
+      },
+      "suspicious": {
+        "noDuplicateFields": "warn",
+        "noQuickfixBiome": "warn"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/__tests__/**"],
+      "linter": { "rules": { "complexity": { "noExcessiveLinesPerFunction": "off" } } }
+    }
+  ]
+}

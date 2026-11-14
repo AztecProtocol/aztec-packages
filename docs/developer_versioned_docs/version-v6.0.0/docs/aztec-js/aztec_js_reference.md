@@ -14,13 +14,13 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 :::
 
 :::tip Looking up one name?
-Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/mainnet/llms.txt).
+Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/v6.0.0/llms.txt).
 :::
 
 
 *Package: @aztec-labs/aztec.js*
 
-*Generated: 2026-10-27T18:12:36.639Z*
+*Generated: 2026-11-12T14:58:05.564Z*
 
 This document provides a comprehensive reference for all public APIs in the Aztec.js library.
 

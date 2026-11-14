@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import Link from '@docusaurus/Link';
 import styles from './styles.module.css';
 
@@ -21,6 +21,7 @@ export default function ProductCard({ title, description, icon, link, features }
           {features && features.length > 0 && (
             <ul className={styles.productCardFeatures}>
               {features.map((feature, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: baselined 2026-11-12: a different key would change how React reuses these elements
                 <li key={index}>{feature}</li>
               ))}
             </ul>

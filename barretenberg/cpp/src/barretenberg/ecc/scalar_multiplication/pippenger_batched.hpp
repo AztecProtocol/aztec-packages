@@ -56,7 +56,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         return;
     }
     if (K == 1) {
-        const size_t n = std::min(scalar_arrays[0].size(), point_arrays[0].size());
+        const size_t n = scalar_arrays[0].size();
+        BB_ASSERT_DEBUG(n <= point_arrays[0].size());
         if (n == 0) {
             return;
         }
@@ -67,7 +68,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
 
     std::vector<size_t> n_input(K);
     for (size_t m = 0; m < K; ++m) {
-        n_input[m] = std::min(scalar_arrays[m].size(), point_arrays[m].size());
+        n_input[m] = scalar_arrays[m].size();
+        BB_ASSERT_DEBUG(n_input[m] <= point_arrays[m].size());
     }
 
     // Group MSMs by shared SRS pointer; one shared GLV-doubled buffer per group, sized to
@@ -260,7 +262,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
     // mirror the predicate used inside pippenger_round_parallel.
     size_t shared_arena_bytes = 0;
-    bb::ScratchBuffer shared_arena_owner;
+    std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
     std::span<std::byte> shared_arena;
     if (!large_members_concurrent) {
         for (size_t m : large_members) {
@@ -272,8 +274,9 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             shared_arena_bytes = std::max(shared_arena_bytes, bytes);
         }
         if (shared_arena_bytes > 0) {
-            shared_arena_owner = bb::ScratchBuffer(shared_arena_bytes);
-            shared_arena = std::span<std::byte>(shared_arena_owner.data(), shared_arena_bytes);
+            shared_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
+                shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
+            shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
         }
     }
     // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
@@ -296,15 +299,16 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
                                              ? std::max<size_t>(1, get_msm_batch_mem_budget() / small_arena_bytes)
                                              : std::numeric_limits<size_t>::max();
         const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
-        bb::ScratchBuffer small_arena_owner;
+        std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
         if (small_arena_bytes > 0) {
-            small_arena_owner = bb::ScratchBuffer(num_workers * small_arena_bytes);
+            small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
+                num_workers * small_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
         }
         std::atomic<size_t> next_member{ 0 };
         bb::parallel_for(num_workers, [&](size_t tid) {
             std::span<std::byte> worker_arena;
             if (small_arena_bytes > 0) {
-                worker_arena = { small_arena_owner.data() + (tid * small_arena_bytes), small_arena_bytes };
+                worker_arena = { small_arena_owner.get() + (tid * small_arena_bytes), small_arena_bytes };
             }
             while (true) {
                 const size_t s = next_member.fetch_add(1, std::memory_order_relaxed);
@@ -393,7 +397,7 @@ std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_m
     if (handle_edge_cases) {
         std::vector<AffineElement> results(k);
         for (size_t i = 0; i < k; ++i) {
-            const size_t n = std::min(point_subspans[i].size(), scalar_subspans[i].size());
+            const size_t n = scalar_subspans[i].size();
             PolynomialSpan<const ScalarField> scalar_span(0,
                                                           std::span<const ScalarField>(scalar_subspans[i].data(), n));
             results[i] =

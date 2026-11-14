@@ -5,7 +5,7 @@ import { lineOfPlugin } from "./docsLine.mjs";
  *
  * @param {{name: string} | undefined} version the active docs version
  * @param {Record<string, string>} folders `siteConfig.customFields.aztecNrApiFolders`: version → folder
- *   for every version a network reads. Versions no network reads keep their own name.
+ *   for every cut version (`apiReferenceFolder` in src/network_docs.js)
  * @param {string} [pluginId] the active docs plugin; a dev line's reads `lineFolders`
  * @param {Record<string, string>} [lineFolders] `siteConfig.customFields.lineApiFolders`: line → folder
  * @returns {string}

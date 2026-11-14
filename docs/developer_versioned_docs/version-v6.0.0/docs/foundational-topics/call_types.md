@@ -125,7 +125,7 @@ Private functions from other contracts can be called either regularly or statica
 ```rust title="private_call" showLineNumbers 
 let _ = self.call(Token::at(stable_coin).burn_private(from, amount, authwit_nonce));
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L231-L233</a></sub></sup>
 
 
 Unlike the EVM however, private execution doesn't revert in the traditional way: in case of error (e.g. a failed assertion, a state changing operation in a static context, etc.) the proof generation simply fails and no transaction request is generated, spending no network gas or user funds.
@@ -139,7 +139,7 @@ Since the public call is made asynchronously, any return values or side effects 
 ```rust title="enqueue_public" showLineNumbers 
 self.enqueue_self._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L117-L119" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L117-L119</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L117-L119" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L117-L119</a></sub></sup>
 
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[only_self]`.
@@ -156,7 +156,7 @@ PublicStaticCall::<18, 2, ()>::new(
 )
     .enqueue_view_incognito(context);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/public_checks.nr#L29-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/public_checks.nr#L29-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/public_checks.nr#L29-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/public_checks.nr#L29-L38</a></sub></sup>
 
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
@@ -170,7 +170,7 @@ An example of how a deadline can be checked using the `PublicChecks` contract fo
 ```rust title="call-check-deadline" showLineNumbers 
 privately_check_timestamp(Comparator.LT, config.deadline, self.context);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L61-L63" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L61-L63</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L61-L63" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L61-L63</a></sub></sup>
 
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the `PublicChecks` contract:
@@ -208,7 +208,7 @@ pub fn privately_check_block_number(operation: u8, value: u32, context: &mut Pri
         .enqueue_view_incognito(context);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/aztec/src/public_checks.nr#L6-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/public_checks.nr#L6-L40</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/aztec/src/public_checks.nr#L6-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/public_checks.nr#L6-L40</a></sub></sup>
 
 
 This is what the implementation of the check timestamp functionality looks like:
@@ -225,7 +225,7 @@ fn check_timestamp(operation: u8, value: u64) {
     assert(compare(lhs_field, operation, rhs_field), "Timestamp mismatch.");
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr#L14-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr#L14-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr#L14-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr#L14-L25</a></sub></sup>
 
 
 :::note
@@ -263,7 +263,7 @@ self.enqueue(Token::at(config.accepted_asset).transfer_in_public(
     authwit_nonce,
 ));
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L153-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L153-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L153-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L153-L160</a></sub></sup>
 
 
 :::note
@@ -296,7 +296,7 @@ const { result: balance } = await token.methods
 
 console.log(`Alice's token balance: ${balance}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_connection/index.ts#L151-L157</a></sub></sup>
 
 
 :::warning
@@ -310,7 +310,7 @@ This creates a transaction, generates proofs for private execution, broadcasts t
 ```typescript title="send_tx" showLineNumbers 
 await contract.methods.buy_pack(seed).send({ from: firstPlayer });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/card_game.test.ts#L127-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/card_game.test.ts#L127-L129</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/card_game.test.ts#L127-L129" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/card_game.test.ts#L127-L129</a></sub></sup>
 
 
 You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:
@@ -320,7 +320,7 @@ await expect(
   claimContract.methods.claim(anotherDonationNote, donorAddress).send({ from: unrelatedAddress }),
 ).rejects.toThrow('confirmed_note.owner == self.msg_sender()');
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts#L221-L225" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts#L221-L225</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts#L221-L225" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts#L221-L225</a></sub></sup>
 
 
 ## Next Steps

@@ -48,12 +48,12 @@ fn transfer_in_private_with_offchain_delivery(
     self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery::offchain());
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L293-L314</a></sub></sup>
 
 
 Nothing else changes in the contract: the same notes and events are created, only their delivery mechanism differs.
 
-Under the hood, `MessageDelivery::offchain()` encrypts the message without constraints and emits it via the [`deliver_offchain_message`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/offchain_messages/fn.deliver_offchain_message) function. See the [`MessageDelivery`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/delivery/struct.MessageDelivery) API reference for details on guarantees, costs, and privacy.
+Under the hood, `MessageDelivery::offchain()` encrypts the message without constraints and emits it via the [`deliver_offchain_message`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/messages/offchain_messages/fn.deliver_offchain_message) function. See the [`MessageDelivery`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/messages/delivery/struct.MessageDelivery) API reference for details on guarantees, costs, and privacy.
 
 ## Extracting messages on the sender side
 
@@ -115,7 +115,7 @@ await token.methods
 
 ## How messages are processed
 
-Once received, messages are managed by an inbox that the wallet syncs against (see [`receive`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/processing/offchain/fn.receive) in the API reference):
+Once received, messages are managed by an inbox that the wallet syncs against (see [`receive`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/messages/processing/offchain/fn.receive) in the API reference):
 
 - **Transaction resolution**: A message is only processed once the transaction identified by its `tx_hash` is found onchain. This provides the context needed to validate the notes and events the message contains. Until then, the message waits in the inbox.
 - **Reorg safety**: Messages remain in the inbox even after processing. If a reorg reverts the transaction that emitted a message, its effects are rolled back; when the transaction is mined again, the message is reprocessed automatically without needing to be delivered again.
@@ -169,7 +169,7 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private_with_offchain_delivery.nr#L6-L43</a></sub></sup>
 
 
 `env.offchain_messages()` returns up to 64 messages, so drain it into batches of at most 16 when a test emits more messages than one `offchain_receive` call accepts.
@@ -178,4 +178,4 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
 
 - Compare delivery modes and their guarantees in [Note delivery](./note_delivery.md)
 - Learn how onchain-delivered notes are found in [Note discovery](../../foundational-topics/advanced/storage/note_discovery.md)
-- Browse the [`MessageDelivery`](pathname:///aztec-nr-api/mainnet/noir_aztec/messages/delivery/struct.MessageDelivery) API reference
+- Browse the [`MessageDelivery`](pathname:///aztec-nr-api/v6.0.0/noir_aztec/messages/delivery/struct.MessageDelivery) API reference

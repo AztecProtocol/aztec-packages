@@ -6,10 +6,13 @@
  * but as a non-template overload for `BBApiRequest` so
  * `make_bb_handler<BBApiRequest>` resolves to these via overload resolution.
  *
- * Every handler converts wire fields to domain fields, calls
- * `Cmd::execute()`, and converts the domain response back to wire fields —
- * all explicit, all field-by-field. The shared converters live in
- * `bbapi_wire_convert.hpp`.
+ * These handlers are the only implementation of their commands: they convert
+ * the wire fields, do the work with bb's own libraries, and build the wire
+ * response. The Chonk and UltraHonk commands, which the CLI also runs, keep
+ * their implementation in the domain API (bbapi_chonk.hpp,
+ * bbapi_ultra_honk.hpp); their handlers (bbapi_chonk_handlers.cpp,
+ * bbapi_ultra_honk_handlers.cpp) only convert and call `execute()`. The shared
+ * converters live in `bbapi_wire_convert.hpp`.
  */
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/api/api_avm.hpp"
@@ -34,6 +37,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
+#include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
@@ -187,7 +191,7 @@ void handle_grumpkin_get_random_fr(BBApiRequest& /*ctx*/,
                                    wire::BbGrumpkinGetRandomFr&& /*cmd*/,
                                    Responder<wire::BbGrumpkinGetRandomFrResponse> respond)
 {
-    respond.ok({ .value = field_to_wire(grumpkin::fr::random_element()) });
+    respond.ok({ .value = fr_to_wire(bb::fr::random_element()) });
 }
 void handle_secp256k1_get_random_fr(BBApiRequest& /*ctx*/,
                                     wire::BbSecp256k1GetRandomFr&& /*cmd*/,
@@ -210,7 +214,8 @@ void handle_grumpkin_mul(BBApiRequest& /*ctx*/,
         respond.error("Input point must be on the curve");
         return;
     }
-    respond.ok({ .point = grumpkin_point_to_wire(point * scalar) });
+    respond.ok({ .point = grumpkin_point_to_wire(
+                     grumpkin::g1::element(point).mul_const_time(scalar).to_affine_const_time()) });
 }
 void handle_grumpkin_add(BBApiRequest& /*ctx*/,
                          wire::BbGrumpkinAdd&& cmd,
@@ -247,11 +252,6 @@ void handle_grumpkin_batch_mul(BBApiRequest& /*ctx*/,
     }
     respond.ok({ .points = grumpkin_point_vec_to_wire(output) });
 }
-wire::BbGrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BBApiRequest& /*ctx*/,
-                                                                  wire::BbGrumpkinGetRandomFr&& /*cmd*/)
-{
-    return { .value = fr_to_wire(bb::fr::random_element()) };
-}
 void handle_grumpkin_reduce512(BBApiRequest& /*ctx*/,
                                wire::BbGrumpkinReduce512&& cmd,
                                Responder<wire::BbGrumpkinReduce512Response> respond)
@@ -276,12 +276,8 @@ void handle_secp256k1_mul(BBApiRequest& /*ctx*/,
         respond.error("Input point must be on the curve");
         return;
     }
-    respond.ok({ .point = secp256k1_point_to_wire(point * scalar) });
-}
-wire::BbSecp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BBApiRequest& /*ctx*/,
-                                                                    wire::BbSecp256k1GetRandomFr&& /*cmd*/)
-{
-    return { .value = field_to_wire_as<Secp256k1Fr>(secp256k1::fr::random_element()) };
+    respond.ok({ .point = secp256k1_point_to_wire(
+                     secp256k1::g1::element(point).mul_const_time(scalar).to_affine_const_time()) });
 }
 void handle_secp256k1_reduce512(BBApiRequest& /*ctx*/,
                                 wire::BbSecp256k1Reduce512&& cmd,
@@ -319,7 +315,7 @@ void handle_bn254_g1_mul(BBApiRequest& /*ctx*/, wire::BbBn254G1Mul&& cmd, Respon
         respond.error("Input point must be on the curve");
         return;
     }
-    auto result = point * scalar;
+    auto result = bb::g1::element(point).mul_const_time(scalar).to_affine_const_time();
     if (!result.on_curve()) {
         respond.error("Output point must be on the curve");
         return;
@@ -376,7 +372,8 @@ void handle_schnorr_compute_public_key(BBApiRequest& /*ctx*/,
                                        Responder<wire::BbSchnorrComputePublicKeyResponse> respond)
 {
     auto private_key = field_from_wire<grumpkin::fr>(cmd.private_key);
-    respond.ok({ .public_key = grumpkin_point_to_wire(grumpkin::g1::one * private_key) });
+    respond.ok({ .public_key = grumpkin_point_to_wire(
+                     grumpkin::g1::element(grumpkin::g1::one).mul_const_time(private_key).to_affine_const_time()) });
 }
 // Schnorr signing takes a pre-derived field element message.
 void handle_schnorr_construct_signature(BBApiRequest& /*ctx*/,
@@ -384,7 +381,8 @@ void handle_schnorr_construct_signature(BBApiRequest& /*ctx*/,
                                         Responder<wire::BbSchnorrConstructSignatureResponse> respond)
 {
     auto private_key = field_from_wire<grumpkin::fr>(cmd.private_key);
-    grumpkin::g1::affine_element pub_key = grumpkin::g1::one * private_key;
+    grumpkin::g1::affine_element pub_key =
+        grumpkin::g1::element(grumpkin::g1::one).mul_const_time(private_key).to_affine_const_time();
     crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> key_pair = { private_key, pub_key };
 
     auto message_field = field_from_wire<grumpkin::fq>(cmd.message_field);
@@ -414,21 +412,23 @@ void handle_ecdsa_secp256k1_compute_public_key(BBApiRequest& /*ctx*/,
                                                Responder<wire::BbEcdsaSecp256k1ComputePublicKeyResponse> respond)
 {
     auto private_key = field_from_wire<secp256k1::fr>(cmd.private_key);
-    respond.ok({ .public_key = secp256k1_point_to_wire(secp256k1::g1::one * private_key) });
+    respond.ok({ .public_key = secp256k1_point_to_wire(
+                     secp256k1::g1::element(secp256k1::g1::one).mul_const_time(private_key).to_affine_const_time()) });
 }
 void handle_ecdsa_secp256r1_compute_public_key(BBApiRequest& /*ctx*/,
                                                wire::BbEcdsaSecp256r1ComputePublicKey&& cmd,
                                                Responder<wire::BbEcdsaSecp256r1ComputePublicKeyResponse> respond)
 {
     auto private_key = field_from_wire<secp256r1::fr>(cmd.private_key);
-    respond.ok({ .public_key = secp256r1_point_to_wire(secp256r1::g1::one * private_key) });
+    respond.ok({ .public_key = secp256r1_point_to_wire(
+                     secp256r1::g1::element(secp256r1::g1::one).mul_const_time(private_key).to_affine_const_time()) });
 }
 void handle_ecdsa_secp256k1_construct_signature(BBApiRequest& /*ctx*/,
                                                 wire::BbEcdsaSecp256k1ConstructSignature&& cmd,
                                                 Responder<wire::BbEcdsaSecp256k1ConstructSignatureResponse> respond)
 {
     auto private_key = field_from_wire<secp256k1::fr>(cmd.private_key);
-    auto pub_key = secp256k1::g1::one * private_key;
+    auto pub_key = secp256k1::g1::element(secp256k1::g1::one).mul_const_time(private_key).to_affine_const_time();
     crypto::ecdsa_key_pair<secp256k1::fr, secp256k1::g1> key_pair = { private_key, pub_key };
     std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
     auto sig = crypto::ecdsa_construct_signature<crypto::Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
@@ -440,7 +440,7 @@ void handle_ecdsa_secp256r1_construct_signature(BBApiRequest& /*ctx*/,
                                                 Responder<wire::BbEcdsaSecp256r1ConstructSignatureResponse> respond)
 {
     auto private_key = field_from_wire<secp256r1::fr>(cmd.private_key);
-    auto pub_key = secp256r1::g1::one * private_key;
+    auto pub_key = secp256r1::g1::element(secp256r1::g1::one).mul_const_time(private_key).to_affine_const_time();
     crypto::ecdsa_key_pair<secp256r1::fr, secp256r1::g1> key_pair = { private_key, pub_key };
     std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
     auto sig = crypto::ecdsa_construct_signature<crypto::Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
@@ -499,9 +499,13 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
     constexpr size_t COMPRESSED_POINT_SIZE = 32;
     constexpr size_t UNCOMPRESSED_POINT_SIZE = sizeof(g1::affine_element); // 64
 
-    auto& points_buf = cmd.points_buf;
+    const auto& points_buf = cmd.points_buf;
     auto num_points = cmd.num_points;
     size_t bytes_per_point = num_points > 0 ? points_buf.size() / num_points : 0;
+    if (bytes_per_point != UNCOMPRESSED_POINT_SIZE && bytes_per_point != COMPRESSED_POINT_SIZE) {
+        throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
+                       std::to_string(bytes_per_point));
+    }
     std::vector<g1::affine_element> g1_points(num_points);
     std::vector<uint8_t> uncompressed_out;
 
@@ -511,7 +515,9 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
                 g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * UNCOMPRESSED_POINT_SIZE);
             }
         });
-    } else if (bytes_per_point == COMPRESSED_POINT_SIZE) {
+    } else {
+        // Verify SHA-256 of every 4 MB chunk against the in-binary pin BN254_G1_CHUNK_HASHES.
+        // Require chunk-aligned input so every byte is covered (no partial trailing chunk).
         if (points_buf.size() == 0 || points_buf.size() % bb::srs::SRS_CHUNK_SIZE_BYTES != 0) {
             throw_or_abort("SrsInitSrs: compressed points_buf size " + std::to_string(points_buf.size()) +
                            " must be a positive multiple of " + std::to_string(bb::srs::SRS_CHUNK_SIZE_BYTES));
@@ -539,27 +545,27 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
                 std::copy(buf.begin(), buf.end(), &uncompressed_out[i * UNCOMPRESSED_POINT_SIZE]);
             }
         });
-    } else {
-        throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
-                       std::to_string(bytes_per_point));
     }
 
-    if (num_points >= 1 && g1_points[0] != bb::srs::BN254_G1_FIRST_ELEMENT) {
-        throw_or_abort("SrsInitSrs: g1_points[0] is not the canonical BN254 generator");
-    }
-    if (num_points >= 2 && g1_points[1] != bb::srs::get_bn254_g1_second_element()) {
-        throw_or_abort("SrsInitSrs: g1_points[1] does not match the canonical trusted-setup tau·G");
-    }
-
+    // Defense in depth: hash-pin AND subgroup-check the G2 input. Hash equality alone is sufficient
+    // for the canonical case (it implies prime-order membership); the subgroup check is kept so
+    // that any future relaxation of the hash gate (e.g. a flag to allow a different trusted setup)
+    // does not silently reopen audit finding #7's small-subgroup attack.
     auto g2_hash = bb::crypto::sha256(std::span<const uint8_t>(cmd.g2_point.data(), cmd.g2_point.size()));
     if (g2_hash != bb::srs::BN254_G2_ELEMENT_SHA256) {
         throw_or_abort("SrsInitSrs: g2_point bytes do not match the canonical Aztec [x]_2 SHA-256");
     }
     auto g2_point_elem = from_buffer<g2::affine_element>(cmd.g2_point.data());
+    // is_in_prime_subgroup() returns true for the point at infinity by definition (the neutral
+    // element belongs to every subgroup), so it is not sufficient on its own.
+    if (g2_point_elem.is_point_at_infinity()) {
+        throw_or_abort("SrsInitSrs: g2_point cannot be the point at infinity");
+    }
     if (!g2_point_elem.is_in_prime_subgroup()) {
         throw_or_abort("SrsInitSrs: g2_point is not in the BN254 G2 prime-order subgroup");
     }
 
+    // The G1 points are checked against the pinned chunk hashes when a verification key is computed from them.
     bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point_elem);
     respond.ok({ .points_buf = std::move(uncompressed_out) });
 }
@@ -567,14 +573,20 @@ void handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/,
                                   wire::BbSrsInitGrumpkinSrs&& cmd,
                                   Responder<wire::BbSrsInitGrumpkinSrsResponse> respond)
 {
+    if (cmd.num_points == 0 || cmd.num_points > srs::GRUMPKIN_G1_NUM_POINTS) {
+        throw_or_abort("SrsInitGrumpkinSrs: point count is outside the pinned Grumpkin CRS");
+    }
     const size_t required_size = static_cast<size_t>(cmd.num_points) * sizeof(curve::Grumpkin::AffineElement);
     if (cmd.points_buf.size() < required_size) {
         throw_or_abort("SrsInitGrumpkinSrs: points_buf too small (" + std::to_string(cmd.points_buf.size()) +
                        " bytes) for num_points=" + std::to_string(cmd.num_points) + " (need " +
                        std::to_string(required_size) + ")");
     }
-    std::vector<curve::Grumpkin::AffineElement> points(cmd.num_points);
-    for (uint32_t i = 0; i < cmd.num_points; ++i) {
+
+    // Every supplied point is installed. The CRS constructor checks them against the pinned chunk hashes.
+    const size_t num_supplied_points = cmd.points_buf.size() / sizeof(curve::Grumpkin::AffineElement);
+    std::vector<curve::Grumpkin::AffineElement> points(num_supplied_points);
+    for (size_t i = 0; i < num_supplied_points; ++i) {
         points[i] = from_buffer<curve::Grumpkin::AffineElement>(cmd.points_buf.data(),
                                                                 i * sizeof(curve::Grumpkin::AffineElement));
     }

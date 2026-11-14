@@ -31,15 +31,19 @@ services:
       P2P_MIN_TX_POOL_AGE_MS: 0
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
 
+  # The runner writes into the mounted checkout, so it runs as the checkout's owner: a killed run
+  # leaves nothing the owner cannot remove. /root is closed to that user, hence the mount point,
+  # a HOME inside the container and CRS_PATH, which bb.js reads instead of ~/.bb-crs.
   docs-examples:
     image: aztecprotocol/build:3.2
+    user: ${DOCS_UID:?}:${DOCS_GID:?}
     cpus: 4
     cpuset: ${CPU_LIST:-}
     mem_limit: 8G
     volumes:
-      - ../../../:/root/aztec-node
-      - ${HOME}/.bb-crs:/root/.bb-crs
-    working_dir: /root/aztec-node/docs/examples/ts/aztecjs_runner
+      - ../../../:/aztec-node
+      - ${HOME}/.bb-crs:/bb-crs
+    working_dir: /aztec-node/docs/examples/ts/aztecjs_runner
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       FORCE_COLOR: ${FORCE_COLOR:-1}
@@ -47,10 +51,15 @@ services:
       ETHEREUM_HOST: http://fork:8545
       AZTEC_VERSION: ${AZTEC_VERSION:?}
       BB_VERSION: ${BB_VERSION:?}
+      HOME: /tmp/home
+      CRS_PATH: /bb-crs
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+      DOCS_EXAMPLES_HALF: ${DOCS_EXAMPLES_HALF:-}
     entrypoint: >
       bash -c '
+        mkdir -p "$$HOME";
         while ! nc -z local-network 8080; do sleep 1; done;
-        ./run.sh
+        ./run.sh $${DOCS_EXAMPLES_HALF:+--half "$$DOCS_EXAMPLES_HALF"}
       '
     depends_on:
       - local-network

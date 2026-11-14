@@ -148,6 +148,7 @@ export const METHOD_GROUPS: { heading: string; namespace: string; methods: strin
   },
 ];
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function generateExampleParam(paramType: string, paramName?: string): string {
   const t = paramType.replace(/\s*\|\s*undefined$/, '').trim();
 
@@ -187,6 +188,7 @@ function generateExampleParam(paramType: string, paramName?: string): string {
 
 const ADMIN_API_KEY_HEADER = 'x-api-key: [ADMIN_API_KEY]';
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
 function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
   const lines: string[] = [];
   const rpcName = `${method.namespace}_${method.name}`;
@@ -253,6 +255,8 @@ function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
   return lines.join('\n');
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: baselined 2026-11-12: predates the complexity budget
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: baselined 2026-11-12: predates the function length budget
 export function generateDocument(allMethods: Map<string, MethodInfo>, schemaMethodNames: { aztec: string[]; aztecAdmin: string[] }): string {
   const lines: string[] = [];
 
@@ -359,7 +363,7 @@ export function generateDocument(allMethods: Map<string, MethodInfo>, schemaMeth
   // Next steps
   lines.push('## Next steps');
   lines.push('');
-  lines.push('- [How to Run a Sequencer Node](../setup/sequencer-setup.md) - Set up a node');
+  lines.push('- [How to Run a Sequencer Node](../solo-sequencer/index.mdx) - Set up a node');
   lines.push('- [Ethereum RPC Calls Reference](./ethereum-rpc-reference.md) - L1 RPC usage');
   lines.push('- [CLI Reference](./cli-reference.md) - Command-line options');
   lines.push('- [Aztec Discord](https://discord.gg/aztec) - Developer support');

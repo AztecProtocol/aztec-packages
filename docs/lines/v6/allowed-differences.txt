@@ -1,0 +1,15 @@
+# Files of this line that differ from main's on purpose, after main's paths into the examples and
+# l1-artifacts move onto the line's (scripts/line_copies.mts). One per line: "<path>: <reason>", the path
+# relative to this line. An entry whose copies are equal again fails the check: remove it.
+#
+# An allowed file is not compared at all, so an edit to one copy of it passes. That is acceptable while
+# each allowed page has a per-line test of its own (the clone tests of these two tutorials). Revisit
+# recording each accepted difference once the pins differ and this list holds pages without one.
+
+docs-developers/docs/tutorials/js_tutorials/uniswap_swap.md: The clone block fetches the line's own Noir workspace and checkout (docs/lines/v6/Nargo.toml, docs/lines/v6/.aztec-node), installs l1-artifacts under docs/lines/v6, and says why it leaves docs/Nargo.toml out.
+docs-developers/docs/tutorials/js_tutorials/webapp/index.md: The clone block fetches the line's own Noir workspace and checkout (docs/lines/v6/Nargo.toml, docs/lines/v6/.aztec-node), and says why a full clone does not build: nargo takes docs/Nargo.toml as the workspace.
+examples/.rebuild_patterns: Main's examples tooling, which also builds the line's examples (examples/bootstrap.sh --line v6).
+examples/bootstrap.sh: Main's examples tooling, which also builds the line's examples (examples/bootstrap.sh --line v6).
+examples/ts/README.md: Documents main's examples tooling, which also builds the line's examples.
+examples/ts/bootstrap.sh: Main's examples tooling, which also builds the line's examples (examples/bootstrap.sh --line v6).
+examples/ts/docker-compose.yml: Runs main's TypeScript examples against a local network; a line's run only at its release cut.

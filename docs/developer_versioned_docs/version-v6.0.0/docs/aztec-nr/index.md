@@ -3,7 +3,7 @@ title: Overview
 sidebar_position: 0
 tags: [aztec.nr, smart contracts]
 description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
-references: ["docs/examples/contracts/counter_contract/src/main.nr"]
+references: ["docs/lines/v6/examples/contracts/counter_contract/src/main.nr"]
 ---
 
 import DocCardList from "@theme/DocCardList";
@@ -11,7 +11,7 @@ import DocCardList from "@theme/DocCardList";
 Aztec.nr is a Noir framework used to develop and test Aztec smart contracts. It contains both high-level abstractions (state variables, messages) and low-level protocol primitives, providing granular control to developers if they want custom contracts.
 
 :::tip
-If you are already familiar with writing Aztec smart contracts and Aztec.nr, visit the [API reference](pathname:///aztec-nr-api/mainnet/).
+If you are already familiar with writing Aztec smart contracts and Aztec.nr, visit the [API reference](pathname:///aztec-nr-api/v6.0.0/).
 :::
 
 ## Motivation
@@ -58,7 +58,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract Counter {
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L1-L6</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L1-L6</a></sub></sup>
 
 
 and import dependencies from the Aztec.nr library.
@@ -73,12 +73,12 @@ use aztec::{
 };
 use balance_set::BalanceSet;
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr#L7-L16" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/counter_contract/src/main.nr#L7-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L7-L16" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/counter_contract/src/main.nr#L7-L16</a></sub></sup>
 
 
 :::info
 
-You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/counter_contract/src/main.nr).
+You can see a complete example of a simple counter contract written with Aztec.nr [here](https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/counter_contract/src/main.nr).
 
 :::
 

@@ -37,7 +37,7 @@ If you have the technical expertise and infrastructure, you can run your own seq
 - Run and maintain sequencer infrastructure
 - Ensure high availability and proper operation
 
-See the [Sequencer Setup Guide](/operate/operators/setup/sequencer_management) for details.
+See the [Sequencer Setup Guide](/operate/operators/solo-sequencer) for details.
 
 ### Option 2: Delegate to an Operator
 

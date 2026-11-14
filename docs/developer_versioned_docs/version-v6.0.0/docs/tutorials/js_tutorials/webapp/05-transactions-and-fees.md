@@ -2,7 +2,7 @@
 title: "5. Transactions & Fees"
 sidebar_position: 6
 description: "Learn about the Aztec transaction lifecycle and fee payment with SponsoredFPC"
-references: ["docs/examples/webapp-tutorial/src/components/TxStatus.tsx", "docs/examples/webapp-tutorial/src/fees.ts"]
+references: ["docs/lines/v6/examples/webapp-tutorial/src/components/TxStatus.tsx", "docs/lines/v6/examples/webapp-tutorial/src/fees.ts"]
 ---
 
 # Transactions & Fees
@@ -51,7 +51,7 @@ export function TxStatus({ state, txHash, error }: TxStatusProps) {
   );
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/components/TxStatus.tsx#L11-L34" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/components/TxStatus.tsx#L11-L34</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/components/TxStatus.tsx#L11-L34" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/components/TxStatus.tsx#L11-L34</a></sub></sup>
 
 
 Integrate with contract calls:
@@ -95,7 +95,7 @@ export async function getSponsoredFPCContract() {
   return { instance, artifact: SponsoredFPCContractArtifact };
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/fees.ts#L8-L24" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/fees.ts#L8-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L8-L24" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L8-L24</a></sub></sup>
 
 
 `SPONSORED_FPC_SALT` is a fixed constant so that the SponsoredFPC contract is deployed at a deterministic, well-known address across all networks (local network and beyond). Your app can always compute where it lives without querying a registry.
@@ -116,7 +116,7 @@ export async function registerSponsoredFPC(pxe: PXE) {
   return contract.instance.address;
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/fees.ts#L26-L37" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/fees.ts#L26-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L26-L37" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L26-L37</a></sub></sup>
 
 
 ### Manual fee payment
@@ -133,7 +133,7 @@ export async function createSponsoredFeePayment() {
   return new SponsoredFeePaymentMethod(contract.instance.address);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/webapp-tutorial/src/fees.ts#L39-L48" target="_blank" rel="noopener noreferrer">Source code: docs/examples/webapp-tutorial/src/fees.ts#L39-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L39-L48" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/webapp-tutorial/src/fees.ts#L39-L48</a></sub></sup>
 
 
 ```typescript

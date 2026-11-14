@@ -124,6 +124,11 @@
   line-height: 1.4;
 }
 
+/* The spacing of the theme's own external-link icon (theme-classic Icon/ExternalLink). */
+.externalLinkIcon {
+  margin-left: 0.3rem;
+}
+
 /* Right side - Original Docusaurus footer navigation (no custom styling needed) */
 .footerRight {
   /* Let Docusaurus handle the original footer styling */

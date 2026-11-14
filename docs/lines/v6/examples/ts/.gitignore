@@ -9,6 +9,8 @@
 */tsconfig.json
 */codegenCache.json
 */artifacts/
+# Created empty before each install, so the example is a Yarn project of its own, not part of docs/'s.
+*/yarn.lock
 # A Hardhat project's link to l1-artifacts' sources, its compile cache and its Aztec bindings.
 */l1-contracts
 */cache/

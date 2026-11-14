@@ -2,6 +2,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "crs_integrity.hpp"
 
 namespace {
 
@@ -19,15 +20,14 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> points)
         : monomials_(std::move(points))
     {
-        if (monomials_.empty() || !monomials_[0].on_curve()) {
-            throw_or_abort("MemGrumpkinCrs: first point is not on the Grumpkin curve");
-        }
+        srs::verify_grumpkin_g1_points(monomials_);
     }
 
     ~MemGrumpkinCrs() override = default;
     std::span<const Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
     size_t get_monomial_size() const override { return monomials_.size(); }
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
+    void verify_points_integrity() override {}
 
   private:
     std::vector<Grumpkin::AffineElement> monomials_;

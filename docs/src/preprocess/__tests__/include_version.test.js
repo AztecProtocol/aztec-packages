@@ -186,48 +186,35 @@ describe("preprocessIncludeVersion", () => {
   });
 
   describe("#api_ref_version macro", () => {
-    // Only testnet and mainnet API references are published; other builds use the generated next/.
-    // A network links the folder the build serves for its version, which it shares with any network
-    // on the same version.
-    const { apiReferenceDirs, docsInstances } = require("../../network_docs");
+    // The folder of the version being built: a release cut generates it before it snapshots these links.
     const config = require("../../../developer_version_config.json");
-    const served = (network) =>
-      apiReferenceDirs(docsInstances(config, {}, true)[0]).find((d) => d.networks.includes(network)).folder;
-    const testCases = [
-      ["nightly", "next"],
-      ["devnet", "next"],
-      ["testnet", served("testnet")],
-      ["mainnet", served("mainnet")],
-    ];
-
-    const TAGS = ["NIGHTLY_TAG", "DEVNET_TAG", "TESTNET_TAG", "MAINNET_TAG", "KEEP_DEVELOPER_VERSIONS"];
+    const TAGS = ["NIGHTLY_TAG", "DEVNET_TAG", "TESTNET_TAG", "MAINNET_TAG", "COMMIT_TAG", "KEEP_DEVELOPER_VERSIONS"];
     const apiRefVersion = async (vars) => {
       for (const v of TAGS) delete process.env[v];
       setEnv(vars);
       return (await preprocessIncludeVersion("#api_ref_version", "test.md")).content;
     };
 
-    testCases.forEach(([releaseType, expected]) => {
-      it(`resolves to ${expected} for ${releaseType}`, async () => {
-        assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: releaseType }), expected);
-      });
+    it("names the version a network reads when no tag is set", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "mainnet" }), config.mainnet);
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet" }), config.testnet);
     });
 
-    // A release cut freezes these links into its snapshot before it maps the new version, so they
-    // name the folder the build serves once the release type reads the version being built.
-    it("names testnet's own folder for a testnet release on a version mainnet does not run", async () => {
-      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0" }), "testnet");
+    it("names the cut's own version for every release type", async () => {
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0" }), "v999.0.0");
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "devnet", DEVNET_TAG: "v999.0.0-devnet.1" }), "v999.0.0-devnet.1");
+      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "nightly", NIGHTLY_TAG: "v999.0.0-nightly.20260101" }), "v999.0.0-nightly.20260101");
     });
 
-    it("names mainnet's folder for a testnet release on mainnet's version", async () => {
-      assert.strictEqual(await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: config.mainnet }), "mainnet");
-    });
-
-    it("keeps the folder the developer versions serve now when the release does not change them", async () => {
+    it("keeps the version the release type reads when the release leaves the developer docs alone", async () => {
       assert.strictEqual(
         await apiRefVersion({ RELEASE_TYPE: "testnet", TESTNET_TAG: "999.0.0", KEEP_DEVELOPER_VERSIONS: "1" }),
-        served("testnet"),
+        config.testnet,
       );
+    });
+
+    it("fails, naming the tag variable, when no version resolves", async () => {
+      await assert.rejects(apiRefVersion({ RELEASE_TYPE: "devnet" }), /DEVNET_TAG/);
     });
   });
 
@@ -246,14 +233,14 @@ describe("preprocessIncludeVersion", () => {
     afterEach(() => fs.rmSync(rootDir, { recursive: true, force: true }));
     const page = (line) => path.join(rootDir, "docs/lines", line, "docs-developers/page.md");
 
-    it("takes its versions from the line's pin and its API folder from the network on its major", async () => {
+    it("takes its versions from the line's pin and its API folder from the version a network reads on its major", async () => {
       setEnv({ RELEASE_TYPE: "mainnet", COMMIT_TAG: "v9.9.9" });
       const { content } = await preprocessIncludeVersion(
         "#include_aztec_version #include_foundation_version #api_ref_version",
         page(`v${major}`),
         rootDir,
       );
-      assert.strictEqual(content, `v${major}.1.0-nightly.20260101 v${major}.1.0 mainnet`);
+      assert.strictEqual(content, `v${major}.1.0-nightly.20260101 v${major}.1.0 ${config.mainnet}`);
     });
 
     it("fails closed on #api_ref_version when no network runs the line's major", async () => {

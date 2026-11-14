@@ -15,16 +15,17 @@ unset AZTEC_NODE_DIR
 # line's .aztec-node (checkout and toolchain) and l1-artifacts linked in where docs/ has its own.
 # DOCS_ROOT is where the examples build; DOCS_PATH is their source's path in the repository.
 DOCS_LINE= STAGE= DOCS_ROOT=
+EXECUTED=
 
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
 # Set before staging, so a failed copy also removes the stage.
 function on_exit {
-  if [ -n "$DOCS_ROOT" ]; then
-    for lf in "$DOCS_ROOT"/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done
-  fi
   if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi
+  # A stopped compose run kills the runner before its own cleanup, which leaves an example's install behind.
+  # EXECUTED is the half execute ran, or all; only that half's examples are cleaned, as the other may be running.
+  if [ -n "$EXECUTED" ]; then
+    local half=${EXECUTED#all}
+    "$REPO_ROOT/docs/examples/ts/aztecjs_runner/run.sh" --clean ${half:+--half "$half"} || true
+  fi
 }
 trap on_exit EXIT
 
@@ -220,14 +221,16 @@ function validate-webapp-tutorial {
   (
     cd "$TUTORIAL_DIR"
 
-    # Backup package.json (the only tracked file we mutate). yarn.lock is
+    # Back up the tracked files setup.sh resolves. yarn.lock is
     # gitignored and reseeded on each run, so we don't back it up.
     cp package.json package.json.bak
+    cp .yarnrc.yml .yarnrc.yml.bak
 
     cleanup() {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
       [ -f package.json.bak ] && mv package.json.bak package.json
+      [ -f .yarnrc.yml.bak ] && mv .yarnrc.yml.bak .yarnrc.yml
       rm -rf node_modules .yarn yarn.lock 2>/dev/null || true
       return $exit_code
     }
@@ -244,7 +247,7 @@ function validate-webapp-tutorial {
     # the tutorial still get Chrome for `yarn test:e2e`.
     local skip_chrome=(PUPPETEER_SKIP_DOWNLOAD=1)
     [ "${WEBAPP_TESTS:-}" = e2e ] && skip_chrome=()
-    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false ./setup.sh "$AZTEC_VERSION"
+    env "${skip_chrome[@]}" YARN_ENABLE_IMMUTABLE_INSTALLS=false ./setup.sh "$AZTEC_VERSION" "$BB_VERSION"
 
     # Copy compiled contract artifact and run codegen
     mkdir -p src/artifacts
@@ -287,15 +290,33 @@ function validate-webapp-tutorial {
 }
 
 function execute-examples {
-  echo_header "Executing TypeScript documentation examples"
+  # One half of the examples (run.sh HALF_1 or HALF_2), or every example when none is named. Each half's
+  # compose project has its own name, so both halves can run at once.
+  local half=${1:-}
+  if [ $# -gt 1 ] || [[ ! "$half" =~ ^[12]?$ ]]; then
+    echo_stderr "usage: examples/bootstrap.sh execute [1|2]"
+    return 1
+  fi
+  echo_header "Executing TypeScript documentation examples${half:+ (half $half)}"
   # The compose file mounts the repository and runs main's examples.
   if [ -n "$DOCS_LINE" ]; then
     echo_stderr "execute runs main's examples only: a line's run against a network at its cut."
     return 1
   fi
   pin_toolchain
+  # The runner runs as this user and downloads the CRS into this cache. Docker would create a
+  # missing bind-mount source as root, which the runner cannot write.
+  local crs="$HOME/.bb-crs"
+  mkdir -p "$crs"
+  [ -w "$crs" ] || { echo_stderr "$crs is not writable by $(id -un), and the examples runner caches the CRS there."; return 1; }
   local COMPOSE_DIR="$DOCS_ROOT/examples/ts"
-  run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+  # These traps hold this shell until run_compose_test returns, which is after it took the project down, so
+  # on_exit removes the examples' files only once no container writes them.
+  EXECUTED=${half:-all}
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  DOCS_EXAMPLES_HALF=$half DOCS_UID=$(id -u) DOCS_GID=$(id -g) \
+    run_compose_test "docs_examples${half:+_$half}" "docs-examples" "$COMPOSE_DIR"
 }
 
 # Runs the Noir tests of every docs workspace package that has any (the type = "lib" test
@@ -373,6 +394,11 @@ function test-fresh-clone {
   "$REPO_ROOT/docs/scripts/fresh_clone_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-fresh-clone <page>}"
 }
 
+function test-page-transcript {
+  pin_toolchain
+  "$REPO_ROOT/docs/scripts/page_transcript_test.sh" "${1:?usage: examples/bootstrap.sh [--line <line>] test-page-transcript <page>}"
+}
+
 # Every line's checkout and toolchain, installed before test commands that share them run in parallel.
 function pin_toolchains {
   pin_toolchain
@@ -384,10 +410,13 @@ function pin_toolchains {
 }
 
 function test_cmds {
-  # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
-  # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
-  # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
-  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
+  # 15m: with both halves at once under load, a green half took 294 to 421 s, and a half with a failing
+  # example (five attempts) 449 s. Re-measure when an example is added, and rebalance the halves
+  # (run.sh HALF_1, HALF_2) before raising a limit.
+  # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
+  # the whole group reaches it, so that its exit trap takes the compose project down.
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 1"
+  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 2"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.
@@ -395,23 +424,38 @@ function test_cmds {
   local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
   echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
   # A clone block fetches its line's examples and Nargo.toml, and the aztec-node tag its page renders.
-  local tutorials=docs-developers/docs/tutorials/js_tutorials clone_pages=(webapp/index.md uniswap_swap.md)
+  # The pages come from docs/scripts/page_tests.mts, which its census test checks; a failed lookup
+  # fails here rather than dropping commands.
+  local tutorials=docs-developers/docs/tutorials/js_tutorials clone_pages lines
+  clone_pages=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-fresh-clone) || return 1
+  lines=$("${aztec_node[@]}" lines) || return 1
   local clone=("^docs/scripts/fresh_clone_test.sh" "${render[@]}")
   local clone_hash
   clone_hash=$(cache_content_hash .rebuild_patterns ^docs/Nargo.toml "^docs/$tutorials/" "${clone[@]}")
-  for page in "${clone_pages[@]}"; do
-    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$tutorials/$page"
+  for page in $clone_pages; do
+    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
+  done
+  # A transcript's reader runs in a session of its own, which the runner stops when the timeout
+  # signals its group: no ONLY_TERM_PARENT.
+  local transcripts transcript=("^docs/scripts/page_t" "${render[@]}")
+  transcripts=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-page-transcript) || return 1
+  for page in $transcripts; do
+    echo "$(cache_content_hash .rebuild_patterns "^docs/$page" "${transcript[@]}"):TIMEOUT=15m docs/examples/bootstrap.sh test-page-transcript docs/$page"
   done
   # A line's TXE needs a port of its own: the test commands run in parallel.
   local line line_hash i=0
-  for line in $("${aztec_node[@]}" lines); do
+  for line in $lines; do
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/")
     echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
     echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
     line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
-    for page in "${clone_pages[@]}"; do
-      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$tutorials/$page"
+    for page in $clone_pages; do
+      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
+    done
+    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${transcript[@]}")
+    for page in $transcripts; do
+      echo "$line_hash:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-page-transcript docs/lines/$line/$page"
     done
     i=$((i + 1))
   done
@@ -506,7 +550,7 @@ case "$cmd" in
     compile-solidity
     ;;
   execute)
-    execute-examples
+    execute-examples "$@"
     ;;
   test-contracts)
     test-contracts
@@ -519,6 +563,9 @@ case "$cmd" in
     ;;
   test-fresh-clone)
     test-fresh-clone "$@"
+    ;;
+  test-page-transcript)
+    test-page-transcript "$@"
     ;;
   *)
     default_cmd_handler "$@"

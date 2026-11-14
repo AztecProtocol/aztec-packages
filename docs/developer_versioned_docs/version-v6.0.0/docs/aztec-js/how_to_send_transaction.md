@@ -3,7 +3,7 @@ title: Sending Transactions
 sidebar_position: 4
 description: Send transactions to Aztec contracts using Aztec.js with various options and error handling
 tags: [transactions, contracts, aztec.js]
-references: ["docs/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/aztec.js/src/contract/*"]
+references: ["docs/lines/v6/examples/ts/aztecjs_advanced/index.ts", "labs/yarn-project/aztec.js/src/contract/*"]
 ---
 
 This guide shows you how to send transactions to smart contracts on Aztec.
@@ -32,7 +32,7 @@ const contract = await Contract.at(
   wallet,
 );
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L333-L340" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L333-L340</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L333-L340" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L333-L340</a></sub></sup>
 
 
 Call a function and wait for it to be mined:
@@ -45,7 +45,7 @@ const { receipt: sendReceipt } = await contract.methods
 console.log(`Transaction mined in block ${sendReceipt.blockNumber}`);
 console.log(`Transaction fee: ${sendReceipt.transactionFee}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L342-L349" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L342-L349</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L342-L349" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L342-L349</a></sub></sup>
 
 
 The `from` field specifies which account sends the transaction. If that account has Fee Juice, it pays for the transaction automatically. For other fee payment options, see [paying fees](./how_to_pay_fees.md).
@@ -63,7 +63,7 @@ This means a simple `.send()` is all most apps need. You can adjust the gas padd
 ```typescript title="set_gas_padding" showLineNumbers 
 wallet.setEstimatedGasPadding(0.2); // 20% padding instead of the default 10%
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L351-L353" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L351-L353</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L351-L353" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L351-L353</a></sub></sup>
 
 
 :::note
@@ -86,7 +86,7 @@ console.log(`Transaction sent: ${transferTxHash.toString()}`);
 const transferReceipt = await waitForTx(node, transferTxHash);
 console.log(`Transaction mined in block ${transferReceipt.blockNumber}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L167-L178" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L167-L178</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L167-L178" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L167-L178</a></sub></sup>
 
 
 ## Send batch transactions
@@ -103,7 +103,7 @@ const batch = new BatchCall(wallet, [
 const { receipt: batchReceipt } = await batch.send({ from: aliceAddress });
 console.log(`Batch executed in block ${batchReceipt.blockNumber}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L180-L189" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L180-L189</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L180-L189" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L180-L189</a></sub></sup>
 
 
 :::warning
@@ -127,7 +127,7 @@ console.log(`Status: ${txReceipt.status}`);
 console.log(`Block number: ${txReceipt.blockNumber}`);
 console.log(`Transaction fee: ${txReceipt.transactionFee}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/aztecjs_advanced/index.ts#L212-L224" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/aztecjs_advanced/index.ts#L212-L224</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L212-L224" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/aztecjs_advanced/index.ts#L212-L224</a></sub></sup>
 
 
 `getTxReceipt` always resolves to one of three lifecycle variants of the `TxReceipt` union, depending on where the transaction is in its lifecycle:

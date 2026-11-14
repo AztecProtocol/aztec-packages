@@ -100,7 +100,7 @@ Because tests live in their own crate, we refer to the contract via its crate na
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/mainnet/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
+- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/v6.0.0/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
 - It is always necessary to deploy a contract in order to test it
 :::
 

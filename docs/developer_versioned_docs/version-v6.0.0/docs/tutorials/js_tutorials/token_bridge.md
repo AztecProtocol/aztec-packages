@@ -2,7 +2,7 @@
 title: "Bridge Your NFT to Aztec"
 sidebar_position: 1
 description: "Build a private NFT bridge between Ethereum and Aztec using custom notes, PrivateSet, and cross-chain messaging portals."
-references: ["docs/examples/contracts/nft/*", "docs/examples/contracts/nft_bridge/*", "docs/examples/ts/token_bridge/*"]
+references: ["docs/lines/v6/examples/contracts/nft/*", "docs/lines/v6/examples/contracts/nft_bridge/*", "docs/lines/v6/examples/ts/token_bridge/*"]
 ---
 
 ## Why Bridge an NFT?
@@ -45,12 +45,12 @@ Create `package.json`:
 }
 ```
 
-Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages, which you install at your network's version:
+Create `.yarnrc.yml`. It installs into a plain `node_modules` folder and only takes package versions published at least 7 days ago, except the Aztec packages at your network's version, which you install below:
 
 ```yaml title=".yarnrc.yml"
 nodeLinker: node-modules
 npmMinimalAgeGate: 7d
-npmPreapprovedPackages: ["@aztec-labs/*", "@aztec-foundation/*"]
+npmPreapprovedPackages: ["@aztec-labs/*@6.0.0", "@aztec-foundation/*@6.0.0"]
 ```
 
 Install Hardhat, the sources of Aztec's L1 contracts, and the Aztec packages:
@@ -67,7 +67,7 @@ ln -sfn node_modules/@aztec-foundation/l1-artifacts/l1-contracts l1-contracts
 
 Create `hardhat.config.ts`:
 
-```typescript title="hardhat.config.ts"
+```typescript title="hardhat_config" showLineNumbers 
 import { defineConfig } from "hardhat/config";
 
 export default defineConfig({
@@ -77,15 +77,19 @@ export default defineConfig({
   },
 });
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/hardhat.config.ts#L1-L10" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/hardhat.config.ts#L1-L10</a></sub></sup>
+
 
 Create `remappings.txt`. It resolves the `@oz/` and `@aztec/` imports, in your contracts and in the l1-contracts sources, through that link:
 
-```text title="remappings.txt"
+```text title="remappings" showLineNumbers 
 @oz/=l1-contracts/lib/openzeppelin-contracts/contracts/
 @aztec/=l1-contracts/src/
 @aztec-blob-lib/=l1-contracts/src/core/libraries/rollup/
 @zkpassport/=l1-contracts/lib/circuits/src/solidity/src/
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/remappings.txt#L1-L6" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/remappings.txt#L1-L6</a></sub></sup>
+
 
 Now start the local network in another terminal:
 
@@ -161,7 +165,7 @@ pub struct NFTNote {
     pub token_id: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/nft.nr#L1-L9" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/nft.nr#L1-L9</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/nft.nr#L1-L9" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/nft.nr#L1-L9</a></sub></sup>
 
 
 You now have a note that represents the owner of a particular NFT. Next, move on to the contract itself.
@@ -234,7 +238,7 @@ fn _mark_nft_exists(token_id: Field, exists: bool) {
     self.storage.nfts.at(token_id).schedule_value_change(exists);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L44-L50" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L44-L50</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L44-L50" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L44-L50</a></sub></sup>
 
 
 This function is marked with `#[only_self]`, meaning only the contract itself can call it. It uses `schedule_value_change` to update the `nfts` storage, preventing the same NFT from being minted twice or burned when it doesn't exist. You'll call this public function from a private function later using `enqueue_self`.
@@ -248,7 +252,7 @@ unconstrained fn notes_of(from: AztecAddress) -> Field {
     notes.len() as Field
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L69-L75" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L69-L75</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L69-L75" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L69-L75</a></sub></sup>
 
 
 ### Add Minting and Burning
@@ -262,7 +266,7 @@ fn set_minter(minter: AztecAddress) {
     self.storage.minter.initialize(minter);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L36-L42</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L36-L42" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L36-L42</a></sub></sup>
 
 
 Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, deliver the note using [constrained message delivery](../../aztec-nr/framework-description/events_and_logs.md) (best practice when "sending someone a
@@ -284,7 +288,7 @@ fn mint(to: AztecAddress, token_id: Field) {
     self.enqueue_self._mark_nft_exists(token_id, true);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L52-L67" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L52-L67</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L52-L67" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L52-L67</a></sub></sup>
 
 
 The bridge will also need to burn NFTs when users withdraw back to L1:
@@ -307,7 +311,7 @@ fn burn(from: AztecAddress, token_id: Field) {
     self.enqueue_self._mark_nft_exists(token_id, false);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft/src/main.nr#L77-L94" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft/src/main.nr#L77-L94</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft/src/main.nr#L77-L94" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft/src/main.nr#L77-L94</a></sub></sup>
 
 
 :::note Clear the scaffold's placeholder test
@@ -454,7 +458,7 @@ fn claim(to: AztecAddress, token_id: Field, secret: Field, message_leaf_index: F
     self.call(NFTPunk::at(nft).mint(to, token_id));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft_bridge/src/main.nr#L31-L50" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft_bridge/src/main.nr#L31-L50</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft_bridge/src/main.nr#L31-L50" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft_bridge/src/main.nr#L31-L50</a></sub></sup>
 
 
 :::tip Secret
@@ -479,7 +483,7 @@ fn exit(token_id: Field, recipient: EthAddress) {
     self.call(NFTPunk::at(nft).burn(self.msg_sender(), token_id));
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/contracts/nft_bridge/src/main.nr#L52-L65" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/nft_bridge/src/main.nr#L52-L65</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/contracts/nft_bridge/src/main.nr#L52-L65" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/contracts/nft_bridge/src/main.nr#L52-L65</a></sub></sup>
 
 
 Cross-chain messaging on Aztec is powerful because it doesn't conform to any specific format—you can structure messages however you want.
@@ -552,7 +556,7 @@ contract SimpleNFT is ERC721 {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/nft_bridge/SimpleNFT.sol#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/nft_bridge/SimpleNFT.sol#L1-L18</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/contracts/SimpleNFT.sol#L1-L18" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/contracts/SimpleNFT.sol#L1-L18</a></sub></sup>
 
 
 ### Create the NFT Portal
@@ -641,7 +645,7 @@ function withdraw(
     nftContract.transferFrom(address(this), msg.sender, tokenId);
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/solidity/nft_bridge/NFTPortal.sol#L37-L72" target="_blank" rel="noopener noreferrer">Source code: docs/examples/solidity/nft_bridge/NFTPortal.sol#L37-L72</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/contracts/NFTPortal.sol#L37-L72" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/contracts/NFTPortal.sol#L37-L72</a></sub></sup>
 
 
 The portal handles two flows:
@@ -708,13 +712,18 @@ import { NFTPunkContract } from "../contracts/aztec/artifacts/NFTPunk.js";
 
 // Setup L1 client using anvil's default mnemonic (same as e2e tests)
 const MNEMONIC = "test test test test test test test test test test test junk";
-const l1Client = createExtendedL1Client(["http://localhost:8545"], MNEMONIC);
+const l1Client = createExtendedL1Client(
+  [process.env.ETHEREUM_HOST ?? "http://localhost:8545"],
+  MNEMONIC,
+);
 const ownerEthAddress = l1Client.account.address;
 
 // Setup L2 using Aztec's local network and one of its initial accounts
 console.log("Setting up L2...\n");
-const node = createAztecNodeClient("http://localhost:8080");
-const aztecWallet = await EmbeddedWallet.create(node);
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
+const aztecWallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
 const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
@@ -728,7 +737,7 @@ const nodeInfo = await node.getNodeInfo();
 const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L1-L42" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L1-L42</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L1-L47" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L1-L47</a></sub></sup>
 
 
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
@@ -751,7 +760,7 @@ const { address: portalAddress } = await deployL1Contract(
 console.log(`SimpleNFT: ${nftAddress}`);
 console.log(`NFTPortal: ${portalAddress}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L44-L61" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L44-L61</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L49-L66" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L49-L66</a></sub></sup>
 
 
 Now deploy the L2 contracts. Thanks to the TypeScript bindings generated with `aztec codegen`, deployment is straightforward:
@@ -774,7 +783,7 @@ const { contract: l2Bridge } = await NFTBridgeContract.deploy(
 console.log(`L2 NFT: ${l2Nft.address.toString()}`);
 console.log(`L2 Bridge: ${l2Bridge.address.toString()}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L63-L80" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L63-L80</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L68-L85" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L68-L85</a></sub></sup>
 
 
 Now that you have the L2 bridge's contract address, initialize the L1 bridge:
@@ -794,7 +803,7 @@ await l1Client.waitForTransactionReceipt({ hash: initHash });
 
 console.log("Portal initialized\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L82-L96" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L82-L96</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L87-L101" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L87-L101</a></sub></sup>
 
 
 The L2 contracts were already initialized when you deployed them, but you still need to:
@@ -817,7 +826,7 @@ await l2Nft.methods
 
 console.log("Bridge configured\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L98-L110" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L98-L110</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L103-L115" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L103-L115</a></sub></sup>
 
 
 This completes the setup. It's a lot of configuration, but you're dealing with four contracts across two chains.
@@ -843,7 +852,7 @@ const tokenId = 0n;
 
 console.log(`Minted tokenId: ${tokenId}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L112-L128" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L112-L128</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L117-L133" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L117-L133</a></sub></sup>
 
 
 To bridge, first approve the portal address to transfer the NFT, then transfer it by calling `depositToAztec`:
@@ -879,7 +888,7 @@ const depositReceipt = await l1Client.waitForTransactionReceipt({
   hash: depositHash,
 });
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L130-L160" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L130-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L135-L165" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L135-L165</a></sub></sup>
 
 
 The `Inbox` contract will emit an important log: `MessageSent(hash, inboxRollingHash, bucketSeq, message);`. The `message.index` field is the **leaf index** of the message in the [L1-L2 Message Tree](../../foundational-topics/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
@@ -948,7 +957,7 @@ const messageSentLogs = depositReceipt.logs
 
 const messageLeafIndex = new Fr(messageSentLogs[0].decoded.args.message.index);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L162-L223" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L162-L223</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L167-L228" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L167-L228</a></sub></sup>
 
 
 This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, a message can only be claimed once an L2 block includes it, and the network waits until the message is at least 12 seconds old before including it, so expect 12 to 30 seconds of latency. If you called `claim` on the L2 contract immediately, it would return "no message available".
@@ -968,7 +977,7 @@ async function mine2Blocks(
   });
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L225-L237" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L225-L237</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L230-L242" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L230-L242</a></sub></sup>
 
 
 Now claim the message on L2:
@@ -997,7 +1006,7 @@ const { result: notesAfterClaim } = await l2Nft.methods
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterClaim}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L239-L262" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L239-L262</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L244-L267" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L244-L267</a></sub></sup>
 
 
 ### L2 → L1 Flow
@@ -1025,7 +1034,7 @@ const { result: notesAfterBurn } = await l2Nft.methods
   .simulate({ from: account.address });
 console.log(`   Notes count: ${notesAfterBurn}\n`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L264-L284" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L264-L284</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L269-L289" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L269-L289</a></sub></sup>
 
 
 Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use `node.getL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
@@ -1089,7 +1098,7 @@ const siblingPathHex = witness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L286-L344" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L286-L344</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L291-L349" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L291-L349</a></sub></sup>
 
 
 With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
@@ -1112,7 +1121,7 @@ const withdrawHash = await l1Client.writeContract({
 await l1Client.waitForTransactionReceipt({ hash: withdrawHash });
 console.log("NFT withdrawn to L1\n");
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/docs/examples/ts/token_bridge/index.ts#L346-L363" target="_blank" rel="noopener noreferrer">Source code: docs/examples/ts/token_bridge/index.ts#L346-L363</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/c0643538fa9523cca55eab25f5befd31b4d115b8/docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L351-L368" target="_blank" rel="noopener noreferrer">Source code: docs/lines/v6/examples/ts/token_bridge/scripts/index.ts#L351-L368</a></sub></sup>
 
 
 You can now try the whole flow with:

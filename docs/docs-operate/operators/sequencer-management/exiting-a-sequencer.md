@@ -21,7 +21,7 @@ Attester-initiated exits let whoever runs the node exit positions without the wi
 
 ## Prerequisites
 
-- The aztec CLI at v6.0.0 or later (see [installation](/operate/operators/setup/running_a_node)), or Foundry's `cast`.
+- The aztec CLI at v6.0.0 or later (see [installation](../prerequisites.md#aztec-toolchain)), or Foundry's `cast`.
 - The Rollup contract address for your network (see [Useful Commands](./useful-commands.md#get-the-rollup-contract-address)) and its L1 chain ID.
 - An L1 RPC endpoint.
 - For an attester-initiated exit: the attester's ETH private key (the ECDSA key in your keystore, not the BLS key).

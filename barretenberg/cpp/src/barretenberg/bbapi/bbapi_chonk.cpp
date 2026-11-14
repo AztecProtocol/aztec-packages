@@ -71,7 +71,7 @@ template <typename VerificationKey> bool has_expected_vk_size(const std::vector<
 
 ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkStart");
 
     request.ivc_in_progress = std::make_shared<ChonkStepProcessor>(std::move(kinds));
 
@@ -87,7 +87,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 
 ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkLoad");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -104,7 +104,7 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
 
 ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkAccumulate");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -138,7 +138,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 
 ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkProve");
     if (!request.ivc_in_progress) {
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
@@ -168,7 +168,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 
 ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkVerify");
 
     try {
         using VerificationKey = Chonk::MegaZKVerificationKey;
@@ -204,7 +204,7 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 
 ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkVerifyFromFields");
 
     try {
         using VerificationKey = Chonk::MegaZKVerificationKey;
@@ -245,7 +245,7 @@ ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiReques
 
 ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkBatchVerify");
 
     try {
         if (proofs.size() != vks.size()) {
@@ -310,7 +310,7 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
 ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkComputeVk");
     info("ChonkComputeVk - deriving Chonk verification key for circuit '",
          circuit.name,
          "' (kind=",
@@ -326,7 +326,7 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
 
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkCheckPrecomputedVk");
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
@@ -344,7 +344,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
 
 ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkStats");
     Response response;
 
     const auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
@@ -396,13 +396,13 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
 
 ChonkCompressProof::Response ChonkCompressProof::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkCompressProof");
     return { .compressed_proof = ProofCompressor::compress_chonk_proof(proof) };
 }
 
 ChonkDecompressProof::Response ChonkDecompressProof::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("ChonkDecompressProof");
     size_t mega_num_pub = ProofCompressor::compressed_mega_num_public_inputs(compressed_proof.size());
     return { .proof = ProofCompressor::decompress_chonk_proof(compressed_proof, mega_num_pub) };
 }

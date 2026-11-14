@@ -1,17 +1,18 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_wire_convert.hpp"
+#include "barretenberg/bbapi/ffi_test_dispatch.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/serialize/test_helper.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
 #include <atomic>
 #include <cstdlib>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <limits>
 #include <new>
@@ -66,41 +67,6 @@ void operator delete(void* ptr, size_t /*size*/) noexcept
     std::free(ptr);
 }
 #endif
-
-// Template for testing roundtrip serialization
-template <typename T> class BBApiSerializationTest : public ::testing::Test {};
-
-// Enumerate each command type
-using Commands = ::testing::Types<bbapi::CircuitProve,
-                                  bbapi::CircuitComputeVk,
-                                  bbapi::CircuitStats,
-                                  bbapi::CircuitVerify,
-                                  bbapi::VkAsFields,
-                                  bbapi::CircuitWriteSolidityVerifier,
-                                  bbapi::ChonkStart,
-                                  bbapi::ChonkLoad,
-                                  bbapi::ChonkAccumulate,
-                                  bbapi::ChonkProve,
-                                  bbapi::ChonkComputeVk,
-                                  bbapi::ChonkCheckPrecomputedVk,
-                                  bbapi::ChonkBatchVerify>;
-
-// Typed test suites
-template <typename T> class BBApiMsgpack : public ::testing::Test {};
-
-TYPED_TEST_SUITE(BBApiMsgpack, Commands);
-
-// Test roundtrip serialization for UltraHonk commands
-TYPED_TEST(BBApiMsgpack, DefaultConstructorRoundtrip)
-{
-    TypeParam command{};
-    auto [actual_command, expected_command] = msgpack_roundtrip(command);
-    EXPECT_EQ(actual_command, expected_command);
-
-    typename TypeParam::Response response{};
-    auto [actual_response, expected_response] = msgpack_roundtrip(response);
-    EXPECT_EQ(actual_response, expected_response);
-}
 
 // Regression tests for input validation at API boundaries.
 // These ensure non-canonical field encodings and trailing bytes are rejected.
@@ -195,9 +161,10 @@ TEST(Poseidon2AbsorbChain, MatchesNativeSponge)
     const Sponge::State initial_state = { fr(11), fr(12), fr(13), fr(14) };
     const std::array<Sponge::Block, 2> blocks = { { { fr(1), fr(2), fr(3) }, { fr(4), fr(5), fr(6) } } };
 
-    bbapi::BBApiRequest request{};
-    auto response = bbapi::Poseidon2AbsorbChain{ .state = initial_state, .inputs = to_buffer(blocks) }.execute(request);
-    EXPECT_EQ(response.state, Sponge::absorb_blocks(initial_state, blocks));
+    bbapi::wire::BbPoseidon2AbsorbChain cmd{ .state = bbapi::fr_array_to_wire<4>(initial_state),
+                                             .inputs = to_buffer(blocks) };
+    auto response = bbapi::ffi_test::ffi_call_ok<bbapi::wire::BbPoseidon2AbsorbChainResponse>(cmd);
+    EXPECT_EQ(bbapi::fr_array_from_wire<4>(response.state), Sponge::absorb_blocks(initial_state, blocks));
 }
 
 // Helper: pack a vector of PrivateExecutionStepRaw into a byte buffer via msgpack.
@@ -380,30 +347,37 @@ TEST(PrivateExecutionStepRaw, CompressAndSaveDoesNotRecompressLoadedSteps)
 // Without these guards, a socket client could force a ~4 GB allocation via the
 // uint32_t `length` field, or pass `length != plaintext.size()` and silently
 // encrypt zero-padded tail bytes.
+#ifndef BB_NO_EXCEPTIONS
+namespace {
+std::string aes_error(const auto& cmd)
+{
+    auto response = bbapi::ffi_test::ffi_call(cmd);
+    EXPECT_TRUE(response.is_error());
+    return response.is_error() ? response.error_message() : "";
+}
+} // namespace
+
 TEST(BBApiInputValidation, AesEncryptRejectsLengthMismatch)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
-    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal plaintext.*");
+    bbapi::wire::BbAesEncrypt cmd{ .plaintext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    EXPECT_THAT(aes_error(cmd), ::testing::HasSubstr("length must equal plaintext"));
 }
 
 TEST(BBApiInputValidation, AesEncryptRejectsNonBlockAlignedLength)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesEncrypt cmd{ .plaintext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
-    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
+    bbapi::wire::BbAesEncrypt cmd{ .plaintext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    EXPECT_THAT(aes_error(cmd), ::testing::HasSubstr("multiple of 16"));
 }
 
 TEST(BBApiInputValidation, AesDecryptRejectsLengthMismatch)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
-    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*length must equal ciphertext.*");
+    bbapi::wire::BbAesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(16, 0), .iv = {}, .key = {}, .length = 32 };
+    EXPECT_THAT(aes_error(cmd), ::testing::HasSubstr("length must equal ciphertext"));
 }
 
 TEST(BBApiInputValidation, AesDecryptRejectsNonBlockAlignedLength)
 {
-    bbapi::BBApiRequest request{};
-    bbapi::AesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
-    EXPECT_THROW_OR_ABORT(std::move(cmd).execute(request), ".*multiple of 16.*");
+    bbapi::wire::BbAesDecrypt cmd{ .ciphertext = std::vector<uint8_t>(17, 0), .iv = {}, .key = {}, .length = 17 };
+    EXPECT_THAT(aes_error(cmd), ::testing::HasSubstr("multiple of 16"));
 }
+#endif

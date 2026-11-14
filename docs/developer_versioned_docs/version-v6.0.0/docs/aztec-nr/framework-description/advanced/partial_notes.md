@@ -26,7 +26,7 @@ pub struct UintNote {
     pub value: u128,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
 
 
 The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
@@ -105,7 +105,7 @@ pub struct UintNote {
     pub value: u128,
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L30-L37</a></sub></sup>
 
 
 ### Two-phase commitment process
@@ -122,7 +122,7 @@ fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
     )
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L145-L152" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L145-L152</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L145-L152" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L145-L152</a></sub></sup>
 
 
 This creates a partial note commitment:
@@ -140,7 +140,7 @@ fn compute_complete_note_hash(self, storage_slot: Field, value: u128) -> Field {
     compute_note_hash(storage_slot, [self.commitment, value.to_field()])
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L257-L261" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L257-L261</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L257-L261" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L257-L261</a></sub></sup>
 
 
 The resulting structure is a nested commitment:
@@ -177,7 +177,7 @@ fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness:
     partial_note.compute_complete_note_hash(storage_slot, self.value)
 }
 ```
-> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/v6.0.0/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/aztec-labs-eng/aztec-node/blob/d2e67c1d938f06a6476dd7d4bd01e73771923dd1/noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/uint-note/src/uint_note.nr#L40-L57</a></sub></sup>
 
 
 This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.

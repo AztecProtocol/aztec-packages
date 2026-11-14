@@ -8,6 +8,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <filesystem>
@@ -541,6 +542,27 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         const size_t num_msms = sizes.size();
 
+        // The straddle members grow with the pool and outgrow the fixture from 61 threads up (2 * 256 * 61 >
+        // num_points). Extend the points to the largest member, rather than drop members or narrow the pool, so the
+        // boundary is still tested at the pool's own width.
+        std::vector<AffineElement> points = generators;
+        const size_t max_size = std::ranges::max(sizes);
+        if (max_size > points.size()) {
+            const size_t first_new = points.size();
+            // Draws stay on this thread (under BBERG_DEBUG_LOG the engine is one unsynchronised generator); only the
+            // point arithmetic runs in parallel.
+            std::vector<ScalarField> discrete_logs(max_size - first_new);
+            for (auto& discrete_log : discrete_logs) {
+                discrete_log = ScalarField::random_element(&engine);
+            }
+            points.resize(max_size);
+            parallel_for_range(discrete_logs.size(), [&](size_t start, size_t end) {
+                for (size_t i = start; i < end; ++i) {
+                    points[first_new + i] = Group::one * discrete_logs[i];
+                }
+            });
+        }
+
         const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
         std::vector<AffineElement> expected(num_msms);
         std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
@@ -567,13 +589,14 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 // Alternate measured-count and bare (no-estimate) hints through the channel.
                 dedup_infos[k] = (k % 2 == 0) ? dup_count : uint32_t{ 1 };
             }
-            std::span<const AffineElement> pts(&generators[0], n);
+            ASSERT_LE(n, points.size()) << "MSM " << k << " (n=" << n << ") is larger than the points built for it";
+            std::span<const AffineElement> pts(points.data(), n);
             batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
             expected[k] = naive_msm(batch_scalars[k], pts);
         }
 
         std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
-            generators, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
+            points, batch_scalars_spans, /*handle_edge_cases=*/false, dedup_infos);
 
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "MSM " << k << " (n=" << sizes[k] << ") mismatched";
@@ -614,6 +637,33 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
 
         EXPECT_EQ(result, Group::affine_point_at_infinity);
+    }
+
+    void test_msm_rejects_too_few_points()
+    {
+        constexpr size_t n = 8;
+        std::span<const AffineElement> points(generators.data(), n);
+        std::span<const AffineElement> short_points = points.first(n - 1);
+        std::span<ScalarField> member_scalars(scalars.data(), n);
+
+        PolynomialSpan<const ScalarField> fits(0, member_scalars);
+        PolynomialSpan<const ScalarField> offset_fits(1, member_scalars.first(n - 1));
+        PolynomialSpan<const ScalarField> offset_overruns(2, member_scalars.first(n - 1));
+        EXPECT_EQ(scalar_multiplication::MSM<Curve>::msm(points, offset_fits),
+                  naive_msm(member_scalars.first(n - 1), points.subspan(1)));
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::pippenger<Curve>(fits, short_points), "MSM needs");
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::pippenger_unsafe<Curve>(fits, short_points), "MSM needs");
+        EXPECT_THROW_OR_ABORT(scalar_multiplication::MSM<Curve>::msm(points, offset_overruns), "MSM needs");
+
+        // One member that fits and one that needs a point past the end: the whole batch is rejected rather than
+        // the second member being cut short.
+        std::vector<PolynomialSpan<ScalarField>> batch{ PolynomialSpan<ScalarField>(0, member_scalars.first(n - 1)),
+                                                        PolynomialSpan<ScalarField>(0, member_scalars) };
+        for (const bool handle_edge_cases : { false, true }) {
+            EXPECT_THROW_OR_ABORT(
+                scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(short_points, batch, handle_edge_cases),
+                "MSM needs");
+        }
     }
 
     void test_scalars_unchanged_after_msm()
@@ -1999,6 +2049,11 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
 {
     this->test_msm_empty_polynomial();
 }
+TYPED_TEST(ScalarMultiplicationTest, MSMRejectsTooFewPoints)
+{
+    this->test_msm_rejects_too_few_points();
+}
+
 TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
 {
     this->test_scalars_unchanged_after_msm();

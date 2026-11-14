@@ -1,5 +1,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -651,12 +652,22 @@ bool use_legacy_msm() noexcept
     return legacy_selected;
 }
 
+void check_msm_points_cover_scalars(size_t start_index, size_t num_scalars, size_t num_points)
+{
+    // Compared as start_index > num_points - num_scalars so an extreme start_index cannot wrap the sum.
+    if (num_scalars > num_points || start_index > num_points - num_scalars) {
+        throw_or_abort(
+            format("MSM needs ", start_index, " + ", num_scalars, " points but only ", num_points, " are available"));
+    }
+}
+
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   bool handle_edge_cases,
-                                  size_t dedup_info) noexcept
+                                  size_t dedup_info)
 {
+    check_msm_points_cover_scalars(scalars.start_index, scalars.size(), points.size());
     if (use_legacy_msm()) {
         return legacy::pippenger<Curve>(scalars, points, handle_edge_cases);
     }
@@ -666,8 +677,9 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                          std::span<const typename Curve::AffineElement> points,
-                                         size_t dedup_info) noexcept
+                                         size_t dedup_info)
 {
+    check_msm_points_cover_scalars(scalars.start_index, scalars.size(), points.size());
     if (use_legacy_msm()) {
         return legacy::pippenger_unsafe<Curve>(scalars, points);
     }
@@ -678,7 +690,7 @@ template <typename Curve>
 typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
                                               PolynomialSpan<const typename Curve::ScalarField> scalars,
                                               bool handle_edge_cases,
-                                              size_t dedup_info) noexcept
+                                              size_t dedup_info)
 {
     return AffineElement(pippenger<Curve>(scalars, points, handle_edge_cases, dedup_info));
 }
@@ -688,8 +700,11 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<const typename Curve::AffineElement> points,
     std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
     bool handle_edge_cases,
-    std::span<const uint32_t> dedup_infos) noexcept
+    std::span<const uint32_t> dedup_infos)
 {
+    for (const auto& member : scalars) {
+        check_msm_points_cover_scalars(member.start_index, member.size(), points.size());
+    }
     if (use_legacy_msm()) {
         // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
         // legacy per-MSM (points span, scalar span) shape. dedup_hints are dropped.
@@ -699,9 +714,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         legacy_points.reserve(k);
         legacy_scalars.reserve(k);
         for (size_t i = 0; i < k; ++i) {
-            const size_t start_i = std::min(scalars[i].start_index, points.size());
-            const size_t n = std::min(scalars[i].span.size(), points.size() - start_i);
-            legacy_points.push_back(points.subspan(start_i, n));
+            legacy_points.push_back(points.subspan(scalars[i].start_index, scalars[i].span.size()));
             legacy_scalars.push_back(scalars[i].span);
         }
         return legacy::MSM<Curve>::batch_multi_scalar_mul(legacy_points, legacy_scalars, handle_edge_cases);
@@ -712,18 +725,18 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                        std::span<const curve::BN254::AffineElement> points,
                                                        bool handle_edge_cases,
-                                                       size_t dedup_info) noexcept;
+                                                       size_t dedup_info);
 template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
                                                              bool handle_edge_cases,
-                                                             size_t dedup_info) noexcept;
+                                                             size_t dedup_info);
 template curve::BN254::Element pippenger_unsafe<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                               std::span<const curve::BN254::AffineElement> points,
-                                                              size_t dedup_info) noexcept;
+                                                              size_t dedup_info);
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    size_t dedup_info) noexcept;
+    size_t dedup_info);
 template class MSM<curve::BN254>;
 template class MSM<curve::Grumpkin>;
 
