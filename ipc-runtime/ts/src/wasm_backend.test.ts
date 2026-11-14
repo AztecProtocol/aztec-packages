@@ -142,7 +142,17 @@ test("a backend terminates a main worker that fails to start", async () => {
   const handlers: ((message: unknown) => void)[] = [];
   let terminated = false;
   const worker: WorkerHandle = {
-    postMessage: () => handlers.forEach((h) => h({ type: "init-error", message: "no entry" })),
+    postMessage: (message: any) => {
+      const reply =
+        message?.type === "load"
+          ? { type: "load-error", slot: message.slot, message: "no entry" }
+          : message?.type === "destroy"
+            ? { type: "destroyed" }
+            : undefined;
+      if (reply) {
+        queueMicrotask(() => handlers.forEach((h) => h(reply)));
+      }
+    },
     onMessage: (handler) => handlers.push(handler),
     onError: () => {},
     terminate: async () => {

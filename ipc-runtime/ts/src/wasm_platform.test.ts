@@ -31,9 +31,11 @@ async function mainWorkerMaximum(callerMaximum?: number): Promise<number> {
   let init: any;
   const handlers: ((message: unknown) => void)[] = [];
   const worker: WorkerHandle = {
-    postMessage: (message) => {
-      init = message;
-      queueMicrotask(() => handlers.forEach((h) => h({ type: "ready" })));
+    postMessage: (message: any) => {
+      if (message?.type === "load") {
+        init = message;
+        queueMicrotask(() => handlers.forEach((h) => h({ type: "loaded", slot: message.slot })));
+      }
     },
     onMessage: (handler) => handlers.push(handler),
     onError: () => {},
