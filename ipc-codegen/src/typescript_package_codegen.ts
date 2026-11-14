@@ -25,10 +25,13 @@ export interface TypeScriptPackageOptions {
   /** wasm transport: wide-arithmetic builds of the two, run instead where the engine supports it. */
   wasmWideModule?: PackageWasmModule;
   wasmWideThreadsModule?: PackageWasmModule;
-  /** napi transport: file name of the Node-API addon over the FFI entry, shipped in the arch packages. */
-  napiAddon?: string;
-  /** napi transport: environment variable that overrides the addon's path. */
-  napiAddonEnvVar?: string;
+  /**
+   * napi transport: file name of the shared library exporting the FFI entry, shipped in the arch
+   * packages and loaded through ipc-runtime's Node-API addon.
+   */
+  napiLibrary?: string;
+  /** napi transport: environment variable that overrides the library's path. */
+  napiLibraryEnvVar?: string;
 }
 
 function className(prefix: string): string {
@@ -39,8 +42,8 @@ function binaryFinderName(prefix: string): string {
   return `find${prefix}Binary`;
 }
 
-function addonFinderName(prefix: string): string {
-  return `find${prefix}NapiAddon`;
+function libraryFinderName(prefix: string): string {
+  return `find${prefix}NapiLibrary`;
 }
 
 function envName(binaryName: string): string {
@@ -221,7 +224,7 @@ export class TypeScriptPackageCodegen {
     return this.opts.transports.filter((t) => t !== "wasm" && t !== "napi");
   }
 
-  /** Whether the package ships per-platform native files: the service binary and/or the addon. */
+  /** Whether the package ships per-platform native files: the service binary and/or the library. */
   private get native(): boolean {
     return this.process || this.napi;
   }
@@ -231,11 +234,11 @@ export class TypeScriptPackageCodegen {
     return this.opts.binaryName || packageStem(this.opts.packageName);
   }
 
-  /** The files each per-platform package carries: the spawned binary and/or the napi addon. */
+  /** The files each per-platform package carries: the spawned binary and/or the napi library. */
   get nativeFiles(): string[] {
     return [
       this.process ? this.opts.binaryName : "",
-      this.napi ? (this.opts.napiAddon ?? "") : "",
+      this.napi ? (this.opts.napiLibrary ?? "") : "",
     ].filter(Boolean);
   }
 
@@ -420,7 +423,7 @@ ${syncSpawn}`;
     const defaults = [
       process &&
         `the spawned process when the '${this.opts.binaryName}' binary resolves`,
-      napi && "the napi addon when it resolves",
+      napi && "the napi library when it resolves",
       wasm && "the wasm module",
     ]
       .filter(Boolean)
@@ -486,7 +489,7 @@ ${
 }${
       napi
         ? `
-  /** The service over the in-process napi addon (no fallback); calls run on the libuv pool. */
+  /** The service over its shared library, in-process through napi (no fallback); calls run on the libuv pool. */
   static async napi(options: ${prefix}NapiOptions = {}): Promise<${svc}> {
     return new ${svc}(await createNapiBackend(options));
   }
@@ -549,7 +552,7 @@ ${
 }${
       napi
         ? `
-  /** The service over the in-process napi addon, on the calling thread (no fallback). */
+  /** The service over its shared library, in-process through napi, on the calling thread (no fallback). */
   static async napi(options: ${prefix}NapiOptions = {}): Promise<${svc}Sync> {
     return new ${svc}Sync(createNapiBackendSync(options));
   }
@@ -576,13 +579,13 @@ ${
     const wasm = this.wasm;
     const napi = this.napi;
     const shm = this.shm;
-    const findAddon = addonFinderName(prefix);
+    const findLibrary = libraryFinderName(prefix);
     const backends = [
       process && "'process'",
       napi && "'napi'",
       wasm && "'wasm'",
     ].filter(Boolean) as string[];
-    const platformExports = [process && findBinary, napi && findAddon]
+    const platformExports = [process && findBinary, napi && findLibrary]
       .filter(Boolean)
       .join(", ");
 
@@ -617,7 +620,7 @@ ${
 }${
       napi
         ? `    napi: {
-      available: () => ${findAddon}(options.napi?.addonPath) !== null,
+      available: () => ${findLibrary}(options.napi?.libraryPath) !== null,
       create: () => createNapiBackend(options.napi),
     },
 `
@@ -630,7 +633,7 @@ ${
     }  });
 }
 
-/** The synchronous counterpart of createBackend${[shm && "the process over shared memory", napi && "the napi addon on the calling thread", wasm && "the single-threaded wasm module"].filter(Boolean).map((s, i) => (i === 0 ? ": " : ", else ") + s).join("")}. */
+/** The synchronous counterpart of createBackend${[shm && "the process over shared memory", napi && "the napi library on the calling thread", wasm && "the single-threaded wasm module"].filter(Boolean).map((s, i) => (i === 0 ? ": " : ", else ") + s).join("")}. */
 export async function createBackendSync(options: ${prefix}CreateSyncOptions = {}): Promise<IpcClientSync> {
   const common = { threads: options.threads, logger: options.logger, unref: options.unref };
   return pickServiceBackend<IpcClientSync>(options.backend, {
@@ -647,7 +650,7 @@ ${
 }${
       napi
         ? `    napi: {
-      available: () => ${findAddon}(options.napi?.addonPath) !== null,
+      available: () => ${findLibrary}(options.napi?.libraryPath) !== null,
       create: async () => createNapiBackendSync(options.napi),
     },
 `
@@ -921,7 +924,7 @@ ${ffiExports}
    */
   generatePlatform(): string {
     const findBinary = binaryFinderName(this.opts.prefix);
-    const findAddon = addonFinderName(this.opts.prefix);
+    const findLibrary = libraryFinderName(this.opts.prefix);
     const archPackages = archPackageNames(this.opts.packageName);
     // Keyed as `process.arch`-`process.platform` reads at runtime.
     const byPlatform = [
@@ -961,23 +964,23 @@ export function ${findBinary}(customPath?: string): string | null {
 }
 `
       : "";
-    const addon = this.napi
+    const library = this.napi
       ? `
-/** This package's Node-API addon over the service's FFI entry, for the napi backend. */
-export const NAPI_ADDON: ServiceNativeFile = {
-  name: '${this.opts.napiAddon}',
-  envVar: '${this.opts.napiAddonEnvVar}',
+/** This package's shared library exporting the service's FFI entry, for the napi backend. */
+export const NAPI_LIBRARY: ServiceNativeFile = {
+  name: '${this.opts.napiLibrary}',
+  envVar: '${this.opts.napiLibraryEnvVar}',
   archPackages: ARCH_PACKAGES,
   packageDir: PACKAGE_DIR,
 };
 
 /**
- * The '${this.opts.napiAddon}' addon to load: an explicit path if given, else
- * \`${this.opts.napiAddonEnvVar}\`, else the installed arch package for this platform. Null when none
- * of those yields an existing file.
+ * The '${this.opts.napiLibrary}' library to load: an explicit path if given, else
+ * \`${this.opts.napiLibraryEnvVar}\`, else the installed arch package for this platform. Null when
+ * none of those yields an existing file.
  */
-export function ${findAddon}(customPath?: string): string | null {
-  return findServiceBinary(NAPI_ADDON, customPath);
+export function ${findLibrary}(customPath?: string): string | null {
+  return findServiceBinary(NAPI_LIBRARY, customPath);
 }
 `
       : "";
@@ -992,51 +995,55 @@ ${byPlatform}
 };
 
 const PACKAGE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-${binary}${addon}
+${binary}${library}
 export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
 `;
   }
 
-  /** The napi transport (node only): the generated Node-API addon over the service's FFI entry. */
+  /**
+   * The napi transport (node only): the service's shared library, loaded in-process through
+   * ipc-runtime's Node-API addon, which calls its FFI entry.
+   */
   generateNapi(): string {
     const { prefix } = this.opts;
-    const findAddon = addonFinderName(prefix);
+    const findLibrary = libraryFinderName(prefix);
+    const ffiName = this.opts.ffiName || toSnakeCase(prefix);
     return `import {
   NapiFfiBackend,
   NapiFfiBackendSync,
-  loadNapiFfiAddon,
+  loadNapiFfiLibrary,
 } from '@aztec-foundation/ipc-runtime';
-import { ${findAddon} } from './platform.js';
+import { ${findLibrary} } from './platform.js';
 
 /**
- * Options for the in-process napi backend. The addon is one per process: node caches a native
- * module by path, and the FFI entry behind it holds one service context, so every napi backend
- * loaded from the same file shares the service's state.
+ * Options for the in-process napi backend. The library is loaded once per process, and the FFI
+ * entry behind it holds one service context, so every napi backend over the same file shares the
+ * service's state.
  */
 export interface ${prefix}NapiOptions {
-  /** The addon to load instead of the installed one (else \`${this.opts.napiAddonEnvVar}\`, else the arch package). */
-  addonPath?: string;
+  /** The library to load instead of the installed one (else \`${this.opts.napiLibraryEnvVar}\`, else the arch package). */
+  libraryPath?: string;
 }
 
-function loadAddon(options: ${prefix}NapiOptions) {
-  const addonPath = ${findAddon}(options.addonPath);
-  if (!addonPath) {
+function loadLibrary(options: ${prefix}NapiOptions) {
+  const libraryPath = ${findLibrary}(options.libraryPath);
+  if (!libraryPath) {
     throw new Error(
-      "${this.opts.packageName}: napi addon '${this.opts.napiAddon}' not found. Install the matching " +
-        "'${this.opts.packageName}-<platform>' package, set ${this.opts.napiAddonEnvVar}, or pass napi.addonPath.",
+      "${this.opts.packageName}: napi library '${this.opts.napiLibrary}' not found. Install the matching " +
+        "'${this.opts.packageName}-<platform>' package, set ${this.opts.napiLibraryEnvVar}, or pass napi.libraryPath.",
     );
   }
-  return loadNapiFfiAddon(addonPath, '${prefix}');
+  return loadNapiFfiLibrary(libraryPath, '${ffiName}');
 }
 
-/** The service in-process through its napi addon; each call runs on the libuv thread pool. */
+/** The service in-process through its library; each call runs on the libuv thread pool. */
 export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Promise<NapiFfiBackend> {
-  return new NapiFfiBackend(loadAddon(options));
+  return new NapiFfiBackend(loadLibrary(options));
 }
 
 /** The synchronous form: each call runs on, and blocks, the calling thread. */
 export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): NapiFfiBackendSync {
-  return new NapiFfiBackendSync(loadAddon(options));
+  return new NapiFfiBackendSync(loadLibrary(options));
 }
 `;
   }
@@ -1050,7 +1057,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): NapiF
       process &&
         `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${this.processTransports.join(" or ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
       napi &&
-        `- \`'napi'\`: runs the service in-process (node) through its Node-API addon, \`${this.opts.napiAddon}\`, a thin wrapper over the service's FFI entry. Asynchronous calls run on the libuv thread pool and the synchronous backend runs on the calling thread; either way calls are serialized. Node loads a native module once per process, so every napi backend in a process shares one service instance. The addon is resolved from \`${this.opts.napiAddonEnvVar}\`, an explicit \`napi.addonPath\`, or the installed arch package.`,
+        `- \`'napi'\`: runs the service in-process (node) from its shared library, \`${this.opts.napiLibrary}\`, which exports the service's FFI entry; \`@aztec-foundation/ipc-runtime\`'s Node-API addon loads it and calls the entry. Asynchronous calls run on the libuv thread pool and the synchronous backend runs on the calling thread; either way calls are serialized. The library is loaded once per process, so every napi backend in a process shares one service instance. The library is resolved from \`${this.opts.napiLibraryEnvVar}\`, an explicit \`napi.libraryPath\`, or the installed arch package.`,
       wasm &&
         `- \`'wasm'\`: runs the service's wasm module in-process (node and browsers) through \`@aztec-foundation/ipc-runtime/wasm\`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so bundlers emit them as chunks and assets of the application, and only the module actually chosen is ever fetched (Vite users: exclude the package from \`optimizeDeps\`). The module ships uncompressed, which is what lets the browser stream it into \`WebAssembly.compileStreaming\` and cache the compiled code between visits; serve it with your host's own compression. Where that is not possible, \`wasm.module\` takes a compressed copy — or bytes, a \`Response\`, or an already compiled \`Module\`.`,
       `- an object: anything with \`call(bytes)\`/\`destroy()\`, for a transport of your own (a bridge to a natively linked library, for instance).`,
@@ -1059,7 +1066,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): NapiF
       .join("\n");
     const defaultPolicy = [
       process && `the process when the binary resolves`,
-      napi && `the napi addon when it resolves`,
+      napi && `the napi library when it resolves`,
       wasm && `the wasm module`,
     ]
       .filter(Boolean)
@@ -1069,7 +1076,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): NapiF
       : "(the process reads it from `HARDWARE_CONCURRENCY`/`RAYON_NUM_THREADS`)";
     const syncForm = [
       this.shm && "shared memory for a process",
-      napi && "the napi addon on the calling thread",
+      napi && "the napi library on the calling thread",
       wasm && "the single-threaded wasm module on the calling thread",
     ]
       .filter(Boolean)

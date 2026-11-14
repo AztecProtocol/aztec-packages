@@ -1,7 +1,7 @@
-# Node.js native addon for ipc-runtime's SHM-IPC clients.
+# Node.js native addon for ipc-runtime: the SHM-IPC clients and the FFI library loader.
 #
 # Builds a SHARED library `ipc_runtime_napi.node` exporting MsgpackClient /
-# MsgpackClientAsync. The header search paths for `node-addon-api` / `napi.h`
+# MsgpackClientAsync and FfiLibrary. The header search paths for `node-addon-api` / `napi.h`
 # come from the local `node-addon-api` + `node-api-headers` npm packages.
 #
 # Only built when targeting native (not WASM, not fuzzing).
@@ -34,6 +34,7 @@ string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})
 
 add_library(ipc_runtime_napi SHARED
   init.cpp
+  ffi_library.cpp
   msgpack_client_wrapper.cpp
   msgpack_client_async.cpp
 )
@@ -49,7 +50,7 @@ target_include_directories(ipc_runtime_napi SYSTEM PRIVATE
   ${NODE_API_HEADERS_DIR}
   ${NODE_ADDON_API_DIR}
 )
-target_link_libraries(ipc_runtime_napi PRIVATE ipc_runtime)
+target_link_libraries(ipc_runtime_napi PRIVATE ipc_runtime ${CMAKE_DL_LIBS})
 
 # On macOS, Node N-API symbols are provided by the host runtime, not at link time.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

@@ -11,7 +11,7 @@ it to one transport of `@aztec-foundation/wsdb-ref` (`barretenberg/ts/wsdb-ref`)
 | Output | Built in | Transport |
 |---|---|---|
 | `wsdb-ref` binary (`main.cpp`) | native builds | a spawned process over a socket or shared memory |
-| `wsdb_ref_napi.node` | native builds | in-process in node, through Node-API |
+| `libwsdb_ref.so` | native builds | in-process in node, loaded by `@aztec-foundation/ipc-runtime`'s Node-API addon |
 | `wsdb-ref.wasm` (WASI reactor) | wasm builds | in-process in node or a browser |
 
 A client sends `Init` first, with the genesis to start from; wsdb-ref has no built-in genesis.

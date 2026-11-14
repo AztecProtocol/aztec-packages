@@ -2,9 +2,9 @@
 // Run through wsdb_ref_test.sh, which sets WSDB_REF_TEST_BACKEND to process-uds, process-shm (a spawned
 // wsdb-ref binary over a socket or shared memory), napi or wasm.
 //
-// Every napi backend in a process shares one world state (node loads the addon once), so the
-// tests read the genesis through committed reads, which writes never change, and write only fresh
-// random keys. Each service is sent Init first, with the test's own genesis.
+// Every napi backend in a process shares one world state (the library is loaded once per process),
+// so the tests read the genesis through committed reads, which writes never change, and write only
+// fresh random keys. Each service is sent Init first, with the test's own genesis.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';

@@ -77,8 +77,8 @@ interface Args {
   packageTransports: string;
   packageIpcPathArgs: string;
   packageWasmModule: string;
-  packageNapiAddon: string;
-  packageNapiAddonEnvVar: string;
+  packageNapiLibrary: string;
+  packageNapiLibraryEnvVar: string;
   packageWasmThreadsModule: string;
   packageWasmWideModule: string;
   packageWasmWideThreadsModule: string;
@@ -90,7 +90,6 @@ interface Args {
   cppIncludeDir: string;
   uds: boolean;
   ffi: boolean;
-  napi: boolean;
   ffiName: string;
   stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
@@ -130,21 +129,22 @@ Optional:
   --package-wasm-wide-module <name>=<path>, --package-wasm-wide-threads-module <name>=<path>
                            wasm transport: wide-arithmetic builds of the two, likewise,
                            run instead where the engine supports the proposal
-  --package-napi-addon <file>
-                           napi transport: file name of the Node-API addon built from
-                           the C++ --napi output, shipped in the arch packages
+  --package-napi-library <file>
+                           napi transport: file name of the shared library exporting the
+                           FFI entry (--ffi --server), shipped in the arch packages and
+                           loaded through ipc-runtime's Node-API addon
   --package-native <platform>=<path>, --package-native <platform>:<file>=<path>
                            Copy a built native file into the package's per-platform
                            package (repeatable). <platform> is linux-x64, linux-arm64,
                            darwin-x64 or darwin-arm64, or the build directory name
                            (amd64-linux, arm64-linux, amd64-macos, arm64-macos). The
-                           bare form names the binary, or the napi addon in a package
-                           without one; <file> picks the addon in one with both
+                           bare form names the binary, or the napi library in a package
+                           without one; <file> picks the library in one with both
   --package-every-platform Fail unless every platform gets every native file, as a
                            release that publishes all of them requires
-  --package-napi-addon-env-var <name>
-                           napi transport: env var overriding the addon path
-                           (default: <ADDON_STEM>_PATH)
+  --package-napi-library-env-var <name>
+                           napi transport: env var overriding the library path
+                           (default: <LIBRARY_STEM>_NAPI_PATH)
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
   --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
@@ -161,9 +161,6 @@ Optional:
                            wasm export a TS package's wasm transport calls). Defaults
                            to the schema's service in snake_case; set it when several
                            implementations serve one schema, so each exports its own
-  --napi                   With --server --ffi (cpp): also emit <service>_napi.cpp, a
-                           Node-API addon over the FFI entry, for a TS package's
-                           napi transport (--package-transports napi)
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
@@ -186,8 +183,8 @@ function parseArgs(argv: string[]): Args {
     packageTransports: "uds",
     packageIpcPathArgs: "--socket,{path}",
     packageWasmModule: "",
-    packageNapiAddon: "",
-    packageNapiAddonEnvVar: "",
+    packageNapiLibrary: "",
+    packageNapiLibraryEnvVar: "",
     packageWasmThreadsModule: "",
     packageWasmWideModule: "",
     packageWasmWideThreadsModule: "",
@@ -199,7 +196,6 @@ function parseArgs(argv: string[]): Args {
     cppIncludeDir: "",
     uds: false,
     ffi: false,
-    napi: false,
     ffiName: "",
     stripMethodPrefix: false,
     stripTypePrefix: false,
@@ -252,11 +248,11 @@ function parseArgs(argv: string[]): Args {
       case "--package-ipc-path-args":
         args.packageIpcPathArgs = takeValue();
         break;
-      case "--package-napi-addon":
-        args.packageNapiAddon = takeValue();
+      case "--package-napi-library":
+        args.packageNapiLibrary = takeValue();
         break;
-      case "--package-napi-addon-env-var":
-        args.packageNapiAddonEnvVar = takeValue();
+      case "--package-napi-library-env-var":
+        args.packageNapiLibraryEnvVar = takeValue();
         break;
       case "--package-native":
         args.packageNatives.push(takeValue());
@@ -293,9 +289,6 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--ffi":
         args.ffi = true;
-        break;
-      case "--napi":
-        args.napi = true;
         break;
       case "--ffi-name":
         args.ffiName = takeValue();
@@ -342,12 +335,6 @@ function parseArgs(argv: string[]): Args {
     console.error(
       `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module ` +
         `through the wasm transport (--package-transports wasm)`,
-    );
-    process.exit(1);
-  }
-  if (args.napi && !(args.lang === "cpp" && args.server && args.ffi)) {
-    console.error(
-      `--napi emits a Node-API addon over the C++ FFI entry; pass --lang cpp --server --ffi`,
     );
     process.exit(1);
   }
@@ -720,8 +707,8 @@ function generate(args: Args) {
           const binaryName = spawned
             ? args.binaryName || toSnakeCase(prefix).replace(/_/g, "-")
             : "";
-          if (napi && !args.packageNapiAddon) {
-            console.error(`--package-transports napi needs --package-napi-addon`);
+          if (napi && !args.packageNapiLibrary) {
+            console.error(`--package-transports napi needs --package-napi-library`);
             process.exit(1);
           }
           if (
@@ -784,10 +771,12 @@ function generate(args: Args) {
             wasmThreadsModule: wasmModules.threads,
             wasmWideModule: wasmModules.wideSingle,
             wasmWideThreadsModule: wasmModules.wideThreads,
-            napiAddon: napi ? args.packageNapiAddon : undefined,
-            napiAddonEnvVar: napi
-              ? args.packageNapiAddonEnvVar ||
-                defaultBinaryEnvVar(args.packageNapiAddon.replace(/\.node$/, ""))
+            napiLibrary: napi ? args.packageNapiLibrary : undefined,
+            napiLibraryEnvVar: napi
+              ? args.packageNapiLibraryEnvVar ||
+                defaultBinaryEnvVar(
+                  `${args.packageNapiLibrary.replace(/^lib/, "").replace(/\.(so|dylib)$/, "")}_napi`,
+                )
               : undefined,
           });
           writePackage("package.json", packageGen.generatePackageJson());
@@ -955,14 +944,6 @@ function generate(args: Args) {
               gen.generateFfiHeader(),
             ),
           );
-          if (args.napi) {
-            cppFiles.push(
-              writeFile(
-                `${toSnakeCase(prefix)}_napi.cpp`,
-                gen.generateNapiSource(),
-              ),
-            );
-          }
           cppFiles.push(
             writeFile(
               `${toSnakeCase(prefix)}_ffi.cpp`,
