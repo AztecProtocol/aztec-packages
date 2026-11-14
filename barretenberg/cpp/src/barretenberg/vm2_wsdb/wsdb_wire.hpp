@@ -3,7 +3,7 @@
  * @file wsdb_wire.hpp
  * @brief The boundary between bb's merkle-tree domain types and the generated wsdb wire types.
  *
- * The generated `wire::` records (native-packages/wsdb/wsdb_schema.jsonc) are the serialisation
+ * The generated `wire::` records (wsdb_ref/wsdb_schema.jsonc) are the serialisation
  * types; bb's own merkle types are what the AVM computes with. `Wire<T>` names a domain type's
  * wire counterpart and converts both ways:
  *

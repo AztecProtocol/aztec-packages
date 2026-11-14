@@ -9,7 +9,7 @@
  *
  * Attack vector: An attacker crafts raw ACIR bytecode (bypassing the Noir compiler)
  * containing a BlackBoxFuncCall opcode where a fixed-size array field is encoded as
- * msgpack NIL (0xc0). Without the fix, the AztecProtocol/msgpack-c fork silently
+ * msgpack NIL (0xc0). Without the fix, msgpack-c's shared_ptr adaptor silently
  * converts NIL to a null shared_ptr, which is then dereferenced unconditionally.
  * With the fix, deserialization rejects NIL for required fields and throws.
  */

@@ -17,7 +17,6 @@ target_link_libraries(
     vm2_stub
     libdeflate::libdeflate_static
 )
-add_dependencies(acir_components_check_lib msgpack-c)
 if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
     add_dependencies(acir_components_check_lib lmdb_repo)
 endif()

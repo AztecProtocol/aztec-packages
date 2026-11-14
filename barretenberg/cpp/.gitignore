@@ -28,3 +28,6 @@ scripts/flavor-codegen/dist/
 scripts/flavor-codegen/node_modules/
 pil/vm2/constants_gen.pil
 src/barretenberg/aztec/aztec_constants.hpp
+# remake-constants.sh writes the header through a temp dir beside it (aztec-wsdb's build runs it too, at the
+# same time as other builds): keep that out of cache_content_hash's untracked-file check.
+src/barretenberg/aztec/.constants-gen.*/

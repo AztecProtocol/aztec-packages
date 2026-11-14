@@ -10,8 +10,8 @@ hash=$(hash_str \
   $(../lmdblib/bootstrap.sh hash) \
   $(cache_content_hash .rebuild_patterns))
 
-# Build the NAPI addon. kvdb is barretenberg-free: it links only the lmdblib
-# sibling package's archives (+ lmdb, node-addon-api). lmdblib is assumed prebuilt.
+# Build the NAPI addon. kvdb is barretenberg-free: it builds and links only the lmdblib
+# sibling package (+ lmdb, node-addon-api).
 function build_native {
   local build_dir="cpp/build"
   CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
@@ -19,6 +19,15 @@ function build_native {
   local target_dir="ts/build/$(arch)-$(os)"
   mkdir -p "$target_dir"
   cp "$build_dir/lib/$NAPI_BINARY" "$target_dir/$NAPI_BINARY"
+}
+
+# Cross-compile the addon for another platform with zig (cpp/CMakePresets.json).
+function build_cross {
+  local platform=$1
+  echo_header "kvdb build_cross $platform"
+  (cd cpp && cmake --preset "$platform" >/dev/null && cmake --build --preset "$platform")
+  mkdir -p "ts/build/$platform"
+  cp "cpp/build-$platform/lib/$NAPI_BINARY" "ts/build/$platform/$NAPI_BINARY"
 }
 
 function build {
@@ -46,11 +55,14 @@ function test {
 }
 
 function clean {
-  rm -rf ts/dest ts/build ts/packages ts/node_modules node_modules cpp/build
+  rm -rf ts/dest ts/build ts/packages ts/node_modules node_modules cpp/build cpp/build-*
 }
 
 function release {
   build_native
+  for platform in arm64-linux amd64-macos arm64-macos; do
+    build_cross $platform
+  done
   npm_install_deps
   yarn build
   (cd ts && ./scripts/prepare_arch_packages.sh)
@@ -60,7 +72,7 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f build_native build test_cmds test clean release
+export -f build_native build_cross build test_cmds test clean release
 
 case "$cmd" in
   "")

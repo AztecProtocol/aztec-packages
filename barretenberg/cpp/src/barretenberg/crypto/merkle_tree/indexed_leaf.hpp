@@ -4,7 +4,6 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::crypto::merkle_tree {
 
