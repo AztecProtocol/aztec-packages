@@ -1963,6 +1963,54 @@ TEST(ScalarMultiplicationArenaTest, ArenaSizerPastExhaustedBatchBudget)
     bb::set_parallel_for_concurrency(saved_threads);
 }
 
+// A smaller batch budget gives a smaller arena for an MSM that batches several windows at the default budget, the
+// sizer still covers the live allocator, and the MSM result is unchanged.
+TEST(ScalarMultiplicationArenaTest, SmallerBatchBudgetShrinksArenaAndKeepsResult)
+{
+    using Curve = curve::BN254;
+    using AffineElement = Curve::AffineElement;
+    using ScalarField = Curve::ScalarField;
+    const size_t saved_threads = bb::get_num_cpus();
+    bb::set_parallel_for_concurrency(4);
+
+    // pippenger_unsafe requires linearly independent points: random multiples of the generator.
+    constexpr size_t n = size_t{ 1 } << 16;
+    std::vector<Curve::Element> projective_points(n);
+    std::vector<ScalarField> scalars(n);
+    for (size_t i = 0; i < n; ++i) {
+        scalars[i] = ScalarField::random_element(&engine);
+    }
+    parallel_for_range(n, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            projective_points[i] = Curve::Group::one * scalars[i];
+        }
+    });
+    Curve::Element::batch_normalize(projective_points.data(), n);
+    std::vector<AffineElement> points(n);
+    for (size_t i = 0; i < n; ++i) {
+        points[i] = AffineElement(projective_points[i]);
+        scalars[i] = ScalarField::random_element(&engine);
+    }
+    const PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+    const size_t default_bytes =
+        scalar_multiplication::compute_arena_bytes_for_msm<Curve>(n, /*external_glv_provided=*/false);
+    const auto default_result = scalar_multiplication::pippenger_unsafe<Curve>(scalar_span, points);
+
+    scalar_multiplication::set_msm_batch_mem_budget(size_t{ 4 } << 20);
+    const size_t small_bytes =
+        scalar_multiplication::compute_arena_bytes_for_msm<Curve>(n, /*external_glv_provided=*/false);
+    const bool layout_fits = pippenger_bn254_arena_layout_fits_for_test(n);
+    const auto small_result = scalar_multiplication::pippenger_unsafe<Curve>(scalar_span, points);
+    scalar_multiplication::set_msm_batch_mem_budget(scalar_multiplication::DEFAULT_MSM_BATCH_MEM_BUDGET);
+    bb::set_parallel_for_concurrency(saved_threads);
+
+    EXPECT_GT(default_bytes, size_t{ 8 } << 20);
+    EXPECT_LT(small_bytes, size_t{ 8 } << 20);
+    EXPECT_TRUE(layout_fits);
+    EXPECT_EQ(AffineElement(small_result), AffineElement(default_result));
+}
+
 // ======================= Test Wrappers =======================
 
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)

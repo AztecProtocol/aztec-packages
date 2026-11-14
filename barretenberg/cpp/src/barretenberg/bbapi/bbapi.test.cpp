@@ -5,14 +5,68 @@
 #include "barretenberg/bbapi/ffi_test_dispatch.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
+#include <atomic>
+#include <cstdlib>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <limits>
+#include <new>
 
 using namespace bb;
+
+namespace {
+// Largest single operator-new request while tracking is on, so a test can bound a function's transient allocations.
+std::atomic<bool> track_largest_allocation{ false };
+std::atomic<size_t> largest_allocation{ 0 };
+
+void record_allocation(size_t size)
+{
+    if (track_largest_allocation.load(std::memory_order_relaxed)) {
+        size_t seen = largest_allocation.load(std::memory_order_relaxed);
+        while (size > seen && !largest_allocation.compare_exchange_weak(seen, size)) {
+        }
+    }
+}
+
+struct LargestAllocationScope {
+    LargestAllocationScope()
+    {
+        largest_allocation = 0;
+        track_largest_allocation = true;
+        bb::detail::set_allocation_observer(record_allocation);
+    }
+    ~LargestAllocationScope()
+    {
+        bb::detail::set_allocation_observer(nullptr);
+        track_largest_allocation = false;
+    }
+};
+} // namespace
+
+#if !(defined(__APPLE__) && !defined(TRACY_MEMORY))
+// Where common/mem.cpp does not replace operator new, this test does, so every request is seen.
+void* operator new(size_t size)
+{
+    record_allocation(size);
+    if (void* ptr = std::malloc(size == 0 ? 1 : size)) {
+        return ptr;
+    }
+    throw std::bad_alloc();
+}
+void operator delete(void* ptr) noexcept
+{
+    std::free(ptr);
+}
+void operator delete(void* ptr, size_t /*size*/) noexcept
+{
+    std::free(ptr);
+}
+#endif
 
 // Regression tests for input validation at API boundaries.
 // These ensure non-canonical field encodings and trailing bytes are rejected.
@@ -197,6 +251,67 @@ TEST(PrivateExecutionStepRaw, SelfDecompressIsIdempotent)
 
     EXPECT_EQ(loaded[0].bytecode, step.bytecode);
     EXPECT_EQ(loaded[0].witness, step.witness);
+}
+
+namespace {
+// Compressible but not trivially so: larger than the initial decompression buffer of a doubling strategy.
+std::vector<uint8_t> sample_bytecode(size_t size)
+{
+    std::vector<uint8_t> bytecode(size);
+    for (size_t i = 0; i < size; ++i) {
+        bytecode[i] = static_cast<uint8_t>((i * 2654435761ULL) >> 13);
+    }
+    return bytecode;
+}
+
+PrivateExecutionStepRaw load_compressed_step(const std::vector<uint8_t>& bytecode, const std::string& file_name)
+{
+    const PrivateExecutionStepRaw step{ .bytecode = bytecode, .witness = { 4, 5 }, .vk = {}, .function_name = "f" };
+    auto tmp = std::filesystem::temp_directory_path() / file_name;
+    PrivateExecutionStepRaw::compress_and_save({ step }, tmp);
+    auto loaded = PrivateExecutionStepRaw::load(tmp);
+    std::filesystem::remove(tmp);
+    return std::move(loaded.at(0));
+}
+} // namespace
+
+/**
+ * @brief Decompression allocates the output once at its final size: no intermediate buffer is larger than the result.
+ */
+TEST(PrivateExecutionStepRaw, SelfDecompressAllocatesOnlyTheFinalSize)
+{
+    const std::vector<uint8_t> bytecode = sample_bytecode(300 * 1024);
+    auto loaded = load_compressed_step(bytecode, "bb_test_step_exact_size.msgpack");
+
+    size_t largest = 0;
+    {
+        LargestAllocationScope scope;
+        loaded.self_decompress();
+        largest = largest_allocation;
+    }
+
+    EXPECT_EQ(loaded.bytecode, bytecode);
+    EXPECT_EQ(loaded.witness, (std::vector<uint8_t>{ 4, 5 }));
+    EXPECT_LE(largest, bytecode.size());
+}
+
+/**
+ * @brief A gzip trailer claiming 4 GiB of output does not make decompression allocate it: the input is rejected with
+ * an allocation bounded by what the compressed bytes can expand to.
+ */
+TEST(PrivateExecutionStepRaw, BogusUncompressedSizeIsNotAllocated)
+{
+    auto loaded = load_compressed_step(sample_bytecode(300 * 1024), "bb_test_step_bogus_isize.msgpack");
+    const size_t compressed_size = loaded.bytecode.size();
+    std::fill(loaded.bytecode.end() - 4, loaded.bytecode.end(), uint8_t{ 0xff });
+
+    size_t largest = 0;
+    {
+        LargestAllocationScope scope;
+        EXPECT_THROW(loaded.self_decompress(), std::invalid_argument);
+        largest = largest_allocation;
+    }
+    EXPECT_LE(largest, (compressed_size * 1032) + 1024);
 }
 
 TEST(PrivateExecutionStepRaw, SelfDecompressLeavesUncompressedStepsUnchanged)

@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/factories/get_bn254_crs.hpp"
@@ -14,8 +15,13 @@
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "http_download.hpp"
+#include <chrono>
+#include <cstring>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <span>
+#include <sys/stat.h>
+#include <thread>
 #include <utility>
 
 using namespace bb;
@@ -86,7 +92,17 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 
 TEST(CrsFactory, bn254)
 {
-    check_bn254_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
+    // A fixture holding the first chunk of the user's CRS, so that in low memory mode the factory writes its native
+    // cache there and never into the shared CRS directory. Loads are rounded up to whole chunks.
+    const fs::path fixture_path = "barretenberg_srs_test_crs_bn254_fixture";
+    fs::remove_all(fixture_path);
+    fs::create_directories(fixture_path);
+    bb::write_file(fixture_path / "bn254_g1.dat",
+                   bb::read_file(bb::srs::bb_crs_path() / "bn254_g1.dat",
+                                 bb::srs::SRS_CHUNK_SIZE_POINTS * sizeof(g1::affine_element)));
+    check_bn254_consistency(fixture_path, 1024, /*allow_download=*/false);
+    fs::remove_all(fixture_path);
+
     const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
@@ -339,3 +355,303 @@ TEST(CrsFactory, GrumpkinGeneratedCacheCoversWholeChunks)
     EXPECT_EQ(get_grumpkin_g1_data(cache_path, 2, /*allow_download=*/false), expected);
     fs::remove_all(cache_path);
 }
+
+#if !defined(__wasm__) && !defined(_WIN32)
+namespace {
+// Loads are rounded up to whole chunks, so the fixture is two chunks and the smaller request is one.
+constexpr size_t NATIVE_CACHE_SMALL_POINTS = bb::srs::SRS_CHUNK_SIZE_POINTS;
+constexpr size_t NATIVE_CACHE_TEST_POINTS = 2 * NATIVE_CACHE_SMALL_POINTS;
+
+// Sets slow_low_memory for one test. The native cache is only used in low memory mode.
+class SlowLowMemoryScope {
+  public:
+    explicit SlowLowMemoryScope(bool enabled)
+        : saved_(slow_low_memory)
+    {
+        slow_low_memory = enabled;
+    }
+    ~SlowLowMemoryScope() { slow_low_memory = saved_; }
+    SlowLowMemoryScope(const SlowLowMemoryScope&) = delete;
+    SlowLowMemoryScope& operator=(const SlowLowMemoryScope&) = delete;
+
+  private:
+    bool saved_;
+};
+
+std::vector<g1::affine_element> native_cache_test_points()
+{
+    auto points = bb::get_bn254_g1_data(bb::srs::bb_crs_path(), NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    points[2] = g1::affine_element::infinity();
+    return points;
+}
+
+void write_uncompressed_source(const fs::path& dir, const std::vector<g1::affine_element>& points)
+{
+    std::vector<uint8_t> bytes;
+    for (const auto& point : points) {
+        auto serialized = to_buffer(point);
+        bytes.insert(bytes.end(), serialized.begin(), serialized.end());
+    }
+    bb::write_file(dir / "bn254_g1.dat", bytes);
+}
+
+int64_t posix_mtime_ns(const fs::path& path)
+{
+    struct stat st{};
+    EXPECT_EQ(stat(path.c_str(), &st), 0);
+#if defined(__APPLE__)
+    return static_cast<int64_t>(st.st_mtimespec.tv_sec) * 1'000'000'000 + st.st_mtimespec.tv_nsec;
+#else
+    return static_cast<int64_t>(st.st_mtim.tv_sec) * 1'000'000'000 + st.st_mtim.tv_nsec;
+#endif
+}
+
+ino_t inode_of(const fs::path& path)
+{
+    struct stat st{};
+    EXPECT_EQ(stat(path.c_str(), &st), 0);
+    return st.st_ino;
+}
+
+// Header field offsets in bn254_g1.native.dat.
+constexpr size_t HEADER_VERSION_OFFSET = 8;
+constexpr size_t HEADER_SOURCE_MTIME_OFFSET = 40;
+
+int64_t header_source_mtime_ns(const fs::path& cache_path)
+{
+    const auto bytes = bb::read_file(cache_path, sizeof(g1::affine_element));
+    int64_t mtime_ns = 0;
+    std::memcpy(&mtime_ns, bytes.data() + HEADER_SOURCE_MTIME_OFFSET, sizeof(mtime_ns));
+    return mtime_ns;
+}
+
+size_t cached_point_count(const fs::path& cache_path)
+{
+    return fs::file_size(cache_path) / sizeof(g1::affine_element) - 1;
+}
+
+void expect_points_eq(std::span<const g1::affine_element> actual, const std::vector<g1::affine_element>& expected)
+{
+    ASSERT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_EQ(std::make_pair(i, actual[i]), std::make_pair(i, expected[i]));
+    }
+}
+} // namespace
+
+/**
+ * @brief Outside low memory mode the points are decoded onto the heap and no native cache is written or read.
+ */
+TEST(CrsFactory, Bn254OrdinaryModeKeepsPointsOnTheHeap)
+{
+    const SlowLowMemoryScope ordinary_mode(false);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_ordinary_mode";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false).points,
+                     points);
+    EXPECT_FALSE(fs::exists(temp_path / "bn254_g1.native.dat"));
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheRoundTrip)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_round_trip";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+
+    const auto decoded = bb::get_bn254_g1_data(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    expect_points_eq(decoded, points);
+    EXPECT_TRUE(decoded[2].is_point_at_infinity());
+
+    const auto written = bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    expect_points_eq(written.points, decoded);
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    EXPECT_EQ(fs::file_size(cache_path), (NATIVE_CACHE_TEST_POINTS + 1) * sizeof(g1::affine_element));
+
+    // A request for fewer points than a chunk maps the whole first chunk.
+    const auto mapped = bb::load_bn254_g1_points(temp_path, /*num_points=*/16, /*allow_download=*/false);
+    expect_points_eq(mapped.points,
+                     std::vector<g1::affine_element>(decoded.begin(), decoded.begin() + NATIVE_CACHE_SMALL_POINTS));
+    EXPECT_TRUE(mapped.points[2].is_point_at_infinity());
+
+    // The points are a shared mapping of the cache file: a write to the file shows through the span.
+    {
+        std::fstream cache(cache_path, std::ios::in | std::ios::out | std::ios::binary);
+        cache.seekp(static_cast<std::streamoff>((1 + 5) * sizeof(g1::affine_element)));
+        cache.write(reinterpret_cast<const char*>(&decoded[6]), sizeof(g1::affine_element));
+    }
+    EXPECT_EQ(mapped.points[5], decoded[6]);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheRegeneratedOnHeaderMismatch)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_header";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    const auto original = bb::read_file(cache_path);
+    // Header offsets: magic, version, point_size, endian marker, num_points.
+    for (size_t offset : { 0UL, 8UL, 12UL, 16UL, 24UL }) {
+        auto corrupted = original;
+        corrupted[offset] ^= 0x01;
+        bb::write_file(cache_path, corrupted);
+        const auto loaded = bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+        expect_points_eq(loaded.points, points);
+        EXPECT_EQ(bb::read_file(cache_path), original) << "cache not regenerated after corrupting byte " << offset;
+    }
+
+    // A truncated cache is rejected and rewritten.
+    bb::write_file(cache_path, std::span<const uint8_t>(original.data(), original.size() - 1));
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+    EXPECT_EQ(bb::read_file(cache_path), original);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheFollowsRefreshedSource)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_source";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    std::swap(points[3], points[4]);
+    write_uncompressed_source(temp_path, points);
+    const auto source_path = temp_path / "bn254_g1.dat";
+    fs::last_write_time(source_path, fs::last_write_time(source_path) + std::chrono::seconds(1));
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheGrowsWithRequest)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_grow";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
+    EXPECT_EQ(fs::file_size(cache_path), (prefix.size() + 1) * sizeof(g1::affine_element));
+
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, points.size(), false).points, points);
+    EXPECT_EQ(fs::file_size(cache_path), (points.size() + 1) * sizeof(g1::affine_element));
+
+    fs::remove_all(temp_path);
+}
+// The source stamp is the POSIX modification time, which every toolchain reads the same way; std::filesystem's
+// file_clock epoch differs between libstdc++ and libc++, so a stamp taken from it makes binaries built against one
+// treat the other's cache as stale.
+TEST(CrsFactory, Bn254NativeCacheStampIsToolchainIndependent)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_stamp";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    write_uncompressed_source(temp_path, native_cache_test_points());
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+    EXPECT_EQ(header_source_mtime_ns(temp_path / "bn254_g1.native.dat"), posix_mtime_ns(temp_path / "bn254_g1.dat"));
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheLegacyEpochStampIsStaleOnce)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_legacy_stamp";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    // Rewrite the stamp as libstdc++'s file_clock reports it: its epoch is 2174-01-01, 6437664000 s after Unix's.
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    auto bytes = bb::read_file(cache_path);
+    const int64_t legacy_ns = posix_mtime_ns(temp_path / "bn254_g1.dat") - 6'437'664'000LL * 1'000'000'000LL;
+    std::memcpy(bytes.data() + HEADER_SOURCE_MTIME_OFFSET, &legacy_ns, sizeof(legacy_ns));
+    bb::write_file(cache_path, bytes);
+    const ino_t legacy_inode = inode_of(cache_path);
+
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+    const ino_t regenerated_inode = inode_of(cache_path);
+    EXPECT_NE(regenerated_inode, legacy_inode);
+    for (size_t i = 0; i < 3; ++i) {
+        expect_points_eq(bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, false).points, points);
+        EXPECT_EQ(inode_of(cache_path), regenerated_inode) << "cache rewritten again on load " << i;
+    }
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheNeverShrinks)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const fs::path temp_path = "barretenberg_srs_test_native_cache_shrink";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+    const auto points = native_cache_test_points();
+    write_uncompressed_source(temp_path, points);
+    const auto cache_path = temp_path / "bn254_g1.native.dat";
+    bb::load_bn254_g1_points(temp_path, NATIVE_CACHE_TEST_POINTS, /*allow_download=*/false);
+
+    // A smaller request against a stale cache regenerates it at the size it had, not the size requested.
+    const auto source_path = temp_path / "bn254_g1.dat";
+    fs::last_write_time(source_path, fs::last_write_time(source_path) + std::chrono::seconds(1));
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
+    EXPECT_EQ(cached_point_count(cache_path), points.size());
+    EXPECT_EQ(header_source_mtime_ns(cache_path), posix_mtime_ns(source_path));
+
+    // Nor does a cache left by an older format version.
+    auto bytes = bb::read_file(cache_path);
+    const uint32_t old_version = 1;
+    std::memcpy(bytes.data() + HEADER_VERSION_OFFSET, &old_version, sizeof(old_version));
+    bb::write_file(cache_path, bytes);
+    expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
+    EXPECT_EQ(cached_point_count(cache_path), points.size());
+    fs::remove_all(temp_path);
+}
+
+TEST(CrsFactory, Bn254NativeCacheConcurrentRequestsKeepTheLargest)
+{
+    const SlowLowMemoryScope low_memory_mode(true);
+    const auto points = native_cache_test_points();
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
+    for (size_t trial = 0; trial < 8; ++trial) {
+        const fs::path temp_path = "barretenberg_srs_test_native_cache_concurrent";
+        fs::remove_all(temp_path);
+        fs::create_directories(temp_path);
+        write_uncompressed_source(temp_path, points);
+        bb::Bn254G1Points large;
+        bb::Bn254G1Points small;
+        std::thread large_thread([&] { large = bb::load_bn254_g1_points(temp_path, points.size(), false); });
+        std::thread small_thread([&] { small = bb::load_bn254_g1_points(temp_path, prefix.size(), false); });
+        large_thread.join();
+        small_thread.join();
+        expect_points_eq(large.points, points);
+        expect_points_eq(small.points, prefix);
+        EXPECT_EQ(cached_point_count(temp_path / "bn254_g1.native.dat"), points.size()) << "trial " << trial;
+        fs::remove_all(temp_path);
+    }
+}
+#endif
