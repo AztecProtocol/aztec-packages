@@ -24,12 +24,14 @@
  */
 #include "barretenberg/bbapi/bbapi_aztec.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/aztec/contract_hashing.hpp"
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 
@@ -83,24 +85,30 @@ std::vector<uint8_t> base64_bytes(const json& value)
     return { decoded.begin(), decoded.end() };
 }
 
-/** @brief The root of a tree of @p height whose first leaves are @p layer and the rest @p zero. */
-template <typename HashPair> fr merkle_root(std::vector<fr> layer, size_t height, fr zero, HashPair hash_pair)
+struct Sha256MerkleHashPolicy {
+    static fr hash_pair(const fr& lhs, const fr& rhs)
+    {
+        auto preimage = bytes_of(lhs);
+        auto right = bytes_of(rhs);
+        preimage.insert(preimage.end(), right.begin(), right.end());
+        return sha256_fr(preimage);
+    }
+};
+
+/** @brief The root of a MemoryTree of @p height whose first leaves are @p leaves and the rest @p empty_leaf. */
+template <typename HashPolicy> fr tree_root(const std::vector<fr>& leaves, size_t height, const fr& empty_leaf)
 {
-    if (layer.size() > (size_t(1) << height)) {
-        throw_or_abort("merkle_root: too many leaves for the tree height");
+    if (height == 0) {
+        return leaves.empty() ? empty_leaf : leaves[0];
     }
-    for (size_t level = 0; level < height; level++) {
-        if (layer.size() % 2 == 1) {
-            layer.push_back(zero);
-        }
-        std::vector<fr> next;
-        for (size_t i = 0; i < layer.size(); i += 2) {
-            next.push_back(hash_pair(layer[i], layer[i + 1]));
-        }
-        layer = std::move(next);
-        zero = hash_pair(zero, zero);
+    crypto::merkle_tree::MemoryTree<HashPolicy> tree(height);
+    if (leaves.size() > (size_t(1) << height)) {
+        throw_or_abort("tree_root: too many leaves for the tree height");
     }
-    return layer.empty() ? zero : layer[0];
+    for (size_t i = 0; i < (size_t(1) << height); i++) {
+        tree.update_element(i, i < leaves.size() ? leaves[i] : empty_leaf);
+    }
+    return tree.root();
 }
 
 FunctionType function_type(const json& fn)
@@ -216,12 +224,7 @@ fr artifact_function_tree_root(const json& artifact, const std::vector<ArtifactF
     while ((size_t(1) << height) < leaves.size()) {
         height++;
     }
-    return merkle_root(std::move(leaves), height, fr(0), [](const fr& l, const fr& r) {
-        auto preimage = bytes_of(l);
-        auto right = bytes_of(r);
-        preimage.insert(preimage.end(), right.begin(), right.end());
-        return sha256_fr(preimage);
-    });
+    return tree_root<Sha256MerkleHashPolicy>(leaves, height, fr(0));
 }
 
 fr artifact_metadata_hash(const json& artifact)
@@ -276,11 +279,8 @@ AztecContractClass compute_aztec_contract_class(std::string_view artifact_json)
         }
     }
 
-    klass.private_functions_root =
-        merkle_root(std::move(private_function_leaves),
-                    FUNCTION_TREE_HEIGHT,
-                    Poseidon2::hash({ fr(0), fr(0) }),
-                    [](const fr& l, const fr& r) { return Poseidon2::hash({ DOM_SEP__MERKLE_HASH, l, r }); });
+    klass.private_functions_root = tree_root<aztec::AztecMerkleHashPolicy>(
+        private_function_leaves, FUNCTION_TREE_HEIGHT, Poseidon2::hash({ fr(0), fr(0) }));
 
     std::vector<uint8_t> artifact_preimage = { ARTIFACT_HASH_VERSION };
     for (const auto& part : { artifact_function_tree_root(artifact, fns, FunctionType::PRIVATE),
