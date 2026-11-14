@@ -103,9 +103,9 @@ bench-labs: labs-bench
 
 bench: bench-foundation bench-labs
 
-# Release. Everything plus copy bb cross compiles to ts projects.
-# barretenberg/ts generates its packages with every platform's binaries in its own release step, so no cross copy here.
-release-foundation: fast-foundation bb-cpp-release-dir bb-bin-cross-copy ipc-runtime-cross
+# Release: everything, plus the cross builds and release tarballs. Each project's release step packages every
+# platform's binaries from the cross build directories itself.
+release-foundation: fast-foundation bb-cpp-release-dir ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -275,9 +275,6 @@ bb-bin: bb-cpp-native
 	$(call build,$@,barretenberg/ts,build_bb_bin)
 
 # Stages every platform and checks each binary against the release tarballs.
-bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
-	$(call build,$@,barretenberg/ts,cross_copy_bb_bin)
-
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native
 	$(call build,$@,barretenberg/rust)

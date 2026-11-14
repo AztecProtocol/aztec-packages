@@ -64,8 +64,20 @@ function build_cross {
   (cd cpp && cmake --preset "$arch" && cmake --build --preset "$arch")
 }
 
-function cross_copy {
-  ./ts/scripts/copy_cross.sh "$@"
+# The Node-API addon's cross builds beside this machine's in ts/build/<arch>, where native_loader.ts finds them,
+# stripped, and the macOS ones re-signed (stripping invalidates their ad-hoc signature).
+function stage_cross_addons {
+  local arch f
+  for arch in arm64-linux amd64-macos arm64-macos; do
+    mkdir -p ts/build/$arch
+    cp cpp/build-$arch/lib/ipc_runtime_napi.node ts/build/$arch/
+  done
+  llvm-strip-20 ts/build/*/*
+  for arch in amd64-macos arm64-macos; do
+    for f in ts/build/$arch/*; do
+      ldid -S "$f"
+    done
+  done
 }
 
 function crate_published {
@@ -104,7 +116,7 @@ function release_crate {
 
 function release {
   local version=${REF_NAME#v}
-  cross_copy
+  stage_cross_addons
   (cd ts && retry "deploy_npm $version")
 
   # Private releases also run this function but publish only to the internal

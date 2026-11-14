@@ -165,29 +165,22 @@ function build_bb_js {
 }
 
 # The bb and bb-avm binaries as npm packages: a meta package per binary (@aztec-foundation/bb,
-# @aztec-foundation/bb-avm) over one package per platform. Native builds stage this machine's
-# platform; a release stages every platform and checks each binary against the release tarball.
+# @aztec-foundation/bb-avm) over one package per platform. A build stages this machine's platform;
+# release_bb_bin stages every platform from the cross builds.
 function build_bb_bin {
   echo_header "bb / bb-avm npm packages"
-  # Stage only this machine's platform. Every-platform staging (and the parity verify) is
-  # cross_copy_bb_bin, whose target depends on the cross builds and the release dir. bb-bin
-  # depends only on bb-cpp-native, so during a release (REF_NAME set) an unqualified stage would
-  # select every platform and fail on cross binaries that are not built yet.
   ./scripts/native_packages.sh stage bb "$(arch)-$(os)"
   ./scripts/native_packages.sh stage bb-avm "$(arch)-$(os)"
 }
 
-function cross_copy_bb_bin {
-  ./scripts/native_packages.sh stage bb "$@"
-  ./scripts/native_packages.sh stage bb-avm "$@"
-  if [ -d ../cpp/build-release ]; then
-    ./scripts/native_packages.sh verify bb
-    ./scripts/native_packages.sh verify bb-avm
-  fi
-}
-
 function release_bb_bin {
   local d p staged
+  # A release stages every platform, from this machine's build and the cross builds, and checks each binary
+  # against the release tarball.
+  ./scripts/native_packages.sh stage bb
+  ./scripts/native_packages.sh stage bb-avm
+  ./scripts/native_packages.sh verify bb
+  ./scripts/native_packages.sh verify bb-avm
   for d in bb-cli bb-avm-cli; do
     staged=0
     for p in "$d"/packages/*/; do
