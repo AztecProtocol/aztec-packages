@@ -92,13 +92,14 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 
 TEST(CrsFactory, bn254)
 {
-    // A fixture holding a prefix of the user's CRS, so that in low memory mode the factory writes its native cache
-    // there and never into the shared CRS directory.
+    // A fixture holding the first chunk of the user's CRS, so that in low memory mode the factory writes its native
+    // cache there and never into the shared CRS directory. Loads are rounded up to whole chunks.
     const fs::path fixture_path = "barretenberg_srs_test_crs_bn254_fixture";
     fs::remove_all(fixture_path);
     fs::create_directories(fixture_path);
     bb::write_file(fixture_path / "bn254_g1.dat",
-                   bb::read_file(bb::srs::bb_crs_path() / "bn254_g1.dat", 1024 * sizeof(g1::affine_element)));
+                   bb::read_file(bb::srs::bb_crs_path() / "bn254_g1.dat",
+                                 bb::srs::SRS_CHUNK_SIZE_POINTS * sizeof(g1::affine_element)));
     check_bn254_consistency(fixture_path, 1024, /*allow_download=*/false);
     fs::remove_all(fixture_path);
 
@@ -357,7 +358,9 @@ TEST(CrsFactory, GrumpkinGeneratedCacheCoversWholeChunks)
 
 #if !defined(__wasm__) && !defined(_WIN32)
 namespace {
-constexpr size_t NATIVE_CACHE_TEST_POINTS = 64;
+// Loads are rounded up to whole chunks, so the fixture is two chunks and the smaller request is one.
+constexpr size_t NATIVE_CACHE_SMALL_POINTS = bb::srs::SRS_CHUNK_SIZE_POINTS;
+constexpr size_t NATIVE_CACHE_TEST_POINTS = 2 * NATIVE_CACHE_SMALL_POINTS;
 
 // Sets slow_low_memory for one test. The native cache is only used in low memory mode.
 class SlowLowMemoryScope {
@@ -472,8 +475,10 @@ TEST(CrsFactory, Bn254NativeCacheRoundTrip)
     const auto cache_path = temp_path / "bn254_g1.native.dat";
     EXPECT_EQ(fs::file_size(cache_path), (NATIVE_CACHE_TEST_POINTS + 1) * sizeof(g1::affine_element));
 
+    // A request for fewer points than a chunk maps the whole first chunk.
     const auto mapped = bb::load_bn254_g1_points(temp_path, /*num_points=*/16, /*allow_download=*/false);
-    expect_points_eq(mapped.points, std::vector<g1::affine_element>(decoded.begin(), decoded.begin() + 16));
+    expect_points_eq(mapped.points,
+                     std::vector<g1::affine_element>(decoded.begin(), decoded.begin() + NATIVE_CACHE_SMALL_POINTS));
     EXPECT_TRUE(mapped.points[2].is_point_at_infinity());
 
     // The points are a shared mapping of the cache file: a write to the file shows through the span.
@@ -546,7 +551,7 @@ TEST(CrsFactory, Bn254NativeCacheGrowsWithRequest)
     write_uncompressed_source(temp_path, points);
     const auto cache_path = temp_path / "bn254_g1.native.dat";
 
-    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + 16);
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
     expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
     EXPECT_EQ(fs::file_size(cache_path), (prefix.size() + 1) * sizeof(g1::affine_element));
 
@@ -612,7 +617,7 @@ TEST(CrsFactory, Bn254NativeCacheNeverShrinks)
     // A smaller request against a stale cache regenerates it at the size it had, not the size requested.
     const auto source_path = temp_path / "bn254_g1.dat";
     fs::last_write_time(source_path, fs::last_write_time(source_path) + std::chrono::seconds(1));
-    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + 16);
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
     expect_points_eq(bb::load_bn254_g1_points(temp_path, prefix.size(), false).points, prefix);
     EXPECT_EQ(cached_point_count(cache_path), points.size());
     EXPECT_EQ(header_source_mtime_ns(cache_path), posix_mtime_ns(source_path));
@@ -631,7 +636,7 @@ TEST(CrsFactory, Bn254NativeCacheConcurrentRequestsKeepTheLargest)
 {
     const SlowLowMemoryScope low_memory_mode(true);
     const auto points = native_cache_test_points();
-    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + 16);
+    const std::vector<g1::affine_element> prefix(points.begin(), points.begin() + NATIVE_CACHE_SMALL_POINTS);
     for (size_t trial = 0; trial < 8; ++trial) {
         const fs::path temp_path = "barretenberg_srs_test_native_cache_concurrent";
         fs::remove_all(temp_path);

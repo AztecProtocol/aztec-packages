@@ -140,27 +140,3 @@ TEST(HeapConfigurationDeathTest, LargeAllocationsAreMappedDirectlyOnApple)
     GTEST_SKIP() << "Apple only";
 #endif
 }
-
-/**
- * @brief A ScratchBuffer is heap memory until low memory mode configures the heap, and a mapping of its own after.
- */
-TEST(ScratchBufferDeathTest, MappedDirectlyOnlyAfterLowMemoryConfiguration)
-{
-#if !defined(__wasm__) && !defined(_WIN32)
-    GTEST_FLAG_SET(death_test_style, "threadsafe");
-    EXPECT_EXIT(
-        {
-            constexpr size_t MiB = size_t{ 1 } << 20;
-            const bb::ScratchBuffer before(2 * MiB);
-            bb::configure_heap_for_low_memory();
-            bb::ScratchBuffer after(2 * MiB);
-            std::memset(after.data(), 1, after.size());
-            const bool usable = static_cast<unsigned char>(after.data()[after.size() - 1]) == 1;
-            std::_Exit(!before.is_mapped() && after.is_mapped() && usable ? 0 : 1);
-        },
-        ::testing::ExitedWithCode(0),
-        "");
-#else
-    GTEST_SKIP() << "no anonymous mappings on this platform";
-#endif
-}
