@@ -2,20 +2,13 @@
 #include "log.hpp"
 #include "memory.h"
 #include "tracy/Tracy.hpp"
-#include "try_catch_shim.hpp"
-#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
-#include <new>
-#include <utility>
 #if defined(__GLIBC__)
 #include <malloc.h>
 #elif defined(__APPLE__)
 #include <malloc/malloc.h>
-#endif
-#if !defined(__wasm__) && !defined(_WIN32)
-#include <sys/mman.h>
 #endif
 
 // This can be altered to capture stack traces, though more expensive
@@ -68,8 +61,6 @@ inline void release_free_heap_memory()
 }
 
 namespace detail {
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-inline std::atomic<bool> map_scratch_directly{ false };
 // Defined in mem.cpp next to the operator new replacement, so a binary that configures the heap always links it.
 void enable_large_allocation_mapping();
 /** @brief Whether ptr is a block the replacement operator new mapped directly (always false off Apple). */
@@ -94,7 +85,6 @@ void set_allocation_observer(AllocationObserver observer);
  * does not empty. So on Apple a replacement global operator new (mem.cpp) applies the same idea at libmalloc's own
  * large-block threshold: once this has run, every allocation of 128 KiB or more is an anonymous mapping of its own,
  * unmapped when it is deleted, and never enters the cache. Allocations made through malloc directly still do.
- * ScratchBuffer maps its buffer directly on every platform.
  */
 inline void configure_heap_for_low_memory()
 {
@@ -103,86 +93,8 @@ inline void configure_heap_for_low_memory()
     mallopt(M_MMAP_THRESHOLD, threshold);
     mallopt(M_TRIM_THRESHOLD, threshold);
 #endif
-    detail::map_scratch_directly.store(true, std::memory_order_relaxed);
     detail::enable_large_allocation_mapping();
 }
-
-/**
- * @brief An uninitialized byte buffer for large, short-lived scratch, such as a multi-scalar multiplication's arena.
- * @details After configure_heap_for_low_memory() the buffer is an anonymous mapping of its own, unmapped when it is
- * destroyed; otherwise it comes from operator new. On glibc the pinned 1 MiB mmap threshold already maps
- * such buffers. Apple's libmalloc instead keeps freed large regions in its large cache, where they stay in the process
- * footprint and malloc_zone_pressure_relief does not reclaim them; mapping the buffer directly bypasses that cache
- * (MallocLargeCache=0 in the environment is the out-of-process equivalent, which a sandboxed process cannot set). Heap
- * memory on WASM and Windows.
- */
-class ScratchBuffer {
-  public:
-    ScratchBuffer() = default;
-    explicit ScratchBuffer(size_t bytes)
-        : size_(bytes)
-    {
-        if (bytes == 0) {
-            return;
-        }
-#if !defined(__wasm__) && !defined(_WIN32)
-        if (detail::map_scratch_directly.load(std::memory_order_relaxed)) {
-            void* addr = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-            if (addr == MAP_FAILED) {
-                THROW std::bad_alloc();
-            }
-            data_ = static_cast<std::byte*>(addr);
-            mapped_ = true;
-            return;
-        }
-#endif
-        data_ = new std::byte[bytes]; // NOLINT(cppcoreguidelines-owning-memory)
-    }
-    ~ScratchBuffer() { release(); }
-    ScratchBuffer(const ScratchBuffer&) = delete;
-    ScratchBuffer& operator=(const ScratchBuffer&) = delete;
-    ScratchBuffer(ScratchBuffer&& other) noexcept
-        : data_(std::exchange(other.data_, nullptr))
-        , size_(std::exchange(other.size_, 0))
-        , mapped_(std::exchange(other.mapped_, false))
-    {}
-    ScratchBuffer& operator=(ScratchBuffer&& other) noexcept
-    {
-        if (this != &other) {
-            release();
-            data_ = std::exchange(other.data_, nullptr);
-            size_ = std::exchange(other.size_, 0);
-            mapped_ = std::exchange(other.mapped_, false);
-        }
-        return *this;
-    }
-
-    std::byte* data() const { return data_; }
-    size_t size() const { return size_; }
-    /** @brief Whether the buffer is an anonymous mapping of its own rather than heap memory. */
-    bool is_mapped() const { return mapped_; }
-
-  private:
-    void release()
-    {
-        if (data_ == nullptr) {
-            return;
-        }
-#if !defined(__wasm__) && !defined(_WIN32)
-        if (mapped_) {
-            munmap(data_, size_);
-            data_ = nullptr;
-            return;
-        }
-#endif
-        delete[] data_; // NOLINT(cppcoreguidelines-owning-memory)
-        data_ = nullptr;
-    }
-
-    std::byte* data_ = nullptr;
-    size_t size_ = 0;
-    bool mapped_ = false;
-};
 } // namespace bb
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))
