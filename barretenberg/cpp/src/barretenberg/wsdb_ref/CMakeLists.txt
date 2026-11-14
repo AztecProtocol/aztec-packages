@@ -8,7 +8,7 @@
 #   - the wsdb-ref binary (native builds), the dispatch served over IPC, for its process transports
 #     (and for a downstream world state's conformance test, which runs it beside its own server);
 #   - wsdb-ref.wasm, a WASI reactor (wasm builds), for the package's wasm transport;
-#   - wsdb_ref_napi.node, a Node-API addon over the entry (native builds), for its napi transport.
+#   - libwsdb_ref.so, the entry as a plain shared library (native builds), for its napi transport.
 set(WSDB_REF_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/wsdb_schema.jsonc)
 # Generated code is per build tree (each preset generates its own, so presets building at once never
 # share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
@@ -19,7 +19,6 @@ set(WSDB_REF_GEN_OUTPUTS
     ${WSDB_REF_GEN_DIR}/wsdb_ffi.cpp
     ${WSDB_REF_GEN_DIR}/wsdb_ffi.hpp
     ${WSDB_REF_GEN_DIR}/wsdb_ipc_server.hpp
-    ${WSDB_REF_GEN_DIR}/wsdb_napi.cpp
     ${WSDB_REF_GEN_DIR}/wsdb_types.hpp
     ${WSDB_REF_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
     ${WSDB_REF_GEN_DIR}/ipc_codegen/msgpack_include.hpp
@@ -36,18 +35,17 @@ add_custom_command(
             --out ${WSDB_REF_GEN_DIR}
             --server
             --ffi
-            --napi
             --ffi-name wsdb_ref
             --cpp-namespace bb::wsdb_ref
             --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${WSDB_REF_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating the wsdb-ref dispatch, FFI entry and Node-API addon from wsdb_schema.jsonc"
+    COMMENT "Generating the wsdb-ref dispatch and FFI entry from wsdb_schema.jsonc"
     VERBATIM
 )
 add_custom_target(wsdb_ref_generated DEPENDS ${WSDB_REF_GEN_OUTPUTS})
 
-# Explicit sources: the generated Node-API addon must stay out of the module (it needs napi.h), and
-# the generated FFI entry is in the build tree, which the module's source glob does not cover.
+# Explicit sources: the generated FFI entry is in the build tree, which the module's source glob does
+# not cover.
 file(GLOB WSDB_REF_TESTS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.test.cpp)
 barretenberg_module_with_sources(
     wsdb_ref
@@ -79,39 +77,28 @@ if(WASM)
     )
     add_custom_target(wsdb-ref.wasm ALL DEPENDS ${CMAKE_BINARY_DIR}/bin/wsdb-ref.wasm)
 else()
-    # The Node-API addon over the FFI entry. Its headers come from the node-addon-api and
-    # node-api-headers packages ipc-runtime already pins for its own addon.
-    set(NAPI_PACKAGE_DIR ${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp/napi)
-    execute_process(COMMAND yarn --immutable WORKING_DIRECTORY ${NAPI_PACKAGE_DIR} OUTPUT_QUIET)
-    execute_process(
-        COMMAND node -p "require('node-addon-api').include"
-        WORKING_DIRECTORY ${NAPI_PACKAGE_DIR}
-        OUTPUT_VARIABLE NODE_ADDON_API_DIR
-    )
-    execute_process(
-        COMMAND node -p "require('node-api-headers').include_dir"
-        WORKING_DIRECTORY ${NAPI_PACKAGE_DIR}
-        OUTPUT_VARIABLE NODE_API_HEADERS_DIR
-    )
-    string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR "${NODE_ADDON_API_DIR}")
-    string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR "${NODE_API_HEADERS_DIR}")
-
     add_executable(wsdb-ref ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
     add_dependencies(wsdb-ref wsdb_ref_generated)
     target_link_libraries(wsdb-ref PRIVATE wsdb_ref world_state_reference ipc_runtime)
 
-    add_library(wsdb_ref_napi SHARED ${WSDB_REF_GEN_DIR}/wsdb_napi.cpp)
-    add_dependencies(wsdb_ref_napi wsdb_ref_generated)
-    target_compile_definitions(wsdb_ref_napi PRIVATE NAPI_VERSION=9)
-    target_include_directories(wsdb_ref_napi SYSTEM PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
-    target_link_libraries(wsdb_ref_napi PRIVATE wsdb_ref world_state_reference)
-    set_target_properties(wsdb_ref_napi PROPERTIES
-        PREFIX ""
-        SUFFIX ".node"
-        OUTPUT_NAME wsdb_ref_napi
+    # The FFI entry as a plain shared library, for the napi transport: ipc-runtime's Node-API addon
+    # loads it, so it carries no Node-API code. It exports only the entry, so the barretenberg it
+    # links stays private to it. Named .so on every platform: dlopen does not care, and the package
+    # ships one file name.
+    add_library(wsdb_ref_ffi SHARED $<TARGET_OBJECTS:wsdb_ref_objects>)
+    target_link_libraries(wsdb_ref_ffi PRIVATE world_state_reference)
+    set_target_properties(wsdb_ref_ffi PROPERTIES
+        PREFIX "lib"
+        SUFFIX ".so"
+        OUTPUT_NAME wsdb_ref
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-    # Node provides the N-API symbols at load time.
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        target_link_options(wsdb_ref_napi PRIVATE -undefined dynamic_lookup)
+    # On ELF a version script hides everything but the entry. zig's Mach-O linker takes no export
+    # list, so the macOS builds rely on -fvisibility=hidden, which their presets set, and on the
+    # entry's default visibility (IPC_FFI_EXPORT).
+    if(NOT APPLE)
+        set(WSDB_REF_FFI_VERSION_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/wsdb_ref_ffi.map)
+        file(WRITE ${WSDB_REF_FFI_VERSION_SCRIPT} "{ global: wsdb_ref_ipc_ffi_*; local: *; };\n")
+        target_link_options(wsdb_ref_ffi PRIVATE "LINKER:--version-script,${WSDB_REF_FFI_VERSION_SCRIPT}")
+        set_property(TARGET wsdb_ref_ffi APPEND PROPERTY LINK_DEPENDS ${WSDB_REF_FFI_VERSION_SCRIPT})
     endif()
 endif()
