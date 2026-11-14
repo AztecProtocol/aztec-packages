@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 18:33:25 +0000
+Subject: [PATCH] refactor(world-state): open aztec-wsdb's stores with Init,
+ not command-line genesis options
+
+aztec-wsdb no longer takes the genesis on its command line. IpcWorldState.spawn starts it with the data
+directory, threads, ring sizes and map sizes, then sends Init with the protocol's tree heights and prefill,
+the header generator point and this node's prefilled public data, nullifiers and genesis timestamp. If Init
+fails, the process is destroyed and the error rethrown.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+index 0fc4a3c704172100faf36313552b5175540c331e..35cb8bd35f4ad36128e87bed121068481b6afc3a 100644
+--- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
++++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+@@ -9,7 +9,7 @@ import { Timer } from '@aztec-labs/foundation/timer';
+ import type { IndexedTreeId, TreeInfo } from '@aztec-labs/stdlib/interfaces/server';
+ import { MerkleTreeId } from '@aztec-labs/stdlib/trees';
+ import type { GenesisData, WorldStateRevision } from '@aztec-labs/stdlib/world-state';
+-import { AsyncApi, WsdbService } from '@aztec-labs/wsdb';
++import { AsyncApi, type WsdbInit, WsdbService } from '@aztec-labs/wsdb';
+ import type {
+   WorldStateDBStats as WsdbDBStats,
+   DBStats as WsdbDBStatsInner,
+@@ -160,13 +160,7 @@ function getWsdbThreadCount(): number {
+   return Math.min(16, cpus().length);
+ }
+ 
+-function getWsdbExtraArgs(
+-  dataDir: string,
+-  wsTreeMapSizes: WorldStateTreeMapSizes,
+-  genesis: GenesisData,
+-  threads: number,
+-): string[] {
+-  const options = getWsdbOptions(dataDir, wsTreeMapSizes);
++function getWsdbExtraArgs(dataDir: string, wsTreeMapSizes: WorldStateTreeMapSizes, threads: number): string[] {
+   const args = ['--data-dir', dataDir, '--threads', threads.toString()];
+ 
+   // Size the SHM rings generously. Responses such as batch-insertion witnesses
+@@ -177,50 +171,33 @@ function getWsdbExtraArgs(
+   args.push('--request-ring-size', WSDB_SHM_RING_SIZE.toString());
+   args.push('--response-ring-size', WSDB_SHM_RING_SIZE.toString());
+ 
+-  const treeHeights = formatMap(options.treeHeights);
+-  if (treeHeights) {
+-    args.push('--tree-heights', treeHeights);
+-  }
+-
+-  const treePrefill = formatMap(options.treePrefill);
+-  if (treePrefill) {
+-    args.push('--tree-prefill', treePrefill);
+-  }
+-
+-  const mapSizes = formatMap(options.mapSizes);
++  const mapSizes = formatMap(getWsdbOptions(dataDir, wsTreeMapSizes).mapSizes);
+   if (mapSizes) {
+     args.push('--map-sizes', mapSizes);
+   }
++  return args;
++}
+ 
+-  args.push('--initial-header-generator-point', options.initialHeaderGeneratorPoint.toString());
+-
+-  if (genesis.prefilledPublicData.length > 0) {
+-    const pairs = genesis.prefilledPublicData.map(data => [
+-      data.slot.toBuffer().toString('hex'),
+-      data.value.toBuffer().toString('hex'),
+-    ]);
+-    args.push('--prefilled-public-data', JSON.stringify(pairs));
+-  }
+-
++/** The Init message that opens aztec-wsdb's stores at the protocol's trees and this node's genesis. */
++function getWsdbInit(dataDir: string, wsTreeMapSizes: WorldStateTreeMapSizes, genesis: GenesisData): WsdbInit {
++  const options = getWsdbOptions(dataDir, wsTreeMapSizes);
+   const prefilledNullifiers = genesis.prefilledNullifiers;
+   for (let i = 1; i < prefilledNullifiers.length; i++) {
+     if (prefilledNullifiers[i].toBigInt() <= prefilledNullifiers[i - 1].toBigInt()) {
+       throw new Error('Prefilled genesis nullifiers must be unique and strictly increasing');
+     }
+   }
+-  if (prefilledNullifiers.length > 0) {
+-    args.push(
+-      '--prefilled-nullifiers',
+-      JSON.stringify(prefilledNullifiers.map(nullifier => nullifier.toBuffer().toString('hex'))),
+-    );
+-  }
+-
+-  const genesisTimestamp = Number(genesis.genesisTimestamp);
+-  if (genesisTimestamp !== 0) {
+-    args.push('--genesis-timestamp', genesisTimestamp.toString());
+-  }
+-
+-  return args;
++  return {
++    treeHeights: Object.entries(options.treeHeights).map(([treeId, height]) => ({ treeId: Number(treeId), height })),
++    treePrefill: Object.entries(options.treePrefill).map(([treeId, size]) => ({ treeId: Number(treeId), size })),
++    prefilledPublicData: genesis.prefilledPublicData.map(data => ({
++      slot: new Uint8Array(data.slot.toBuffer()),
++      value: new Uint8Array(data.value.toBuffer()),
++    })),
++    prefilledNullifiers: prefilledNullifiers.map(nullifier => new Uint8Array(nullifier.toBuffer())),
++    genesisTimestamp: Number(genesis.genesisTimestamp),
++    initialHeaderGeneratorPoint: options.initialHeaderGeneratorPoint,
++  };
+ }
+ 
+ // ————— Response conversion helpers —————
+@@ -365,9 +342,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
+ 
+   /**
+    * Spawn an `aztec-wsdb` subprocess and return an IPC-backed world state wrapping it.
+-   * Encapsulates wsdb binary discovery, service construction, and connection. wsdb listens before it
+-   * initializes its database, so spawn resolves as soon as the socket is up and the first calls block
+-   * until initialization completes.
++   * Encapsulates wsdb binary discovery, service construction, and connection. aztec-wsdb opens its
++   * stores when it is sent Init, which carries the genesis, so the instance is ready once Init is answered.
+    */
+   static async spawn(
+     dataDir: string,
+@@ -378,11 +354,18 @@ export class IpcWorldState implements NativeWorldStateInstance {
+     threads: number = getWsdbThreadCount(),
+   ): Promise<IpcWorldState> {
+     const transport = getEnv().WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
++    const init = getWsdbInit(dataDir, wsTreeMapSizes, genesis);
+     const wsdb = await WsdbService.spawn({
+       transport,
+-      extraArgs: getWsdbExtraArgs(dataDir, wsTreeMapSizes, genesis, threads),
++      extraArgs: getWsdbExtraArgs(dataDir, wsTreeMapSizes, threads),
+       env: { HARDWARE_CONCURRENCY: threads.toString() },
+     });
++    try {
++      await wsdb.init(init);
++    } catch (err) {
++      await wsdb.destroy();
++      throw err;
++    }
+     return new IpcWorldState(wsdb, instrumentation, bindings);
+   }
+ 
+@@ -826,8 +809,8 @@ function exitOnWsdbDeath(operation: WorldStateOperationName, error: IpcProcessEx
+ }
+ 
+ /**
+- * Helper to create WsdbOptions from standard world state config.
+- * Returns the options needed to construct a wsdb service command line.
++ * The protocol's tree heights, prefill and header generator point, and the configured LMDB map sizes,
++ * by tree.
+  */
+ export function getWsdbOptions(
+   dataDir: string,

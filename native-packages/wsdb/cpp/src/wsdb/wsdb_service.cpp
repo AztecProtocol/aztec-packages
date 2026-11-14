@@ -11,8 +11,8 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
-#include <stdexcept>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -22,11 +22,7 @@ namespace azteclabs::wsdb {
 using namespace azteclabs::wsdb::world_state;
 using namespace azteclabs::wsdb::merkle_tree;
 
-// ---------------------------------------------------------------------------
-// Simple JSON-like parsing for config maps
-// Parses "{0:1024,1:2048,...}" into unordered_map<uint32_t, uint64_t>
-// ---------------------------------------------------------------------------
-
+/** Parses the map sizes option, "{0:1024,1:2048,...}". */
 static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
 {
     std::unordered_map<world_state::MerkleTreeId, uint64_t> result;
@@ -52,185 +48,16 @@ static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64
     return result;
 }
 
-static std::unordered_map<world_state::MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
-{
-    std::unordered_map<world_state::MerkleTreeId, uint32_t> result;
-    if (json.empty()) {
-        return result;
-    }
-    auto u64_map = parse_tree_uint64_map(json);
-    for (const auto& [k, v] : u64_map) {
-        result[k] = static_cast<uint32_t>(v);
-    }
-    return result;
-}
-
-static std::unordered_map<world_state::MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
-{
-    std::unordered_map<world_state::MerkleTreeId, index_t> result;
-    if (json.empty()) {
-        return result;
-    }
-    auto u64_map = parse_tree_uint64_map(json);
-    for (const auto& [k, v] : u64_map) {
-        result[k] = static_cast<index_t>(v);
-    }
-    return result;
-}
-
-// ---------------------------------------------------------------------------
-// Parse prefilled public data from JSON: [["slot_hex","value_hex"],...]
-// Each hex string is a 64-char (32-byte) hex-encoded field element.
-// ---------------------------------------------------------------------------
-
-static fr hex_to_fr(const std::string& hex)
-{
-    std::string cleaned = hex;
-    if (cleaned.size() >= 2 && cleaned[0] == '0' && (cleaned[1] == 'x' || cleaned[1] == 'X')) {
-        cleaned = cleaned.substr(2);
-    }
-    return fr(cleaned);
-}
-
-static std::vector<PublicDataLeafValue> parse_prefilled_public_data(const std::string& json)
-{
-    std::vector<PublicDataLeafValue> result;
-    if (json.empty() || json == "[]") {
-        return result;
-    }
-
-    // Simple state-machine parser for [["hex","hex"],["hex","hex"],...]
-    std::vector<std::string> hex_values;
-    std::string current;
-    bool in_string = false;
-
-    for (char c : json) {
-        if (c == '"') {
-            in_string = !in_string;
-        } else if (in_string) {
-            current += c;
-        } else if ((c == ',' || c == ']') && !current.empty()) {
-            hex_values.push_back(std::move(current));
-            current.clear();
-        }
-    }
-
-    // hex_values should have pairs: slot, value, slot, value, ...
-    if (hex_values.size() % 2 != 0) {
-        std::cerr << "Warning: odd number of hex values in prefilled public data, ignoring last" << '\n';
-    }
-    for (size_t i = 0; i + 1 < hex_values.size(); i += 2) {
-        result.emplace_back(hex_to_fr(hex_values[i]), hex_to_fr(hex_values[i + 1]));
-    }
-    return result;
-}
-
-// ---------------------------------------------------------------------------
-// Parse prefilled nullifiers from JSON: ["nullifier_hex",...]
-// Each hex string is a 64-char (32-byte) hex-encoded field element.
-// ---------------------------------------------------------------------------
-
-static std::vector<fr> parse_prefilled_nullifiers(const std::string& json)
-{
-    std::vector<fr> result;
-    if (json.empty() || json == "[]") {
-        return result;
-    }
-
-    std::string current;
-    bool in_string = false;
-
-    for (char c : json) {
-        if (c == '"') {
-            in_string = !in_string;
-        } else if (in_string) {
-            current += c;
-        } else if ((c == ',' || c == ']') && !current.empty()) {
-            result.push_back(hex_to_fr(current));
-            current.clear();
-        }
-    }
-    return result;
-}
-
-
 void add_wsdb_config_options(CLI::App& app, WsdbConfig& config)
 {
     app.add_option("-d,--data-dir", config.data_dir, "Data directory for LMDB stores")->required();
-    app.add_option("--tree-heights",
-                   config.tree_heights_json,
-                   "Tree heights as JSON: {0:40,1:32,...}. With the other genesis options, the genesis to start "
-                   "at; without them, the service waits for Init");
-    app.add_option("--tree-prefill", config.tree_prefill_json, "Tree prefill sizes as JSON: {0:128,2:128,...}");
     app.add_option("--map-sizes", config.map_sizes_json, "LMDB map sizes in KB as JSON: {0:1024,...}");
     app.add_option("-t,--threads", config.threads, "Thread pool size (default: 16)")->check(CLI::PositiveNumber);
-    app.add_option("--initial-header-generator-point",
-                   config.initial_header_generator_point,
-                   "Header generator point (default: 0)");
-    app.add_option(
-        "--prefilled-public-data", config.prefilled_public_data_json, "Prefilled public data as JSON array");
-    app.add_option(
-        "--prefilled-nullifiers", config.prefilled_nullifiers_json, "Prefilled genesis nullifiers as JSON array");
-    app.add_option("--genesis-timestamp", config.genesis_timestamp, "Genesis block timestamp (default: 0)");
 }
 
 namespace {
 
-/** What a world state starts from: the options' genesis or Init's. */
-struct Genesis {
-    std::unordered_map<MerkleTreeId, uint32_t> tree_heights;
-    std::unordered_map<MerkleTreeId, index_t> tree_prefill;
-    std::vector<PublicDataLeafValue> prefilled_public_data;
-    std::vector<fr> prefilled_nullifiers;
-    uint32_t initial_header_generator_point = 0;
-    uint64_t genesis_timestamp = 0;
-};
-
-/** The genesis the options give, or nullopt when they give none (the service then waits for Init). */
-std::optional<Genesis> genesis_from_config(const WsdbConfig& config)
-{
-    bool other_genesis_options = !config.tree_prefill_json.empty() || !config.prefilled_public_data_json.empty() ||
-                                 !config.prefilled_nullifiers_json.empty() ||
-                                 config.initial_header_generator_point != 0 || config.genesis_timestamp != 0;
-    if (config.tree_heights_json.empty()) {
-        if (other_genesis_options) {
-            throw std::invalid_argument("genesis options need --tree-heights; or omit them all and send Init");
-        }
-        return std::nullopt;
-    }
-    Genesis genesis{ .tree_heights = parse_tree_uint32_map(config.tree_heights_json),
-                     .tree_prefill = parse_tree_index_map(config.tree_prefill_json),
-                     .initial_header_generator_point = config.initial_header_generator_point,
-                     .genesis_timestamp = config.genesis_timestamp };
-    if (!config.prefilled_public_data_json.empty()) {
-        genesis.prefilled_public_data = parse_prefilled_public_data(config.prefilled_public_data_json);
-        std::cerr << "Parsed " << genesis.prefilled_public_data.size() << " prefilled public data entries" << '\n';
-    }
-    // The caller (TS world-state) passes the same canonical genesis nullifiers it seeds via the napi path, so the IPC
-    // genesis nullifier-tree root matches.
-    if (!config.prefilled_nullifiers_json.empty()) {
-        genesis.prefilled_nullifiers = parse_prefilled_nullifiers(config.prefilled_nullifiers_json);
-        std::cerr << "Parsed " << genesis.prefilled_nullifiers.size() << " prefilled nullifiers" << '\n';
-    }
-    return genesis;
-}
-
-Genesis genesis_from_init(const wire::WsdbInit& init)
-{
-    Genesis genesis{ .prefilled_public_data = from_wire<std::vector<PublicDataLeafValue>>(init.prefilledPublicData),
-                     .prefilled_nullifiers = from_wire<std::vector<fr>>(init.prefilledNullifiers),
-                     .initial_header_generator_point = init.initialHeaderGeneratorPoint,
-                     .genesis_timestamp = init.genesisTimestamp };
-    for (const auto& height : init.treeHeights) {
-        genesis.tree_heights[from_wire<MerkleTreeId>(height.treeId)] = height.height;
-    }
-    for (const auto& prefill : init.treePrefill) {
-        genesis.tree_prefill[from_wire<MerkleTreeId>(prefill.treeId)] = static_cast<index_t>(prefill.size);
-    }
-    return genesis;
-}
-
-std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const Genesis& genesis)
+std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const wire::WsdbInit& init)
 {
     const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
     std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
@@ -243,16 +70,24 @@ std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const Gen
     for (const auto& [k, v] : parse_tree_uint64_map(config.map_sizes_json)) {
         map_size[k] = v;
     }
+    std::unordered_map<MerkleTreeId, uint32_t> tree_heights;
+    for (const auto& height : init.treeHeights) {
+        tree_heights[from_wire<MerkleTreeId>(height.treeId)] = height.height;
+    }
+    std::unordered_map<MerkleTreeId, index_t> tree_prefill;
+    for (const auto& prefill : init.treePrefill) {
+        tree_prefill[from_wire<MerkleTreeId>(prefill.treeId)] = static_cast<index_t>(prefill.size);
+    }
     std::cerr << "Creating WorldState at " << config.data_dir << " with " << config.threads << " threads" << '\n';
     return std::make_unique<WorldState>(config.threads,
                                         config.data_dir,
                                         map_size,
-                                        genesis.tree_heights,
-                                        genesis.tree_prefill,
-                                        genesis.prefilled_public_data,
-                                        genesis.prefilled_nullifiers,
-                                        genesis.initial_header_generator_point,
-                                        genesis.genesis_timestamp);
+                                        tree_heights,
+                                        tree_prefill,
+                                        from_wire<std::vector<PublicDataLeafValue>>(init.prefilledPublicData),
+                                        from_wire<std::vector<fr>>(init.prefilledNullifiers),
+                                        init.initialHeaderGeneratorPoint,
+                                        init.genesisTimestamp);
 }
 
 } // namespace
@@ -268,17 +103,12 @@ WsdbService::WsdbService(const WsdbConfig& config, std::function<bool()> has_pen
     // writes per fork.
     , scheduler_(std::make_shared<WsdbScheduler>(*dispatch_pool_, std::move(has_pending_request)))
 {
-    if (auto genesis = genesis_from_config(config)) {
-        world_state_ = make_world_state(config, *genesis);
-        request_.world_state_.store(world_state_.get(), std::memory_order_release);
-    }
     request_.scheduler = scheduler_.get();
     request_.init = [this](wire::WsdbInit&& init) {
         if (world_state_) {
-            throw std::runtime_error("aztec-wsdb already has a world state: Init is sent once, to a service started "
-                                     "without a genesis");
+            throw std::runtime_error("aztec-wsdb already has a world state: Init is sent once");
         }
-        world_state_ = make_world_state(config_, genesis_from_init(init));
+        world_state_ = make_world_state(config_, init);
         request_.world_state_.store(world_state_.get(), std::memory_order_release);
     };
     handler_ = make_wsdb_handler(request_);
