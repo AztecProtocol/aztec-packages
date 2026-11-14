@@ -10,8 +10,8 @@ reference world state. Labs reads every genesis value from it:
 
 - protocol-contracts takes DEFAULT_GENESIS_DATA's prefilled nullifiers, public data
   and timestamp from the package's inputs; the generator no longer computes them.
-- world-state builds its Init message (tree heights, prefill sizes, header
-  generator point) from the package's inputs.
+- world-state takes aztec-wsdb's tree heights, prefill sizes and header generator
+  point (getWsdbOptions) from the package's inputs.
 - stdlib exports GENESIS_BLOCK_HEADER_HASH, GENESIS_NULLIFIER_TREE_ROOT and
   GENESIS_ARCHIVE_ROOT from the package's outputs. @aztec-labs/constants no longer
   carries them; they are no longer protocol constants.
