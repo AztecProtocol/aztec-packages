@@ -252,6 +252,11 @@ Napi::Value FfiLibrary::call_async(const Napi::CallbackInfo& info)
     return promise;
 }
 
+Napi::Value FfiLibrary::has_instances(const Napi::CallbackInfo& info)
+{
+    return Napi::Boolean::New(info.Env(), loaded_->create != nullptr);
+}
+
 Napi::Value FfiLibrary::create_instance(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -319,6 +324,7 @@ Napi::Function FfiLibrary::get_class(Napi::Env env)
                        {
                            InstanceMethod("call", &FfiLibrary::call),
                            InstanceMethod("callAsync", &FfiLibrary::call_async),
+                           InstanceMethod("hasInstances", &FfiLibrary::has_instances),
                            InstanceMethod("createInstance", &FfiLibrary::create_instance),
                            InstanceMethod("callInstance", &FfiLibrary::call_instance),
                            InstanceMethod("destroyInstance", &FfiLibrary::destroy_instance),

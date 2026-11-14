@@ -93,6 +93,14 @@ export function loadIpcRuntimeNapi(customPath?: string): {
   ) => {
     call(input: Uint8Array): Uint8Array;
     callAsync(input: Uint8Array): Promise<Uint8Array>;
+    hasInstances(): boolean;
+    createInstance(): unknown;
+    callInstance(
+      instance: unknown,
+      input: Uint8Array,
+      hostCall?: (target: string, request: Uint8Array) => Uint8Array,
+    ): Uint8Array;
+    destroyInstance(instance: unknown): void;
   };
 } {
   const addonPath = findIpcRuntimeNapi(customPath);

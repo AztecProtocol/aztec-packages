@@ -19,6 +19,7 @@ namespace ipc::napi {
  *
  *   call(input: Uint8Array): Buffer                 the process instance, on the calling thread
  *   callAsync(input: Uint8Array): Promise<Buffer>   the process instance, on the libuv thread pool
+ *   hasInstances(): boolean                         whether the library exports FFI instances
  *   createInstance(): Instance                      a fresh instance of the service
  *   callInstance(instance, input, hostCall?): Buffer
  *   destroyInstance(instance): void
@@ -60,6 +61,7 @@ class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
 
     Napi::Value call(const Napi::CallbackInfo& info);
     Napi::Value call_async(const Napi::CallbackInfo& info);
+    Napi::Value has_instances(const Napi::CallbackInfo& info);
     Napi::Value create_instance(const Napi::CallbackInfo& info);
     Napi::Value call_instance(const Napi::CallbackInfo& info);
     Napi::Value destroy_instance(const Napi::CallbackInfo& info);
