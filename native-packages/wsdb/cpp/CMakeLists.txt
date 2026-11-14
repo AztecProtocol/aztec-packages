@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.24)
 # schema) comes from this aztec-packages checkout; only the protocol constants come from the release
 # pinned by tag in ../foundation.pin.
 # NOTE: when native-packages moves out of aztec-packages, take all of it from the pinned release
-# again: FetchContent wsdb-ref's standalone project, ipc-runtime/cpp, ipc-codegen and the schema from a
-# sparse clone of aztec-packages at the tag.
+# again: FetchContent wsdb-ref's library (barretenberg/cpp/src/barretenberg/wsdb_ref/lib),
+# ipc-runtime/cpp, ipc-codegen and the schema from a sparse clone of aztec-packages at the tag.
 project(aztec_wsdb CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,7 +36,7 @@ string(REGEX REPLACE "^v" "" version "${tag}")
 set(foundation "${pkg}/../..")
 # barretenberg's wsdb-ref library, built from source here: the poseidon2 C bindings, and wsdb-ref (the
 # reference world state) behind its FFI entry, which the differential test drives.
-FetchContent_Declare(wsdb_ref SOURCE_DIR ${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/standalone)
+FetchContent_Declare(wsdb_ref SOURCE_DIR ${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/lib)
 FetchContent_MakeAvailable(wsdb_ref)
 option(WSDB_BUILD_TESTS "Build wsdb_tests and wsdb_bench" ON)
 # The lmdblib sibling package (the lmdb C++ wrapper, with the lmdb and msgpack-c sources it fetches),

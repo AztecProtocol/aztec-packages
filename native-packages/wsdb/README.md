@@ -12,7 +12,7 @@ checkout; only the protocol constants come from the release pinned by tag in `fo
 
 | Dependency | Source |
 |---|---|
-| barretenberg's wsdb-ref library: `bb_poseidon2_hash*`, and wsdb-ref behind its FFI entry (`wsdb_ref_ipc_ffi_entry`) for the differential test. wsdb calls only those C functions | built from source in this build, from the working tree's `barretenberg/cpp/src/barretenberg/wsdb_ref/standalone` |
+| barretenberg's wsdb-ref library: `bb_poseidon2_hash*`, and wsdb-ref behind its FFI entry (`wsdb_ref_ipc_ffi_entry`) for the differential test. wsdb calls only those C functions | built from source in this build, from the working tree's `barretenberg/cpp/src/barretenberg/wsdb_ref/lib` |
 | ipc-runtime (C++, compiled in) and ipc-codegen (the generated dispatch, FFI entry and client) | the working tree |
 | the wire contract (`wsdb_schema.jsonc`) | the working tree, `barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc` |
 | protocol constants (`aztec_constants.hpp`) | `npx @aztec-foundation/constants-codegen@<tag version>`, which embeds its release's `constants.nr` |
