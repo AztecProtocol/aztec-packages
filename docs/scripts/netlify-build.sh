@@ -2,7 +2,7 @@
 # Netlify build command for production and deploy previews, run from docs/ (the Netlify base): the
 # docs as CI builds them. Previews also get the aztec-nr API reference generated with the nargo
 # release the pinned aztec-node uses; production does not, as it serves only the committed released
-# references (static/aztec-nr-api/<network>) and drops the dev docs that link to the generated one.
+# references (static/aztec-nr-api/<version>) and drops the dev docs that link to the generated one.
 # Previews also serve each dev line (docs/lines/<line>/) at /developers-<line> and /operate-<line>,
 # which link a network's released reference; production fetches and builds no line.
 # A preview is the only build before a merge, so it also lints the docs' own code, runs the unit

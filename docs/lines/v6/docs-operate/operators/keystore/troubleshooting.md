@@ -461,4 +461,4 @@ If you encounter issues not covered here:
 - **[Creating Keystores](./creating-keystores.md)** - Main guide for generating keystores
 - **[Advanced Keystore Patterns](./advanced-patterns.md)** - Multiple validators, high availability, remote signers
 - **[Key Storage Methods](./storage-methods.md)** - Encrypted keystores, HSMs, key management systems
-- **[Sequencer Management](../setup/sequencer-setup.md)** - Operational guidance for running sequencers
+- **[Sequencer Management](../sequencer-management/index.md)** - Operational guidance for running sequencers

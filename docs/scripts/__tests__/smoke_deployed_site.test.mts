@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import http from "node:http";
+import fs from "node:fs";
 import { after, test } from "node:test";
+import networkDocs from "../../src/network_docs.js";
 import { main } from "../smoke_deployed_site.mts";
 
 type Handler = (req: http.IncomingMessage, res: http.ServerResponse) => void;
@@ -10,14 +12,44 @@ const SHA = "f878b1277fdc9d3363cc7fd42fc19a7cf2f32d43";
 const send = (status: number, type: string, body: string, headers: Record<string, string> = {}): Handler => (_req, res) => {
   res.writeHead(status, { "content-type": type, link: '</llms.txt>; rel="describedby"', ...headers }).end(body);
 };
-const redirect = (to: string): Handler => (_req, res) => res.writeHead(301, { location: to, "content-type": "text/plain" }).end();
+const redirect = (to: string, status = 301): Handler => (_req, res) => res.writeHead(status, { location: to, "content-type": "text/plain" }).end();
+
+const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
+const folderOf = (network: string) => {
+  const folder: string | undefined = networkDocs.networkApiFolder(config, network);
+  assert.ok(folder, `developer_version_config.json maps no ${network} version`);
+  return folder;
+};
+const API_TWIN = "> Aztec.nr API reference\n\n# fn aztec\n";
+
+/** The API reference the way netlify.toml and the edge function serve it: network URLs 302 to the version folder. */
+function apiRoutes(origin: string): Record<string, Handler> {
+  const routes: Record<string, Handler> = {};
+  const fn = "noir_aztec/macros/fn.aztec";
+  for (const network of ["mainnet", "testnet"]) {
+    const folder = folderOf(network);
+    // Netlify keeps the slash before `:splat`, so an empty splat lands on the folder's slash form.
+    for (const rest of ["/noir_aztec/index.html", `/${fn}.md`, "", "/"])
+      routes[`/aztec-nr-api/${network}${rest}`] = redirect(`${origin}/aztec-nr-api/${folder}/${rest.replace(/^\//, "")}`, 302);
+    routes[`/typescript-api/${network}/llms.txt`] = redirect(`${origin}/typescript-api/${folder}/llms.txt`, 302);
+    routes[`/aztec-nr-api/${network}/${fn}`] = (req, res) =>
+      req.headers.accept?.includes("text/markdown")
+        ? send(200, "text/markdown; charset=utf-8", API_TWIN, { vary: "Accept" })(req, res)
+        : redirect(`${origin}/aztec-nr-api/${folder}/${fn}`, 302)(req, res);
+    for (const rest of ["/", "/noir_aztec/index.html"]) routes[`/aztec-nr-api/${folder}${rest}`] = send(200, "text/html; charset=UTF-8", "<html></html>");
+    routes[`/aztec-nr-api/${folder}/${fn}.md`] = send(200, "text/markdown; charset=UTF-8", API_TWIN);
+    routes[`/typescript-api/${folder}/llms.txt`] = send(200, "text/plain; charset=UTF-8", "# TypeScript API\n");
+  }
+  return routes;
+}
 
 /** Answers the way Netlify serves the docs today (absolute redirect targets, as Netlify sends them). */
 function netlifyRoutes(origin: string): Record<string, Handler> {
   return {
+    ...apiRoutes(origin),
     "/developers": redirect(`${origin}/developers/overview`),
-    "/network/operators/setup/running_a_node": redirect(`${origin}/operate/operators/setup/running_a_node`),
-    "/operate/operators/setup/running_a_node": send(200, "text/html; charset=UTF-8", "<html></html>"),
+    "/network/operators/full-node/setup": redirect(`${origin}/operate/operators/full-node/setup`),
+    "/operate/operators/full-node/setup": send(200, "text/html; charset=UTF-8", "<html></html>"),
     "/developers/overview.md": send(200, "text/markdown; charset=UTF-8", TWIN, { vary: "Accept-Encoding" }),
     "/developers/overview": (req, res) =>
       req.headers.accept?.includes("text/markdown")
@@ -62,7 +94,7 @@ test("a site that answers like Netlify passes every check and its commit id is p
   const { origin } = await serve(netlifyRoutes);
   const { code, out } = await run([origin, "--commit", SHA]);
   assert.equal(code, 0, out);
-  assert.equal(out.split("\n").filter((l) => l.startsWith("ok ")).length, 7, out);
+  assert.equal(out.split("\n").filter((l) => l.startsWith("ok ")).length, 8, out);
   assert.match(out, new RegExp(`commit id: ${SHA}`));
 });
 
@@ -71,11 +103,12 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   const { origin } = await serve((o) => ({
     ...netlifyRoutes(o),
     "/developers": redirect(`${o}/developers/docs`),
-    "/network/operators/setup/running_a_node": redirect(`${elsewhere.origin}/operate/operators/setup/running_a_node`),
+    "/network/operators/full-node/setup": redirect(`${elsewhere.origin}/operate/operators/full-node/setup`),
     "/developers/overview.md": send(200, "text/markdown-broken; charset=UTF-8", TWIN),
     "/developers/overview": send(200, "text/markdown; charset=utf-8", TWIN),
     "/developers/docs/resources/migration_notes.md": send(200, "text/markdown", "Included versions: none\n"),
     "/commit.txt": send(200, "text/plain", "not a commit\n"),
+    "/typescript-api/testnet/llms.txt": redirect(`${o}/typescript-api/mainnet/llms.txt`, 302),
   }));
   const { code, out } = await run([origin]);
   assert.equal(code, 1);
@@ -86,6 +119,7 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   assert.match(fail("B4"), /browser request: content-type text\/markdown/);
   assert.match(fail("B5"), /6\.0\.0 not among the included versions/);
   assert.match(fail("B7"), /not a commit id/);
+  assert.match(fail("B8"), new RegExp(`/typescript-api/testnet/llms\\.txt: redirects to /typescript-api/mainnet/llms\\.txt, expected /typescript-api/${folderOf("testnet")}/llms\\.txt`));
   assert.deepEqual(elsewhere.hits, []);
 });
 
@@ -147,8 +181,8 @@ test("a redirect target that fails with its query, a soft 404, an oversized body
   const soft = await serve(
     (o) => ({
       ...netlifyRoutes(o),
-      "/network/operators/setup/running_a_node": redirect(`${o}/operate/operators/setup/running_a_node?broken=1`),
-      "/operate/operators/setup/running_a_node": (req, res) =>
+      "/network/operators/full-node/setup": redirect(`${o}/operate/operators/full-node/setup?broken=1`),
+      "/operate/operators/full-node/setup": (req, res) =>
         (req.url?.includes("broken") ? send(404, "text/html", "") : send(200, "text/html", "<html></html>"))(req, res),
     }),
     send(200, "text/html", "<html></html>"),
@@ -156,7 +190,7 @@ test("a redirect target that fails with its query, a soft 404, an oversized body
   const { out } = await run([origin, "--commit", SHA]);
   assert.match(out, /FAIL B7 .*over 5 MiB/);
   const mismatch = await run([soft.origin, "--commit", "a".repeat(40)]);
-  assert.match(mismatch.out, /FAIL B2 .*running_a_node\?broken=1: got 404/);
+  assert.match(mismatch.out, /FAIL B2 .*full-node\/setup\?broken=1: got 404/);
   assert.match(mismatch.out, /FAIL B6 .*expected 404, got 200/);
   assert.match(mismatch.out, new RegExp(`FAIL B7 .*${SHA}, expected a{40}`));
   for (const bad of [[], ["ftp://example.org"], ["https://user:pw@example.org"], ["https://example.org/?a=1"], ["https://example.org/sub"], [origin, "--commit", "abc"]]) {

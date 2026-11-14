@@ -17,6 +17,7 @@ const macros = require("./src/katex-macros.js");
 const { createRequire } = require("module");
 const {
   apiReferenceDirs,
+  apiReferenceFolder,
   aztecNrApiFolders,
   docsInstances,
   historicalVersions,
@@ -446,7 +447,7 @@ const config = {
             [
               require("./src/rehype_api_links.js"),
               {
-                dirs: apiReferenceDirs(developerDocs)
+                dirs: apiReferenceDirs(developerDocs, developerCutVersions)
                   .filter(({ kind }) => kind === "aztec-nr")
                   .map(({ dir }) => dir),
               },
@@ -487,7 +488,8 @@ const config = {
     [
       "./src/plugins/pagefind",
       {
-        // The API reference each network's docs version links to, as llms.txt lists it.
+        // Only the folders a network reads: API pages share the `default` search tag, so a historical folder
+        // would duplicate every item in every search context.
         apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
@@ -495,8 +497,8 @@ const config = {
   customFields: {
     organizationId: ORGANIZATION_ID,
     websiteId: WEBSITE_ID,
-    // Read by the Aztec.nr API page (src/utils/aztecNrApi.mjs); labels carry names, not networks.
-    aztecNrApiFolders: developerApiFolders,
+    // Read by the Aztec.nr API page (src/utils/aztecNrApi.mjs), which cannot import network_docs.js (it needs fs).
+    aztecNrApiFolders: Object.fromEntries(developerCutVersions.map((version) => [version, apiReferenceFolder(version)])),
     lineApiFolders: lineApiFolders(developerVersionConfig, [...new Set(lines.map(({ line }) => line))]),
   },
   themeConfig:

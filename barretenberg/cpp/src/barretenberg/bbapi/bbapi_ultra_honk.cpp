@@ -157,7 +157,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
 
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("CircuitProve");
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _prove<Flavor, IO>(std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     });
@@ -165,7 +165,7 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("CircuitComputeVk");
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         auto prover_instance = _compute_prover_instance<Flavor, IO>(std::move(circuit.bytecode), {});
         auto vk = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
@@ -202,7 +202,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 
 CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("CircuitStats");
     return dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _stats<Flavor, IO>(std::move(circuit.bytecode), include_gates_per_opcode);
     });
@@ -210,7 +210,7 @@ CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& reque
 
 CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("CircuitVerify");
     bool verified = dispatch_by_settings(settings, [&]<typename Flavor, typename IO>() {
         return _verify<Flavor, IO>(verification_key, public_inputs, proof);
     });
@@ -219,7 +219,7 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 
 VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("VkAsFields");
 
     using VK = UltraFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -234,7 +234,7 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 
 MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("MegaVkAsFields");
 
     using VK = MegaFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -249,7 +249,7 @@ MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& r
 
 MegaAppVkAsFields::Response MegaAppVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("MegaAppVkAsFields");
 
     using VK = MegaAppFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -260,7 +260,7 @@ MegaAppVkAsFields::Response MegaAppVkAsFields::execute(BB_UNUSED const BBApiRequ
 
 MegaKernelVkAsFields::Response MegaKernelVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("MegaKernelVkAsFields");
 
     using VK = MegaKernelFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -271,7 +271,7 @@ MegaKernelVkAsFields::Response MegaKernelVkAsFields::execute(BB_UNUSED const BBA
 
 MegaZKVkAsFields::Response MegaZKVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("MegaZKVkAsFields");
 
     using VK = MegaZKFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
@@ -282,7 +282,7 @@ MegaZKVkAsFields::Response MegaZKVkAsFields::execute(BB_UNUSED const BBApiReques
 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME("CircuitWriteSolidityVerifier");
     using VK = UltraKeccakFlavor::VerificationKey;
     validate_vk_size<VK>(verification_key);
 

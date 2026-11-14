@@ -14,7 +14,7 @@ This is an auto-generated reference. For tutorials and guides, see the [Aztec.js
 :::
 
 :::tip Looking up one name?
-Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/mainnet/llms.txt).
+Every class, function and type also has its own short page. Start from the [TypeScript API reference](./typescript_api_reference.mdx), or, for AI agents, its [index of names](pathname:///typescript-api/v6.0.0/llms.txt).
 :::
 
 

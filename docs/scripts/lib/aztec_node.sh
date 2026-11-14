@@ -17,3 +17,16 @@ require_aztec_node() {
     export AZTEC_NODE_DIR=${AZTEC_NODE_DIR:-$docs/.aztec-node/tree}
   fi
 }
+
+# api_reference_folder [version] prints the folder under static/aztec-nr-api/ and static/typescript-api/
+# that a generator writes: the docs version itself, or `next` (the dev reference previews build) when
+# none is given. Anything else is refused: network URLs redirect to a version's folder, so a folder
+# named after a network would shadow them, and the name ends up in an `rm -rf` path.
+api_reference_folder() {
+  local version=${1:-next}
+  if [[ "$version" != next && ! "$version" =~ ^v[0-9][0-9A-Za-z.+-]*$ ]]; then
+    echo "api_reference_folder: expected a docs version such as v6.1.0, or none for next; got '$version'" >&2
+    return 1
+  fi
+  echo "$version"
+}

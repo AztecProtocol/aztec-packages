@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { test } from "node:test";
+import networkDocs from "../../src/network_docs.js";
 import packages from "../typescript_api_generation/packages.js";
 import { declarations, splitPackage } from "../split_typescript_api.mjs";
 
@@ -42,7 +43,7 @@ const pkg = [
   "### LogLevel",
   "Values: `debug`, `info`",
 ].join("\n");
-const options = { pkg: "foundation", npmName: "@aztec-labs/foundation", version: "v6.0.0", index: "https://x/typescript-api/mainnet/llms.txt" };
+const options = { pkg: "foundation", npmName: "@aztec-labs/foundation", version: "v6.0.0", index: "https://x/typescript-api/v6.0.0/llms.txt" };
 
 test("splitPackage merges names that differ only in case and keeps every kind", () => {
   const pages = splitPackage(pkg, options);
@@ -52,7 +53,7 @@ test("splitPackage merges names that differ only in case and keeps every kind", 
     "foundation/LogLevel.md enum",
   ]);
   const [logger, blockNumber] = pages;
-  assert.match(logger.markdown, /^> TypeScript API reference, `@aztec-labs\/foundation` v6\.0\.0\. Index: https:\/\/x\/typescript-api\/mainnet\/llms\.txt\n\n# Logger\n\nPackage: `@aztec-labs\/foundation` \(class, type\)\./);
+  assert.match(logger.markdown, /^> TypeScript API reference, `@aztec-labs\/foundation` v6\.0\.0\. Index: https:\/\/x\/typescript-api\/v6\.0\.0\/llms\.txt\n\n# Logger\n\nPackage: `@aztec-labs\/foundation` \(class, type\)\./);
   assert.match(logger.markdown, /## Class Logger\n\nA logger\.\n\n```typescript\n### not a heading\n```\n\n## Type logger\n\nThe type\.\n$/);
   assert.match(blockNumber.markdown, /## Function BlockNumber\n\nMakes one\.\n\n## Type BlockNumber\n\n```typescript\ntype BlockNumber = number\n```\n$/);
   assert.doesNotMatch(pages.map((p) => p.markdown).join(""), /Quick Import|from '@aztec\/foundation'/);
@@ -64,7 +65,8 @@ test("a comment flattened to one line of backticks does not hide the declaration
 });
 
 test("every declaration of the committed reference lands in exactly one page", () => {
-  const dir = new URL("../../static/typescript-api/mainnet/", import.meta.url);
+  const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
+  const dir = new URL(`../../static/typescript-api/${networkDocs.networkApiFolder(config, "mainnet")}/`, import.meta.url);
   for (const { name } of packages.documentedPackages()) {
     const markdown = fs.readFileSync(new URL(`${name}.md`, dir), "utf8");
     const pages = splitPackage(markdown, { ...options, pkg: name });

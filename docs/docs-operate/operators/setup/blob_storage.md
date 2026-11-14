@@ -23,21 +23,21 @@ Setting the `BLOB_FILE_STORE_URLS` environment variable overrides the file store
 
 ## Understanding blob sources
 
-The blob client can retrieve blobs from multiple sources, tried in order:
+The blob client can retrieve blobs from multiple sources, tried in this order by default:
 
-1. **File Store**: Fast retrieval from configured storage (S3, GCS, R2, local files, HTTPS)
-2. **L1 Consensus**: Beacon node API to a (semi-)supernode for recent blobs (within ~18 days)
+1. **L1 Consensus**: Beacon node API to a (semi-)supernode for recent blobs (within ~18 days)
+2. **File Store**: Fast retrieval from configured storage (S3, GCS, R2, local files, HTTPS)
 3. **Archive API**: Services like Blobscan for historical blob data
 
-For near-tip synchronization, the client will retry file stores with backoff to handle eventual consistency when blobs are still being uploaded by other validators.
+Set `BLOB_PREFER_FILESTORES=true` to try file stores before L1 consensus. For near-tip synchronization, the client retries both with backoff to handle eventual consistency when blobs are still being uploaded by other validators.
 
 ### L1 consensus and blob availability
 
 If your beacon node has access to [supernodes or semi-supernodes](https://ethereum.org/roadmap/fusaka/peerdas/), L1 consensus alone may be sufficient for retrieving blobs within the ~18 day retention period. With the Fusaka upgrade and [PeerDAS (Peer Data Availability Sampling)](https://eips.ethereum.org/EIPS/eip-7594), Ethereum uses erasure coding to split blobs into 128 columns, enabling robust data availability:
 
 - **Supernodes** (validators with ≥4,096 ETH staked): Custody all 128 columns and all blob data for the full ~18 day retention period. These nodes form the backbone of the network and continuously heal data gaps.
-- **Semi-supernodes** (validators with ≥1,824 ETH / 57 validators): Handle at least 64 columns, enabling reconstruction of complete blob data.
-- **Regular nodes**: Only download 1/8th of the data (8 of 128 columns) to verify availability. This is **not sufficient** to serve complete blob data.
+- **Semi-supernodes** (validators with ≥2,048 ETH staked, or a node set to custody at least half the columns): Handle at least 64 columns, enabling reconstruction of complete blob data.
+- **Regular nodes**: Only download 1/16th of the data (8 of 128 columns) to verify availability. This is **not sufficient** to serve complete blob data.
 
 :::warning Supernodes
 If L1 consensus is your only blob source, your beacon node must be a supernode or semi-supernode (or connected to one) to retrieve complete blobs. A regular node cannot reconstruct full blob data from its partial columns alone.
@@ -107,6 +107,9 @@ BLOB_FILE_STORE_URLS=gs://my-snapshots/
 # Try multiple sources in order
 BLOB_FILE_STORE_URLS=gs://primary-bucket/,s3://backup-bucket/
 
+# Try file stores before L1 consensus
+BLOB_PREFER_FILESTORES=true
+
 # L1 consensus fallback
 L1_CONSENSUS_HOST_URLS=https://beacon1.example.com,https://beacon2.example.com
 
@@ -117,7 +120,7 @@ BLOB_ARCHIVE_API_URL=https://api.blobscan.com
 ### Cloudflare R2 configuration
 
 ```bash
-BLOB_FILE_STORE_URLS=s3://my-bucket/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com
+BLOB_FILE_STORE_URLS=s3://my-bucket/blobs/?endpoint=https://[ACCOUNT_ID].r2.cloudflarestorage.com
 ```
 
 Replace `[ACCOUNT_ID]` with your Cloudflare account ID.

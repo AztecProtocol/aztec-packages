@@ -75,7 +75,43 @@ Every delegation pulls one keystore off your queue. Empty queue = no new delegat
   {{PROVIDER_ID}} \\
   --rpc-url {{ETH_RPC}}`}</ConfigCode>
 
-For a cron-driven alert that pings you below a threshold, see the [Monitoring Keystore Availability section](/operate/operators/setup/become_a_staking_provider#monitoring-keystore-availability) — copy that script verbatim, edit the placeholders, schedule with `crontab -e`.
+To get an alert when the queue runs low, save this script as `~/check-keystores.sh`, replace the bracketed values, and uncomment one alert method:
+
+```bash
+#!/bin/bash
+# cron's PATH does not include Foundry.
+export PATH="$HOME/.foundry/bin:$PATH"
+
+THRESHOLD=5
+REGISTRY_ADDRESS="[STAKING_REGISTRY_ADDRESS]"
+PROVIDER_ID="[YOUR_PROVIDER_ID]"
+RPC_URL="[YOUR_RPC_URL]"
+WEBHOOK_URL="[YOUR_WEBHOOK_URL]"
+
+QUEUE_LENGTH=$(cast call "$REGISTRY_ADDRESS" \
+  "getProviderQueueLength(uint256)(uint256)" \
+  "$PROVIDER_ID" \
+  --rpc-url "$RPC_URL")
+echo "Queue length: $QUEUE_LENGTH"
+
+if [ "$QUEUE_LENGTH" -lt "$THRESHOLD" ]; then
+  echo "WARNING: only $QUEUE_LENGTH keystores left in the provider queue."
+  # Slack webhook (for Discord, append /slack to the webhook URL):
+  # curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" \
+  #   -d "{\"text\":\"Keystore queue low: $QUEUE_LENGTH remaining (threshold: $THRESHOLD)\"}"
+  # Email:
+  # echo "Keystore queue has $QUEUE_LENGTH keystores left" | mail -s "Low keystore alert" [YOUR_EMAIL]
+fi
+```
+
+Make it executable and run it every 4 hours:
+
+```bash
+chmod +x ~/check-keystores.sh
+crontab -e
+# Add this line:
+0 */4 * * * $HOME/check-keystores.sh >> $HOME/keystore-monitor.log 2>&1
+```
 
 When you need to add more keystores, follow the same flow you used in [register as staking provider](./register-sequencer) (Step 2).
 

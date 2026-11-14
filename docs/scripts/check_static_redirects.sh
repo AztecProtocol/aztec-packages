@@ -6,7 +6,8 @@
 # The published set is snapshots/published-static.txt, an append-only inventory: CI clones a single
 # commit, so no history says what a change removed. A file added since the last release counts as
 # not listed yet and never fails the check; scripts/refresh_url_snapshot.sh lists it at the next
-# release. The generated API references (static/aztec-nr-api, static/typescript-api) are out of scope.
+# release. Of the generated API references (static/aztec-nr-api, static/typescript-api) only each
+# folder's landing page is in scope, so deleting a folder needs its redirect like any page.
 #
 #   check_static_redirects.sh              prints static/<file>: <old URL> per unredirected removal
 #   check_static_redirects.sh --update     appends the served files the inventory lacks; never removes
@@ -21,10 +22,12 @@ DOCS_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/lib/docs_routes.sh"
 MANIFEST="$DOCS_ROOT/snapshots/published-static.txt"
 generated_re='^(aztec-nr-api|typescript-api)(/|$)'
+folder_page_re='^(aztec-nr-api/[^/]+/index\.html|typescript-api/[^/]+/aztec\.js\.md)$'
+in_scope() { [[ ! "$1" =~ $generated_re || "$1" =~ $folder_page_re ]]; }
 
 # Prints sorted static/ paths (relative to static/) from `git ls-files <args>`, generated trees
-# dropped. A name the one-per-line inventory cannot hold (a newline, a leading `#`, only
-# whitespace) fails rather than drop out of the comparison. Errexit is off inside $(...), so every
+# dropped but for their folder pages. A name the one-per-line inventory cannot hold (a newline, a
+# leading `#`, only whitespace) fails rather than drop out of the comparison. Errexit is off inside $(...), so every
 # caller propagates failures by hand.
 function git_static_names {
   local list name
@@ -38,7 +41,7 @@ function git_static_names {
       printf 'check_static_redirects: the inventory cannot list static/%q; rename it\n' "$name" >&2
       return 2
     fi
-    [[ "$name" =~ $generated_re ]] || printf '%s\n' "$name"
+    ! in_scope "$name" || printf '%s\n' "$name"
   done <"$list" | LC_ALL=C sort -u
 }
 
@@ -52,7 +55,9 @@ function served_static {
 
 function listed_static {
   [[ -r "$MANIFEST" ]] || { echo "check_static_redirects: cannot read $MANIFEST" >&2; return 2; }
-  grep -v -e '^#' -e '^[[:space:]]*$' "$MANIFEST" | grep -Ev "$generated_re" | LC_ALL=C sort -u || true
+  grep -v -e '^#' -e '^[[:space:]]*$' "$MANIFEST" | while IFS= read -r name; do
+    ! in_scope "$name" || printf '%s\n' "$name"
+  done | LC_ALL=C sort -u || true
 }
 
 function check {
@@ -122,7 +127,9 @@ function self_test {
     "hdr.svg|[[headers]]\nfor = \"/*\"\n[headers.values]\nfrom = \"/hdr.svg\"|fail"
     "sub.svg|[[redirects]]\nfrom = \"/real\"\nto = \"/x\"\n[redirects.headers]\nfrom = \"/sub.svg\"|fail"
     "subq.svg|[[redirects]]\nfrom = \"/real2\"\nto = \"/x\"\n[ redirects . query ] # q\nfrom = \"/subq.svg\"|fail"
-    "aztec-nr-api/mainnet/gone.html||ignored"
+    "aztec-nr-api/v1.0.0/gone.html||ignored"
+    "aztec-nr-api/v1.0.0/index.html||fail"
+    "typescript-api/v1.0.0/aztec.js.md|from = \"/typescript-api/v1.0.0/*\"|ok"
   )
   local fixture file rules verdict expected="" listed="" toml=""
   for fixture in "${fixtures[@]}"; do
@@ -137,9 +144,9 @@ function self_test {
   done
   expected+="static/img/unstaged.svg"$'\n'
 
-  mkdir -p "$tmp/static/img" "$tmp/static/aztec-nr-api/mainnet" "$tmp/snapshots"
+  mkdir -p "$tmp/static/img" "$tmp/static/aztec-nr-api/v1.0.0" "$tmp/snapshots"
   printf '%s' "$toml" >"$tmp/netlify.toml"
-  for file in img/present.svg img/icon.svg img/new.png img/unstaged.svg aztec-nr-api/mainnet/kept.html; do
+  for file in img/present.svg img/icon.svg img/new.png img/unstaged.svg aztec-nr-api/v1.0.0/kept.html; do
     : >"$tmp/static/$file"
   done
   git -C "$tmp" init -q

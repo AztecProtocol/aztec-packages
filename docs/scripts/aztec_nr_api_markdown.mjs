@@ -115,8 +115,8 @@ function rewrite(node, context) {
  *
  * @param {string} html the page
  * @param {{pagePath: string, folder: string, banner: string}} options `pagePath` is the page's URL
- *   path (`/aztec-nr-api/mainnet/noir_aztec/index.html`), `folder` its reference folder's
- *   (`/aztec-nr-api/mainnet/`), `banner` the line that opens the page
+ *   path (`/aztec-nr-api/v6.0.0/noir_aztec/index.html`), `folder` its reference folder's
+ *   (`/aztec-nr-api/v6.0.0/`), `banner` the line that opens the page
  * @returns {string | null} null for a page without nargo doc's <main>
  */
 export function convertRustdocPage(html, { pagePath, folder, banner }) {
@@ -157,12 +157,16 @@ function* htmlFiles(dir) {
   }
 }
 
-/** Converts every Aztec.nr folder `apiReferenceDirs` lists under `buildDir`; returns the exit code. */
-export function main(buildDir, env = process.env) {
-  const config = (name) => JSON.parse(fs.readFileSync(new URL(`../${name}_version_config.json`, import.meta.url), "utf8"));
-  const [developer] = docsInstances(config("developer"), config("network"), env.CONTEXT === "production");
+function servedDirs(env) {
+  const read = (name) => JSON.parse(fs.readFileSync(new URL(`../${name}.json`, import.meta.url), "utf8"));
+  const [developer] = docsInstances(read("developer_version_config"), read("network_version_config"), env.CONTEXT === "production");
+  return apiReferenceDirs(developer, read("developer_versions"));
+}
+
+/** Converts every Aztec.nr folder of `served` (default: `apiReferenceDirs`) under `buildDir`; returns the exit code. */
+export function main(buildDir, env = process.env, served = servedDirs(env)) {
   let failed = false;
-  for (const { kind, dir, version, networks } of apiReferenceDirs(developer)) {
+  for (const { kind, dir, version, networks } of served) {
     if (kind !== "aztec-nr") continue;
     const root = path.join(buildDir, dir);
     if (!fs.existsSync(root)) {
@@ -171,7 +175,8 @@ export function main(buildDir, env = process.env) {
       continue;
     }
     const started = process.hrtime.bigint();
-    const banner = `Aztec.nr API reference, ${version} (${networks.join(" and ")}). Index: ${llmsSiteUrl(env)}/${dir}/${SCOPED_API_INDEX}`;
+    const readBy = networks.length ? ` (${networks.join(" and ")})` : "";
+    const banner = `Aztec.nr API reference, ${version}${readBy}. Index: ${llmsSiteUrl(env)}/${dir}/${SCOPED_API_INDEX}`;
     let pages = 0;
     let bytes = 0;
     for (const file of htmlFiles(root)) {

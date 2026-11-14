@@ -26,8 +26,7 @@ The following files are shared across multiple hash implementations:
 6. `stdlib/hash/hash_utils.hpp`
 
 #### BB API
-7. `bbapi/bbapi_crypto.hpp`
-8. `bbapi/bbapi_crypto.cpp`
+7. `bbapi/bbapi_handlers.cpp` (hashing handlers)
 
 ---
 

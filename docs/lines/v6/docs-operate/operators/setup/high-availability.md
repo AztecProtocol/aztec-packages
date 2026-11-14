@@ -24,7 +24,7 @@ High availability means running multiple sequencer nodes that share the same att
 
 Before setting up HA sequencers, ensure you have:
 
-- Experience running a single sequencer node (see the [Sequencer Setup guide](./sequencer-setup.md))
+- Experience running a single sequencer node (see the [solo sequencer guided setup](../solo-sequencer/index.mdx))
 - Understanding of basic keystore structure and configuration
 - Access to multiple servers or VMs for running separate nodes
 - Ability to securely distribute keys across infrastructure
@@ -109,7 +109,7 @@ The validator client automatically integrates with the HA signer when enabled, p
 **HA Setup (2 nodes):**
 
 - 2 separate servers/VMs
-- Each meeting the minimum sequencer requirements (see [Sequencer Setup](./sequencer-setup.md))
+- Each meeting the minimum sequencer requirements (see [Hardware requirements](../concepts/hardware.md))
 - Different physical locations or availability zones (recommended)
 - Reliable network connectivity for both nodes
 - Access to the same L1 infrastructure (or separate L1 endpoints)

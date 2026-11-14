@@ -95,4 +95,4 @@ To see what proposals are currently up for vote:
 - [Learn about staking](/participate/token/staking) to acquire voting power through staking
 - [Learn about unstaking](/participate/token/staking#unstaking) to understand withdrawal delays
 - [Understand governance concepts](/participate/governance) for deeper knowledge
-- [Become a sequencer](/operate/operators/setup/sequencer_management) to participate in proposal signaling
+- [Become a sequencer](/operate/operators/solo-sequencer) to participate in proposal signaling

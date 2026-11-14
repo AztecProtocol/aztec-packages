@@ -15,7 +15,7 @@ The keystore manages private keys and addresses for your Aztec sequencer or prov
 Before proceeding, you should:
 
 - Be familiar with running a sequencer or prover node
-- Understand the basic keystore structure from the [sequencer setup guide](../setup/sequencer-setup.md)
+- Understand the basic keystore structure from the [solo sequencer keystore step](../solo-sequencer/generate-keystore.mdx)
 - Have access to appropriate key management infrastructure (if using remote signers)
 
 ## Understanding Keystore Roles
