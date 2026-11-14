@@ -6,11 +6,26 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/g2.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "bn254_crs_data.hpp"
 #include "bn254_g1_chunk_hashes.hpp"
 #include "http_download.hpp"
+#include <array>
 #include <atomic>
+#include <bit>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <optional>
 #include <span>
+#include <type_traits>
+#if !defined(__wasm__) && !defined(_WIN32)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 namespace {
 // Primary CRS URL (Cloudflare R2)
@@ -198,28 +213,215 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points,
     return data;
 }
 
+bb::Bn254G1Points heap_g1_points(std::vector<bb::g1::affine_element> points)
+{
+    auto storage = std::make_shared<const std::vector<bb::g1::affine_element>>(std::move(points));
+    return { storage, std::span<const bb::g1::affine_element>(*storage) };
+}
+
+#if !defined(__wasm__) && !defined(_WIN32)
+constexpr std::array<char, 8> NATIVE_CACHE_MAGIC = { 'B', 'B', 'G', '1', 'N', 'A', 'T', 'V' };
+constexpr uint32_t NATIVE_CACHE_VERSION = 2;
+constexpr uint32_t NATIVE_CACHE_ENDIAN_MARKER = 0x01020304;
+
+/**
+ * @brief Header of `bn254_g1.native.dat`, followed by the points exactly as they are laid out in memory (Montgomery
+ * form, native-endian limbs). Its size keeps every point 64-byte aligned in the mapping.
+ */
+struct NativeCacheHeader {
+    std::array<char, 8> magic;
+    uint32_t version;
+    uint32_t point_size;
+    uint32_t endian_marker;
+    uint32_t reserved;
+    uint64_t num_points;
+    // Size and POSIX modification time (ns since the Unix epoch) of the bn254_g1.dat the points were decoded from; a
+    // refreshed source invalidates the cache.
+    uint64_t source_size;
+    int64_t source_mtime_ns;
+    std::array<uint8_t, 16> padding;
+};
+static_assert(sizeof(NativeCacheHeader) == UNCOMPRESSED_POINT_SIZE);
+static_assert(sizeof(bb::g1::affine_element) == UNCOMPRESSED_POINT_SIZE);
+static_assert(std::is_trivially_copyable_v<bb::g1::affine_element>);
+
+struct SourceStamp {
+    uint64_t size;
+    int64_t mtime_ns;
+};
+
+// Read with stat rather than std::filesystem::last_write_time: file_clock's epoch differs between libstdc++ and
+// libc++, and binaries built with either share one cache.
+std::optional<SourceStamp> stamp_of(const std::filesystem::path& path)
+{
+    struct stat st{};
+    if (stat(path.c_str(), &st) != 0) {
+        return std::nullopt;
+    }
+#if defined(__APPLE__)
+    const auto& mtime = st.st_mtimespec;
+#else
+    const auto& mtime = st.st_mtim;
+#endif
+    return SourceStamp{ static_cast<uint64_t>(st.st_size),
+                        static_cast<int64_t>(mtime.tv_sec) * 1'000'000'000 + static_cast<int64_t>(mtime.tv_nsec) };
+}
+
+NativeCacheHeader make_native_cache_header(uint64_t num_points, const SourceStamp& source)
+{
+    NativeCacheHeader header{};
+    header.magic = NATIVE_CACHE_MAGIC;
+    header.version = NATIVE_CACHE_VERSION;
+    header.point_size = sizeof(bb::g1::affine_element);
+    header.endian_marker = NATIVE_CACHE_ENDIAN_MARKER;
+    header.num_points = num_points;
+    header.source_size = source.size;
+    header.source_mtime_ns = source.mtime_ns;
+    return header;
+}
+
+/**
+ * @brief Points held by an existing cache, whatever source or format version it was written for (num_points has kept
+ * its offset since version 1); 0 if there is none. Only used to size a regenerated cache.
+ */
+size_t native_cache_point_count(const std::filesystem::path& cache_path)
+{
+    std::ifstream file(cache_path, std::ios::binary);
+    NativeCacheHeader header{};
+    if (!file.read(reinterpret_cast<char*>(&header), sizeof(header))) {
+        return 0;
+    }
+    if (header.magic != NATIVE_CACHE_MAGIC || header.point_size != sizeof(bb::g1::affine_element) ||
+        header.endian_marker != NATIVE_CACHE_ENDIAN_MARKER) {
+        return 0;
+    }
+    return static_cast<size_t>(header.num_points);
+}
+
+/**
+ * @brief Map the native-layout cache read-only and shared, returning its first num_points points, or nullopt when the
+ * cache is missing, truncated, too short, or was written for another layout or source.
+ */
+std::optional<bb::Bn254G1Points> map_native_cache(const std::filesystem::path& cache_path,
+                                                  size_t num_points,
+                                                  const SourceStamp& source)
+{
+    int fd = open(cache_path.c_str(), O_RDONLY);
+    if (fd < 0) {
+        return std::nullopt;
+    }
+    struct stat st{};
+    if (fstat(fd, &st) != 0 || static_cast<size_t>(st.st_size) < sizeof(NativeCacheHeader)) {
+        close(fd);
+        return std::nullopt;
+    }
+    const auto file_size = static_cast<size_t>(st.st_size);
+    void* addr = mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    if (addr == MAP_FAILED) {
+        return std::nullopt;
+    }
+    std::shared_ptr<const void> storage(addr, [file_size](const void* p) { munmap(const_cast<void*>(p), file_size); });
+
+    NativeCacheHeader header;
+    std::memcpy(&header, addr, sizeof(header));
+    const NativeCacheHeader expected = make_native_cache_header(header.num_points, source);
+    const size_t payload_bytes = file_size - sizeof(NativeCacheHeader);
+    if (std::memcmp(&header, &expected, sizeof(header)) != 0 || payload_bytes % UNCOMPRESSED_POINT_SIZE != 0 ||
+        header.num_points != payload_bytes / UNCOMPRESSED_POINT_SIZE || header.num_points < num_points) {
+        return std::nullopt;
+    }
+    const auto* points =
+        reinterpret_cast<const bb::g1::affine_element*>(static_cast<const uint8_t*>(addr) + sizeof(NativeCacheHeader));
+    return bb::Bn254G1Points{ std::move(storage), std::span<const bb::g1::affine_element>(points, num_points) };
+}
+
+bool write_all(int fd, const void* data, size_t bytes)
+{
+    const auto* cursor = static_cast<const uint8_t*>(data);
+    while (bytes > 0) {
+        const ssize_t written = write(fd, cursor, bytes);
+        if (written < 0 && errno == EINTR) {
+            continue;
+        }
+        if (written <= 0) {
+            return false;
+        }
+        cursor += written;
+        bytes -= static_cast<size_t>(written);
+    }
+    return true;
+}
+
+/**
+ * @brief Write the cache from the first num_points points of the uncompressed source, decoding it in bounded chunks so
+ * regeneration holds no full copy of the points. Written under a temporary name and renamed into place, so a reader
+ * never maps a partial file and a process with the old file mapped keeps its inode.
+ */
+bool write_native_cache(const std::filesystem::path& cache_path,
+                        const std::filesystem::path& uncompressed_path,
+                        size_t num_points,
+                        const SourceStamp& source)
+{
+    constexpr size_t CHUNK_POINTS = size_t{ 1 } << 14;
+    std::ifstream input(uncompressed_path, std::ios::binary);
+    if (!input) {
+        return false;
+    }
+    auto tmp_path = cache_path;
+    tmp_path += ".tmp." + std::to_string(getpid());
+    int fd = open(tmp_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        return false;
+    }
+    const NativeCacheHeader header = make_native_cache_header(num_points, source);
+    bool ok = write_all(fd, &header, sizeof(header));
+    std::vector<uint8_t> bytes(std::min(num_points, CHUNK_POINTS) * UNCOMPRESSED_POINT_SIZE);
+    std::vector<bb::g1::affine_element> points(std::min(num_points, CHUNK_POINTS));
+    for (size_t done = 0; ok && done < num_points;) {
+        const size_t count = std::min(CHUNK_POINTS, num_points - done);
+        if (!input.read(reinterpret_cast<char*>(bytes.data()),
+                        static_cast<std::streamsize>(count * UNCOMPRESSED_POINT_SIZE))) {
+            ok = false;
+            break;
+        }
+        bb::parallel_for([&](bb::ThreadChunk chunk) {
+            for (auto i : chunk.range(count)) {
+                points[i] = from_buffer<bb::g1::affine_element>(bytes, i * UNCOMPRESSED_POINT_SIZE);
+            }
+        });
+        ok = write_all(fd, points.data(), count * sizeof(bb::g1::affine_element));
+        done += count;
+    }
+    ok = ok && fsync(fd) == 0;
+    ok = close(fd) == 0 && ok;
+    ok = ok && std::rename(tmp_path.c_str(), cache_path.c_str()) == 0;
+    if (!ok) {
+        unlink(tmp_path.c_str());
+    }
+    return ok;
+}
+#endif
+
 } // namespace
 
 namespace bb {
 
-// Main implementation with configurable URLs
-std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
-                                                  size_t num_points,
-                                                  bool allow_download,
-                                                  const std::string& primary_url,
-                                                  const std::string& fallback_url)
+namespace {
+// Body of get_bn254_g1_data; the caller holds the CRS lock.
+std::vector<g1::affine_element> get_bn254_g1_data_locked(const std::filesystem::path& path,
+                                                         size_t num_points,
+                                                         bool allow_download,
+                                                         const std::string& primary_url,
+                                                         const std::string& fallback_url)
 {
     BB_BENCH_NAME("get_bn254_g1_data");
     // A verification key can only be computed from whole pinned chunks.
     num_points = round_up_to_chunk_boundary(num_points);
     const bool verify_cached_crs = std::getenv("BB_VERIFY_CRS") != nullptr;
-    std::filesystem::create_directories(path);
 
     auto uncompressed_path = path / "bn254_g1.dat";
     auto compressed_path = path / "bn254_g1_compressed.dat";
-    auto lock_path = path / "crs.lock";
-    // Acquire exclusive lock to prevent simultaneous downloads
-    FileLockGuard lock(lock_path.string());
 
     // Uncompressed caches have no pinned hashes; verified loads must use the compressed source.
     // 1. Prefer cached uncompressed (fastest: parallel from_buffer, ~0.3s for 2^20 points)
@@ -282,6 +484,20 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     vinfo("cached uncompressed bn254 crs at ", uncompressed_path);
     return points;
 }
+} // namespace
+
+// Main implementation with configurable URLs
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
+                                                  size_t num_points,
+                                                  bool allow_download,
+                                                  const std::string& primary_url,
+                                                  const std::string& fallback_url)
+{
+    std::filesystem::create_directories(path);
+    // Acquire exclusive lock to prevent simultaneous downloads
+    FileLockGuard lock((path / "crs.lock").string());
+    return get_bn254_g1_data_locked(path, num_points, allow_download, primary_url, fallback_url);
+}
 
 // Default overload using production URLs
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
@@ -289,6 +505,58 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   bool allow_download)
 {
     return get_bn254_g1_data(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+}
+
+Bn254G1Points load_bn254_g1_points(const std::filesystem::path& path, size_t num_points, bool allow_download)
+{
+#if !defined(__wasm__) && !defined(_WIN32)
+    // The cache trades a second on-disk copy of the points for keeping them out of anonymous memory, which only
+    // low memory mode asks for.
+    if (!slow_low_memory || std::endian::native != std::endian::little || std::getenv("BB_VERIFY_CRS") != nullptr) {
+        return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
+    }
+    // A verification key can only be computed from whole pinned chunks.
+    num_points = round_up_to_chunk_boundary(num_points);
+    const auto uncompressed_path = path / "bn254_g1.dat";
+    const auto cache_path = path / "bn254_g1.native.dat";
+    std::filesystem::create_directories(path);
+    // Held across check and regeneration, so concurrent requests of different sizes cannot overwrite each other.
+    FileLockGuard lock((path / "crs.lock").string());
+
+    auto source = stamp_of(uncompressed_path);
+    if (source) {
+        if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
+            vinfo("mapped native bn254 crs cache at ", cache_path);
+            return *mapped;
+        }
+    }
+
+    std::optional<std::vector<g1::affine_element>> decoded;
+    if (!source || source->size / UNCOMPRESSED_POINT_SIZE < num_points) {
+        // Only this path, which has to produce bn254_g1.dat, decodes the points onto the heap.
+        decoded = get_bn254_g1_data_locked(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+        source = stamp_of(uncompressed_path);
+    }
+    if (source) {
+        // Never shrink the cache: another process may need the points a smaller request does not.
+        const size_t available = source->size / UNCOMPRESSED_POINT_SIZE;
+        const size_t cache_points = std::min(available, std::max(num_points, native_cache_point_count(cache_path)));
+        decoded.reset();
+        if (cache_points >= num_points && write_native_cache(cache_path, uncompressed_path, cache_points, *source)) {
+            if (auto mapped = map_native_cache(cache_path, num_points, *source)) {
+                vinfo("wrote and mapped native bn254 crs cache (", cache_points, " points) at ", cache_path);
+                return *mapped;
+            }
+        }
+    }
+    vinfo("could not use a native bn254 crs cache at ", cache_path, "; keeping the points on the heap");
+    if (!decoded) {
+        decoded = get_bn254_g1_data_locked(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
+    }
+    return heap_g1_points(std::move(*decoded));
+#else
+    return heap_g1_points(get_bn254_g1_data(path, num_points, allow_download));
+#endif
 }
 
 // Loads the canonical 128-byte serialization of [x]_2 from disk and verifies it against the pinned

@@ -43,16 +43,18 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 }
 
 template <typename Fr>
-void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
+bool Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_BENCH_NAME("Polynomial::allocate_backing_memory");
     BB_ASSERT_LTE(start_index + size, virtual_size);
+    bool reads_as_zero = false;
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
         virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
-        BackingMemory<Fr>::allocate(size)
+        BackingMemory<Fr>::allocate(size, reads_as_zero)
     };
+    return reads_as_zero;
 }
 
 /**
@@ -67,7 +69,9 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
 template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
-    allocate_backing_memory(size, virtual_size, start_index);
+    if (allocate_backing_memory(size, virtual_size, start_index)) {
+        return;
+    }
 
     parallel_for([&](const ThreadChunk& chunk) {
         auto range = chunk.range(size);

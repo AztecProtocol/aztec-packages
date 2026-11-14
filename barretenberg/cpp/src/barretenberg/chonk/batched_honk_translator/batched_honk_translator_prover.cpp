@@ -4,6 +4,8 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/mem.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
@@ -78,6 +80,13 @@ void BatchedHonkTranslatorProver::execute_translator_oink()
 void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
 {
     BB_BENCH_NAME("BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds");
+    // The rounds stream every column of both circuits through the page cache. Under a memory cap, freed heap that
+    // glibc still holds after the commitments before this (several MiB, pinned below live blocks) is page cache the
+    // rounds cannot use.
+    if (slow_low_memory) {
+        release_free_heap_memory();
+    }
+
     // Draw joint alpha after all pre-sumcheck commitments from both circuits.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 

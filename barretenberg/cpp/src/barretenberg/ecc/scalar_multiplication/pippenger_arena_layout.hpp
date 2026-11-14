@@ -149,7 +149,6 @@ inline constexpr size_t DEDUP_MAX_CHUNK_MEMBERS = 2048;
 inline constexpr size_t MIN_BATCH_CAPACITY = 32;
 inline constexpr size_t MIN_AFFINE_THREAD_RATIO = 2;
 inline constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
-inline constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
 
 // Per-bucket-chunk metadata produced by Stage 6a, consumed by Stage 6b's
 // cross-thread reduce.
@@ -351,7 +350,7 @@ struct PhaseACaps {
 }
 
 // Solve `wpb · per_window_bytes ≤ available_budget`, clamped to [1, W_R]. Shared by the sizer and
-// the live allocator. An exhausted budget (fixed overhead ≥ BATCH_MEM_BUDGET) yields one window
+// the live allocator. An exhausted budget (fixed overhead ≥ the batch memory budget) yields one window
 // per batch, the smallest arena, so wpb never grows as the budget shrinks.
 [[nodiscard]] inline size_t solve_wpb(size_t per_window_bytes, size_t available_budget, size_t W_R) noexcept
 {
