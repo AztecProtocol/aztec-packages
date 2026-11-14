@@ -818,7 +818,7 @@ export class ${svc}Sync extends SyncApi {
   type WasmFfiBackend,
   type WasmFfiBackendSync,
   type WasmModuleSource,
-  type WasmWorker,
+  type ServiceThread,
   chooseWasmModule,
   createWasmFfiBackend,
   createWasmFfiBackendSync,
@@ -853,10 +853,10 @@ export interface ${prefix}WasmOptions {
    * False runs the module on the calling thread and every call blocks it until the module
    * returns, which is cheaper per call and fine for short work off the main thread. For short
    * work *on* the main thread, prefer the synchronous backend, which always runs there. A
-   * WasmWorker (ipc-runtime's createWasmWorker()) runs it on that worker, beside the other modules
+   * ServiceThread (ipc-runtime's createServiceThread()) runs it on that worker, beside the other modules
    * loaded there, which it can then reach as host-call targets with no message passing.
    */
-  worker?: boolean | WasmWorker;
+  worker?: boolean | ServiceThread;
   /**
    * The services the module reaches from inside through its host (\`ipc_runtime.host_call\`), by
    * the target name it calls them by: another module's service (on the same worker, a direct
@@ -1039,7 +1039,7 @@ export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
   NapiFfiBackendSync,
   loadNapiFfiLibrary,
 } from '@aztec-foundation/ipc-runtime';
-import { type HostCallTargets, type WasmWorker, createWasmWorker } from '@aztec-foundation/ipc-runtime/wasm';
+import { type HostCallTargets, type ServiceThread, createServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
 import { ${findLibrary} } from './platform.js';
 
 /**
@@ -1051,11 +1051,11 @@ export interface ${prefix}NapiOptions {
   /** The library to load instead of the installed one (else \`${this.opts.napiLibraryEnvVar}\`, else the arch package). */
   libraryPath?: string;
   /**
-   * Where the instance runs (asynchronous backend): a WasmWorker (ipc-runtime's createWasmWorker())
+   * Where the instance runs (asynchronous backend): a ServiceThread (ipc-runtime's createServiceThread())
    * shared with the instances loaded there, wasm modules or napi instances, which it can then reach
    * as host-call targets synchronously; default a worker of its own.
    */
-  worker?: WasmWorker;
+  worker?: ServiceThread;
   /** The services the service reaches through its host (\`ipc_runtime.host_call\`), by target name. */
   hostCall?: HostCallTargets;
 }
@@ -1080,7 +1080,7 @@ export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Pro
   }
   return NapiFfiBackend.instance(
     { libraryPath, ffiName: '${ffiName}', worker: options.worker, hostCall: options.hostCall },
-    createWasmWorker,
+    createServiceThread,
   );
 }
 
