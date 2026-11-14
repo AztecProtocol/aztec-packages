@@ -221,7 +221,7 @@ function build {
 }
 
 # `test_cmds bb_avm_sim` and `test_cmds wsdb_ref` list those packages' tests alone: they need their
-# builds (bb-avm-sim, bb-wsdb-ref), which bb.js's tests do not.
+# packages built (make bb-ts-packages), which bb.js's tests do not.
 function test_cmds {
   case "${1:-}" in
     bb_avm_sim)

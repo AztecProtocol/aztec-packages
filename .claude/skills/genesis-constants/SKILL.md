@@ -29,7 +29,7 @@ Barretenberg derives the protocol contracts' registration nullifiers from their 
 reference world state (wsdb-ref) measures the roots from them, so those must be built first:
 
 ```bash
-make noir-projects-fnd bb-ts bb-wsdb-ref
+make noir-projects-fnd bb-ts-packages
 ```
 
 The script warns when the protocol

@@ -57,7 +57,7 @@ for artifact in "${artifacts[@]}"; do
 done
 for package in bb.js-api wsdb-ref; do
   [ -f "barretenberg/ts/$package/dest/index.js" ] ||
-    die "barretenberg/ts/$package is not built. Run 'make bb-ts bb-wsdb-ref' first."
+    die "barretenberg/ts/$package is not built. Run 'make bb-ts-packages' first."
 done
 # The measurement reflects the built protocol contract artifacts, so a stale build yields stale numbers. Warn rather
 # than abort: mtimes are only a proxy, and the fnd precommit hook rewrites every protocol contract .nr through
