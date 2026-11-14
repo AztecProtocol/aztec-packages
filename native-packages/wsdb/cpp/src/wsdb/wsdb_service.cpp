@@ -1,12 +1,17 @@
 #include "wsdb/wsdb_service.hpp"
 #include "merkle_tree/indexed_leaf.hpp"
+#include "world_state/wire.hpp"
 #include "wsdb/wsdb_handlers.hpp"
 #include "wsdb/wsdb_scheduler.hpp"
 
 #include <CLI/CLI.hpp>
 #include <algorithm>
+#include <condition_variable>
 #include <cstdint>
 #include <iostream>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -152,7 +157,10 @@ static std::vector<fr> parse_prefilled_nullifiers(const std::string& json)
 void add_wsdb_config_options(CLI::App& app, WsdbConfig& config)
 {
     app.add_option("-d,--data-dir", config.data_dir, "Data directory for LMDB stores")->required();
-    app.add_option("--tree-heights", config.tree_heights_json, "Tree heights as JSON: {0:40,1:32,...}");
+    app.add_option("--tree-heights",
+                   config.tree_heights_json,
+                   "Tree heights as JSON: {0:40,1:32,...}. With the other genesis options, the genesis to start "
+                   "at; without them, the service waits for Init");
     app.add_option("--tree-prefill", config.tree_prefill_json, "Tree prefill sizes as JSON: {0:128,2:128,...}");
     app.add_option("--map-sizes", config.map_sizes_json, "LMDB map sizes in KB as JSON: {0:1024,...}");
     app.add_option("-t,--threads", config.threads, "Thread pool size (default: 16)")->check(CLI::PositiveNumber);
@@ -166,13 +174,65 @@ void add_wsdb_config_options(CLI::App& app, WsdbConfig& config)
     app.add_option("--genesis-timestamp", config.genesis_timestamp, "Genesis block timestamp (default: 0)");
 }
 
-static std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config)
+namespace {
+
+/** What a world state starts from: the options' genesis or Init's. */
+struct Genesis {
+    std::unordered_map<MerkleTreeId, uint32_t> tree_heights;
+    std::unordered_map<MerkleTreeId, index_t> tree_prefill;
+    std::vector<PublicDataLeafValue> prefilled_public_data;
+    std::vector<fr> prefilled_nullifiers;
+    uint32_t initial_header_generator_point = 0;
+    uint64_t genesis_timestamp = 0;
+};
+
+/** The genesis the options give, or nullopt when they give none (the service then waits for Init). */
+std::optional<Genesis> genesis_from_config(const WsdbConfig& config)
+{
+    bool other_genesis_options = !config.tree_prefill_json.empty() || !config.prefilled_public_data_json.empty() ||
+                                 !config.prefilled_nullifiers_json.empty() ||
+                                 config.initial_header_generator_point != 0 || config.genesis_timestamp != 0;
+    if (config.tree_heights_json.empty()) {
+        if (other_genesis_options) {
+            throw std::invalid_argument("genesis options need --tree-heights; or omit them all and send Init");
+        }
+        return std::nullopt;
+    }
+    Genesis genesis{ .tree_heights = parse_tree_uint32_map(config.tree_heights_json),
+                     .tree_prefill = parse_tree_index_map(config.tree_prefill_json),
+                     .initial_header_generator_point = config.initial_header_generator_point,
+                     .genesis_timestamp = config.genesis_timestamp };
+    if (!config.prefilled_public_data_json.empty()) {
+        genesis.prefilled_public_data = parse_prefilled_public_data(config.prefilled_public_data_json);
+        std::cerr << "Parsed " << genesis.prefilled_public_data.size() << " prefilled public data entries" << '\n';
+    }
+    // The caller (TS world-state) passes the same canonical genesis nullifiers it seeds via the napi path, so the IPC
+    // genesis nullifier-tree root matches.
+    if (!config.prefilled_nullifiers_json.empty()) {
+        genesis.prefilled_nullifiers = parse_prefilled_nullifiers(config.prefilled_nullifiers_json);
+        std::cerr << "Parsed " << genesis.prefilled_nullifiers.size() << " prefilled nullifiers" << '\n';
+    }
+    return genesis;
+}
+
+Genesis genesis_from_init(const wire::WsdbInit& init)
+{
+    Genesis genesis{ .prefilled_public_data = from_wire<std::vector<PublicDataLeafValue>>(init.prefilledPublicData),
+                     .prefilled_nullifiers = from_wire<std::vector<fr>>(init.prefilledNullifiers),
+                     .initial_header_generator_point = init.initialHeaderGeneratorPoint,
+                     .genesis_timestamp = init.genesisTimestamp };
+    for (const auto& height : init.treeHeights) {
+        genesis.tree_heights[from_wire<MerkleTreeId>(height.treeId)] = height.height;
+    }
+    for (const auto& prefill : init.treePrefill) {
+        genesis.tree_prefill[from_wire<MerkleTreeId>(prefill.treeId)] = static_cast<index_t>(prefill.size);
+    }
+    return genesis;
+}
+
+std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const Genesis& genesis)
 {
     const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
-
-    auto tree_height = parse_tree_uint32_map(config.tree_heights_json);
-    auto tree_prefill = parse_tree_index_map(config.tree_prefill_json);
-
     std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
         { world_state::MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
         { world_state::MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
@@ -183,46 +243,44 @@ static std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config)
     for (const auto& [k, v] : parse_tree_uint64_map(config.map_sizes_json)) {
         map_size[k] = v;
     }
-
-    std::vector<PublicDataLeafValue> prefilled_public_data;
-    if (!config.prefilled_public_data_json.empty()) {
-        prefilled_public_data = parse_prefilled_public_data(config.prefilled_public_data_json);
-        std::cerr << "Parsed " << prefilled_public_data.size() << " prefilled public data entries" << '\n';
-    }
-
-    // The caller (TS world-state) passes the same canonical genesis nullifiers it seeds via the napi path, so the IPC
-    // genesis nullifier-tree root matches.
-    std::vector<fr> prefilled_nullifiers;
-    if (!config.prefilled_nullifiers_json.empty()) {
-        prefilled_nullifiers = parse_prefilled_nullifiers(config.prefilled_nullifiers_json);
-        std::cerr << "Parsed " << prefilled_nullifiers.size() << " prefilled nullifiers" << '\n';
-    }
-
     std::cerr << "Creating WorldState at " << config.data_dir << " with " << config.threads << " threads" << '\n';
     return std::make_unique<WorldState>(config.threads,
                                         config.data_dir,
                                         map_size,
-                                        tree_height,
-                                        tree_prefill,
-                                        prefilled_public_data,
-                                        prefilled_nullifiers,
-                                        config.initial_header_generator_point,
-                                        config.genesis_timestamp);
+                                        genesis.tree_heights,
+                                        genesis.tree_prefill,
+                                        genesis.prefilled_public_data,
+                                        genesis.prefilled_nullifiers,
+                                        genesis.initial_header_generator_point,
+                                        genesis.genesis_timestamp);
 }
 
+} // namespace
+
 WsdbService::WsdbService(const WsdbConfig& config, std::function<bool()> has_pending_request)
-    : world_state_(make_world_state(config))
+    : config_(config)
     // Sized from the caller-provided `threads` budget, NOT std::thread::hardware_concurrency(): the latter ignores
     // cgroup CPU limits and reports the host core count (e.g. 192 in a 2-CPU CI container), which would spawn a huge
     // pool per wsdb process and exhaust the per-UID thread limit (pthread_create EAGAIN).
     , dispatch_pool_(std::make_unique<ThreadPool>(std::max<uint32_t>(2, config.threads)))
-    , request_{ .world_state = *world_state_ }
     // Server-side ordering: the database, not the client, guarantees per-fork read/write consistency. Each handler
     // hands its work to the scheduler via schedule_read / schedule_write, which run reads concurrently and serialize
     // writes per fork.
     , scheduler_(std::make_shared<WsdbScheduler>(*dispatch_pool_, std::move(has_pending_request)))
 {
+    if (auto genesis = genesis_from_config(config)) {
+        world_state_ = make_world_state(config, *genesis);
+        request_.world_state_.store(world_state_.get(), std::memory_order_release);
+    }
     request_.scheduler = scheduler_.get();
+    request_.init = [this](wire::WsdbInit&& init) {
+        if (world_state_) {
+            throw std::runtime_error("aztec-wsdb already has a world state: Init is sent once, to a service started "
+                                     "without a genesis");
+        }
+        world_state_ = make_world_state(config_, genesis_from_init(init));
+        request_.world_state_.store(world_state_.get(), std::memory_order_release);
+    };
     handler_ = make_wsdb_handler(request_);
 }
 
@@ -230,6 +288,22 @@ WsdbService::~WsdbService()
 {
     // Join the pool before the world state its in-flight work uses goes away.
     dispatch_pool_.reset();
+}
+
+std::vector<uint8_t> WsdbService::call(std::span<const uint8_t> request)
+{
+    // Handlers may respond later, from a pool thread, so wait for the response here.
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::optional<std::vector<uint8_t>> response;
+    handler_(request, [&](std::vector<uint8_t> frame) {
+        std::lock_guard<std::mutex> lock(mutex);
+        response = std::move(frame);
+        cv.notify_one();
+    });
+    std::unique_lock<std::mutex> lock(mutex);
+    cv.wait(lock, [&] { return response.has_value(); });
+    return std::move(*response);
 }
 
 } // namespace azteclabs::wsdb

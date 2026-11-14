@@ -13,17 +13,19 @@ checkout; only the protocol constants come from the release pinned by tag in `fo
 | Dependency | Source |
 |---|---|
 | barretenberg's wsdb-ref library: `bb_poseidon2_hash*`, and wsdb-ref behind its FFI entry (`wsdb_ref_ipc_ffi_entry`) for the differential test. wsdb calls only those C functions | built from source in this build, from the working tree's `barretenberg/cpp/src/barretenberg/wsdb_ref/lib` |
-| ipc-runtime (C++, compiled in) and ipc-codegen (the generated dispatch, FFI entry and client) | the working tree |
+| ipc-runtime (C++, compiled in) and ipc-codegen (the generated dispatch and client) | the working tree |
 | the wire contract (`wsdb_schema.jsonc`) | the working tree, `barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc` |
 | protocol constants (`aztec_constants.hpp`) | `npx @aztec-foundation/constants-codegen@<tag version>`, which embeds its release's `constants.nr` |
 
 When native-packages leaves aztec-packages, all of these come from the pinned release again (see the
 NOTE in `cpp/CMakeLists.txt`).
 
-aztec-wsdb serves the schema over IPC (the `aztec-wsdb` binary) and in-process through its FFI entry,
-`wsdb_labs_ipc_ffi_entry`, opened with `wsdb_labs_ffi_open` (`wsdb_ffi_service.hpp`). The differential
-test, `wsdb_ref_diff.test.cpp`, drives aztec-wsdb and wsdb-ref through their FFI entries with the
-generated typed client and requires both to answer every request alike.
+aztec-wsdb serves the schema over IPC (the `aztec-wsdb` binary). Started with the genesis options
+(`--tree-heights` and the rest), it opens its stores at that genesis; started without them, it waits for
+`Init`, which carries the same genesis over the wire. The data directory, map sizes and threads are
+always options. The differential test, `wsdb_ref_diff.test.cpp`, runs a `WsdbService` in-process beside
+wsdb-ref's FFI entry, sends both the same `Init`, drives both with the generated typed client and
+requires them to answer every request alike.
 
 The lmdblib sibling package (`../lmdblib`) is built from source as part of this build too. Both it
 and wsdb-ref declare the same msgpack-c, so the build has one. The
