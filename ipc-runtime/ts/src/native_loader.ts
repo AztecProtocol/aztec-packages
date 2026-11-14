@@ -77,8 +77,8 @@ export function findIpcRuntimeNapi(customPath?: string): string | null {
 
 /**
  * Load `ipc_runtime_napi.node` and return its native exports
- * (`MsgpackClient`, `MsgpackClientAsync`). Throws a descriptive error when
- * the addon cannot be located or fails to dlopen.
+ * (`MsgpackClient`, `MsgpackClientAsync`, `FfiLibrary`). Throws a descriptive
+ * error when the addon cannot be located or fails to dlopen.
  */
 export function loadIpcRuntimeNapi(customPath?: string): {
   MsgpackClient: new (
@@ -87,6 +87,13 @@ export function loadIpcRuntimeNapi(customPath?: string): {
     serverPid?: number,
   ) => any;
   MsgpackClientAsync: new (shmName: string, clientId?: number) => any;
+  FfiLibrary: new (
+    libraryPath: string,
+    ffiName: string,
+  ) => {
+    call(input: Uint8Array): Uint8Array;
+    callAsync(input: Uint8Array): Promise<Uint8Array>;
+  };
 } {
   const addonPath = findIpcRuntimeNapi(customPath);
   if (!addonPath) {

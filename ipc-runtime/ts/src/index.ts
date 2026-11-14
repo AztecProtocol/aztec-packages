@@ -34,10 +34,10 @@ export {
   type Platform,
 } from "./native_loader.js";
 export {
-  type NapiFfiAddon,
+  type NapiFfiLibrary,
   NapiFfiBackend,
   NapiFfiBackendSync,
-  loadNapiFfiAddon,
+  loadNapiFfiLibrary,
 } from "./napi_ffi.js";
 export {
   type ServiceBackendChoice,
