@@ -12,6 +12,9 @@
  */
 
 #include "throw.hpp"
+// msgpack-c 7.0.0 uses std::remove_volatile and friends without including <type_traits>; libc++ in
+// wasi-sdk does not provide it transitively.
+#include <type_traits>
 
 #ifdef BB_NO_EXCEPTIONS
 #define try if (true)

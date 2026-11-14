@@ -40,17 +40,17 @@ set(LMDB_DIR ${lmdb_SOURCE_DIR}/libraries/liblmdb)
 add_library(lmdb STATIC ${LMDB_DIR}/mdb.c ${LMDB_DIR}/midl.c)
 target_include_directories(lmdb PUBLIC ${LMDB_DIR})
 
-# msgpack-c: header-only. Fetch the source and use its include directory directly
-# (we don't build msgpack-c's own CMake targets/tests).
+# msgpack-c: header-only. SOURCE_SUBDIR names a directory without a CMakeLists.txt, so this only
+# fetches it (never msgpack-c's own targets/tests). Declared as barretenberg's is, so a build that
+# includes both shares one.
 FetchContent_Declare(
     msgpack
     GIT_REPOSITORY https://github.com/msgpack/msgpack-c.git
     GIT_TAG cpp-7.0.0
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR include
 )
-FetchContent_GetProperties(msgpack)
-if(NOT msgpack_POPULATED)
-    FetchContent_Populate(msgpack)
-endif()
+FetchContent_MakeAvailable(msgpack)
 set(MSGPACK_INCLUDE ${msgpack_SOURCE_DIR}/include)
 
 # msgpack-c is used header-only with exceptions (no boost). Compiled with libc++ and
