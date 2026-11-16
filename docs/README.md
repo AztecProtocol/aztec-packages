@@ -134,8 +134,8 @@ Netlify runs `scripts/netlify-ignore-build.sh`, then `scripts/netlify-build.sh` 
 
 - Production builds `next` when `docs/` changed since the last production build that passed, or when that build cannot be found. It leaves out the dev docs and the lines.
 - A deploy preview builds when its pull request changes `docs/`.
-- `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` checks a deployed site for what only Netlify answers: redirects, markdown twins, the migration-notes range, the 404 page, `/commit.txt`, and the API reference's network URLs, which must reach the folder `developer_version_config.json` maps each network to. It needs no install.
-- A retired page's URL redirects to its replacement, but its markdown twin (`<page>.md`) is not redirected: it answers 404 once no served version has the page.
+- `node scripts/smoke_deployed_site.mts <base-url> [--commit <sha>]` checks a deployed site for what only Netlify answers: redirects, markdown twins, a retired page's markdown twin, the migration-notes range, the 404 page, `/commit.txt`, and the API reference's network URLs, which must reach the folder `developer_version_config.json` maps each network to. It needs no install.
+- A retired page's markdown twin (`<page>.md`) follows the page's `netlify.toml` redirect: the markdown edge function sends it to the replacement's twin, or to the replacement when that has no twin. A served twin is never redirected.
 - `netlify/` holds the subscribe function and the markdown and migration-notes edge functions. `yarn dev:netlify` runs them locally; the subscribe function reads `BREVO_API_KEY` from a `.env` made from `.env.template`.
 - Failed production deploys post to the `#docs-alert` Slack channel. These are site owners' actions, in the Netlify UI:
   - Roll back: publish an earlier production deploy, after checking that no production build is running (it would publish over the rollback). A rollback lasts until the next production build; to hold it, stop builds, which stops previews too. Never lock deploys.

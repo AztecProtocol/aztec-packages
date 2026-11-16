@@ -216,6 +216,18 @@ export const CHECKS: Check[] = [
       return problems.length ? problems : [...folders].map(([network, folder]) => `${network} → ${folder}`).join(", ");
     },
   },
+  {
+    id: "B9",
+    name: "retired page's markdown",
+    run: async (get) => {
+      const problems: string[] = [];
+      const target = redirectTo(await get("/developers/docs.md"), "/developers/docs/foundational-topics.md", problems);
+      if (!target) return problems;
+      const twin = await get(target.pathname + target.search);
+      if (twin.status !== 200 || !isType(twin, "text/markdown")) return [`${target.pathname}: got ${twin.status} ${twin.type}, expected 200 text/markdown`];
+      return `/developers/docs.md → ${target.pathname} (200)`;
+    },
+  },
 ];
 
 /** The base URL, if it names a site root over http(s) with nothing a request could not carry over. */
