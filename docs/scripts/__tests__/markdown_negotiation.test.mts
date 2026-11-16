@@ -145,6 +145,6 @@ test("markdown negotiation is unchanged: its .md fetch is marked, so a retired p
   assert.equal(retired.probes[0]?.headers["x-markdown-negotiation"], "subrequest");
 });
 
-test("an exception anywhere in the function falls through to the normal response", () => {
+test("the config turns on Netlify's error bypass, so an exception falls through to the normal response", () => {
   assert.deepEqual(config, { path: "/*", onError: "bypass" });
 });

@@ -3,8 +3,8 @@
 // the SignalWire llms-txt plugin emits at build time, instead of the HTML.
 //
 // Browsers send `Accept: text/html,...` and never `text/markdown`, so they fall
-// through to the normal HTML response untouched. Requests for assets (anything
-// with a file extension) also fall through and are served directly.
+// through to the normal HTML response untouched, as do requests for static
+// files (FILE).
 //
 // A .md address that answers 404 follows its page's redirect instead: a retired
 // page's twin lands on the replacement's twin, with no rule of its own.
@@ -80,8 +80,6 @@ export default async (request, context) => {
 
   const accept = request.headers.get("accept") || "";
   if (!prefersMarkdown(accept)) return;
-
-  // Already a concrete file (asset, sitemap, llms.txt): let the CDN serve it directly.
   if (FILE.test(url.pathname)) return;
 
   const markdownUrl = new URL(url.toString());
