@@ -48,12 +48,15 @@ function inject_version {
   fi
 }
 
-# Strip (llvm-strip-20 where available; bb.exe is left as built), then inject_version (which also
+# Strip (llvm-strip-20 where available, else strip for the native ELF build, which links unstripped
+# so build/bin keeps symbols for profiling; bb.exe is left as built), then inject_version (which also
 # re-signs Mach-O). Idempotent.
 function finalize_bb_binary {
   local binary=$1
   if command -v llvm-strip-20 >/dev/null 2>&1 && [[ "$binary" != *.exe ]]; then
     llvm-strip-20 "$binary"
+  elif [[ "$(head -c4 "$binary")" == $'\x7fELF' ]]; then
+    strip "$binary"
   fi
   inject_version "$binary"
 }

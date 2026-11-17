@@ -42,8 +42,7 @@
         "CC": "${sourceDir}/scripts/zig-cc.sh",
         "CXX": "${sourceDir}/scripts/zig-c++.sh",
         "CFLAGS": "-g0 -fvisibility=hidden",
-        "CXXFLAGS": "-g0 -fvisibility=hidden",
-        "LDFLAGS": "-s"
+        "CXXFLAGS": "-g0 -fvisibility=hidden"
       },
       "cacheVariables": {
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
