@@ -468,8 +468,11 @@ export class ServiceThread {
 
   private constructor(
     private readonly worker: WorkerHandle,
-    /** Where a napi instance, blocked on its native stack, gets the owner's answers. */
-    private readonly channel: SharedArrayBuffer,
+    /**
+     * Where a napi instance, blocked on its native stack, gets the owner's answers. Absent where
+     * SharedArrayBuffer is (a page that is not cross-origin isolated), which has no napi either.
+     */
+    private readonly channel: SharedArrayBuffer | undefined,
     readonly binding: WasmFfiBinding,
   ) {
     worker.onMessage((msg) => this.onMessage(msg));
@@ -478,9 +481,14 @@ export class ServiceThread {
 
   /** Spawn the worker; nothing runs on it until a module is loaded. */
   static create(binding: WasmFfiBinding): ServiceThread {
-    const channel = createHostCallChannel();
+    const channel =
+      typeof SharedArrayBuffer === "undefined"
+        ? undefined
+        : createHostCallChannel();
     const worker = binding.createMainWorker();
-    worker.postMessage({ type: "channel", channel });
+    if (channel) {
+      worker.postMessage({ type: "channel", channel });
+    }
     return new ServiceThread(worker, channel, binding);
   }
 
@@ -630,6 +638,9 @@ export class ServiceThread {
       );
     }
     if (id === undefined) {
+      if (!this.channel) {
+        throw new Error("a blocking host call needs SharedArrayBuffer");
+      }
       answerHostCall(this.channel, status, bytes);
       return;
     }
@@ -857,6 +868,7 @@ function syncCallerOf(
   const syncCaller = (backend as { syncCaller?: unknown }).syncCaller;
   return typeof syncCaller === "function"
     ? (syncCaller.call(backend) as
-        ((request: Uint8Array) => Uint8Array) | undefined)
+        | ((request: Uint8Array) => Uint8Array)
+        | undefined)
     : undefined;
 }

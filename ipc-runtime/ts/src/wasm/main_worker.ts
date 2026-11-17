@@ -34,7 +34,8 @@ export interface MainWorkerOptions {
  * An instance's host calls are answered here: a sibling is called directly, and anything else is
  * asked of the parent. A wasm module waits for the parent's answer suspended (JSPI); a napi instance
  * makes its host calls from a native stack, which can't be suspended, so this thread blocks on the
- * shared channel instead (node always has one), and its siblings must answer it synchronously. Calls
+ * shared channel instead (node always has one; a page without SharedArrayBuffer has no napi), and
+ * its siblings must answer it synchronously. Calls
  * run one at a time across the worker's instances: while one is suspended, a call into any of them
  * could re-enter an instance mid-call through a sibling.
  */
@@ -92,7 +93,10 @@ export function runMainWorker(
           { type: "host-call", slot, blocking: true, target, request },
           [request.buffer as ArrayBuffer],
         );
-        const { status, bytes } = awaitHostCallAnswer(channel!);
+        if (!channel) {
+          throw new Error("a blocking host call needs SharedArrayBuffer");
+        }
+        const { status, bytes } = awaitHostCallAnswer(channel);
         if (status !== 0) {
           throw new Error(new TextDecoder().decode(bytes));
         }
