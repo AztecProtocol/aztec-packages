@@ -15,6 +15,6 @@ Do not override the toolchain (`cargo +nightly`, `rustup override`); `rust-toolc
 Outputs are consumed by `barretenberg/cpp/` (via the `avm_transpiler.h` header) and `yarn-project/` (via the built static library). After non-trivial changes, rebuild both or cross-component breakage will surface only in unrelated CI steps:
 
 ```bash
-(cd ../barretenberg/cpp && cmake --preset default && cd build && ninja)
+(cd ../barretenberg/cpp && cmake --preset clang20 && cd build && ninja)
 (cd ../yarn-project && yarn build)
 ```

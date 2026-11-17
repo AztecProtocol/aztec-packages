@@ -14,5 +14,5 @@ $NODE "$CODEGEN/src/generate.ts" \
   --out "$DIR/src/generated" \
   --cpp-namespace echo
 
-cmake -S "$DIR" -B "$DIR/build"
+(cd "$DIR" && cmake --preset clang20)
 cmake --build "$DIR/build" --target echo_server echo_client golden_test ffi_test

@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 # ipc-runtime — UDS + MPSC-SHM transport library for IPC services.
 #
-# Standalone-buildable: cmake + a C++20 compiler + POSIX is all that's
+# Standalone-buildable: cmake + zig (for its clang 20) + POSIX is all that's
 # required. No repo-local deps, no msgpack dep, no tracing or database
 # machinery. gtest is fetched via FetchContent the first time tests are
 # built (cached locally between runs in cpp/build/_deps/).
 #
-# Cross-compile via standard CMake toolchain knobs, e.g. with zig:
-#   CXX=zig-c++ \
-#   CXXFLAGS="-target aarch64-linux-gnu" \
-#   ./bootstrap.sh
-#
-# Tests are skipped automatically when cross-compiling.
+# The native build uses cpp/CMakePresets.json's clang20 preset; cross builds
+# (`build_cross <arch>`) use its per-platform presets, which skip the tests.
 
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
@@ -22,7 +18,7 @@ BUILD_DIR=${BUILD_DIR:-cpp/build}
 
 function build {
   echo_header "ipc-runtime build"
-  cmake -B "$BUILD_DIR" -S cpp -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
+  cmake -S cpp --preset clang20 -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
   cmake --build "$BUILD_DIR" --target ipc_runtime ipc_runtime_tests
 
   # Native Node addon — host-arch build. Cross-arch builds go through

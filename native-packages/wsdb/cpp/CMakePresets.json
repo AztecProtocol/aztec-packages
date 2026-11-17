@@ -7,6 +7,23 @@
   },
   "configurePresets": [
     {
+      "name": "clang20",
+      "displayName": "Native build with clang 20 (zig)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "environment": {
+        "CC": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-cc.sh",
+        "CXX": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-c++.sh",
+        "CFLAGS": "-g0",
+        "CXXFLAGS": "-g0"
+      },
+      "cacheVariables": {
+        "CMAKE_AR": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-ar.sh",
+        "CMAKE_RANLIB": "${sourceDir}/../../../barretenberg/cpp/scripts/zig-ranlib.sh",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "cross-base",
       "hidden": true,
       "generator": "Ninja",
@@ -64,6 +81,11 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "clang20",
+      "configurePreset": "clang20",
+      "inheritConfigureEnvironment": true
+    },
     {
       "name": "arm64-linux",
       "configurePreset": "arm64-linux",

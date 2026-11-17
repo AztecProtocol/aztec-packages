@@ -13,7 +13,7 @@ hash=$(hash_str \
 # addon and the wsdb service.
 function build_native {
   local build_dir="cpp/build"
-  CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
+  (cd cpp && cmake --preset clang20 >/dev/null)
   cmake --build "$build_dir" --target lmdblib lmdblib_tests
 }
 

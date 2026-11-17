@@ -34,7 +34,7 @@ function generate_ts_package {
 # Build the standalone aztec-wsdb binary.
 function build_native {
   local build_dir="cpp/build"
-  CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
+  (cd cpp && cmake --preset clang20 >/dev/null)
   cmake --build "$build_dir" --target "$WSDB_BINARY" wsdb_tests wsdb_bench
   local target_dir="ts/build/$(arch)-$(os)"
   mkdir -p "$target_dir"

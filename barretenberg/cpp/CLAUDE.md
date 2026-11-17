@@ -14,7 +14,7 @@ Consequence: when changing C++ that affects VK derivation, proving, or anything 
 
 ```bash
 cd barretenberg/cpp
-cmake --preset default -DAVM=ON
+cmake --preset clang20
 cmake --build build --target bb-avm
 ```
 
@@ -22,7 +22,7 @@ Or just run `./bootstrap.sh` (full build), which produces both. Symptom of forge
 
 Development commands (from barretenberg/cpp):
 ```bash
-cmake --preset default    # Configure (AVM disabled by default)
+cmake --preset clang20    # Configure as ./bootstrap.sh does (clang 20 via zig, AVM on)
 cd build && ninja <test>  # Build specific target
 ```
 NOTE: DO NOT add the -j flag to ninja, default is optimal.
@@ -43,11 +43,11 @@ To find test targets: `ninja -t targets | grep "_tests:" | grep -v cmake`
 
 ### Building with AVM enabled
 
-By default, AVM is disabled for faster builds. To build vm2_tests or work on AVM code:
+AVM is on by default. `clang20-no-avm` (the preset `./bootstrap.sh` uses when `AVM=0`) builds without it, faster. To build vm2_tests or work on AVM code:
 
 ```bash
 cd barretenberg/cpp
-cmake --preset default -DAVM=ON   # Reconfigure with AVM enabled
+cmake --preset clang20            # AVM enabled
 cd build && ninja vm2_tests       # Build AVM tests
 ```
 

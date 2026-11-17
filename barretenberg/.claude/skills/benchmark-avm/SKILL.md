@@ -16,7 +16,7 @@ The bulk test drives a real public-tx flow: it **simulates** the `AvmTest` contr
 
 ```bash
 # 1. C++ binaries: AVM prover + IPC world-state DB
-(cd barretenberg/cpp && cmake --preset default -DAVM=ON \
+(cd barretenberg/cpp && cmake --preset clang20 \
   && cmake --build build --target bb-avm aztec-wsdb)
 
 # 2. IPC world-state stack (portal deps; NOT set up by a yarn-project build).
