@@ -21,6 +21,8 @@ import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
  */
 export interface NapiMsgpackClientSync {
   call(input: Buffer): Buffer;
+  /** A view of a scratch buffer the client reuses, valid until its next call. */
+  callTransient(input: Buffer): Uint8Array;
   close(): void;
 }
 
@@ -33,16 +35,23 @@ export interface NapiMsgpackClientAsync {
   close(): void;
 }
 
+function asBuffer(input: Uint8Array): Buffer {
+  return Buffer.isBuffer(input)
+    ? input
+    : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+}
+
 /** Wraps a sync NAPI msgpack client behind the IpcClientSync interface. */
 export class NapiShmSyncClient implements IpcClientSync {
   constructor(private inner: NapiMsgpackClientSync) {}
 
   call(input: Uint8Array): Uint8Array {
-    const buf = Buffer.isBuffer(input)
-      ? input
-      : Buffer.from(input.buffer, input.byteOffset, input.byteLength);
-    const resp = this.inner.call(buf);
+    const resp = this.inner.call(asBuffer(input));
     return new Uint8Array(resp.buffer, resp.byteOffset, resp.byteLength);
+  }
+
+  callTransient(input: Uint8Array): Uint8Array {
+    return this.inner.callTransient(asBuffer(input));
   }
 
   destroy(): void {

@@ -16,6 +16,12 @@ export type IpcErrorMapper = (err: unknown) => Promise<unknown>;
 
 export interface IpcClientSync {
   call(input: Uint8Array): Uint8Array;
+  /**
+   * Like `call`, but the returned bytes are only valid until the next call on
+   * this client: a backend that can reuses one buffer for every response instead
+   * of allocating one per call. For callers that decode the response at once.
+   */
+  callTransient?(input: Uint8Array): Uint8Array;
   destroy(): void;
 }
 
