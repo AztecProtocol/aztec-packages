@@ -54,7 +54,6 @@ function spawnPidEcho(
     binaryName: "pid_echo_server",
     instancePrefix: "pid-echo-test",
     ipcPathArgs: [PID_ECHO_SERVER, "{path}"],
-    transport: "uds",
     ...opts,
   });
 }
@@ -147,7 +146,6 @@ test("a missing binary fails with retry=false", async () => {
     binaryName: "ghost",
     instancePrefix: "ghost-test",
     ipcPathArgs: ["{path}"],
-    transport: "uds",
   }).then(
     () => undefined,
     (e: Error) => e,
@@ -164,7 +162,6 @@ test("a server dying before listen fails promptly with retry=true and the exit c
     binaryName: "dying_server",
     instancePrefix: "dying-test",
     ipcPathArgs: ["{path}"],
-    transport: "uds",
   }).then(
     () => undefined,
     (e: Error) => e,
@@ -186,7 +183,6 @@ test("a wedged server is killed when the connect backstop fires", async () => {
     binaryName: "wedged_server",
     instancePrefix: "wedged-test",
     ipcPathArgs: ["{path}"],
-    transport: "uds",
     connectTimeoutMs: 1_000,
   }).then(
     () => undefined,
@@ -244,7 +240,6 @@ test("a broken connection to a live server kills it, and respawn replaces it", a
     binaryName: "hangup_server",
     instancePrefix: "hangup-test",
     ipcPathArgs: [HANGUP_SERVER, "{path}", pidFile],
-    transport: "uds",
     respawn: true,
   });
   const { readFileSync } = await import("node:fs");

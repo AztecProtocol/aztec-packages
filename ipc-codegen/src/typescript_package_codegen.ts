@@ -246,8 +246,14 @@ export class TypeScriptPackageCodegen {
     return this.processTransports.length > 0;
   }
 
+  /** The process has a synchronous client: shared memory. */
   private get shm(): boolean {
     return this.processTransports.includes("shm");
+  }
+
+  /** The process has an asynchronous client: a unix socket. */
+  private get uds(): boolean {
+    return this.processTransports.includes("uds");
   }
 
   private generatedExports(): string {
@@ -362,20 +368,34 @@ runServiceBinary(BINARY, '${this.opts.packageName}', process.argv.slice(2));
     return generatePackageTsconfig();
   }
 
-  /** The spawned-process backend (node only): options, environment, and the two spawn functions. */
-  /** The spawned-process backend (node only): this package's options over ipc-runtime's spawner. */
+  /**
+   * The spawned-process backend (node only): this package's options over ipc-runtime's spawner. The
+   * asynchronous form talks to the process over a unix socket, the synchronous form over shared memory.
+   */
   generateProcess(): string {
     const { prefix, binaryName } = this.opts;
-    const transports = this.processTransports.map((t) => `'${t}'`).join(" | ");
-    const defaultTransport = this.processTransports.includes("uds")
-      ? "uds"
-      : this.processTransports[0]!;
-    const syncImports = this.shm
-      ? "\n  type SpawnedProcessBackendSync,\n  spawnServiceBackendSync,"
+    const types = [
+      "type ServiceProcessOptions",
+      this.uds && "type SpawnedProcessBackend",
+      this.shm && "type SpawnedProcessBackendSync",
+      this.uds && "spawnServiceBackend",
+      this.shm && "spawnServiceBackendSync",
+    ].filter(Boolean);
+    const asyncSpawn = this.uds
+      ? `
+/**
+ * Spawn '${binaryName}' and connect to it over a unix socket. Process lifecycle — connectivity,
+ * death detection, optional respawn, teardown — is owned by the backend and never leaks onto the
+ * caller's API.
+ */
+export function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
+  return spawnServiceBackend(BINARY, options);
+}
+`
       : "";
     const syncSpawn = this.shm
       ? `
-/** The synchronous form: shared memory is the one transport with a synchronous client. */
+/** The synchronous form: spawn '${binaryName}' and call it over shared memory. */
 export function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackendSync> {
   return spawnServiceBackendSync(BINARY, options);
 }
@@ -383,34 +403,19 @@ export function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): 
       : "";
 
     return `import {
-  type ServiceProcessOptions,
-  type SpawnedProcessBackend,${syncImports}
-  spawnServiceBackend,
+  ${types.join(",\n  ")},
 } from '@aztec-foundation/ipc-runtime';
 import { BINARY } from './platform.js';
 
-export type ${prefix}Transport = ${transports};
-
 /**
  * Options for running '${binaryName}' as a spawned process (node only). See ServiceProcessOptions
- * in ipc-runtime for the rest: binaryPath, threads, logger, env, extraArgs, respawn and unref.
+ * in ipc-runtime: binaryPath, threads, logger, env, extraArgs, respawn and unref.
  */
-export interface ${prefix}ProcessOptions extends ServiceProcessOptions {
-  transport?: ${prefix}Transport;
-}
+export type ${prefix}ProcessOptions = ServiceProcessOptions;
 
 /** The name this package's first version used for the spawn options. */
 export type ${prefix}ServiceOptions = ${prefix}ProcessOptions;
-
-/**
- * Spawn '${binaryName}' and connect to it over ${this.processTransports.join(" or ")}. Process
- * lifecycle — connectivity, death detection, optional respawn, teardown — is owned by the backend
- * and never leaks onto the caller's API.
- */
-export function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
-  return spawnServiceBackend(BINARY, '${defaultTransport}', options);
-}
-${syncSpawn}`;
+${asyncSpawn}${syncSpawn}`;
   }
 
   /** Shared shape of the create options: a backend name, a backend object, or nothing (defaults). */
@@ -442,7 +447,7 @@ export interface ${prefix}CreateOptions {
   logger?: (msg: string) => void;
   /** Let node exit while the backend is alive (a process that watches its parent, or the wasm workers). */
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${napi ? `  napi?: ${prefix}NapiOptions;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;\n` : ""}}
+${this.uds ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${napi ? `  napi?: ${prefix}NapiOptions;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'logger'>;\n` : ""}}
 
 /** Options for ${className(prefix)}Sync.create / createBackendSync. */
 export interface ${prefix}CreateSyncOptions {
@@ -452,7 +457,7 @@ export interface ${prefix}CreateSyncOptions {
   threads?: number;
   logger?: (msg: string) => void;
   unref?: boolean;
-${process ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${napi ? `  napi?: ${prefix}NapiOptions;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;\n` : ""}}
+${this.shm ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n` : ""}${napi ? `  napi?: ${prefix}NapiOptions;\n` : ""}${wasm ? `  wasm?: Omit<${prefix}WasmOptions, 'threads' | 'worker' | 'logger'>;\n` : ""}}
 `;
   }
 
@@ -483,9 +488,9 @@ export class ${svc} extends AsyncApi {
     return this.backend;
   }
 ${
-  process
+  process && this.uds
     ? `
-  /** The service as a spawned '${this.opts.binaryName}' process (no fallback). */
+  /** The service as a spawned '${this.opts.binaryName}' process, over a unix socket (no fallback). */
   static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}> {
     return new ${svc}(await spawnProcessBackend(options));
   }
@@ -510,7 +515,7 @@ ${
 `
         : ""
     }${
-      process
+      process && this.uds
         ? `
   /** The spawned process behind this service, when that is what backs it. */
   get process(): SpawnedProcessBackend | undefined {
@@ -602,12 +607,12 @@ ${
     return `import {
   type IpcClientAsync,
   type IpcClientSync,
-  SERVICE_BACKEND,${process ? "\n  SpawnedProcessBackend," : ""}
+  SERVICE_BACKEND,${this.uds ? "\n  SpawnedProcessBackend," : ""}
   pickServiceBackend,
 } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-${process ? `import { type ${prefix}ProcessOptions, spawnProcessBackend${shm ? ", spawnProcessBackendSync" : ""} } from './process.js';\n` : ""}${platformExports ? `import { ${platformExports} } from './platform.js';\n` : ""}${napi ? `import { type ${prefix}NapiOptions, createNapiBackend, createNapiBackendSync } from './napi.js';\n` : ""}${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
+${process ? `import { ${["type " + prefix + "ProcessOptions", this.uds && "spawnProcessBackend", shm && "spawnProcessBackendSync"].filter(Boolean).join(", ")} } from './process.js';\n` : ""}${platformExports ? `import { ${platformExports} } from './platform.js';\n` : ""}${napi ? `import { type ${prefix}NapiOptions, createNapiBackend, createNapiBackendSync } from './napi.js';\n` : ""}${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
 ${this.generatedExports()}${process ? "export * from './process.js';\n" : ""}${napi ? "export * from './napi.js';\n" : ""}${wasm ? "export * from './wasm.js';\n" : ""}${platformExports ? `export { ${platformExports} } from './platform.js';` : ""}
 
 ${this.createOptionTypes(backends)}
@@ -621,7 +626,7 @@ export async function createBackend(options: ${prefix}CreateOptions = {}): Promi
     label: '${packageName}',
     logger: options.logger,
 ${
-  process
+  this.uds
     ? `    process: {
       available: () => ${findBinary}(options.process?.binaryPath) !== null,
       create: () => spawnProcessBackend({ ...common, ...options.process }),
@@ -1103,7 +1108,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): IpcCl
     const napi = this.napi;
     const backends = [
       process &&
-        `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${this.processTransports.join(" or ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
+        `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${[this.uds && "a unix socket (the asynchronous form)", this.shm && "shared memory (the synchronous form)"].filter(Boolean).join(" and ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
       napi &&
         `- \`'napi'\`: runs the service in-process (node) from its shared library, \`${this.opts.napiLibrary}\`, which exports the service's FFI entry; \`@aztec-foundation/ipc-runtime\`'s Node-API addon loads it and calls the entry. Each backend gets an instance of the service of its own: the asynchronous backend's runs on a worker (its own, or the shared \`napi.worker\`, where it can reach the instances beside it as host-call targets), and the synchronous backend's on the calling thread. \`napi.hostCall\` names the services it reaches through its host. The library is resolved from \`${this.opts.napiLibraryEnvVar}\`, an explicit \`napi.libraryPath\`, or the installed arch package.`,
       wasm &&

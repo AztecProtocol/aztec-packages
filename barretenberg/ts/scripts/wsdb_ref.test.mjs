@@ -1,6 +1,6 @@
 // Tests of the generated @aztec-foundation/wsdb-ref package against one backend, from its build.
-// Run through wsdb_ref_test.sh, which sets WSDB_REF_TEST_BACKEND to process-uds, process-shm (a spawned
-// wsdb-ref binary over a socket or shared memory), napi or wasm.
+// Run through wsdb_ref_test.sh, which sets WSDB_REF_TEST_BACKEND to process (a spawned wsdb-ref binary: the
+// asynchronous service over a socket, the synchronous one over shared memory), napi or wasm.
 //
 // Every napi backend in a process shares one world state (the library is loaded once per process),
 // so the tests read the genesis through committed reads, which writes never change, and write only
@@ -15,8 +15,7 @@ import { after, before, test } from 'node:test';
 import { WsdbError, WsdbService, WsdbServiceSync } from '@aztec-foundation/wsdb-ref';
 
 const BACKENDS = {
-  'process-uds': { backend: 'process', process: { transport: 'uds' } },
-  'process-shm': { backend: 'process', process: { transport: 'shm' } },
+  process: { backend: 'process' },
   napi: { backend: 'napi' },
   wasm: { backend: 'wasm' },
 };

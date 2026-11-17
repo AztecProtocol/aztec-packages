@@ -1,7 +1,6 @@
-# Node.js native addon for ipc-runtime: the SHM-IPC clients and the FFI library loader.
+# Node.js native addon for ipc-runtime: the synchronous SHM-IPC client and the FFI library loader.
 #
-# Builds a SHARED library `ipc_runtime_napi.node` exporting MsgpackClient /
-# MsgpackClientAsync and FfiLibrary. The header search paths for `node-addon-api` / `napi.h`
+# Builds a SHARED library `ipc_runtime_napi.node` exporting MsgpackClient and FfiLibrary. The header search paths for `node-addon-api` / `napi.h`
 # come from the local `node-addon-api` + `node-api-headers` npm packages.
 #
 # Only built when targeting native (not WASM, not fuzzing).
@@ -36,7 +35,6 @@ add_library(ipc_runtime_napi SHARED
   init.cpp
   ffi_library.cpp
   msgpack_client_wrapper.cpp
-  msgpack_client_async.cpp
 )
 # Pin the output location so the addon lands at <build>/lib/ipc_runtime_napi.node
 # regardless of build mode (standalone, cross-preset, or add_subdirectory'd).

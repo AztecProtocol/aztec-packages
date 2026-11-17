@@ -76,7 +76,6 @@ async function testSlowStartup(): Promise<void> {
   );
   const service = await EchoService.spawn({
     binaryPath: slow,
-    transport: "uds",
   });
   try {
     const data = Uint8Array.from([1, 2, 3]);
@@ -95,7 +94,7 @@ async function testDiesBeforeListen(): Promise<void> {
   const started = Date.now();
   let failure: Error | undefined;
   try {
-    await EchoService.spawn({ binaryPath: dying, transport: "uds" });
+    await EchoService.spawn({ binaryPath: dying });
   } catch (err) {
     failure = err as Error;
   }
@@ -125,7 +124,6 @@ async function testWedgedServerIsKilled(): Promise<void> {
   try {
     await EchoService.spawn({
       binaryPath: wedged,
-      transport: "uds",
       connectTimeoutMs: 1_000,
     });
   } catch (err) {
@@ -149,7 +147,6 @@ async function testMissingBinaryNotRetryable(): Promise<void> {
   try {
     await EchoService.spawn({
       binaryPath: join(scratch, "no_such_binary"),
-      transport: "uds",
     });
   } catch (err) {
     failure = err as Error;
@@ -169,7 +166,6 @@ async function testDeathWithoutRespawnIsRetryable(): Promise<void> {
   const realBinary = findEchoBinary()!;
   const service = await EchoService.spawn({
     binaryPath: realBinary,
-    transport: "uds",
   });
   try {
     await service.bytes({ data: Uint8Array.from([1]) });
@@ -199,7 +195,6 @@ async function testRespawnRecreatesProcess(): Promise<void> {
   const realBinary = findEchoBinary()!;
   const service = await EchoService.spawn({
     binaryPath: realBinary,
-    transport: "uds",
     respawn: true,
   });
   try {

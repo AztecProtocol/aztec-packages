@@ -1,5 +1,4 @@
-import { EchoService, EchoServiceSync, SyncApi } from "./index.js";
-import { createNapiShmSyncClient } from "@aztec-foundation/ipc-runtime";
+import { EchoService, EchoServiceSync } from "./index.js";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";
@@ -67,9 +66,39 @@ if (transportArg === "wasm") {
   process.exit(0);
 }
 
-const transport = transportArg;
+// Shared memory is the synchronous transport: EchoServiceSync spawns the binary and calls it
+// over the rings, and create() picks the same process by default.
+if (transportArg === "shm") {
+  for (const [label, sync] of [
+    ["create()", await EchoServiceSync.create()],
+    ["spawn()", await EchoServiceSync.spawn()],
+  ] as const) {
+    try {
+      const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
+      assertBytes(sync.bytes({ data }).data, data, `shm ${label} bytes.data`);
+      const fields = sync.fields({ a: 42, b: 999999, name: "hello shm" });
+      assertEqual(fields.name, "hello shm", `shm ${label} fields.name`);
+      const hash = testHash(0x10);
+      const aliases = sync.aliases({ treeId: 7, hash, maybeHash: null, hashes: [hash] });
+      assertBytes(aliases.hash, hash, `shm ${label} aliases.hash`);
+      let failed = false;
+      try {
+        sync.fail({ message: "boom" });
+      } catch (e) {
+        if (!(e as Error).message.includes("boom")) throw e;
+        failed = true;
+      }
+      if (!failed) throw new Error(`shm ${label}: fail should throw`);
+    } finally {
+      sync.destroy();
+    }
+  }
+  console.error("echo ts package: shm OK");
+  process.exit(0);
+}
 
-// The default policy: the echo binary resolves, so create() spawns it.
+// A unix socket is the asynchronous transport. The default policy: the echo binary resolves, so
+// create() spawns it.
 {
   const created = await EchoService.create();
   try {
@@ -83,7 +112,7 @@ const transport = transportArg;
   }
 }
 
-const service = await EchoService.spawn({ transport });
+const service = await EchoService.spawn();
 try {
   const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
   const bytes = await service.bytes({ data });
@@ -123,23 +152,8 @@ try {
   assertBytes(aliases.hash, hash, "aliases.hash");
   assertBytes(aliases.maybeHash!, second, "aliases.maybeHash");
   assertEqual(aliases.hashes.length, 2, "aliases.hashes.length");
-  // The generated SyncApi shares the wire format; exercise it over the
-  // same spawned service (SHM supports multiple client slots).
-  if (transport === "shm") {
-    const shmName = service.getIpcPath().replace(/\.shm$/, "");
-    const syncApi = new SyncApi(
-      createNapiShmSyncClient(shmName, { clientId: 1 }),
-    );
-    try {
-      const syncResp = syncApi.bytes({ data: Uint8Array.from([7, 8]) });
-      assertBytes(syncResp.data, Uint8Array.from([7, 8]), "sync bytes.data");
-      console.error("echo ts package: SyncApi over shm OK");
-    } finally {
-      syncApi.destroy();
-    }
-  }
 } finally {
   await service.destroy();
 }
 
-console.error(`echo ts package: ${transport} OK`);
+console.error("echo ts package: uds OK");

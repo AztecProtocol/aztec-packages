@@ -38,10 +38,13 @@ export type ServiceNativeFile = Pick<
   "name" | "envVar" | "archPackages" | "packageDir"
 >;
 
-/** Options a caller may give when the service runs as a spawned process. */
+/**
+ * Options a caller may give when the service runs as a spawned process. The transport follows from
+ * the form: the asynchronous backend talks to the process over a unix socket, the synchronous one
+ * over shared memory.
+ */
 export interface ServiceProcessOptions {
   binaryPath?: string;
-  transport?: "uds" | "shm";
   /** Threads the service may use, exported to it as HARDWARE_CONCURRENCY and RAYON_NUM_THREADS. */
   threads?: number;
   logger?: (msg: string) => void;
@@ -51,7 +54,9 @@ export interface ServiceProcessOptions {
   respawn?: boolean;
   /** When true, an idle backend does not keep the process alive; see SpawnedProcessBackendOptions. */
   unref?: boolean;
+  /** Synchronous form only: the shared-memory client slot. */
   clientId?: number;
+  /** Synchronous form only: the Node-API addon the shared-memory client loads. */
   napiPath?: string;
 }
 
@@ -134,9 +139,9 @@ function resolveOrThrow(
  * Spawn the service and connect to it. Process lifecycle — connectivity, death detection,
  * optional respawn, teardown — is owned by the backend and never leaks onto the caller's API.
  */
+/** Spawn the service binary and connect to it over a unix socket. */
 export function spawnServiceBackend(
   binary: ServiceBinary,
-  defaultTransport: "uds" | "shm",
   options: ServiceProcessOptions = {},
 ): Promise<SpawnedProcessBackend> {
   return SpawnedProcessBackend.spawn({
@@ -144,34 +149,25 @@ export function spawnServiceBackend(
     binaryName: binary.name,
     instancePrefix: binary.instancePrefix,
     ipcPathArgs: binary.ipcPathArgs,
-    transport: options.transport ?? defaultTransport,
     logger: options.logger,
     connectTimeoutMs: options.connectTimeoutMs,
     env: serviceProcessEnv(options),
     extraArgs: options.extraArgs,
     respawn: options.respawn,
     unref: options.unref,
-    clientId: options.clientId,
-    napiPath: options.napiPath,
   });
 }
 
-/** The synchronous form: shared memory is the one transport with a synchronous client. */
+/** The synchronous form: spawn the service binary and call it over shared memory. */
 export function spawnServiceBackendSync(
   binary: ServiceBinary,
   options: ServiceProcessOptions = {},
 ): Promise<SpawnedProcessBackendSync> {
-  if (options.transport !== undefined && options.transport !== "shm") {
-    throw new Error(
-      `${binary.name}: the synchronous backend needs the shm transport`,
-    );
-  }
   return SpawnedProcessBackendSync.spawn({
     binaryPath: resolveOrThrow(binary, options.binaryPath),
     binaryName: binary.name,
     instancePrefix: `${binary.instancePrefix}-sync`,
     ipcPathArgs: binary.ipcPathArgs,
-    transport: "shm",
     logger: options.logger,
     connectTimeoutMs: options.connectTimeoutMs,
     env: serviceProcessEnv(options),

@@ -9,14 +9,12 @@ import {
   IpcSpawnError,
   IpcTransportError,
 } from "./errors.js";
-import {
-  createNapiShmAsyncClient,
-  createNapiShmSyncClient,
-} from "./shm_client.js";
+import { createNapiShmSyncClient } from "./shm_client.js";
 import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 import { UdsIpcClient } from "./uds_client.js";
 
-export type SpawnedTransport = "uds" | "shm";
+/** How a spawned server is reached: the asynchronous backend over a unix socket, the synchronous one over shared memory. */
+type IpcTransport = "uds" | "shm";
 
 export interface SpawnedProcessBackendOptions {
   /** Absolute path of the server binary to spawn. Callers resolve it (and fail with retry=false if missing). */
@@ -27,7 +25,6 @@ export interface SpawnedProcessBackendOptions {
   instancePrefix: string;
   /** Argv template; each '{path}' is replaced with the backend's ipc path. */
   ipcPathArgs: string[];
-  transport: SpawnedTransport;
   /** Receives the child's stdout/stderr lines. Without it, output is captured to a temp log file. */
   logger?: (msg: string) => void;
   connectTimeoutMs?: number;
@@ -51,9 +48,9 @@ export interface SpawnedProcessBackendOptions {
    * child is mid-line loses it.
    */
   unref?: boolean;
-  /** SHM only: fixed client slot id. When unset the client self-allocates a free slot. */
+  /** Synchronous (shm) backend only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
-  /** SHM only: override the native addon path. */
+  /** Synchronous (shm) backend only: override the native addon path. */
   napiPath?: string;
 }
 
@@ -91,7 +88,7 @@ function shmSegmentPaths(ipcPath: string): string[] {
  * once pids recycle — which is routine in containers and CI.
  */
 async function removeStaleIpcPath(
-  transport: SpawnedTransport,
+  transport: IpcTransport,
   ipcPath: string,
 ): Promise<void> {
   try {
@@ -111,9 +108,9 @@ async function removeStaleIpcPath(
 /**
  * Stop the child and its output pipes holding the caller's event loop. Called once the backend is
  * connected, never before: until then the child is the only thing keeping the process alive while
- * the server starts, and unref'ing it lets node exit mid-startup. After it, each transport refs
- * itself for the duration of a call (see UdsIpcClient's idle unref and the shm client's TSFN
- * acquire/release), so only a genuinely idle backend is invisible to the loop.
+ * the server starts, and unref'ing it lets node exit mid-startup. After it, the socket refs itself
+ * for the duration of a call (see UdsIpcClient's idle unref), so only a genuinely idle backend is
+ * invisible to the loop.
  */
 function unrefWhenIdle(child: ChildProcess): void {
   child.unref();
@@ -230,10 +227,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     const instanceId = `${options.instancePrefix}-${process.pid}-${threadId}-${instanceCounter++}`;
     // The ipc path is per-backend, not per-incarnation, so getIpcPath() stays
     // stable across respawns for anyone who was handed the path.
-    this.ipcPath =
-      options.transport === "shm"
-        ? `${instanceId}.shm`
-        : join(tmpdir(), `${instanceId}.sock`);
+    this.ipcPath = join(tmpdir(), `${instanceId}.sock`);
     // Same for the log file: respawns append, preserving the death's last words.
     this.logPath = options.logger
       ? undefined
@@ -243,12 +237,6 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   static async spawn(
     options: SpawnedProcessBackendOptions,
   ): Promise<SpawnedProcessBackend> {
-    if (options.respawn && options.transport === "shm") {
-      throw new IpcError(
-        `respawn is not supported over the shm transport`,
-        /*retry=*/ false,
-      );
-    }
     const backend = new SpawnedProcessBackend(options);
     backend.current = await backend.spawnIncarnation();
     return backend;
@@ -399,7 +387,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   /** Spawn the server process and connect to it; kills the child on any failure. */
   private async spawnIncarnation(): Promise<Incarnation> {
     const { options } = this;
-    await removeStaleIpcPath(options.transport, this.ipcPath);
+    await removeStaleIpcPath("uds", this.ipcPath);
 
     // Without a live logger, capture the child's stdout/stderr to the backend's
     // log file (a plain fd, not a pipe — a pipe would keep the libuv loop
@@ -510,42 +498,17 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   ): Promise<IpcClientAsync> {
     const { options } = this;
     const timeoutMs = options.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
-    if (options.transport === "uds") {
-      // UdsIpcClient.connect retries socket-not-ready errors (path not yet
-      // created, server not yet accepting, backlog momentarily full) until the
-      // budget expires, and fails immediately on hard errors. Process death is
-      // raced against this by the caller, so a dead server short-circuits the
-      // wait with its real exit cause.
-      return await UdsIpcClient.connect(this.ipcPath, {
-        connectTimeoutMs: timeoutMs,
-        unref: options.unref,
-        signal,
-        mapError,
-      });
-    }
-    // The SHM client attaches to server-created rings, so creation can race
-    // server startup; retry until the backstop expires.
-    const deadline = Date.now() + timeoutMs;
-    let lastError: unknown;
-    while (Date.now() <= deadline && !signal?.aborted) {
-      try {
-        return createNapiShmAsyncClient(this.ipcPath.replace(/\.shm$/, ""), {
-          clientId: options.clientId,
-          customAddonPath: options.napiPath,
-          mapError,
-        });
-      } catch (err) {
-        lastError = err;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-    }
-    const message =
-      lastError instanceof Error ? lastError.message : String(lastError);
-    throw new IpcSpawnError(
-      `Timed out connecting to ${this.options.binaryName}: ${message}`,
-      /*retry=*/ true,
-      { cause: lastError },
-    );
+    // UdsIpcClient.connect retries socket-not-ready errors (path not yet
+    // created, server not yet accepting, backlog momentarily full) until the
+    // budget expires, and fails immediately on hard errors. Process death is
+    // raced against this by the caller, so a dead server short-circuits the
+    // wait with its real exit cause.
+    return await UdsIpcClient.connect(this.ipcPath, {
+      connectTimeoutMs: timeoutMs,
+      unref: options.unref,
+      signal,
+      mapError,
+    });
   }
 
   /** Wrap a spawn/connect failure as IpcSpawnError and point at the captured log. */
@@ -569,7 +532,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   }
 
   private async cleanupIpcPath(): Promise<void> {
-    await removeStaleIpcPath(this.options.transport, this.ipcPath);
+    await removeStaleIpcPath("uds", this.ipcPath);
   }
 }
 
@@ -599,12 +562,6 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
   static async spawn(
     options: SpawnedProcessBackendOptions,
   ): Promise<SpawnedProcessBackendSync> {
-    if (options.transport !== "shm") {
-      throw new IpcError(
-        `SpawnedProcessBackendSync requires the shm transport (got ${options.transport})`,
-        /*retry=*/ false,
-      );
-    }
     const instanceId = `${options.instancePrefix}-${process.pid}-${threadId}-${instanceCounter++}`;
     const ipcPath = `${instanceId}.shm`;
     const logPath = options.logger

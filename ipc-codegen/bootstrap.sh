@@ -88,7 +88,8 @@ function test_cmds {
     done
   done
 
-  # TS SHM client coverage. The NAPI addon is built by ipc-runtime/bootstrap.sh
+  # TS SHM client coverage, through the generated SyncApi (shared memory is the
+  # synchronous transport). The NAPI addon is built by ipc-runtime/bootstrap.sh
   # during build(); a missing addon should fail these tests loudly rather than
   # silently dropping coverage.
   for server in "${shm_server_langs[@]}"; do

@@ -68,7 +68,7 @@ ipc-runtime/
       index.ts            # re-exports of the surface below
       uds_client.ts       # UdsIpcClient (Node net.Socket)
       uds_server.ts       # UdsIpcServer
-      shm_client.ts       # NapiShmSyncClient / NapiShmAsyncClient (NAPI bridge)
+      shm_client.ts       # NapiShmSyncClient (NAPI bridge)
       types.ts            # IpcClientSync / IpcClientAsync interfaces
     package.json
   zig/
@@ -204,13 +204,19 @@ linker hook for downstream Cargo users.
 
 ### TypeScript (`ts/`, published as `@aztec-foundation/ipc-runtime`)
 
-Two transport-specific clients:
+One client per form of call:
 
 | Class                | Transport                  | Sync / Async                                                 |
 |----------------------|----------------------------|--------------------------------------------------------------|
 | `UdsIpcClient`       | Node `net.Socket`          | async; pipelines, pairs responses to callers by request id   |
 | `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync (one in flight)                                         |
-| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge); pipelines, pairs by request id |
+
+Shared memory is the synchronous transport: the calling thread spins briefly,
+then sleeps, until the answer is in the ring. It has no asynchronous client,
+because the event loop cannot wait on a ring without a thread polling it and
+waking the loop for each answer. Asynchronous callers use a unix socket, which
+the event loop waits on directly, or run the service in-process: a napi or wasm
+instance on a `ServiceThread`.
 
 `UdsIpcServer` is provided for in-process tests; production servers are in
 C++.
