@@ -1,4 +1,4 @@
-use blob::abis::{BlobAccumulator, FinalBlobBatchingChallenges};
+use blob::abis::BlobAccumulator;
 use protocol_test_utils::make_fixture;
 use types::{
     abis::{
@@ -45,8 +45,6 @@ pub struct CheckpointRollupPublicInputs {
     pub start_blob_accumulator: BlobAccumulator,
     // Accumulated opening proofs for all blobs after adding this checkpoint range.
     pub end_blob_accumulator: BlobAccumulator,
-    // Final values z and gamma. Shared across the epoch.
-    pub final_blob_challenges: FinalBlobBatchingChallenges,
 }
 
 impl CheckpointRollupPublicInputs {
@@ -73,7 +71,6 @@ impl Empty for CheckpointRollupPublicInputs {
             fees: [FeeRecipient::empty(); MAX_CHECKPOINTS_PER_EPOCH],
             start_blob_accumulator: BlobAccumulator::empty(),
             end_blob_accumulator: BlobAccumulator::empty(),
-            final_blob_challenges: FinalBlobBatchingChallenges::empty(),
         }
     }
 }

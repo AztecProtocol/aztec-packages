@@ -1,10 +1,9 @@
 use super::TestBuilder;
-use bignum::{BigNum, BLS12_381_Fr};
-use blob::abis::{BatchingBlobCommitment, BlobAccumulator, FinalBlobBatchingChallenges};
+use blob::abis::{BatchingBlobCommitment, BlobAccumulator};
 use types::{
     blob_data::create_checkpoint_end_marker,
-    constants::{BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_HASHED_Y_LIMBS, FIELDS_PER_BLOB},
-    hash::poseidon2_hash_with_separator,
+    constants::{BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB},
+    hash::sha256_to_field,
     traits::Empty,
 };
 
@@ -35,13 +34,9 @@ impl TestBuilder {
             blob_commitment_limbs_x_from_ts,
             blob_commitment_limbs_y_from_ts,
         );
-        let challenge_z_from_ts =
-            0x0a3c46459eb1496fb668371f5a418f65a40c0d35b0aac56585b37d80024c124a;
-
         let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
         builder.hints.blob_commitments[0] = blob_commitment.point;
         builder.hints.start_blob_accumulator = BlobAccumulator::empty();
-        builder.hints.final_blob_challenges.z = challenge_z_from_ts;
 
         builder
     }
@@ -99,17 +94,15 @@ fn correct_end_blob_accumulator_with_one_blob() {
     builder.assert_expected_public_inputs(public_inputs);
 
     let end_blob_accumulator = public_inputs.end_blob_accumulator;
-    // The final z value is checked in the root rollup. Here we assume there's only one checkpoint in the epoch and
-    // validate that the `z_acc` matches what's computed in ts.
-    assert_eq(end_blob_accumulator.z_acc, builder.hints.final_blob_challenges.z);
-    // We have a single blob, so the accumulated outputs are just those after a single evaluation:
-    assert_eq(end_blob_accumulator.c_acc, builder.hints.blob_commitments[0]);
-
-    let expected_gamma_acc = poseidon2_hash_with_separator(
-        end_blob_accumulator.y_acc.get_limbs().map(|l| l as Field),
-        DOM_SEP__BLOB_HASHED_Y_LIMBS,
+    // The values of D and E are checked against a real KZG pairing in blob/src/blob_batching.nr.
+    let blob_commitment =
+        blob::utils::compress_to_blob_commitment(builder.hints.blob_commitments[0]);
+    assert_eq(
+        end_blob_accumulator.blob_commitments_hash_acc,
+        sha256_to_field([1].concat(blob_commitment.compressed)),
     );
-    assert_eq(end_blob_accumulator.gamma_acc, expected_gamma_acc);
+    assert(!end_blob_accumulator.d_acc.is_infinity);
+    assert(!end_blob_accumulator.e_acc.is_infinity);
 }
 
 // TODO(#10323): remove the oracle and switch this test to unconstrained.
@@ -199,23 +192,6 @@ fn correct_end_blob_accumulator_with_max_blobs() {
         0xa4269746c44c705269f7ff3338e98a,
         0x18883f,
     ];
-    let z_6_blobs_from_ts = 0x2fb9c6809d9b09d4726eca4c5dd25b155a0fc73c69a416e8403774e63a1b39dd;
-    let gamma_limbs_6_blobs_from_ts =
-        [0xdd7dd6b3aa1162e54426bb54746f2e, 0x2aa78e62535afe9d77697b5ea6c308, 0x2f5f];
-    let y_limbs_6_blobs_from_ts =
-        [0x345fda79213b9c7b7919c3035cf82c, 0xc161c9db997aeceaeb8eb4c54b2872, 0x58c0];
-    let batched_c_x_limbs_6_blobs_from_ts = [
-        0x0516186db862333586f4fa3037204f,
-        0xe7ba5c92a0653cff740fb0ffe7c320,
-        0x45017813d380bed6cc46b30af5068f,
-        0x12b1b7,
-    ];
-    let batched_c_y_limbs_6_blobs_from_ts = [
-        0x123c6c95f09ef6c77e4cbc5fab99eb,
-        0xe47528ef0561c34a6d658a72842b1b,
-        0xf3cafdbdd26681a212ba30659977f2,
-        0x10f1d0,
-    ];
     let blob_commitments_hash_6_blobs_from_ts =
         0x00d77eb1bef2a3b6d08486447a05aec760e600cd34691ee4bfd3e5e11e9d3b2b;
 
@@ -254,22 +230,6 @@ fn correct_end_blob_accumulator_with_max_blobs() {
             .point,
     ];
 
-    // The final z value is injected as hint and checked for correctness in root rollup.
-    // The final gamma value is injected as hint and checked for correctness in root rollup.
-    builder.hints.final_blob_challenges = FinalBlobBatchingChallenges {
-        // - The final z value is injected and checked for correctness in root (see below final_acc)
-        z: z_6_blobs_from_ts,
-        // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-        gamma: BLS12_381_Fr::from_limbs(gamma_limbs_6_blobs_from_ts),
-    };
-
-    let expected_y = BLS12_381_Fr::from_limbs(y_limbs_6_blobs_from_ts);
-
-    let expected_c = BatchingBlobCommitment::from_limbs(
-        batched_c_x_limbs_6_blobs_from_ts,
-        batched_c_y_limbs_6_blobs_from_ts,
-    );
-
     builder.hints.blob_commitments = kzg_commitments_in;
 
     let public_inputs = builder.execute();
@@ -277,10 +237,6 @@ fn correct_end_blob_accumulator_with_max_blobs() {
     builder.assert_expected_public_inputs(public_inputs);
 
     let end_blob_accumulator = public_inputs.end_blob_accumulator;
-    // Assume there's only one checkpoint in the epoch and validate that the `z_acc` matches what's computed in ts.
-    assert_eq(end_blob_accumulator.z_acc, builder.hints.final_blob_challenges.z);
-    assert_eq(end_blob_accumulator.y_acc, expected_y);
-    assert_eq(end_blob_accumulator.c_acc, expected_c.point);
     assert_eq(
         end_blob_accumulator.blob_commitments_hash_acc,
         blob_commitments_hash_6_blobs_from_ts,

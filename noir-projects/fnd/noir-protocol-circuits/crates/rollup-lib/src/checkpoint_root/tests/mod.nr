@@ -204,7 +204,7 @@ impl TestBuilder {
         end_sponge_blob.absorb(blob_fields, blob_fields.len() - 1);
 
         let start_blob_accumulator = fixture_builder.get_blob_accumulator(slot_number - 1);
-        let final_blob_challenges = fixture_builder.get_final_blob_challenges();
+        let blob_kzg_proof = fixture_builder.get_blob_kzg_proof(slot_number);
         let blob_commitments = fixture_builder.get_blob_commitments(slot_number);
 
         // Rollback the start slot number to get the last block header of the previous checkpoint.
@@ -224,7 +224,7 @@ impl TestBuilder {
             previous_out_hash,
             new_out_hash_sibling_path,
             start_blob_accumulator,
-            final_blob_challenges,
+            blob_kzg_proof,
             blobs_fields: pad_end(blob_fields),
             blob_commitments,
             blobs_hash: slot_number + 9325034,
@@ -363,8 +363,6 @@ impl TestBuilder {
 
         assert_eq(pi.start_blob_accumulator, hints.start_blob_accumulator);
         assert(pi.start_blob_accumulator != pi.end_blob_accumulator);
-
-        assert_eq(pi.final_blob_challenges, hints.final_blob_challenges);
     }
 
     pub fn assert_mock_called(_self: Self, evaluate_blobs_and_batch_mock: OracleMock) {

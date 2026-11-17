@@ -352,15 +352,11 @@ pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
 pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
 pub global BLS12_POINT_LENGTH: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
 pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
-pub global BLOB_ACCUMULATOR_LENGTH: u32 = 3 /* v_acc, z_acc, and gamma_acc */
-    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
-    + BLS12_POINT_LENGTH /* c_acc */;
-pub global FINAL_BLOB_BATCHING_CHALLENGES_LENGTH: u32 = 1 /* z */
-    + BLS12_FR_LIMBS /* gamma */;
+pub global BLOB_ACCUMULATOR_LENGTH: u32 = 2 /* blob_commitments_hash_acc and alpha_acc */
+    + 2 * BLS12_POINT_LENGTH /* d_acc and e_acc */;
 pub global FINAL_BLOB_ACCUMULATOR_LENGTH: u32 = 1 /* blob_commitments_hash */
-    + 1 /* z */
-    + BLS12_FR_LIMBS /* y */
-    + 2 /* c */;
+    + 2 /* d */
+    + 2 /* e */;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
@@ -598,8 +594,7 @@ pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LEN
     + 1 /* end_inbox_rolling_hash */
     + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
-    + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
-    + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;
+    + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
     + 1 /* out_hash */
@@ -848,6 +843,7 @@ pub global DOM_SEP__BLOB_CHALLENGE_Z: u32 = 60345710;
 pub global DOM_SEP__BLOB_Z_ACC: u32 = 1003392952;
 pub global DOM_SEP__BLOB_GAMMA_ACC: u32 = 855632775;
 pub global DOM_SEP__BLOB_GAMMA_FINAL: u32 = 1755883835;
+pub global DOM_SEP__BLOB_ALPHA_ACC: u32 = 2689024545;
 
 // ---------------------------------------------------------------
 

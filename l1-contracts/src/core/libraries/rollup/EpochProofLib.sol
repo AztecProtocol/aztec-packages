@@ -405,10 +405,8 @@ library EpochProofLib {
     offset += 1;
 
     // FinalBlobAccumulatorPublicInputs:
-    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in
-    // _blobPublicInputs[0:32]
-    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in
-    // validateBatchedBlob().
+    // The blob public inputs do not require the versioned hash of D, which is stored in _blobPublicInputs[0:32], or
+    // z and y, which validateBatchedBlob() requires to be zero.
     // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob
     // related inputs.
 
@@ -416,22 +414,17 @@ library EpochProofLib {
     publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
     offset += 1;
 
-    // z
-    publicInputs[offset] = bytes32(_blobPublicInputs[32:64]);
-    offset += 1;
-
-    // y
-    (publicInputs[offset], publicInputs[offset + 1], publicInputs[offset + 2]) =
-      bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
-    offset += 3;
-
-    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+    // To fit into 2 fields, each point is split into 31 and 17 byte numbers
     // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
     // TODO: The below left pads, possibly inefficiently
-    // c[0]
+    // d[0], d[1]
     publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
-    // c[1]
     publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
+    offset += 2;
+
+    // e[0], e[1]
+    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[144:175])))));
+    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[175:192])))));
 
     return publicInputs;
   }
@@ -609,29 +602,6 @@ library EpochProofLib {
     require(_config.epochProofVerifier.verify(_args.proof, publicInputs), Errors.Rollup__InvalidProof());
 
     return true;
-  }
-
-  /**
-   * @notice Converts a BLS12 field element from bytes32 to a nr BigNum type
-   *
-   * @dev The nr bignum type for BLS12 fields is encoded as 3 nr fields - see blob_public_inputs.ts:
-   *      firstLimb = last 15 bytes;
-   *      secondLimb = bytes 2 -> 17;
-   *      thirdLimb = first 2 bytes;
-   *      Used when verifying epoch proofs to gather blob specific public inputs.
-   * @param _input - The field in bytes32
-   */
-  function bytes32ToBigNum(bytes32 _input)
-    private
-    pure
-    returns (bytes32 firstLimb, bytes32 secondLimb, bytes32 thirdLimb)
-  {
-    // Splits the 32-byte input into 120/120/16-bit limbs; every cast keeps exactly the bits it selects.
-    // forge-lint: disable-start(unsafe-typecast)
-    firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
-    secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
-    thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
-    // forge-lint: disable-end(unsafe-typecast)
   }
 
   /**

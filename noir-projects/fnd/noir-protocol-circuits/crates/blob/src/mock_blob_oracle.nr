@@ -1,5 +1,4 @@
-use crate::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
-use bignum::BLS12_381_Fr;
+use crate::abis::{BlobAccumulator, BLSPoint};
 use types::{
     constants::{BLOB_ACCUMULATOR_LENGTH, FIELDS_PER_BLOB},
     traits::{Deserialize, Serialize},
@@ -8,17 +7,13 @@ use types::{
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
-//
-// Note: `fracs` and `factor` are computed from `challenge_z` inside `evaluate_blobs_and_batch`.
-// The oracle does not use them; it receives `_challenge_z` for interface consistency.
 pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     num_blob_fields: u32,
     expected_blob_fields_hash: Field,
     kzg_commitments: [BLSPoint; NumBlobs],
-    final_blob_challenges: FinalBlobBatchingChallenges,
+    kzg_proof: BLSPoint,
     start_accumulator: BlobAccumulator,
-    _challenge_z: BLS12_381_Fr,
 ) -> BlobAccumulator {
     let fields = evaluate_blobs_oracle(
         NumBlobs,
@@ -26,7 +21,7 @@ pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         num_blob_fields,
         expected_blob_fields_hash,
         kzg_commitments,
-        final_blob_challenges,
+        kzg_proof,
         start_accumulator.serialize(), // Serialize makes reading info easier in foreign_call_handler
     );
     BlobAccumulator::deserialize(fields)
@@ -39,6 +34,6 @@ unconstrained fn evaluate_blobs_oracle<let NumBlobs: u32>(
     num_blob_fields: u32,
     expected_blob_fields_hash: Field,
     kzg_commitments: [BLSPoint; NumBlobs],
-    final_blob_challenges: FinalBlobBatchingChallenges,
+    kzg_proof: BLSPoint,
     start_accumulator: [Field; BLOB_ACCUMULATOR_LENGTH],
 ) -> [Field; BLOB_ACCUMULATOR_LENGTH] {}

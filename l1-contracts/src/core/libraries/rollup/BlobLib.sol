@@ -124,28 +124,34 @@ library BlobLib {
   }
 
   /**
-   * @notice  Validate a batched blob.
+   * @notice  Validate a batched blob: a multi-point KZG opening of every blob in the epoch, where the blobs of each
+   * checkpoint k are opened at that checkpoint's own challenge z_k.
    * Input bytes:
-   * input[:32]     - versioned_hash - NB for a batched blob, this is simply the versioned hash of the batched
-   * commitment
-   * input[32:64]   - z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)
-   * input[64:96]   - y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n
-   * input[96:144]  - commitment C = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X)) = Q_0 + gamma * Q_1 + gamma^2 * Q_2 + ... +
-   * gamma^n * Q_n
+   * input[:32]     - versioned_hash - NB for a batched blob, this is simply the versioned hash of D
+   * input[32:64]   - z = 0
+   * input[64:96]   - y = 0
+   * input[96:144]  - commitment D = sum_k alpha_k * (C_k - y_k * G + z_k * Q_k)
+   * input[144:192] - proof E = sum_k alpha_k * Q_k
+   * where, for checkpoint k, C_k and y_k are the random linear combinations of its blob commitments and evaluations at
+   * z_k, Q_k is the KZG proof of that opening, and alpha_k is a Fiat-Shamir challenge over all checkpoints up to k.
+   * With z = y = 0 the precompile checks e(D, [1]) == e(E, [s]), which holds iff every checkpoint's opening is valid
+   * (with overwhelming probability over the alphas). See blob_accumulator.nr in the rollup circuits.
    * @param _blobInput - The above bytes to verify a batched blob
    *
-   * If this function passes where the values of z, y, and C are valid public inputs to the final epoch root proof, then
-   * we know that the data in each blob of the epoch corresponds to the tx effects of all our proven txs in the epoch.
+   * If this function passes where D and E are valid public inputs to the final epoch root proof, then we know that
+   * the data in each blob of the epoch corresponds to the tx effects of all our proven txs in the epoch.
    *
-   * The rollup circuits calculate each z_i and y_i as above, so if this function passes but they do not match the
-   * values from the circuit, then proof verification will fail.
+   * z and y must be zero: any other values change the equation the precompile checks, which D and E do not satisfy.
    *
    * Each commitment C_i is injected into the circuits and their correctness is validated using the blobCommitmentsHash,
    * as explained below in calculateBlobCommitmentsHash().
    *
    */
   function validateBatchedBlob(bytes calldata _blobInput) internal view returns (bool success) {
+    require(
+      _blobInput.length == 192 && bytes32(_blobInput[32:64]) == bytes32(0) && bytes32(_blobInput[64:96]) == bytes32(0),
+      Errors.Rollup__InvalidBlobProof(bytes32(_blobInput[0:32]))
+    );
     // Staticcall the point eval precompile https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile :
     (success,) = address(0x0a).staticcall(_blobInput);
     require(success, Errors.Rollup__InvalidBlobProof(bytes32(_blobInput[0:32])));
