@@ -256,6 +256,27 @@ if(NOT WASM)
         ${BB_EXTERNAL_TARGET_OBJECTS}
         $<TARGET_OBJECTS:vm2_stub>
     )
+
+    # The same objects as bb's FFI entry in a plain shared library, for the napi transport: ipc-runtime's
+    # Node-API addon loads it, and it exports only the FFI symbols, like libbb_avm_sim.so (see
+    # avm/CMakeLists.txt). Named .so on every platform.
+    add_library(
+        bb_ffi
+        SHARED
+        ${BB_EXTERNAL_TARGET_OBJECTS}
+        $<TARGET_OBJECTS:vm2_stub>
+    )
+    set_target_properties(bb_ffi PROPERTIES
+        PREFIX "lib"
+        SUFFIX ".so"
+        OUTPUT_NAME bb
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+    if(NOT APPLE)
+        set(BB_FFI_VERSION_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/bb_ffi.map)
+        file(WRITE ${BB_FFI_VERSION_SCRIPT} "{ global: bb_ipc_ffi_*; local: *; };\n")
+        target_link_options(bb_ffi PRIVATE "LINKER:--version-script,${BB_FFI_VERSION_SCRIPT}")
+        set_property(TARGET bb_ffi APPEND PROPERTY LINK_DEPENDS ${BB_FFI_VERSION_SCRIPT})
+    endif()
 endif()
 
 if(WASM)

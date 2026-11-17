@@ -57,8 +57,12 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker) {
-        await backend.initWasm();
+      if (
+        options.backend === BackendType.Wasm ||
+        options.backend === BackendType.WasmWorker ||
+        options.backend === BackendType.Napi
+      ) {
+        await backend.initInProcess();
       }
       return backend;
     }
@@ -69,22 +73,22 @@ export class Barretenberg extends AsyncApi {
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
-        await backend.initWasm();
+        await backend.initInProcess();
         return backend;
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
       const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
-      await backend.initWasm();
+      await backend.initInProcess();
       return backend;
     }
   }
 
   /**
-   * A WASM backend starts with no SRS loaded (a native bb reads its own), and with its code
-   * unoptimized by the engine's baseline tier until it has run.
+   * An in-process backend (wasm or napi) starts with no SRS loaded (a bb process reads its own), and
+   * a wasm module with its code unoptimized by the engine's baseline tier until it has run.
    */
-  private async initWasm(): Promise<void> {
+  private async initInProcess(): Promise<void> {
     if (!this.options.skipSrsInit) {
       await this.initSRSChonk(this.options.srsSize);
     }
