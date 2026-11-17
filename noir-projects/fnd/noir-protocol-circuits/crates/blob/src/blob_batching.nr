@@ -50,25 +50,18 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     kzg_proof.validate_on_curve();
     let kzg_proof = compress_to_blob_commitment(kzg_proof);
 
-    let mut commitments: [BatchingBlobCommitment; NumBlobs] =
-        [compress_to_blob_commitment(BLSPoint::point_at_infinity()); NumBlobs];
+    // The points are hinted, so validate that they are on the curve. `compress_to_blob_commitment` validates the
+    // encoding: canonical x, the sign of y, and (0,0) for infinity. G1 membership is not checked here: the
+    // compressed bytes identify the point up to sign, L1 binds them to a published commitment via
+    // `blob_commitments_hash`, and both signs of a G1 point are in G1.
+    let commitments = kzg_commitments_points.map(|point: BLSPoint| {
+        point.validate_on_curve();
+        compress_to_blob_commitment(point)
+    });
+
     let mut num_blobs = 0;
     let mut z = 0;
     for i in 0..NumBlobs {
-        let commitment_point = kzg_commitments_points[i];
-        // The point is hinted, so validate that it is on the curve. `compress_to_blob_commitment` validates the
-        // encoding: canonical x, the sign of y, and (0,0) for infinity. G1 membership is not checked here: the
-        // compressed bytes identify the point up to sign, L1 binds them to a published commitment via
-        // `blob_commitments_hash`, and both signs of a G1 point are in G1.
-        commitment_point.validate_on_curve();
-        let c_i = compress_to_blob_commitment(commitment_point);
-        commitments[i] = c_i;
-
-        // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
-        // This is ok, because each commitment is unique to the blob, and we need `blob_fields_hash` to encompass all
-        // fields in the blob, which it does.
-        let z_i = compute_blob_challenge(blob_fields_hash, c_i);
-
         // Accumulate ceil(num_fields / FIELDS_PER_BLOB) blobs.
         //
         // Note:
@@ -81,6 +74,10 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
         // - We can't use `z_i` either, because `z_i` relies on the `blob_fields_hash`, which is the hash of the
         //   items in ALL blobs, not just blob `i`.
         if i * FIELDS_PER_BLOB < num_fields {
+            // Note that with multiple blobs per block, each blob uses the same blob_fields_hash in z_i.
+            // This is ok, because each commitment is unique to the blob, and we need `blob_fields_hash` to encompass
+            // all fields in the blob, which it does.
+            let z_i = compute_blob_challenge(blob_fields_hash, commitments[i]);
             z = if i == 0 {
                 z_i
             } else {
@@ -120,9 +117,11 @@ mod tests {
         constants::FIELDS_PER_BLOB, hash::sha256_to_field, traits::Empty, utils::arrays::subarray,
     };
 
-    // The KZG proofs and the expected D and E below are generated, and the pairing check
-    // e(D, [1]) == e(E, [s]) verified with c-kzg's verify_kzg_proof(D, 0, 0, E), by
-    // crates/blob/scripts/kzg_batch_fixtures.py.
+    // The KZG proofs and the expected D and E below come from crates/blob/scripts/kzg_batch_fixtures.py, a model of
+    // the accumulation that is independent of these circuits. Its `verify` mode checks e(D, [1]) == e(E, [s]) with
+    // c-kzg's verify_kzg_proof(D, 0, 0, E): the pairing holds for the honest cases and fails for WRONG_PROOF_* and
+    // MISMATCHED_BLOB_*. test/rollup/libraries/bloblib/batchedBlobOpening.t.sol in l1-contracts repeats that check
+    // with the point evaluation precompile.
 
     fn point(x_limbs: [u128; 4], y_limbs: [u128; 4]) -> BLSPoint {
         BatchingBlobCommitment::from_limbs(x_limbs, y_limbs).point
@@ -283,6 +282,61 @@ mod tests {
         0xfb8f1b602235312d64d6befe8472551713,
     ];
 
+    // D and E for the single blob accumulated with the negation of its KZG proof.
+    global WRONG_PROOF_D: [Field; 2] = [
+        0x9492203acd8af6365c5eced958d2dfcd177114610ae2cfbbed4b8bf66a2a10,
+        0x0ec2be37ea4e3f002628a724a24d44f651,
+    ];
+    global WRONG_PROOF_E: [Field; 2] = [
+        0xa068a6474cce2832371fdef5a43dc46d909d4ae1356da0ba7bf605342d2f08,
+        0x4ba86c6c075f7494a9fa83e0ce31fa061c,
+    ];
+
+    // The commitment and KZG proof of a blob that differs from `single_blob_fields` in its last used field, and the D
+    // and E from accumulating `single_blob_fields` against them.
+    fn mismatched_blob_commitment() -> BLSPoint {
+        point(
+            [
+                0xb08aefbf79df0f7a8289c24586f772,
+                0xa8fa18678da893c53c188ee8b4e25e,
+                0x5ccc20935a3f1bb45a3889c9d266bd,
+                0x17a473,
+            ],
+            [
+                0xb58592a27a0b01f08e9ede5678c9f2,
+                0xbbc5aa116d67671d1e578e1613e1b7,
+                0xfb5d8a1bc25fa3017ead4220bece70,
+                0x16022d,
+            ],
+        )
+    }
+
+    fn mismatched_blob_kzg_proof() -> BLSPoint {
+        point(
+            [
+                0xef44997df5d590906ba1605f446249,
+                0x560912d7194d6bc7228a7a6a2539e2,
+                0xb6aae429fcb775367bbfe5d95448f1,
+                0x1286bc,
+            ],
+            [
+                0x263f98133c6fe7e4d5e11124266403,
+                0x8e8dca7327f68092b5795708f71d6d,
+                0x34e891d0dc1c9513f82eeeb937f0cb,
+                0x0f24b0,
+            ],
+        )
+    }
+
+    global MISMATCHED_BLOB_D: [Field; 2] = [
+        0x81ecdc749aa9888095b572b3b48ef276939acf70e8064c8b94732a44ca2562,
+        0x6eba0f4feb74c60fed1075517a0fb189c5,
+    ];
+    global MISMATCHED_BLOB_E: [Field; 2] = [
+        0x82405559553e0eb4d5138df9c0535aad9db9ea7f6382aa15c919939a3903e8,
+        0x30de46a5a38a40ac010014ebd8b687c72a,
+    ];
+
     #[test]
     fn test_1_blob_batched() {
         // Can evaluate up to 3 blobs, but only 1 is needed and will be accumulated.
@@ -346,10 +400,9 @@ mod tests {
         );
     }
 
-    // A KZG proof for the right polynomial at the wrong point gives a D and E that fail the pairing check, so the
-    // batched opening only verifies with the proof at the checkpoint's own z.
+    // The circuit cannot reject a wrong KZG proof itself: it outputs a D and E that fail the pairing check on L1.
     #[test]
-    fn test_kzg_proof_changes_batched_opening() {
+    fn test_wrong_kzg_proof_gives_opening_that_fails_pairing() {
         let res = evaluate_blobs_and_batch::<1>(
             single_blob_fields(),
             400,
@@ -359,8 +412,25 @@ mod tests {
             BlobAccumulator::empty(),
         );
         let final_acc = res.finalize();
-        assert(final_acc.d != SINGLE_BLOB_D);
-        assert(final_acc.e != SINGLE_BLOB_E);
+        assert_eq(final_acc.d, WRONG_PROOF_D);
+        assert_eq(final_acc.e, WRONG_PROOF_E);
+    }
+
+    // The data availability guarantee: if the blob published to L1 differs from the blob fields the circuit proves,
+    // then even with an honest KZG proof for the published blob, D and E fail the pairing check on L1.
+    #[test]
+    fn test_blob_data_mismatching_commitment_gives_opening_that_fails_pairing() {
+        let res = evaluate_blobs_and_batch::<1>(
+            single_blob_fields(),
+            400,
+            SINGLE_BLOB_FIELDS_HASH,
+            [mismatched_blob_commitment()],
+            mismatched_blob_kzg_proof(),
+            BlobAccumulator::empty(),
+        );
+        let final_acc = res.finalize();
+        assert_eq(final_acc.d, MISMATCHED_BLOB_D);
+        assert_eq(final_acc.e, MISMATCHED_BLOB_E);
     }
 
     #[test]

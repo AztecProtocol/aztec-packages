@@ -58,15 +58,8 @@ pub struct BlobAccumulator {
 }
 
 impl BlobAccumulator {
-    /**
-    * Accumulates one checkpoint's blobs, of which the first `num_blobs` are used.
-    *
-    * blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, s_i, C_i) for each used blob, where s_i is one
-    * byte: 0x01 if blob i is the first of its checkpoint, 0x00 otherwise. L1 derives the same byte from the blobs
-    * attached to each checkpoint proposal, so the final hash binds how the epoch's blobs are split into checkpoints,
-    * not just their order. Without it, a proposal could claim a neighbouring checkpoint's blob and still match the
-    * proof. The epoch's first blob starts the hash as sha256(0x01, C_0).
-    */
+    /// Accumulates one checkpoint's opening claim: its first `num_blobs` blobs, with commitments `commitments` and
+    /// evaluations `ys` at the checkpoint's challenge `z`, and the hinted KZG proof `kzg_proof` (Q_k).
     pub fn accumulate_checkpoint<let NumBlobs: u32>(
         self,
         commitments: [BatchingBlobCommitment; NumBlobs],
@@ -75,71 +68,79 @@ impl BlobAccumulator {
         z: Field,
         kzg_proof: BatchingBlobCommitment,
     ) -> Self {
-        let mut blob_commitments_hash_acc = self.blob_commitments_hash_acc;
-        let mut gamma_acc = 0;
-        for i in 0..NumBlobs {
-            if i < num_blobs {
-                blob_commitments_hash_acc = if (i == 0) & self.is_empty() {
-                    sha256_to_field([1].concat(commitments[i].compressed))
-                } else {
-                    sha256_to_field(blob_commitments_hash_acc
-                        .to_be_bytes::<32>()
-                        .concat([(i == 0) as u8])
-                        .concat(commitments[i].compressed))
-                };
-
-                // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-                let hashed_y_i = poseidon2_hash_with_separator(
-                    ys[i].get_limbs().map(|l| l as Field),
-                    DOM_SEP__BLOB_HASHED_Y_LIMBS,
-                );
-                gamma_acc = if i == 0 {
-                    hashed_y_i
-                } else {
-                    poseidon2_hash_with_separator([gamma_acc, hashed_y_i], DOM_SEP__BLOB_GAMMA_ACC)
-                };
-            }
-        }
-        let gamma_field = poseidon2_hash_with_separator([gamma_acc, z], DOM_SEP__BLOB_GAMMA_FINAL);
+        let gamma = compute_gamma(ys, num_blobs, z);
 
         let kzg_proof_fields = kzg_proof.to_compressed_fields();
         let alpha_acc = poseidon2_hash_with_separator(
-            [self.alpha_acc, gamma_field, kzg_proof_fields[0], kzg_proof_fields[1]],
+            [self.alpha_acc, gamma, kzg_proof_fields[0], kzg_proof_fields[1]],
             DOM_SEP__BLOB_ALPHA_ACC,
         );
-        // Lossless: BN254 Fr is smaller than BLS12-381 Fr.
-        let gamma = BLS12_381_Fr::from(gamma_field);
+
+        // Lossless conversions: BN254 Fr is smaller than BLS12-381 Fr.
         let alpha = BLS12_381_Fr::from(alpha_acc);
+        let gamma = BLS12_381_Fr::from(gamma);
 
         // D_k - D_(k-1) = sum_l (alpha * gamma^l) * C_l + (-alpha * y) * G + (alpha * z) * Q, as a single MSM.
         let mut points: [BLSPoint; NumBlobs + 2] = [BLSPoint::point_at_infinity(); NumBlobs + 2];
         let mut scalars: [BLS12_381Scalar; NumBlobs + 2] =
             [BLS12_381Scalar::from_bignum(BLS12_381_Fr::zero()); NumBlobs + 2];
-        let mut y = BLS12_381_Fr::zero();
+        // alpha * y = sum_l (alpha * gamma^l) * y_l
+        let mut alpha_y = BLS12_381_Fr::zero();
         let mut alpha_gamma_pow = alpha;
-        let mut gamma_pow = BLS12_381_Fr::one();
         for i in 0..NumBlobs {
             if i < num_blobs {
                 points[i] = commitments[i].point;
                 scalars[i] = BLS12_381Scalar::from_bignum(alpha_gamma_pow);
-                y = y.add(ys[i].mul(gamma_pow));
+                alpha_y = alpha_y.add(ys[i].mul(alpha_gamma_pow));
                 alpha_gamma_pow = alpha_gamma_pow.mul(gamma);
-                gamma_pow = gamma_pow.mul(gamma);
             }
         }
         points[NumBlobs] = BLS12_381::one();
-        scalars[NumBlobs] = BLS12_381Scalar::from_bignum(alpha.mul(y).neg());
+        scalars[NumBlobs] = BLS12_381Scalar::from_bignum(alpha_y.neg());
         points[NumBlobs + 1] = kzg_proof.point;
         scalars[NumBlobs + 1] = BLS12_381Scalar::from_bignum(alpha.mul(BLS12_381_Fr::from(z)));
 
-        let d_acc = BLS12_381::evaluate_linear_expression(points, scalars, [self.d_acc]);
-        let e_acc = BLS12_381::evaluate_linear_expression(
-            [kzg_proof.point],
-            [BLS12_381Scalar::from_bignum(alpha)],
-            [self.e_acc],
-        );
+        Self {
+            blob_commitments_hash_acc: self.accumulate_commitments_hash(commitments, num_blobs),
+            alpha_acc,
+            d_acc: BLS12_381::evaluate_linear_expression(points, scalars, [self.d_acc]),
+            // E_k - E_(k-1) = alpha * Q
+            e_acc: BLS12_381::evaluate_linear_expression(
+                [kzg_proof.point],
+                [BLS12_381Scalar::from_bignum(alpha)],
+                [self.e_acc],
+            ),
+        }
+    }
 
-        Self { blob_commitments_hash_acc, alpha_acc, d_acc, e_acc }
+    /**
+    * blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, s_i, C_i) for each of the checkpoint's first
+    * `num_blobs` blobs, where s_i is one byte: 0x01 if blob i is the first of its checkpoint, 0x00 otherwise. L1
+    * derives the same byte from the blobs attached to each checkpoint proposal, so the final hash binds how the
+    * epoch's blobs are split into checkpoints, not just their order. Without it, a proposal could claim a neighbouring
+    * checkpoint's blob and still match the proof. The epoch's first blob starts the hash as sha256(0x01, C_0).
+    */
+    fn accumulate_commitments_hash<let NumBlobs: u32>(
+        self,
+        commitments: [BatchingBlobCommitment; NumBlobs],
+        num_blobs: u32,
+    ) -> Field {
+        // Only the first checkpoint of an epoch starts from an empty accumulator: the root rollup checks that the
+        // epoch's start accumulator is empty, and every later one carries a non-zero alpha_acc.
+        let is_first_blob_of_epoch = self.is_empty();
+        let mut hash = self.blob_commitments_hash_acc;
+        for i in 0..NumBlobs {
+            if i < num_blobs {
+                hash = if (i == 0) & is_first_blob_of_epoch {
+                    sha256_to_field([1].concat(commitments[i].compressed))
+                } else {
+                    sha256_to_field(hash.to_be_bytes::<32>().concat([(i == 0) as u8]).concat(
+                        commitments[i].compressed,
+                    ))
+                };
+            }
+        }
+        hash
     }
 
     /// Completes the final accumulator state.
@@ -151,6 +152,31 @@ impl BlobAccumulator {
             e: compress_to_blob_commitment(self.e_acc).to_compressed_fields(),
         }
     }
+}
+
+/// gamma_k := poseidon2(...poseidon2(poseidon2(y_0), poseidon2(y_1))..., z) over the checkpoint's first `num_blobs`
+/// evaluations. z binds every commitment and all the blob data of the checkpoint (see `evaluate_blobs_and_batch`).
+fn compute_gamma<let NumBlobs: u32>(
+    ys: [BLS12_381_Fr; NumBlobs],
+    num_blobs: u32,
+    z: Field,
+) -> Field {
+    let mut gamma_acc = 0;
+    for i in 0..NumBlobs {
+        if i < num_blobs {
+            // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+            let hashed_y_i = poseidon2_hash_with_separator(
+                ys[i].get_limbs().map(|l| l as Field),
+                DOM_SEP__BLOB_HASHED_Y_LIMBS,
+            );
+            gamma_acc = if i == 0 {
+                hashed_y_i
+            } else {
+                poseidon2_hash_with_separator([gamma_acc, hashed_y_i], DOM_SEP__BLOB_GAMMA_ACC)
+            };
+        }
+    }
+    poseidon2_hash_with_separator([gamma_acc, z], DOM_SEP__BLOB_GAMMA_FINAL)
 }
 
 impl Empty for BlobAccumulator {
