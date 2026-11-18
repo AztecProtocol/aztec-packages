@@ -3,6 +3,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/scalar_multiplication/msm_batch_mem_budget.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <string>
 

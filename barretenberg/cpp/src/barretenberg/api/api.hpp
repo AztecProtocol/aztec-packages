@@ -20,8 +20,6 @@ class API {
         std::string verifier_target;          // target verification environment (evm, noir-recursive, etc.)
         bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
-        bool slow_low_memory{ false };          // use file backed memory for polynomials
-        std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
         std::string vk_policy{ "default" };     // policy for handling VKs during IVC accumulation
         // chonk-only: which Mega flavor to derive the VK against — "app" (MegaAppFlavor),
         // "kernel" (MegaKernelFlavor), or "hiding" (MegaZKFlavor for the hiding kernel). Required
@@ -46,8 +44,6 @@ class API {
                << "  verifier_target: " << flags.verifier_target << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
-               << "  slow_low_memory " << flags.slow_low_memory << "\n"
-               << "  storage_budget " << flags.storage_budget << "\n"
                << "  vk_policy " << flags.vk_policy << "\n"
                << "  circuit_kind " << flags.circuit_kind << "\n"
                << "  output_format " << flags.output_format << "\n"

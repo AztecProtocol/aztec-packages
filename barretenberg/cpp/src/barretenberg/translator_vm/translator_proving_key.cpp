@@ -223,18 +223,16 @@ void TranslatorProvingKey::split_concatenated_random_coefficients_to_ordered()
         }
     });
 
-    // Distribute random values to ordered polynomials at the END (contiguous).
-    // Each ordered polynomial gets values at the last positions.
+    // Distribute random values to ordered polynomials at the END (contiguous), dealing them round-robin: value j
+    // goes to ordered polynomial j % num_ordered_polynomials.
     const size_t circuit_size = proving_key->polynomials.get_polynomial_size();
     parallel_for(num_ordered_polynomials, [&](size_t i) {
         auto& current_ordered = ordered[i];
         size_t values_for_this_poly = num_random_values_per_ordered + (i < remaining_random_values ? 1 : 0);
-        // Compute offset into random_values for this ordered polynomial
-        size_t random_idx = i * num_random_values_per_ordered + std::min(i, remaining_random_values);
         // Place random values at the END: [circuit_size - values_for_this_poly, circuit_size)
         for (size_t k = 0; k < values_for_this_poly; k++) {
-            current_ordered.at(circuit_size - values_for_this_poly + k) = random_values[random_idx];
-            random_idx++;
+            current_ordered.at(circuit_size - values_for_this_poly + k) =
+                random_values[(k * num_ordered_polynomials) + i];
         }
     });
 }

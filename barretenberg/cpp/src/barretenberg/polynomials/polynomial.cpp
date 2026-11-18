@@ -8,6 +8,7 @@
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
+#include <cstring>
 #include <fcntl.h>
 #include <list>
 #include <memory>
@@ -29,14 +30,22 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
     BackingMemory<Fr> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
+    // A new file mapping already reads as zero; writing the zeros would only dirty its pages.
+    const bool zero_extensions = !backing_clone.is_file_backed();
     // zero any left extensions to the array
-    memset(static_cast<void*>(backing_clone.raw_data), 0, sizeof(Fr) * left_expansion);
+    if (zero_extensions) {
+        memset(static_cast<void*>(backing_clone.raw_data), 0, sizeof(Fr) * left_expansion);
+    }
     // copy our cloned array over
     memcpy(static_cast<void*>(backing_clone.raw_data + left_expansion),
            static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(static_cast<void*>(backing_clone.raw_data + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
+    if (zero_extensions) {
+        memset(static_cast<void*>(backing_clone.raw_data + left_expansion + array.size()),
+               0,
+               sizeof(Fr) * right_expansion);
+    }
     return {
         array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, std::move(backing_clone)
     };
@@ -68,6 +77,10 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
 {
     BB_BENCH_NAME("Polynomial::Polynomial(size_t, size_t, size_t)");
     allocate_backing_memory(size, virtual_size, start_index);
+    // A new file mapping already reads as zero; writing the zeros would only dirty its pages.
+    if (coefficients_.backing_memory_.is_file_backed()) {
+        return;
+    }
 
     parallel_for([&](const ThreadChunk& chunk) {
         auto range = chunk.range(size);
@@ -187,7 +200,10 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
 {
     Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);
-    memset(static_cast<void*>(p.coefficients_.data()), 0, sizeof(Fr) * size);
+    // A new file mapping already reads as zero; writing the zeros would only dirty its pages.
+    if (!p.coefficients_.backing_memory_.is_file_backed()) {
+        memset(static_cast<void*>(p.coefficients_.data()), 0, sizeof(Fr) * size);
+    }
     return p;
 }
 

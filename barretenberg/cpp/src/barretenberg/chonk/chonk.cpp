@@ -2,6 +2,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/low_memory.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -165,6 +166,7 @@ void Chonk::accumulate_hiding_kernel(HidingKernelCircuit& circuit,
 
     // The circuit has been copied into the prover polynomials; free its construction data.
     circuit.free_construction_data();
+    low_memory::trim_heap();
 
     if (precomputed_vk) {
 #ifndef NDEBUG
@@ -195,6 +197,7 @@ HonkProof Chonk::instance_to_accumulator(typename InstanceFlavor::CircuitBuilder
 #endif
     // The circuit has been copied into the prover polynomials; free its construction data.
     circuit.free_construction_data();
+    low_memory::trim_heap();
 
     // Run sumcheck on the incoming instance; the folding prover caches the resulting claim. The claims of the whole
     // group are batched together once, when the group's last circuit is accumulated (see prove_multilinear_batching).

@@ -21,6 +21,7 @@
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/bbapi/generated/bb_dispatch.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/low_memory.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -40,6 +41,9 @@
 #include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
+#include <algorithm>
+#include <limits>
+#include <optional>
 
 namespace bb::bbapi {
 
@@ -566,7 +570,7 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
     }
 
     // The G1 points are checked against the pinned chunk hashes when a verification key is computed from them.
-    bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point_elem);
+    bb::srs::init_bn254_mem_crs_factory(std::move(g1_points), g2_point_elem);
     respond.ok({ .points_buf = std::move(uncompressed_out) });
 }
 void handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/,
@@ -633,4 +637,38 @@ void handle_warmup(BBApiRequest& /*ctx*/, wire::BbWarmup&& /*cmd*/, Responder<wi
     respond.ok({});
 }
 
+/**
+ * @brief Turn low memory mode on or off (bb::low_memory::configure) and report what this build put in place.
+ * @details Rejected while a Chonk proof is in progress (between ChonkStart and ChonkProve), but only one in this
+ * bbapi session.
+ */
+void handle_low_memory_configure(BBApiRequest& ctx,
+                                 wire::BbLowMemoryConfigure&& cmd,
+                                 Responder<wire::BbLowMemoryConfigureResponse> respond)
+{
+    if (ctx.ivc_in_progress) {
+        throw_or_abort("LowMemoryConfigure: a Chonk proof is in progress (between ChonkStart and ChonkProve)");
+    }
+    low_memory::Mode mode = low_memory::Mode::Off;
+    if (cmd.mode == "on") {
+        mode = low_memory::Mode::On;
+    } else if (cmd.mode == "automatic") {
+        mode = low_memory::Mode::Automatic;
+    } else if (cmd.mode != "off") {
+        throw_or_abort("LowMemoryConfigure: mode must be \"off\", \"on\" or \"automatic\", not \"" + cmd.mode + "\"");
+    }
+    auto to_size = [](std::optional<uint64_t> bytes) -> std::optional<size_t> {
+        if (!bytes) {
+            return std::nullopt;
+        }
+        return static_cast<size_t>(std::min<uint64_t>(*bytes, std::numeric_limits<size_t>::max()));
+    };
+    const auto applied = low_memory::configure({ .mode = mode,
+                                                 .storage_budget = to_size(cmd.storage_budget),
+                                                 .storage_directory = std::move(cmd.storage_directory),
+                                                 .automatic_threshold = to_size(cmd.automatic_threshold) });
+    respond.ok({ .enabled = applied.enabled,
+                 .file_backed_polynomials = applied.file_backed_polynomials,
+                 .heap_configured = applied.heap_configured });
+}
 } // namespace bb::bbapi

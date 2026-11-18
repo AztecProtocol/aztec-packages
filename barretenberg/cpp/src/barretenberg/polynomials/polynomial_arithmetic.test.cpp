@@ -1,5 +1,6 @@
 #include "polynomial_arithmetic.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/low_memory.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -498,11 +499,11 @@ TEST(polynomials, InterpolationCtorMismatchedSpansAsserts)
 TEST(polynomials, ParseSizeStringOverflowAsserts)
 {
     // Sanity: well-formed inputs still parse correctly.
-    EXPECT_EQ(parse_size_string("1k"), 1024U);
-    EXPECT_EQ(parse_size_string("2g"), 2UL * 1024 * 1024 * 1024);
+    EXPECT_EQ(bb::low_memory::parse_size_string("1k"), 1024U);
+    EXPECT_EQ(bb::low_memory::parse_size_string("2g"), 2UL * 1024 * 1024 * 1024);
 
     // 2^54 * 1024 == 2^64 wraps to 0 without a guard.
-    ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
+    ASSERT_THROW_OR_ABORT(bb::low_memory::parse_size_string("18014398509481984k"), ".*");
 }
 
 // compute_efficient_interpolation asserts (always-on, not _DEBUG) when evaluation points are not all distinct,

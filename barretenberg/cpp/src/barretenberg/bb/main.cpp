@@ -1,4 +1,5 @@
 #include "barretenberg/bb/cli.hpp"
+#include "barretenberg/common/low_memory.hpp"
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -14,5 +15,6 @@ int main(int argc, char* argv[])
     _setmode(_fileno(stdin), _O_BINARY);
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
+    bb::low_memory::configure_from_environment();
     return bb::parse_and_run_cli_command(argc, argv);
 }

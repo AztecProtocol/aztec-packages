@@ -77,6 +77,9 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
 endif()
 
+# Not a module: one object linked into every <module>_tests executable (see barretenberg_module).
+add_library(low_memory_test_environment OBJECT barretenberg/test_support/low_memory_environment.cpp)
+
 add_subdirectory(barretenberg/acir_components_check)
 add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)

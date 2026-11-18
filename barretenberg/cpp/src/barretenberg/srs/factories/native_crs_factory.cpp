@@ -16,9 +16,9 @@ namespace bb::srs::factories {
  */
 MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyadic_circuit_size, bool allow_download)
 {
-    auto bn254_g1_data = get_bn254_g1_data(path, dyadic_circuit_size, allow_download);
+    auto bn254_g1_points = load_bn254_g1_points(path, dyadic_circuit_size, allow_download);
     auto bn254_g2_data = srs::get_bn254_g2_crs_element();
-    return { std::move(bn254_g1_data), bn254_g2_data };
+    return { std::move(bn254_g1_points.storage), bn254_g1_points.points, bn254_g2_data };
 }
 
 /**

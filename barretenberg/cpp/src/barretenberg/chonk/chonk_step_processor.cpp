@@ -1,5 +1,6 @@
 #include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/low_memory.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -57,6 +58,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
         // The circuit holds everything accumulation needs: free the constraint system and witness before
         // accumulating, which is when memory use peaks.
         step.program = acir_format::AcirProgram{};
+        low_memory::trim_heap();
 
         info("Chonk: accumulating ", step.name);
         if (detail::use_memory_profile) {
@@ -80,6 +82,8 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
         }
         ivc->accumulate(circuit, Chonk::CircuitVerificationKey{ vk });
     });
+    // The circuit and accumulation's transients are freed now; the next step's parse does not reuse their memory.
+    low_memory::trim_heap();
 }
 
 ChonkProof ChonkStepProcessor::prove()
