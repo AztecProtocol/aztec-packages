@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 05:58:37 +0000
+Subject: [PATCH] feat(foundation): setPoseidonSynchronous, to hash on
+ BarretenbergSync in node
+
+Poseidon hashes run on the BarretenbergSync singleton in browsers and await the
+asynchronous Barretenberg singleton in node. setPoseidonSynchronous(true) lets a
+node process whose synchronous backend is cheap to block on (an in-process library,
+or a shared-memory call to a bb process) hash on the calling thread too, skipping
+the asynchronous call's thread hop and event-loop wake. The default is unchanged.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/foundation/src/crypto/poseidon/index.ts b/yarn-project/foundation/src/crypto/poseidon/index.ts
+index fac7e84994b115fabfe11ba4a048c2039d693679..0ff6741d2bacd3f333b87927d203bf6a78e4ccef 100644
+--- a/yarn-project/foundation/src/crypto/poseidon/index.ts
++++ b/yarn-project/foundation/src/crypto/poseidon/index.ts
+@@ -7,8 +7,21 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
+ 
+ const IS_BROWSER = typeof self !== 'undefined';
+ 
++/**
++ * Whether these hashes run on the BarretenbergSync singleton, on the calling thread, rather than awaiting the
++ * asynchronous Barretenberg singleton. Browsers always hash synchronously. A node process can opt in with
++ * setPoseidonSynchronous when its synchronous backend is cheap to block on (an in-process library or a shared-memory
++ * call to a bb process): a short hash then skips the thread hop and the event-loop wake an asynchronous call costs.
++ */
++let synchronous = IS_BROWSER;
++
++/** Hash on the BarretenbergSync singleton (true) or the asynchronous Barretenberg singleton (false; node only). */
++export function setPoseidonSynchronous(value: boolean) {
++  synchronous = value || IS_BROWSER;
++}
++
+ async function poseidon2HashFields(inputFields: Fr[]): Promise<Fr> {
+-  if (IS_BROWSER) {
++  if (synchronous) {
+     await BarretenbergSync.initSingleton();
+     const api = BarretenbergSync.getSingleton();
+     const response = api.poseidon2Hash({
+@@ -53,7 +66,7 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
+  */
+ export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
+   const inputFields = serializeToFields(input);
+-  if (IS_BROWSER) {
++  if (synchronous) {
+     await BarretenbergSync.initSingleton();
+     const api = BarretenbergSync.getSingleton();
+     const response = api.poseidon2Permutation({
+@@ -86,7 +99,7 @@ export async function poseidon2AbsorbChain(state: Fr[], inputs: Fr[]): Promise<F
+     state: state.map(s => s.toBuffer()),
+     inputs: flat,
+   };
+-  if (IS_BROWSER) {
++  if (synchronous) {
+     await BarretenbergSync.initSingleton();
+     const api = BarretenbergSync.getSingleton();
+     const response = api.poseidon2AbsorbChain(command);

@@ -201,10 +201,11 @@ export class BarretenbergSync extends SyncApi {
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
-   *   1. NativeSharedMem (if bb binary + NAPI module available)
-   *   2. Wasm
+   *   1. Napi (node, if bb's library is installed): bb in-process, on the calling thread
+   *   2. NativeSharedMem (node, if the bb binary and ipc-runtime's addon are available)
+   *   3. Wasm
    *
-   * Supported backends: Wasm, NativeSharedMem
+   * Supported backends: Wasm, Napi, NativeSharedMem
    * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
    */
   static async new(options: BackendOptions = {}) {
@@ -214,11 +215,14 @@ export class BarretenbergSync extends SyncApi {
       return new BarretenbergSync(await createSyncBackend(options.backend, options, logger));
     }
 
-    // Try native, fallback to WASM.
-    try {
-      return new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger));
-    } catch (err: any) {
-      logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
+    if (typeof window === 'undefined') {
+      for (const backend of [BackendType.Napi, BackendType.NativeSharedMemory]) {
+        try {
+          return new BarretenbergSync(await createSyncBackend(backend, options, logger));
+        } catch (err: any) {
+          logger(`${backend} unavailable (${err.message}), trying the next backend`);
+        }
+      }
     }
 
     return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger));
