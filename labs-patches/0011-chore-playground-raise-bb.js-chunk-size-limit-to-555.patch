@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AztecBot <tech@aztec-labs.com>
+Date: Thu, 22 Oct 2026 15:44:35 +0000
+Subject: [PATCH] chore(playground): raise bb.js chunk size limit to 5550 KB
+ for wasm exception handling
+
+Building bb's wasm with exception handling (wasi-sdk 34) grows the
+bb.js playground chunks to 5433.92 KB (barretenberg-*.js) and
+5438.53 KB (barretenberg-threads-*.js), over the 5350 KB limit.
+
+diff --git a/playground/vite.config.ts b/playground/vite.config.ts
+index d0bb02e39cb88ebfac41ce34cb19a1f4fb290403..70cb9f22c4a03b21e92496331a29fa4433bbff0b 100644
+--- a/playground/vite.config.ts
++++ b/playground/vite.config.ts
+@@ -224,9 +224,12 @@ export default defineConfig(({ mode }) => {
+         // - 2026-07-02: bumped to 5000 after merging from public to private repo resulted in 4800+k for some reason.
+         // - 2026-07-04: bumped from 5000 => 5300 after bb changes on merge-train/barretenberg grew
+         //   assets/barretenberg-*.js to 5079.12 KB and assets/barretenberg-threads-*.js to 5116.65 KB.
++        // - 2026-10-22: bumped from 5350 => 5550 after building bb's wasm with exception handling (wasi-sdk 34,
++        //   https://github.com/AztecProtocol/aztec-packages/pull/25669) grew assets/barretenberg-*.js to 5433.92 KB
++        //   and assets/barretenberg-threads-*.js to 5438.53 KB.
+         {
+           pattern: /.*/,
+-          maxSizeKB: 5350,
++          maxSizeKB: 5550,
+           description: 'Detect if json artifacts or bb.js wasm get out of control',
+         },
+       ]),
