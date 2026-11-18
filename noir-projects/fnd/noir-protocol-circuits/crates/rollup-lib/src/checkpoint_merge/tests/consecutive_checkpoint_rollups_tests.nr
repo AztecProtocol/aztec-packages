@@ -261,13 +261,3 @@ fn non_consecutive_blob_accumulators() {
 
     builder.execute_and_fail();
 }
-
-#[test(should_fail_with = "Mismatched final blob challenges of an epoch in checkpoint rollups")]
-fn mismatch_final_blob_challenges_z() {
-    let mut builder = TestBuilder::default();
-
-    // Tweak the final_blob_challenges of the right rollup.
-    builder.right_rollup.final_blob_challenges.z += 1;
-
-    builder.execute_and_fail();
-}

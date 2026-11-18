@@ -131,8 +131,5 @@ impl TestBuilder {
         assert_eq(pi.start_blob_accumulator, left.start_blob_accumulator);
         assert_eq(pi.end_blob_accumulator, right.end_blob_accumulator);
         assert(pi.start_blob_accumulator != pi.end_blob_accumulator);
-
-        assert_eq(pi.final_blob_challenges, left.final_blob_challenges);
-        assert_eq(pi.final_blob_challenges, right.final_blob_challenges);
     }
 }

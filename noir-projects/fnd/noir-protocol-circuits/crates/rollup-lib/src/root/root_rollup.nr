@@ -2,7 +2,6 @@ use crate::{
     abis::{CheckpointRollupPublicInputs, RootRollupPublicInputs},
     checkpoint_merge::{merge_checkpoint_rollups, validate_consecutive_checkpoint_rollups},
 };
-use blob::utils::validate_final_blob_batching_challenges;
 use types::{
     constants::{
         CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
@@ -101,16 +100,9 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
 
     // Note: for blob batching, in `validate_consecutive_checkpoint_rollups` we have checked:
     // - left.end_blob_accumulator == right.start_blob_accumulator
-    // - left.final_blob_challenges == right.final_blob_challenges
     //
-    // Below we check:
-    // 1. The first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
+    // Below we check that the first accumulator of the entire epoch (left.start_blob_accumulator) is empty.
     merged.start_blob_accumulator.assert_empty("Epoch did not start with empty blob state.");
-    // 2. The claimed `final_blob_challenges` match the final state of the accumulator.
-    validate_final_blob_batching_challenges(
-        merged.end_blob_accumulator,
-        merged.final_blob_challenges,
-    );
 
     // Finalize the `end_blob_accumulator`.
     let blob_public_inputs = merged.end_blob_accumulator.finalize();

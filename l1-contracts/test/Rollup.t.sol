@@ -962,8 +962,8 @@ contract RollupTest is RollupBase {
     ProposedHeader[] memory headers = new ProposedHeader[](1);
     headers[0] = proposedHeaders[1];
     bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
-    // FinalBlobAccumulator occupies the final seven fields: commitment hash, z, three y limbs, two c limbs.
-    uint256 hashIndex = publicInputs.length - 7;
+    // FinalBlobAccumulator occupies the final five fields: commitment hash, two d limbs, two e limbs.
+    uint256 hashIndex = publicInputs.length - 5;
     // The epoch's first blob is hashed with the checkpoint-start flag (0x01), see BlobLib.calculateBlobCommitmentsHash.
     assertEq(publicInputs[hashIndex], Hash.sha256ToField(abi.encodePacked(true, commitment)));
   }

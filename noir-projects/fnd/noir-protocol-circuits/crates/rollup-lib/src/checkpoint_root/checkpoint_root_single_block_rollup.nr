@@ -76,7 +76,7 @@ pub fn execute(
         hints.previous_out_hash,
         hints.new_out_hash_sibling_path,
         hints.start_blob_accumulator,
-        hints.final_blob_challenges,
+        hints.blob_kzg_proof,
         hints.blobs_fields,
         hints.blob_commitments,
         hints.blobs_hash,
