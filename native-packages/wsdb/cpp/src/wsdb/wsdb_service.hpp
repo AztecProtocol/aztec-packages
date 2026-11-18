@@ -20,6 +20,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace azteclabs::wsdb {
@@ -40,14 +41,14 @@ struct WsdbOptions {
     static WsdbOptions decode(const std::optional<std::vector<uint8_t>>& options);
 };
 
-class WsdbService {
+/**
+ * One aztec-wsdb instance: the world state Init creates and the scheduler its requests run on. The server process
+ * serves one; libaztec_wsdb makes one per create(). One instance takes calls from many threads at once.
+ */
+class WsdbService final : public Service {
   public:
-    /**
-     * @param has_pending_request Whether another request is already waiting; reads run inline on the submitting
-     *        thread only when this is false (see WsdbScheduler).
-     */
-    explicit WsdbService(std::function<bool()> has_pending_request);
-    ~WsdbService();
+    WsdbService();
+    ~WsdbService() override;
 
     WsdbService(const WsdbService&) = delete;
     WsdbService& operator=(const WsdbService&) = delete;
@@ -56,13 +57,23 @@ class WsdbService {
 
     /** Decodes one request, schedules its work and responds when done, possibly from a pool thread. Requests may
      *  be submitted from several threads at once. */
-    AsyncDispatchHandler& handler() { return handler_; }
+    AsyncDispatchHandler& dispatcher() override { return handler_; }
+
+    /**
+     * Whether another request is already waiting to be read; reads run inline on the submitting thread only when
+     * this is false (see WsdbScheduler). Without a transport nothing ever waits, so an idle read always runs on its
+     * caller. Set before Init.
+     */
+    void set_has_pending_request(std::function<bool()> has_pending_request) override
+    {
+        has_pending_request_ = std::move(has_pending_request);
+    }
 
     /** Runs one request in-process and waits for its response. Safe to call from several threads at once. */
     std::vector<uint8_t> call(std::span<const uint8_t> request);
 
   private:
-    std::function<bool()> has_pending_request_;
+    std::function<bool()> has_pending_request_ = [] { return false; };
     std::mutex init_mutex_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching

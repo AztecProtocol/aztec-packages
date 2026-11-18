@@ -343,6 +343,9 @@ SHM implementation; benchmark harnesses can reuse the same runtime APIs.
 
 ## Threading model
 
+Which thread runs a service in each placement (process, napi, wasm) is drawn in
+[`ipc-codegen/docs/where-a-service-runs.html`](../ipc-codegen/docs/where-a-service-runs.html).
+
 - **UDS server**: single-threaded event loop with `epoll`. Concurrent
   clients are interleaved; handlers run on the loop thread, so heavy work
   should be offloaded.

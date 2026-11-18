@@ -100,13 +100,13 @@ wire::WsdbInit test_genesis_init()
     return init;
 }
 
-/** A fresh service instance at the test genesis, called through the generated dispatch, independent of the
- * FFI's shared state. */
-struct Service {
-    WsdbRefContext ctx;
-    AsyncDispatchHandler handler = make_wsdb_handler(ctx);
+/** A fresh service instance at the test genesis, made by the service's factory and called through its dispatch,
+ * independent of the FFI's shared state. */
+struct TestService {
+    std::unique_ptr<Service> service = make_service();
+    AsyncDispatchHandler& handler = service->dispatcher();
 
-    Service()
+    TestService()
     {
         auto init = call<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse");
         EXPECT_TRUE(std::holds_alternative<wire::WsdbInitResponse>(init));
@@ -216,7 +216,7 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
 
 TEST(WsdbRef, ForksAndHistoryOverTheWire)
 {
-    Service service;
+    TestService service;
     auto fork = ok(service.call<wire::WsdbCreateForkResponse>(
         "WsdbCreateFork", wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 }, "WsdbCreateForkResponse"));
     EXPECT_EQ(fork.forkId, 1);
@@ -268,7 +268,7 @@ TEST(WsdbRef, ForksAndHistoryOverTheWire)
 
 TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
 {
-    Service service;
+    TestService service;
     auto heights = protocol_tree_heights();
     heights[1].height = 3;
     ok(service.call<wire::WsdbInitResponse>(
@@ -322,7 +322,7 @@ TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
 
 TEST(WsdbRef, InitRefusesOptions)
 {
-    Service service;
+    TestService service;
     auto error = error_of(service.call<wire::WsdbInitResponse>(
         "WsdbInit",
         wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
@@ -338,7 +338,7 @@ TEST(WsdbRef, InitRefusesOptions)
 
 TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 {
-    Service service;
+    TestService service;
     auto nullifier_root = [&]() {
         auto info = ok(service.call<wire::WsdbGetTreeInfoResponse>(
             "WsdbGetTreeInfo",
@@ -370,7 +370,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 
 TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
 {
-    Service service;
+    TestService service;
     const fr nullifier(0xabcdef);
     auto inserted = ok(service.call<wire::WsdbSequentialInsertNullifierResponse>(
         "WsdbSequentialInsertNullifier",
@@ -408,7 +408,7 @@ TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
 
 TEST(WsdbRef, UpdateArchiveChecksTheBlockState)
 {
-    Service service;
+    TestService service;
     ok(service.call<wire::WsdbAppendLeavesResponse>(
         "WsdbAppendLeaves",
         wire::WsdbAppendLeaves{ .treeId = 1, .leaves = { bytes_of<wire::Fr>(fr(42)) }, .forkId = 0 },

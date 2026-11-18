@@ -28,6 +28,7 @@ export class UdsIpcServer {
   private server: net.Server;
   private nextClientId = 0;
   private connections = new Set<net.Socket>();
+  private unreffed = false;
   private readonly unlinkOnExit = () => {
     try {
       fs.unlinkSync(this.socketPath);
@@ -81,6 +82,15 @@ export class UdsIpcServer {
     return instance;
   }
 
+  /** Stop the server and its connections keeping the process alive. */
+  unref(): void {
+    this.unreffed = true;
+    this.server.unref();
+    for (const conn of this.connections) {
+      conn.unref();
+    }
+  }
+
   async close(): Promise<void> {
     // Force-close live connections (matching the C++ server's shutdown) so close()
     // resolves promptly instead of blocking until every client happens to disconnect.
@@ -100,6 +110,9 @@ export class UdsIpcServer {
   private handleConnection(conn: net.Socket, handler: IpcServerHandler): void {
     const clientId = this.nextClientId++;
     this.connections.add(conn);
+    if (this.unreffed) {
+      conn.unref();
+    }
     conn.on("close", () => this.connections.delete(conn));
     const frames = new FrameReader();
     let chain: Promise<void> = Promise.resolve();

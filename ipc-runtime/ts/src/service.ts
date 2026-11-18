@@ -8,6 +8,7 @@ import {
 } from "./spawned_backend.js";
 import { IpcSpawnError } from "./errors.js";
 import type { IpcClientAsync, IpcClientSync } from "./types.js";
+import type { ProcessHostCallTargets } from "./process_host_calls.js";
 
 /**
  * How a generated client package reaches its service as a spawned process. Everything here is
@@ -54,6 +55,8 @@ export interface ServiceProcessOptions {
   respawn?: boolean;
   /** When true, an idle backend does not keep the process alive; see SpawnedProcessBackendOptions. */
   unref?: boolean;
+  /** The services the process's host calls reach, by target name (see SpawnedProcessBackendOptions.hostCall). */
+  hostCall?: ProcessHostCallTargets;
   /** Synchronous form only: the shared-memory client slot. */
   clientId?: number;
   /** Synchronous form only: the Node-API addon the shared-memory client loads. */
@@ -153,6 +156,7 @@ export function spawnServiceBackend(
     connectTimeoutMs: options.connectTimeoutMs,
     env: serviceProcessEnv(options),
     extraArgs: options.extraArgs,
+    hostCall: options.hostCall,
     respawn: options.respawn,
     unref: options.unref,
   });
@@ -172,6 +176,7 @@ export function spawnServiceBackendSync(
     connectTimeoutMs: options.connectTimeoutMs,
     env: serviceProcessEnv(options),
     extraArgs: options.extraArgs,
+    hostCall: options.hostCall,
     unref: options.unref,
     clientId: options.clientId ?? 0,
     napiPath: options.napiPath,

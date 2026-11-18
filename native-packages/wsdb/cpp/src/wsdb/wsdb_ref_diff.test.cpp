@@ -333,7 +333,7 @@ class WsdbRefDiffTest : public ::testing::Test {
                                                       ::testing::UnitTest::GetInstance()->current_test_info()->name());
         std::filesystem::remove_all(dir_);
         std::filesystem::create_directories(dir_);
-        service_ = std::make_unique<WsdbService>([]() { return false; });
+        service_ = std::make_unique<WsdbService>();
         labs_ = std::make_unique<LabsApi>(WsdbServiceBackend(service_.get()));
         // wsdb-ref is one per process; Init restarts it, so every test starts from this genesis. The same genesis,
         // with aztec-wsdb's own options.

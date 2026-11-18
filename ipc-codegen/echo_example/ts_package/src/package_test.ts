@@ -66,7 +66,7 @@ if (transportArg === "wasm") {
 if (transportArg === "shm") {
   for (const [label, sync] of [
     ["create()", await EchoServiceSync.create()],
-    ["spawn()", await EchoServiceSync.spawn()],
+    ["process()", await EchoServiceSync.process()],
   ] as const) {
     try {
       const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
@@ -107,7 +107,7 @@ if (transportArg === "shm") {
   }
 }
 
-const service = await EchoService.spawn();
+const service = await EchoService.process();
 try {
   const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
   const bytes = await service.bytes({ data });

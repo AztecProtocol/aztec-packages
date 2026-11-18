@@ -74,7 +74,7 @@ async function testSlowStartup(): Promise<void> {
     "slow_echo_server",
     `#!/bin/sh\nsleep 2\nexec "${realBinary}" "$@"\n`,
   );
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: slow,
   });
   try {
@@ -94,7 +94,7 @@ async function testDiesBeforeListen(): Promise<void> {
   const started = Date.now();
   let failure: Error | undefined;
   try {
-    await EchoService.spawn({ binaryPath: dying });
+    await EchoService.process({ binaryPath: dying });
   } catch (err) {
     failure = err as Error;
   }
@@ -122,7 +122,7 @@ async function testWedgedServerIsKilled(): Promise<void> {
   );
   let failure: Error | undefined;
   try {
-    await EchoService.spawn({
+    await EchoService.process({
       binaryPath: wedged,
       connectTimeoutMs: 1_000,
     });
@@ -145,7 +145,7 @@ async function testWedgedServerIsKilled(): Promise<void> {
 async function testMissingBinaryNotRetryable(): Promise<void> {
   let failure: (Error & { retry?: boolean }) | undefined;
   try {
-    await EchoService.spawn({
+    await EchoService.process({
       binaryPath: join(scratch, "no_such_binary"),
     });
   } catch (err) {
@@ -164,7 +164,7 @@ async function testMissingBinaryNotRetryable(): Promise<void> {
 // against a fresh service.
 async function testDeathWithoutRespawnIsRetryable(): Promise<void> {
   const realBinary = findEchoBinary()!;
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: realBinary,
   });
   try {
@@ -193,7 +193,7 @@ async function testDeathWithoutRespawnIsRetryable(): Promise<void> {
 // surface never sees process lifecycle.
 async function testRespawnRecreatesProcess(): Promise<void> {
   const realBinary = findEchoBinary()!;
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: realBinary,
     respawn: true,
   });

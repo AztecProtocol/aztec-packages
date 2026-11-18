@@ -39,7 +39,7 @@ target_compile_definitions(echo_common INTERFACE
     MSGPACK_USE_STD_VARIANT_ADAPTOR
 )
 
-add_executable(echo_server src/echo_server.cpp src/echo_handlers.cpp)
+add_executable(echo_server src/echo_server.cpp src/echo_service.cpp src/echo_handlers.cpp)
 target_link_libraries(echo_server PRIVATE echo_common ipc_runtime)
 
 add_executable(echo_client src/echo_client.cpp)
@@ -52,7 +52,7 @@ target_link_libraries(golden_test PRIVATE echo_common)
 # handlers the socket server uses. ffi_test calls it through the generated
 # EchoApi over FfiBackend, with no process.
 add_library(echo_ffi STATIC
-    src/echo_ffi.cpp
+    src/echo_service.cpp
     src/echo_handlers.cpp
     src/generated/echo_ffi.cpp
 )

@@ -106,7 +106,7 @@ void expect_error_containing(const std::function<void()>& call, const std::strin
 
 TEST_F(WsdbInitTest, RefusesCommandsBeforeInit)
 {
-    WsdbService service([]() { return false; });
+    WsdbService service;
     Api api{ ServiceBackend(&service) };
 
     expect_error_containing([&] { api.get_initial_state_reference(); }, "send Init first");
@@ -119,7 +119,7 @@ TEST_F(WsdbInitTest, RefusesCommandsBeforeInit)
 
 TEST_F(WsdbInitTest, InitIsSentOnce)
 {
-    WsdbService service([]() { return false; });
+    WsdbService service;
     Api api{ ServiceBackend(&service) };
     api.init(genesis_init(options("service")));
     auto genesis = api.get_initial_state_reference();
@@ -130,7 +130,7 @@ TEST_F(WsdbInitTest, InitIsSentOnce)
 
 TEST_F(WsdbInitTest, RefusesOptionsItCannotRead)
 {
-    WsdbService service([]() { return false; });
+    WsdbService service;
     Api api{ ServiceBackend(&service) };
 
     expect_error_containing([&] { api.init(genesis_init(std::nullopt)); }, "needs Init options");

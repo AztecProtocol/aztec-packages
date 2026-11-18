@@ -58,7 +58,7 @@ export class TypeScriptCodegen {
    * prefix stripped when asked. Wire strings always keep the schema name, so
    * this must never be used where a tag is emitted.
    */
-  private typeName(schemaName: string): string {
+  typeName(schemaName: string): string {
     let name = schemaName;
     if (this.typePrefix && name.startsWith(this.typePrefix)) {
       const rest = name.slice(this.typePrefix.length);
@@ -72,7 +72,7 @@ export class TypeScriptCodegen {
   }
 
   /** Strip the method prefix and convert to camelCase for API method names */
-  private toMethodName(commandName: string): string {
+  toMethodName(commandName: string): string {
     let name = commandName;
     if (this.methodPrefix && name.startsWith(this.methodPrefix)) {
       name = name.slice(this.methodPrefix.length);

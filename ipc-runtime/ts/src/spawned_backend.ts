@@ -9,6 +9,11 @@ import {
   IpcSpawnError,
   IpcTransportError,
 } from "./errors.js";
+import {
+  type ProcessHostCallTargets,
+  type ProcessHostCalls,
+  bindProcessHostCalls,
+} from "./process_host_calls.js";
 import { createNapiShmSyncClient } from "./shm_client.js";
 import { IpcClientAsync, IpcClientSync, IpcErrorMapper } from "./types.js";
 import { UdsIpcClient } from "./uds_client.js";
@@ -48,6 +53,12 @@ export interface SpawnedProcessBackendOptions {
    * child is mid-line loses it.
    */
   unref?: boolean;
+  /**
+   * The services the server's host calls reach, by target name, passed to it as `--host-call
+   * name=path`. A path, or another spawned process, is reached at its own socket; any other target
+   * is answered here, over a socket this process serves.
+   */
+  hostCall?: ProcessHostCallTargets;
   /** Synchronous (shm) backend only: fixed client slot id. When unset the client self-allocates a free slot. */
   clientId?: number;
   /** Synchronous (shm) backend only: override the native addon path. */
@@ -221,10 +232,15 @@ export class SpawnedProcessBackend implements IpcClientAsync {
   private readonly respawn: boolean;
   private readonly ipcPath: string;
   private readonly logPath?: string;
+  private options: SpawnedProcessBackendOptions;
+  private hostCalls?: ProcessHostCalls;
+  private readonly instanceId: string;
 
-  private constructor(private readonly options: SpawnedProcessBackendOptions) {
+  private constructor(options: SpawnedProcessBackendOptions) {
+    this.options = options;
     this.respawn = options.respawn ?? false;
     const instanceId = `${options.instancePrefix}-${process.pid}-${threadId}-${instanceCounter++}`;
+    this.instanceId = instanceId;
     // The ipc path is per-backend, not per-incarnation, so getIpcPath() stays
     // stable across respawns for anyone who was handed the path.
     this.ipcPath = join(tmpdir(), `${instanceId}.sock`);
@@ -238,7 +254,22 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     options: SpawnedProcessBackendOptions,
   ): Promise<SpawnedProcessBackend> {
     const backend = new SpawnedProcessBackend(options);
-    backend.current = await backend.spawnIncarnation();
+    const hostCalls = await bindProcessHostCalls(
+      options.hostCall,
+      backend.instanceId,
+      options.unref,
+    );
+    backend.hostCalls = hostCalls;
+    backend.options = {
+      ...options,
+      extraArgs: [...hostCalls.args, ...(options.extraArgs ?? [])],
+    };
+    try {
+      backend.current = await backend.spawnIncarnation();
+    } catch (err) {
+      await hostCalls.close();
+      throw err;
+    }
     return backend;
   }
 
@@ -284,6 +315,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     const incarnation = this.current;
     this.current = undefined;
     if (!incarnation) {
+      await this.hostCalls?.close();
       return;
     }
     await incarnation.client.destroy();
@@ -305,6 +337,7 @@ export class SpawnedProcessBackend implements IpcClientAsync {
     child.stderr?.destroy();
     child.removeAllListeners();
     await this.cleanupIpcPath();
+    await this.hostCalls?.close();
   }
 
   /** Return the live incarnation, lazily respawning one when allowed. */
@@ -556,7 +589,8 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
     private readonly child: ChildProcess,
     private readonly client: IpcClientSync,
     private readonly ipcPath: string,
-    private readonly logPath?: string,
+    private readonly logPath: string | undefined,
+    private readonly hostCalls: ProcessHostCalls,
   ) {}
 
   static async spawn(
@@ -569,6 +603,15 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
       : join(tmpdir(), `${instanceId}.log`);
 
     await removeStaleIpcPath("shm", ipcPath);
+    const hostCalls = await bindProcessHostCalls(
+      options.hostCall,
+      instanceId,
+      options.unref,
+    );
+    options = {
+      ...options,
+      extraArgs: [...hostCalls.args, ...(options.extraArgs ?? [])],
+    };
     const logFile =
       logPath !== undefined ? await open(logPath, "a") : undefined;
     const child = spawnServerProcess(options, ipcPath, logFile?.fd);
@@ -592,8 +635,10 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
         client,
         ipcPath,
         logPath,
+        hostCalls,
       );
     } catch (err) {
+      await hostCalls.close();
       if (child.exitCode === null && child.signalCode === null) {
         child.kill("SIGKILL");
       }
@@ -666,6 +711,7 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
     // background; the pre-spawn removal is what actually guarantees a clean
     // start for the next occupant.
     void removeStaleIpcPath("shm", this.ipcPath);
+    void this.hostCalls.close();
   }
 }
 

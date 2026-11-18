@@ -145,8 +145,7 @@ std::unique_ptr<WorldState> make_world_state(const WsdbOptions& options, const w
 
 } // namespace
 
-WsdbService::WsdbService(std::function<bool()> has_pending_request)
-    : has_pending_request_(std::move(has_pending_request))
+WsdbService::WsdbService()
 {
     request_.init = [this](wire::WsdbInit&& init) {
         // Init may race another Init from a second caller thread; only one may create the world state.
@@ -191,6 +190,11 @@ std::vector<uint8_t> WsdbService::call(std::span<const uint8_t> request)
     std::unique_lock<std::mutex> lock(mutex);
     cv.wait(lock, [&] { return response.has_value(); });
     return std::move(*response);
+}
+
+std::unique_ptr<Service> make_service()
+{
+    return std::make_unique<WsdbService>();
 }
 
 } // namespace azteclabs::wsdb

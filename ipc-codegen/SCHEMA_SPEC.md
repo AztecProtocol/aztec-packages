@@ -251,8 +251,9 @@ call on it is running. Calls on one instance must not overlap, and the caller
 serializes them, unless the service documents that its instances take calls
 from many threads at once (aztec-wsdb's do). Calls on different instances may
 run concurrently, on any threads, so a service's instances share no mutable
-state. Every generator emits all of them: in C++ the service defines
-`ipc_ffi_create_instance()`, in Rust and Zig each instance is a `Default`
+state. Every generator emits all of them: in C++ the service defines one
+factory, `make_service()`, which both the generated `serve()` (one instance for
+the process) and `_create` call; in Rust and Zig each instance is a `Default`
 (`.{}`) handler of the given type. Each generated FFI client backend makes an
 instance of its own and ends it with the backend.
 
@@ -263,6 +264,15 @@ instances; only the C++ server has host calls, so only it exports the setter). I
 `<svc>_ipc_ffi_alloc()` that the service frees, with status 0 for a response and
 non-zero for an error message. Until a host call function is set, every host
 call fails.
+
+A C++ service served as a process is its own host: the generated `serve()`
+routes its host calls to the services its `--host-call name=path` arguments
+name, connecting to each `.sock`/`.shm` path itself (a connection per calling
+thread, made on its first call). ipc-runtime's process backends take the same
+`hostCall` option as its in-process ones and pass each target as one of those
+arguments: a path, or another spawned process, is reached at its own socket; any
+other target (a function, an in-process backend) is answered by the caller over
+a socket it serves for the process.
 
 `--server --ffi` generates it; the client side is the generated Rust/Zig/C++
 FFI backend natively, ipc-runtime's `FfiLibrary` (its Node-API addon) from node,

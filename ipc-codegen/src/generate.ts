@@ -753,8 +753,14 @@ function generate(args: Args) {
               }
             }
           }
+          const initCommand = compiled.commands.find(
+            (command) => gen.toMethodName(command.name) === "init",
+          );
           const packageGen = new TypeScriptPackageCodegen({
             prefix,
+            init: initCommand
+              ? { requestType: gen.typeName(initCommand.name) }
+              : undefined,
             ffiName,
             packageName,
             binaryName,

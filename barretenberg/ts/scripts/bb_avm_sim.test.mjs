@@ -64,7 +64,7 @@ function decodeResult({ result }) {
 
 const services = {};
 before(async () => {
-  // No --wsdb or --cdb: the process then serves SimulateWithHints alone, as the wasm module does.
+  // No host-call targets: the process then serves SimulateWithHints alone, as the wasm module does.
   services.process = await AvmService.create({ backend: "process" });
   services.wasm = await AvmService.create({ backend: "wasm" });
 });
@@ -116,20 +116,17 @@ test("a simulation that throws is an AvmError, and the service keeps answering",
 });
 
 test("Simulate with no world state or contract DB to reach is an AvmError on both", async () => {
-  await assert.rejects(services.process.simulate({ inputs }), (error) => {
-    assert.ok(error instanceof AvmError);
-    assert.match(error.message, /Simulate needs/);
-    return true;
-  });
-  // Nothing is bound to the wasm module's host calls.
-  await assert.rejects(
-    services.wasm.simulate({ inputs: fastSimulationInputs(0) }),
-    (error) => {
-      assert.ok(error instanceof AvmError);
-      assert.match(error.message, /host_call wsdb/);
-      return true;
-    },
-  );
+  // Nothing is bound to either's host calls, so the first one fails the simulation.
+  for (const service of [services.process, services.wasm]) {
+    await assert.rejects(
+      service.simulate({ inputs: fastSimulationInputs(0) }),
+      (error) => {
+        assert.ok(error instanceof AvmError);
+        assert.match(error.message, /host_call wsdb/);
+        return true;
+      },
+    );
+  }
 });
 
 const packr = new Packr({ useRecords: false });

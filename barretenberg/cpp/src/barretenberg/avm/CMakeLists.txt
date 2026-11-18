@@ -52,7 +52,7 @@ add_custom_target(avm_ipc_generated DEPENDS ${AVM_GEN_OUTPUTS})
 barretenberg_module_with_sources(
     avm_ffi
     SOURCE_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/avm_ffi_dispatcher.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/avm_service.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate_with_hints.cpp
         ${AVM_GEN_DIR}/avm_ffi.cpp
@@ -94,7 +94,6 @@ add_executable(
     bb-avm-sim
     main.cpp
     cli.cpp
-    avm_execute.cpp
     avm_ipc_server.cpp
 )
 add_dependencies(bb-avm-sim avm_ipc_generated)

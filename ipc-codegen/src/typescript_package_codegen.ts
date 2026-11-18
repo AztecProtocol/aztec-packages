@@ -32,6 +32,8 @@ export interface TypeScriptPackageOptions {
   napiLibrary?: string;
   /** napi transport: environment variable that overrides the library's path. */
   napiLibraryEnvVar?: string;
+  /** The schema's Init command, when it has one: every service constructor takes `{ init }` and sends it first. */
+  init?: { requestType: string };
 }
 
 function className(prefix: string): string {
@@ -256,6 +258,59 @@ export class TypeScriptPackageCodegen {
     return this.processTransports.includes("uds");
   }
 
+  /** `& <Svc>Start` on a constructor's options when the schema has Init. */
+  private start(): string {
+    return this.opts.init ? ` & ${className(this.opts.prefix)}Start` : "";
+  }
+
+  /** The options every constructor of a service with Init takes, and the helper that sends it. */
+  private startType(): string {
+    const { init, prefix } = this.opts;
+    if (!init) {
+      return "";
+    }
+    return `
+/** What every ${className(prefix)} constructor sends before it returns. */
+export interface ${className(prefix)}Start {
+  /** Sent as the service's first command, which the service expects before any other. */
+  init?: ${init.requestType};
+}
+`;
+  }
+
+  /** A service class's constructor helper: the service over a backend, sent Init first when given one. */
+  private startedMethod(svc: string, sync: boolean): string {
+    if (!this.opts.init) {
+      return "";
+    }
+    const backend = sync ? "IpcClientSync" : "IpcClientAsync";
+    const wait = sync ? "" : "await ";
+    return `
+  private static async started(backend: ${backend}, init: ${this.opts.init.requestType} | undefined): Promise<${svc}> {
+    const service = new ${svc}(backend);
+    if (init) {
+      try {
+        ${wait}service.init(init);
+      } catch (err) {
+        ${wait}service.destroy();
+        throw err;
+      }
+    }
+    return service;
+  }
+`;
+  }
+
+  /** `new Svc(backend)`, or the started helper with the options' init when the schema has Init. */
+  private construct(svc: string, backend: string): string {
+    return this.opts.init ? `${svc}.started(${backend}, options.init)` : `new ${svc}(${backend})`;
+  }
+
+  /** The Init request type, imported where the constructors name it. */
+  private initImport(): string {
+    return this.opts.init ? `import type { ${this.opts.init.requestType} } from './generated/api_types.js';\n` : "";
+  }
+
   private generatedExports(): string {
     return `export * from './generated/api_types.js';
 export { AsyncApi } from './generated/async.js';
@@ -388,7 +443,7 @@ runServiceBinary(BINARY, '${this.opts.packageName}', process.argv.slice(2));
  * death detection, optional respawn, teardown — is owned by the backend and never leaks onto the
  * caller's API.
  */
-export function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
+export function createProcessBackend(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackend> {
   return spawnServiceBackend(BINARY, options);
 }
 `
@@ -396,7 +451,7 @@ export function spawnProcessBackend(options: ${prefix}ProcessOptions = {}): Prom
     const syncSpawn = this.shm
       ? `
 /** The synchronous form: spawn '${binaryName}' and call it over shared memory. */
-export function spawnProcessBackendSync(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackendSync> {
+export function createProcessBackendSync(options: ${prefix}ProcessOptions = {}): Promise<SpawnedProcessBackendSync> {
   return spawnServiceBackendSync(BINARY, options);
 }
 `
@@ -409,7 +464,7 @@ import { BINARY } from './platform.js';
 
 /**
  * Options for running '${binaryName}' as a spawned process (node only). See ServiceProcessOptions
- * in ipc-runtime: binaryPath, threads, logger, env, extraArgs, respawn and unref.
+ * in ipc-runtime: binaryPath, threads, logger, env, extraArgs, hostCall, respawn and unref.
  */
 export type ${prefix}ProcessOptions = ServiceProcessOptions;
 
@@ -470,7 +525,7 @@ ${this.shm ? `  process?: Omit<${prefix}ProcessOptions, 'threads' | 'logger'>;\n
     const { prefix } = this.opts;
     const svc = className(prefix);
     const { process, wasm, napi } = opts;
-    return `/**
+    return `${this.startType()}/**
  * The ${prefix} service: the generated API over whichever backend \`create\` chose, forced, or was
  * given.${process ? " Process lifecycle stays inside the backend and never leaks onto this API." : ""}
  */
@@ -479,10 +534,10 @@ export class ${svc} extends AsyncApi {
     super(backend);
   }
 
-  static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createBackend(options));
+  static async create(options: ${prefix}CreateOptions${this.start()} = {}): Promise<${svc}> {
+    return ${this.construct(svc, "await createBackend(options)")};
   }
-
+${this.startedMethod(svc, false)}
   /** The backend behind this service, so the service can be bound as a wasm module's host-call target. */
   get [SERVICE_BACKEND](): IpcClientAsync {
     return this.backend;
@@ -491,8 +546,8 @@ ${
   process && this.uds
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process, over a unix socket (no fallback). */
-  static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}> {
-    return new ${svc}(await spawnProcessBackend(options));
+  static async process(options: ${prefix}ProcessOptions${this.start()} = {}): Promise<${svc}> {
+    return ${this.construct(svc, "await createProcessBackend(options)")};
   }
 `
     : ""
@@ -500,8 +555,8 @@ ${
       napi
         ? `
   /** The service over its shared library, in-process through napi (no fallback); calls run on the libuv pool. */
-  static async napi(options: ${prefix}NapiOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createNapiBackend(options));
+  static async napi(options: ${prefix}NapiOptions${this.start()} = {}): Promise<${svc}> {
+    return ${this.construct(svc, "await createNapiBackend(options)")};
   }
 `
         : ""
@@ -509,8 +564,8 @@ ${
       wasm
         ? `
   /** The service over the in-process wasm module (no fallback). */
-  static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createWasmBackend(options));
+  static async wasm(options: ${prefix}WasmOptions${this.start()} = {}): Promise<${svc}> {
+    return ${this.construct(svc, "await createWasmBackend(options)")};
   }
 `
         : ""
@@ -547,10 +602,10 @@ export class ${svc}Sync extends SyncApi {
     super(backend);
   }
 
-  static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createBackendSync(options));
+  static async create(options: ${prefix}CreateSyncOptions${this.start()} = {}): Promise<${svc}Sync> {
+    return ${this.construct(svc + "Sync", "await createBackendSync(options)")};
   }
-
+${this.startedMethod(svc + "Sync", true)}
   /** The backend behind this service, so the service can be bound as a wasm module's host-call target. */
   get [SERVICE_BACKEND](): IpcClientSync {
     return this.backend;
@@ -559,8 +614,8 @@ ${
   process && this.shm
     ? `
   /** The service as a spawned '${this.opts.binaryName}' process over shared memory (no fallback). */
-  static async spawn(options: ${prefix}ProcessOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await spawnProcessBackendSync(options));
+  static async process(options: ${prefix}ProcessOptions${this.start()} = {}): Promise<${svc}Sync> {
+    return ${this.construct(svc + "Sync", "await createProcessBackendSync(options)")};
   }
 `
     : ""
@@ -568,8 +623,8 @@ ${
       napi
         ? `
   /** The service over its shared library, in-process through napi, on the calling thread (no fallback). */
-  static async napi(options: ${prefix}NapiOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(createNapiBackendSync(options));
+  static async napi(options: ${prefix}NapiOptions${this.start()} = {}): Promise<${svc}Sync> {
+    return ${this.construct(svc + "Sync", "createNapiBackendSync(options)")};
   }
 `
         : ""
@@ -577,8 +632,8 @@ ${
       wasm
         ? `
   /** The service over the single-threaded in-process wasm module (no fallback). */
-  static async wasm(options: ${prefix}WasmOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createWasmBackendSync(options));
+  static async wasm(options: ${prefix}WasmOptions${this.start()} = {}): Promise<${svc}Sync> {
+    return ${this.construct(svc + "Sync", "await createWasmBackendSync(options)")};
   }
 `
         : ""
@@ -612,7 +667,7 @@ ${
 } from '@aztec-foundation/ipc-runtime';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-${process ? `import { ${["type " + prefix + "ProcessOptions", this.uds && "spawnProcessBackend", shm && "spawnProcessBackendSync"].filter(Boolean).join(", ")} } from './process.js';\n` : ""}${platformExports ? `import { ${platformExports} } from './platform.js';\n` : ""}${napi ? `import { type ${prefix}NapiOptions, createNapiBackend, createNapiBackendSync } from './napi.js';\n` : ""}${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
+${this.initImport()}${process ? `import { ${["type " + prefix + "ProcessOptions", this.uds && "createProcessBackend", shm && "createProcessBackendSync"].filter(Boolean).join(", ")} } from './process.js';\n` : ""}${platformExports ? `import { ${platformExports} } from './platform.js';\n` : ""}${napi ? `import { type ${prefix}NapiOptions, createNapiBackend, createNapiBackendSync } from './napi.js';\n` : ""}${wasm ? `import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';\n` : ""}
 ${this.generatedExports()}${process ? "export * from './process.js';\n" : ""}${napi ? "export * from './napi.js';\n" : ""}${wasm ? "export * from './wasm.js';\n" : ""}${platformExports ? `export { ${platformExports} } from './platform.js';` : ""}
 
 ${this.createOptionTypes(backends)}
@@ -629,7 +684,7 @@ ${
   this.uds
     ? `    process: {
       available: () => ${findBinary}(options.process?.binaryPath) !== null,
-      create: () => spawnProcessBackend({ ...common, ...options.process }),
+      create: () => createProcessBackend({ ...common, ...options.process }),
     },
 `
     : ""
@@ -659,7 +714,7 @@ ${
   shm
     ? `    process: {
       available: () => ${findBinary}(options.process?.binaryPath) !== null,
-      create: () => spawnProcessBackendSync({ ...common, ...options.process }),
+      create: () => createProcessBackendSync({ ...common, ...options.process }),
     },
 `
     : ""
@@ -690,7 +745,7 @@ ${this.serviceClasses({ process, wasm, napi })}`;
 import { SERVICE_BACKEND } from '@aztec-foundation/ipc-runtime/wasm';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
-import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
+${this.initImport()}import { type ${prefix}WasmOptions, createWasmBackend, createWasmBackendSync } from './wasm.js';
 
 ${this.generatedExports()}export * from './wasm.js';
 
@@ -738,11 +793,6 @@ ${this.serviceClasses({ process: false, wasm: true, napi: false })}`;
   }
 
   /**
-   * React Native entry: Hermes has no WebAssembly or workers and Metro cannot bundle worker URLs, so
-   * this entry ships no backend of its own. A native backend package (a JSI/TurboModule bridge to
-   * the service's linked library) registers itself; otherwise the consumer passes a backend object.
-   */
-  /**
    * React Native entry: Hermes has no WebAssembly or workers and Metro cannot bundle worker URLs,
    * so this entry ships no backend of its own. A native backend package (a JSI/TurboModule bridge
    * to the service's linked library) registers one with ipc-runtime; otherwise the consumer passes
@@ -757,8 +807,8 @@ import { registerBackend as register, registeredBackend } from '@aztec-foundatio
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 
-${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/registry';
-
+${this.initImport()}${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/registry';
+${this.startType()}
 /** Make these the backends for ${prefix} in this app; a native backend package calls it on import. */
 export function registerBackend(factories: Parameters<typeof register>[1]): void {
   register('${prefix}', factories);
@@ -786,20 +836,20 @@ export class ${svc} extends AsyncApi {
     super(backend);
   }
 
-  static async create(options: ${prefix}CreateOptions = {}): Promise<${svc}> {
-    return new ${svc}(await createBackend(options));
+  static async create(options: ${prefix}CreateOptions${this.start()} = {}): Promise<${svc}> {
+    return ${this.construct(svc, "await createBackend(options)")};
   }
-}
+${this.startedMethod(svc, false)}}
 
 export class ${svc}Sync extends SyncApi {
   private constructor(backend: IpcClientSync) {
     super(backend);
   }
 
-  static async create(options: ${prefix}CreateSyncOptions = {}): Promise<${svc}Sync> {
-    return new ${svc}Sync(await createBackendSync(options));
+  static async create(options: ${prefix}CreateSyncOptions${this.start()} = {}): Promise<${svc}Sync> {
+    return ${this.construct(svc + "Sync", "await createBackendSync(options)")};
   }
-}
+${this.startedMethod(svc + "Sync", true)}}
 `;
   }
 
