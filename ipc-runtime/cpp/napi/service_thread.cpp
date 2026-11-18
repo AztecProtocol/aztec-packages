@@ -72,22 +72,58 @@ ServiceThread::ServiceThread(const Napi::CallbackInfo& info)
         spin_ = std::chrono::microseconds(std::strtol(spin, nullptr, 10));
     }
     thread_ = std::thread([this] { run(); });
+    // Added after the thread-safe function's own hook, so it runs first: hooks run in reverse order.
+    env_ = env;
+    cleanup_hooked_ = napi_add_env_cleanup_hook(env, &ServiceThread::on_env_cleanup, this) == napi_ok;
 }
 
 ServiceThread::~ServiceThread()
 {
-    // Collected without destroy(): end the thread here. Nothing is in flight, or JS would still
-    // hold this object's promises' owner.
-    if (thread_.joinable()) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            jobs_.push_back(Job{ .kind = Job::Kind::Stop });
-            queued_++;
-        }
-        has_jobs_.notify_one();
-        thread_.join();
-        tsfn_.Release();
+    // Collected without destroy(): nothing is in flight, or JS would still hold this object.
+    remove_cleanup_hook();
+    stop();
+}
+
+void ServiceThread::on_env_cleanup(void* self)
+{
+    auto* thread = static_cast<ServiceThread*>(self);
+    thread->cleanup_hooked_ = false;
+    thread->stop();
+}
+
+void ServiceThread::remove_cleanup_hook()
+{
+    if (cleanup_hooked_) {
+        cleanup_hooked_ = false;
+        napi_remove_env_cleanup_hook(env_, &ServiceThread::on_env_cleanup, this);
     }
+}
+
+void ServiceThread::stop()
+{
+    if (!thread_.joinable()) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stopping_ = true;
+        if (waiting_ != nullptr) {
+            {
+                std::lock_guard<std::mutex> wait_lock(waiting_->mutex);
+                if (!waiting_->done) {
+                    waiting_->status = 1;
+                    set_error(waiting_->bytes, "the environment is shutting down");
+                    waiting_->done = true;
+                }
+            }
+            waiting_->answered.notify_one();
+        }
+        jobs_.push_back(Job{ .kind = Job::Kind::Stop });
+        queued_++;
+    }
+    has_jobs_.notify_one();
+    thread_.join();
+    tsfn_.Release();
 }
 
 Napi::Promise ServiceThread::enqueue(Napi::Env env, Job job)
@@ -265,6 +301,7 @@ void ServiceThread::call_js(Napi::Env env, Napi::Function, ServiceThread* self, 
         }
     }
     if (message->stopped) {
+        self->remove_cleanup_hook();
         self->thread_.join();
         self->tsfn_.Release();
         return;
@@ -385,12 +422,28 @@ int32_t ServiceThread::ask_js(
     message->target = std::string(target);
     message->bytes.assign(request, request + len);
     message->wait = &wait;
-    if (!post(std::move(message))) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_) {
+            set_error(answer, "the environment is shutting down");
+            return 1;
+        }
+        waiting_ = &wait;
+    }
+    bool posted = post(std::move(message));
+    if (posted) {
+        std::unique_lock<std::mutex> lock(wait.mutex);
+        wait.answered.wait(lock, [&wait] { return wait.done; });
+    }
+    {
+        // stop() may still be signalling `wait`: it must not go out of scope before stop() lets go.
+        std::lock_guard<std::mutex> lock(mutex_);
+        waiting_ = nullptr;
+    }
+    if (!posted) {
         set_error(answer, "the environment is shutting down");
         return 1;
     }
-    std::unique_lock<std::mutex> lock(wait.mutex);
-    wait.answered.wait(lock, [&wait] { return wait.done; });
     answer = std::move(wait.bytes);
     return wait.status;
 }
