@@ -1,12 +1,16 @@
 import * as path from "node:path";
-import { loadIpcRuntimeNapi } from "./native_loader.js";
+import {
+  type NativeServiceThread,
+  loadIpcRuntimeNapi,
+} from "./native_loader.js";
 import type { IpcClientAsync, IpcClientSync } from "./types.js";
 import {
   type HostCallTargets,
   hostCallOn,
   synchronousAnswers,
+  unwrapTarget,
 } from "./wasm/host_call.js";
-import { type ServiceThread, isServiceThread } from "./wasm/backend.js";
+import type { ServiceThread } from "./wasm/backend.js";
 
 /** An instance of a library's service, opaque to JS. */
 export type NapiInstance = { readonly __napiInstance: unique symbol };
@@ -43,9 +47,9 @@ export interface NapiInstanceOptions {
   /** The name the library's FFI symbols carry. */
   ffiName: string;
   /**
-   * Where the instance runs, for the asynchronous backend: a ServiceThread shared with the other
-   * instances on it (wasm modules or napi instances), which can then be its host-call targets
-   * synchronously; default a worker of its own.
+   * Where the instance runs, for the asynchronous backend: the native thread of a ServiceThread,
+   * shared with the other napi instances on it, which can then be its host-call targets directly;
+   * default a native thread of its own.
    */
   worker?: ServiceThread;
   /** The services the instance reaches through its host (see HostCallTarget). */
@@ -92,6 +96,121 @@ function requireInstances(library: NapiFfiLibrary): void {
   }
 }
 
+/**
+ * A native thread hosting instances of services' shared libraries, each in a slot of its own, for
+ * asynchronous calls. A call is queued to the thread, which runs it (one at a time across its
+ * instances) and settles its promise with one wake of the event loop; no JS runs on the thread. An
+ * instance's host call to another instance on the thread is a direct call there; any other is
+ * answered by its handler on the event loop, the thread blocking until it is. So a handler must not
+ * wait on a call to an instance on the same thread.
+ *
+ * The thread holds the process open only while something on it is in flight.
+ */
+export class NapiServiceThread {
+  private readonly native: NativeServiceThread;
+  private readonly handlers = new Map<
+    number,
+    Map<string, (request: Uint8Array) => Uint8Array | Promise<Uint8Array>>
+  >();
+  private destroyed = false;
+
+  constructor(addonPath?: string) {
+    const { ServiceThread } = loadIpcRuntimeNapi(addonPath);
+    this.native = new ServiceThread((slot, target, request, token) =>
+      this.onHostCall(slot, target, request, token),
+    );
+  }
+
+  /** @internal A new instance of the library's service, in a slot of its own. */
+  async load(
+    library: NapiFfiLibrary,
+    hostCall: HostCallTargets | undefined,
+  ): Promise<number> {
+    const siblings: Record<string, number> = {};
+    const handlers = new Map<
+      string,
+      (request: Uint8Array) => Uint8Array | Promise<Uint8Array>
+    >();
+    for (const [name, target] of Object.entries(hostCall ?? {})) {
+      const unwrapped = unwrapTarget(target);
+      const sibling =
+        unwrapped instanceof NapiInstanceBackend
+          ? unwrapped.slotOnThread(this)
+          : undefined;
+      if (sibling !== undefined) {
+        siblings[name] = sibling;
+      } else {
+        handlers.set(name, (request) =>
+          typeof unwrapped === "function"
+            ? unwrapped(request)
+            : unwrapped.call(request),
+        );
+      }
+    }
+    const slot = await this.native.load(
+      library.libraryPath,
+      library.ffiName,
+      siblings,
+    );
+    this.handlers.set(slot, handlers);
+    return slot;
+  }
+
+  /** @internal */
+  call(slot: number, input: Uint8Array): Promise<Uint8Array> {
+    return this.native.call(slot, input);
+  }
+
+  /** @internal End one instance; the others on the thread carry on. */
+  async unload(slot: number): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    await this.native.unload(slot);
+    this.handlers.delete(slot);
+  }
+
+  /** End the thread and every instance on it. */
+  async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    await this.native.destroy();
+    this.handlers.clear();
+  }
+
+  private onHostCall(
+    slot: number,
+    target: string,
+    request: Uint8Array,
+    token: unknown,
+  ): void {
+    const fail = (e: unknown) =>
+      this.native.answer(
+        token,
+        1,
+        new TextEncoder().encode(e instanceof Error ? e.message : String(e)),
+      );
+    try {
+      const handler = this.handlers.get(slot)?.get(target);
+      if (!handler) {
+        throw new Error(`no host-call target "${target}" is bound`);
+      }
+      const answer = handler(request);
+      if (answer instanceof Uint8Array) {
+        this.native.answer(token, 0, answer);
+      } else {
+        answer.then((bytes) => this.native.answer(token, 0, bytes), fail);
+      }
+    } catch (e) {
+      fail(e);
+    }
+  }
+}
+
+const NAPI_THREAD = Symbol("ipc-runtime napi thread");
+
 /** Asynchronous backend over a library's process instance: each call runs on the libuv thread pool. */
 export class NapiFfiBackend implements IpcClientAsync {
   private destroyed = false;
@@ -99,30 +218,24 @@ export class NapiFfiBackend implements IpcClientAsync {
   constructor(private readonly library: NapiFfiLibrary) {}
 
   /**
-   * An instance of its own on a worker: the backend then has state of its own, and its calls run on
-   * that worker's thread, one at a time, as a wasm module's do. `createWorker` binds the platform's
-   * worker scripts.
+   * An instance of its own on a native thread: the backend then has state of its own, and its calls
+   * run on that thread, one at a time across the thread's instances.
    */
   static async instance(
     options: NapiInstanceOptions,
-    createWorker: () => ServiceThread,
   ): Promise<NapiInstanceBackend> {
     const library = loadNapiFfiLibrary(options.libraryPath, options.ffiName);
     requireInstances(library);
-    const ownsWorker = !isServiceThread(options.worker);
-    const worker = options.worker ?? createWorker();
+    const ownsThread = options.worker === undefined;
+    const thread = options.worker
+      ? options.worker.attachment(NAPI_THREAD, () => new NapiServiceThread())
+      : new NapiServiceThread();
     try {
-      const slot = await worker.load(
-        {
-          napi: { libraryPath: library.libraryPath, ffiName: library.ffiName },
-        },
-        options.hostCall,
-        options.logger,
-      );
-      return new NapiInstanceBackend(worker, slot, ownsWorker);
+      const slot = await thread.load(library, options.hostCall);
+      return new NapiInstanceBackend(thread, slot, ownsThread);
     } catch (e) {
-      if (ownsWorker) {
-        await worker.destroy();
+      if (ownsThread) {
+        await thread.destroy();
       }
       throw e;
     }
@@ -144,35 +257,32 @@ export class NapiFfiBackend implements IpcClientAsync {
   }
 }
 
-/** An instance of a library's service on a worker (NapiFfiBackend.instance). */
+/** An instance of a library's service on a native thread (NapiFfiBackend.instance). */
 export class NapiInstanceBackend implements IpcClientAsync {
   /** @internal */
   constructor(
-    private readonly worker: ServiceThread,
+    private readonly thread: NapiServiceThread,
     private readonly slot: number,
-    private readonly ownsWorker: boolean,
+    private readonly ownsThread: boolean,
   ) {}
 
-  /** @internal This instance's slot when it runs on `worker`, for host-call targets beside it. */
-  slotOn(worker: ServiceThread): number | undefined {
-    return this.worker === worker ? this.slot : undefined;
+  /** @internal This instance's slot when it runs on `thread`, for host-call targets beside it. */
+  slotOnThread(thread: NapiServiceThread): number | undefined {
+    return this.thread === thread ? this.slot : undefined;
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
-    return this.worker.call(this.slot, input);
+    return this.thread.call(this.slot, input);
   }
 
-  unref(): void {
-    if (this.ownsWorker) {
-      this.worker.unref();
-    }
-  }
+  /** A no-op: the native thread holds the process only while a call to it is in flight. */
+  unref(): void {}
 
   async destroy(): Promise<void> {
-    if (this.ownsWorker) {
-      await this.worker.destroy();
+    if (this.ownsThread) {
+      await this.thread.destroy();
     } else {
-      await this.worker.unload(this.slot);
+      await this.thread.unload(this.slot);
     }
   }
 }

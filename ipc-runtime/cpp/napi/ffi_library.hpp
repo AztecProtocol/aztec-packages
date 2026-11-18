@@ -7,8 +7,26 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace ipc::napi {
+
+/** Answers the host calls an instance makes during one call into it. */
+class HostCallRouter {
+  public:
+    HostCallRouter() = default;
+    HostCallRouter(const HostCallRouter&) = delete;
+    HostCallRouter& operator=(const HostCallRouter&) = delete;
+    HostCallRouter(HostCallRouter&&) = delete;
+    HostCallRouter& operator=(HostCallRouter&&) = delete;
+    virtual ~HostCallRouter() = default;
+    /** The answer to a host call to `target`, in `answer`; returns 0, or non-zero with an error message there. */
+    virtual int32_t route(std::string_view target,
+                          const uint8_t* request,
+                          size_t request_len,
+                          std::vector<uint8_t>& answer) = 0;
+};
 
 /**
  * @brief A shared library exporting an ipc-codegen FFI entry, loaded into node.
@@ -71,6 +89,27 @@ class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
   private:
     std::shared_ptr<Loaded> loaded_;
     std::string name_;
+};
+
+/** Loads (once per process) the library at `path` and binds its `<ffi_name>_ipc_ffi_*` symbols. */
+std::shared_ptr<FfiLibrary::Loaded> load_library(const std::string& path, const std::string& ffi_name);
+
+/**
+ * Routes this thread's host calls to `router` for the duration of one call into an instance of a
+ * library whose allocator is `alloc`, and restores the previous routing after.
+ */
+class HostCallScope {
+  public:
+    HostCallScope(HostCallRouter* router, FfiLibrary::Alloc alloc);
+    HostCallScope(const HostCallScope&) = delete;
+    HostCallScope& operator=(const HostCallScope&) = delete;
+    HostCallScope(HostCallScope&&) = delete;
+    HostCallScope& operator=(HostCallScope&&) = delete;
+    ~HostCallScope();
+
+  private:
+    HostCallRouter* previous_router_;
+    FfiLibrary::Alloc previous_alloc_;
 };
 
 } // namespace ipc::napi

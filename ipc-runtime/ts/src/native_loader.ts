@@ -75,9 +75,22 @@ export function findIpcRuntimeNapi(customPath?: string): string | null {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
+/** The addon's native service thread (see `NapiServiceThread`). */
+export interface NativeServiceThread {
+  load(
+    libraryPath: string,
+    ffiName: string,
+    siblings: Record<string, number>,
+  ): Promise<number>;
+  call(slot: number, input: Uint8Array): Promise<Uint8Array>;
+  unload(slot: number): Promise<void>;
+  answer(token: unknown, status: number, bytes: Uint8Array): void;
+  destroy(): Promise<void>;
+}
+
 /**
  * Load `ipc_runtime_napi.node` and return its native exports
- * (`MsgpackClient`, `MsgpackClientAsync`, `FfiLibrary`). Throws a descriptive
+ * (`MsgpackClient`, `MsgpackClientAsync`, `FfiLibrary`, `ServiceThread`). Throws a descriptive
  * error when the addon cannot be located or fails to dlopen.
  */
 export function loadIpcRuntimeNapi(customPath?: string): {
@@ -102,6 +115,14 @@ export function loadIpcRuntimeNapi(customPath?: string): {
     ): Uint8Array;
     destroyInstance(instance: unknown): void;
   };
+  ServiceThread: new (
+    onHostCall: (
+      slot: number,
+      target: string,
+      request: Uint8Array,
+      token: unknown,
+    ) => void,
+  ) => NativeServiceThread;
 } {
   const addonPath = findIpcRuntimeNapi(customPath);
   if (!addonPath) {
