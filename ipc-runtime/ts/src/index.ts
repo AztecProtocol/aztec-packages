@@ -35,9 +35,9 @@ export {
   type NapiInstanceOptions,
   NapiFfiBackend,
   NapiFfiBackendSync,
-  NapiInstanceBackend,
-  NapiInstanceBackendSync,
   NapiServiceThread,
+  createNapiFfiBackend,
+  createNapiFfiBackendSync,
   loadNapiFfiLibrary,
 } from "./napi_ffi.js";
 export {

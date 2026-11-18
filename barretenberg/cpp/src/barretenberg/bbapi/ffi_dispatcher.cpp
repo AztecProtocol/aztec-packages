@@ -1,6 +1,6 @@
 /**
  * @file ffi_dispatcher.cpp
- * @brief Names the context bb's handlers run over, for the in-process FFI entry.
+ * @brief Names the context bb's handlers run over, for the in-process FFI.
  *
  * The generated dispatch is a template over the context type (make_bb_handler<Ctx>), so the
  * generator never learns what that type is. The serve loop gets it from main(), which constructs a
@@ -16,7 +16,7 @@
 namespace bb::bbapi {
 
 /**
- * @brief An instance behind the generated in-process FFI entry (bb_ipc_ffi_entry, see bb_ffi.hpp).
+ * @brief An instance behind the generated in-process FFI (bb_ipc_ffi_create, see bb_ffi.hpp).
  *
  * One request context per instance, so stateful command sequences (ChonkStart/Load/Accumulate/Prove) on it share IVC
  * state, mirroring a serve loop's connection context.

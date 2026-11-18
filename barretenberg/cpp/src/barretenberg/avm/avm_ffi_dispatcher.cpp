@@ -1,6 +1,6 @@
 /**
  * @file avm_ffi_dispatcher.cpp
- * @brief Names the context the AVM handlers run over in the in-process FFI entry (avm_ipc_ffi_entry), the entry
+ * @brief Names the context the AVM handlers run over in the in-process FFI (avm_ipc_ffi_call), the FFI
  * bb-avm-sim.wasm exports.
  *
  * The in-process build has no sockets, so Simulate reaches the world state and the contract DB through its host:
@@ -37,7 +37,7 @@ void handle_simulate_with_hints(AvmFfiRequest& /*request*/,
 }
 
 /**
- * @brief An instance behind the generated in-process FFI entry (see avm_ffi.hpp). The context holds no state of its
+ * @brief An instance behind the generated in-process FFI (see avm_ffi.hpp). The context holds no state of its
  * own, only the targets its host calls reach.
  */
 std::unique_ptr<FfiInstance> ipc_ffi_create_instance()

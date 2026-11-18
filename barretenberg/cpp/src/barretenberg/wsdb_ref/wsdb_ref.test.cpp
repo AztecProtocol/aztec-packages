@@ -56,13 +56,20 @@ wire::Fr bytes_of_fr(const fr& value)
     return w;
 }
 
-/** Call a service through the generated in-process FFI entry: the path the napi and wasm transports take. */
+/** The FFI instance the tests share. */
+void* ffi_instance()
+{
+    static void* instance = wsdb_ref_ipc_ffi_create();
+    return instance;
+}
+
+/** Call a service through the generated in-process FFI: the path the napi and wasm transports take. */
 template <typename Resp> Result<Resp> call_ffi(const char* name, const auto& cmd, const char* expected)
 {
     auto request = encode_request(name, cmd);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ref_ipc_ffi_entry(request.data(), request.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_call(ffi_instance(), request.data(), request.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
     wsdb_ref_ipc_ffi_free(output);
     return decode_response<Resp>(frame, expected);
@@ -142,7 +149,7 @@ fr fr_of(const auto& w)
     return fr::serialize_from_buffer(w.data());
 }
 
-/** Init the FFI entry's shared world state at the test genesis (a later Init restarts it). */
+/** Init the FFI instance's world state at the test genesis (a later Init restarts it). */
 void init_ffi()
 {
     ok(call_ffi<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse"));
@@ -193,7 +200,8 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
     pk.pack_map(0);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ref_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_call(
+        ffi_instance(), reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
     wsdb_ref_ipc_ffi_free(output);
     EXPECT_EQ(error_of(decode_response<wire::WsdbGetTreeInfoResponse>(frame, "")),

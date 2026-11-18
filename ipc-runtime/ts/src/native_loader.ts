@@ -103,9 +103,6 @@ export function loadIpcRuntimeNapi(customPath?: string): {
     libraryPath: string,
     ffiName: string,
   ) => {
-    call(input: Uint8Array): Uint8Array;
-    callAsync(input: Uint8Array): Promise<Uint8Array>;
-    hasInstances(): boolean;
     createInstance(): unknown;
     callInstance(
       instance: unknown,

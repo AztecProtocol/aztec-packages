@@ -7,7 +7,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-// SRS ingress is tested through the FFI entry, the dispatch every client (bb.js, the IPC server,
+// SRS ingress is tested through the FFI, the dispatch every client (bb.js, the IPC server,
 // barretenberg-rs) goes through.
 
 #ifndef BB_NO_EXCEPTIONS

@@ -1,4 +1,4 @@
-// Names the context the echo handlers run over, for the in-process FFI entry.
+// Names the context the echo handlers run over, for the in-process FFI.
 //
 // The generated dispatch is a template over the context type
 // (make_echo_handler<Ctx>), so the generator never learns what that type is.

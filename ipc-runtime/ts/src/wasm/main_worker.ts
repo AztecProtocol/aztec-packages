@@ -108,7 +108,7 @@ export function runMainWorker(
                 memory: o.memory,
                 moduleMemory: o.moduleMemory,
                 env: o.env,
-                entry: o.entry,
+                ffiName: o.ffiName,
                 logger: (message) =>
                   side.postMessage({ type: "log", slot, message }),
                 hostCall: hostCallFor(slot, targets),

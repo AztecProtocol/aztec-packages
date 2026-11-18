@@ -223,8 +223,10 @@ C++.
 
 The `@aztec-foundation/ipc-runtime/wasm` entry (node and `browser` export
 conditions) runs a service compiled to a wasi reactor in-process, through the
-FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
-`_free`, found by suffix when not named; see `ipc-codegen/SCHEMA_SPEC.md`):
+FFI of the ipc-codegen contract (`<svc>_ipc_ffi_create` / `_call` / `_alloc` /
+`_free`, found by the `_call` suffix when `ffiName` is not given; see
+`ipc-codegen/SCHEMA_SPEC.md`). Each backend's main instance makes one instance
+of the service on its first call:
 
 | Export                        | Role                                                                                     |
 |-------------------------------|------------------------------------------------------------------------------------------|
@@ -268,12 +270,12 @@ handler on the owning thread must not wait on an instance of the same thread,
 which cannot run until the handler answers. `WasmFfiBackendSync` and napi
 instances on the calling thread take only synchronous answers.
 
-`NapiFfiBackend` and `NapiFfiBackendSync` (main entry, node only) run a
-service's shared library, loaded by this package's Node-API addon
-(`loadNapiFfiLibrary`). A library that exports instances (`_create`, `_call`,
-`_destroy`, `_set_host_call`; see the FFI section of `SCHEMA_SPEC.md`) gets one
-instance per backend through `instance()`, which takes the same `worker` and
-`hostCall` options as a wasm module. The async backend's instance runs on a
+`createNapiFfiBackend` and `createNapiFfiBackendSync` (main entry, node only)
+run an instance of a service's shared library, loaded by this package's
+Node-API addon (`loadNapiFfiLibrary`; the library exports `_create`, `_call`,
+`_destroy`, `_alloc`, `_free` and `_set_host_call`, see the FFI section of
+`SCHEMA_SPEC.md`). Each backend gets an instance of its own, and takes the same
+`worker` and `hostCall` options as a wasm module. The async backend's instance runs on a
 native thread, `NapiServiceThread`: its own, or the one a `ServiceThread`
 keeps beside its wasm worker for napi instances. No JS runs there, so a call
 costs one wake of that thread and one of the event loop, and calls in flight
@@ -282,8 +284,7 @@ other directly; any other host call is answered on the event loop while the
 native thread blocks. `IPC_NAPI_SPIN_US` makes the thread spin that long for
 the next call before it sleeps, saving a wake for calls made back to back at
 the cost of that CPU time. The sync backend's instance runs on the calling
-thread. A library without instances has one process wide context, called on
-the libuv pool.
+thread.
 
 ### Zig (`zig/`)
 

@@ -841,7 +841,7 @@ void handle_init(WsdbRefContext& ctx, wire::WsdbInit&& cmd, Responder<wire::Wsdb
     });
 }
 
-// An instance of the in-process FFI entry (generated/wsdb_ffi.hpp): one reference world state, created by Init,
+// An instance of the in-process FFI (generated/wsdb_ffi.hpp): one reference world state, created by Init,
 // shared by every call on the instance as over one transport connection.
 std::unique_ptr<FfiInstance> ipc_ffi_create_instance()
 {

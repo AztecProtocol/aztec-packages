@@ -21,8 +21,10 @@
 #include <string>
 #include <vector>
 
-// wsdb-ref's FFI entry, linked into the tests as the world state Simulate reaches through host_call.
-extern "C" void wsdb_ref_ipc_ffi_entry(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
+// wsdb-ref's FFI, linked into the tests as the world state Simulate reaches through host_call.
+extern "C" void* wsdb_ref_ipc_ffi_create();
+extern "C" void wsdb_ref_ipc_ffi_call(
+    void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
 extern "C" void wsdb_ref_ipc_ffi_free(void* ptr);
 
 using namespace bb;
@@ -45,7 +47,19 @@ struct Response {
     std::string error;
 };
 
-/** Call the service through the generated in-process FFI entry: the path the wasm transport takes. */
+/** The one instance of each service the tests share, as a backend's would be. */
+void* avm_instance()
+{
+    static void* instance = avm_ipc_ffi_create();
+    return instance;
+}
+void* wsdb_instance()
+{
+    static void* instance = wsdb_ref_ipc_ffi_create();
+    return instance;
+}
+
+/** Call the service through the generated in-process FFI: the path the wasm transport takes. */
 Response call_ffi(const char* name, const auto& cmd)
 {
     msgpack::sbuffer buf;
@@ -57,7 +71,7 @@ Response call_ffi(const char* name, const auto& cmd)
 
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    avm_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
+    avm_ipc_ffi_call(avm_instance(), reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
     auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(output), output_len);
     avm_ipc_ffi_free(output);
 
@@ -209,7 +223,7 @@ size_t g_wsdb_calls = 0;
 } // namespace
 
 /**
- * The host for these tests, in place of ipc-runtime's: "wsdb" is wsdb-ref's FFI entry, linked in, and "cdb" the
+ * The host for these tests, in place of ipc-runtime's: "wsdb" is an instance of wsdb-ref, linked in, and "cdb" the
  * fixture's contract DB. In wasm this definition stands in for the module's import.
  */
 extern "C" int32_t ipc_runtime_host_call(const uint8_t* target,
@@ -226,7 +240,7 @@ extern "C" int32_t ipc_runtime_host_call(const uint8_t* target,
         ++g_wsdb_calls;
         uint8_t* out = nullptr;
         size_t out_len = 0;
-        wsdb_ref_ipc_ffi_entry(request, request_len, &out, &out_len);
+        wsdb_ref_ipc_ffi_call(wsdb_instance(), request, request_len, &out, &out_len);
         bytes.assign(out, out + out_len);
         wsdb_ref_ipc_ffi_free(out);
     } else if (name == "cdb" && g_contract_db != nullptr) {

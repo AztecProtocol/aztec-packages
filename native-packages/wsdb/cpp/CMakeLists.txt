@@ -35,7 +35,7 @@ string(STRIP "${tag}" tag)
 string(REGEX REPLACE "^v" "" version "${tag}")
 set(foundation "${pkg}/../..")
 # barretenberg's wsdb-ref library, built from source here: the poseidon2 C bindings, and wsdb-ref (the
-# reference world state) behind its FFI entry, which the differential test drives.
+# reference world state) behind its FFI, which the differential test drives.
 FetchContent_Declare(wsdb_ref SOURCE_DIR ${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/lib)
 FetchContent_MakeAvailable(wsdb_ref)
 option(WSDB_BUILD_TESTS "Build wsdb_tests and wsdb_bench" ON)
@@ -56,7 +56,7 @@ add_subdirectory(${foundation}/ipc-runtime/cpp ${deps}/ipc-runtime)
 # implementation).
 set(wsdb_schema "${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc")
 
-# The generated server dispatch, FFI entry, wire types and typed client from that schema, and
+# The generated server dispatch, FFI, wire types and typed client from that schema, and
 # the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
 # regenerated whenever configure runs, which their inputs below trigger.
 execute_process(
@@ -90,9 +90,9 @@ set(libs wsdb_ref lmdblib ipc_runtime lmdb pthread)
 add_executable(aztec-wsdb ${sources})
 target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)
 
-# The same service in-process: libaztec_wsdb, whose aztec_wsdb_ipc_ffi_* entry takes calls from many threads at
-# once (one instance per world state, configured by Init like the process). Exports only that entry, so the
-# libraries it links (libc++, wsdb-ref's own entry) stay private.
+# The same service in-process: libaztec_wsdb, whose aztec_wsdb_ipc_ffi_* instances take calls from many threads at
+# once (one instance per world state, configured by Init like the process). Exports only those, so the
+# libraries it links (libc++, wsdb-ref's own FFI) stay private.
 set(lib_sources ${sources})
 list(REMOVE_ITEM lib_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/cli.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/wsdb_ipc_server.cpp)

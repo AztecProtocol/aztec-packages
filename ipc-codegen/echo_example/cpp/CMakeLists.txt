@@ -48,7 +48,7 @@ target_link_libraries(echo_client PRIVATE echo_common ipc_runtime)
 add_executable(golden_test src/golden_test.cpp)
 target_link_libraries(golden_test PRIVATE echo_common)
 
-# The service as an in-process library: the generated FFI entry over the same
+# The service as an in-process library: the generated FFI exports over the same
 # handlers the socket server uses. ffi_test calls it through the generated
 # EchoApi over FfiBackend, with no process.
 add_library(echo_ffi STATIC

@@ -17,7 +17,7 @@ path = "src/echo_client.rs"
 [features]
 default = ["ipc-runtime"]
 ipc-runtime = ["dep:ipc-runtime"]
-# The generated FFI entry (export_echo_ffi!) and FFI client backend; the two
+# The generated FFI exports (export_echo_ffi!) and FFI client backend; the two
 # meet in-process in tests/ffi_roundtrip.rs.
 ffi = ["dep:libc"]
 

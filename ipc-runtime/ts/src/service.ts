@@ -31,7 +31,7 @@ export interface ServiceBinary {
 
 /**
  * A per-platform native file a generated package ships in its arch packages: the service binary,
- * or a Node-API addon over the service's FFI entry. Resolved the same way for both.
+ * or a Node-API addon over the service's FFI. Resolved the same way for both.
  */
 export type ServiceNativeFile = Pick<
   ServiceBinary,

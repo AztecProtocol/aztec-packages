@@ -36,24 +36,25 @@ const STORE = [0x36, 0x02, 0x00];
 const ATOMIC_LOAD = [0xfe, 0x10, 0x02, 0x00];
 const ATOMIC_STORE = [0xfe, 0x17, 0x02, 0x00];
 
-/** The word the module's thread writes and its entry waits on. */
+/** The word the module's thread writes and its call waits on. */
 const WORD = 1024;
 /** What the thread writes. */
 const THREAD_VALUE = 42;
 
 /**
- * A threads module whose entry spawns one wasi thread, spins until that thread has stored
+ * A threads module whose call spawns one wasi thread, spins until that thread has stored
  * THREAD_VALUE at WORD, and returns the word: the call returns only if the thread really ran.
  */
 function buildSpawningModule(): WebAssembly.Module {
-  // Function indices: the imported thread-spawn is 0, then the four defined below.
-  const [SPAWN, ENTRY, ALLOC, FREE, THREAD_START] = [0, 1, 2, 3, 4];
+  // Function indices: the imported thread-spawn is 0, then the five defined below.
+  const [SPAWN, CALL, ALLOC, FREE, THREAD_START, CREATE] = [0, 1, 2, 3, 4, 5];
   const types = section(1, [
-    4,
+    5,
     ...[0x60, 1, I32, 1, I32], // (i32) -> i32: thread-spawn, alloc
-    ...[0x60, 4, I32, I32, I32, I32, 0], // entry
+    ...[0x60, 5, I32, I32, I32, I32, I32, 0], // call
     ...[0x60, 1, I32, 0], // free
     ...[0x60, 2, I32, I32, 0], // wasi_thread_start
+    ...[0x60, 0, 1, I32], // create
   ]);
   const imports = section(2, [
     2,
@@ -61,28 +62,29 @@ function buildSpawningModule(): WebAssembly.Module {
     ...[...str("env"), ...str("memory"), 0x02, 0x03, ...leb(4), ...leb(16)],
     ...[...str("wasi"), ...str("thread-spawn"), 0x00, 0],
   ]);
-  const functions = section(3, [4, 1, 0, 2, 3]);
+  const functions = section(3, [5, 1, 0, 2, 3, 4]);
   // The bump allocator's next free offset, past WORD.
   const globals = section(6, [1, I32, 0x01, ...i32Const(4096), 0x0b]);
   const exports = section(7, [
-    4,
-    ...[...str("ipc_ffi_entry"), 0x00, ENTRY],
+    5,
+    ...[...str("ipc_ffi_create"), 0x00, CREATE],
+    ...[...str("ipc_ffi_call"), 0x00, CALL],
     ...[...str("ipc_ffi_alloc"), 0x00, ALLOC],
     ...[...str("ipc_ffi_free"), 0x00, FREE],
     ...[...str("wasi_thread_start"), 0x00, THREAD_START],
   ]);
   const code = section(10, [
-    4,
-    // entry(in, len, outPtr, outLenPtr): spawn, wait for the word, return it as 4 bytes.
+    5,
+    // call(instance, in, len, outPtr, outLenPtr): spawn, wait for the word, return it as 4 bytes.
     ...body(
       [1, 1, I32],
       [
         ...[...i32Const(0), 0x10, SPAWN, 0x1a], // drop(thread-spawn(0))
         ...[0x03, 0x40, ...i32Const(WORD), ...ATOMIC_LOAD, 0x45, 0x0d, 0, 0x0b], // loop while *WORD == 0
-        ...[...i32Const(4), 0x10, ALLOC, 0x21, 4], // out = alloc(4)
-        ...[0x20, 4, ...i32Const(WORD), ...ATOMIC_LOAD, ...STORE], // *out = *WORD
-        ...[0x20, 2, 0x20, 4, ...STORE], // *outPtr = out
-        ...[0x20, 3, ...i32Const(4), ...STORE], // *outLenPtr = 4
+        ...[...i32Const(4), 0x10, ALLOC, 0x21, 5], // out = alloc(4)
+        ...[0x20, 5, ...i32Const(WORD), ...ATOMIC_LOAD, ...STORE], // *out = *WORD
+        ...[0x20, 3, 0x20, 5, ...STORE], // *outPtr = out
+        ...[0x20, 4, ...i32Const(4), ...STORE], // *outLenPtr = 4
       ],
     ),
     // alloc(n): return the bump pointer, then advance it.
@@ -91,6 +93,8 @@ function buildSpawningModule(): WebAssembly.Module {
     ...body([0], []),
     // wasi_thread_start(tid, arg): *WORD = THREAD_VALUE.
     ...body([0], [...i32Const(WORD), ...i32Const(THREAD_VALUE), ...ATOMIC_STORE]),
+    // create(): the one instance there is, any non-null handle.
+    ...body([0], [...i32Const(1)]),
   ]);
   return new WebAssembly.Module(
     new Uint8Array([
@@ -169,7 +173,7 @@ test("a backend terminates a main worker that fails to start", async () => {
  * A threads module that records whether its instance initialized the shared memory. Its start
  * function claims a flag at address 0, as wasm-ld's `__wasm_init_memory` does to initialize a
  * shared memory once: the first instance on the memory sets up its data and the main thread's TLS,
- * and later instances (the module's threads) skip that. The entry returns 1 if this instance won.
+ * and later instances (the module's threads) skip that. A call returns 1 if this instance won.
  *
  *   (module
  *     (import "env" "memory" (memory 4 16 shared))
@@ -183,7 +187,8 @@ test("a backend terminates a main worker that fails to start", async () => {
  *       (global.get $next)
  *       (global.set $next (i32.add (global.get $next) (i32.and (i32.add (local.get $n) (i32.const 15)) (i32.const -16)))))
  *     (func (export "ipc_ffi_free") (param i32))
- *     (func (export "ipc_ffi_entry") (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
+ *     (func (export "ipc_ffi_create") (result i32) (i32.const 1))
+ *     (func (export "ipc_ffi_call") (param $instance i32) (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
  *       (local $reply i32)
  *       (local.set $reply (call $alloc (i32.const 4)))
  *       (i32.store (local.get $reply) (global.get $initialized_here))
@@ -191,7 +196,7 @@ test("a backend terminates a main worker that fails to start", async () => {
  *       (i32.store (local.get $out_len) (i32.const 4))))
  */
 const FIRST_INSTANCE = Buffer.from(
-  "AGFzbQEAAAABFARgAABgAX8Bf2ABfwBgBH9/f38AAhABA2VudgZtZW1vcnkCAwQQAwUEAAECAwYMAn8BQQALfwFBgCALBzADDWlwY19mZmlfYWxsb2MAAQxpcGNfZmZpX2ZyZWUAAg1pcGNfZmZpX2VudHJ5AAMIAQAKSwQUAEEAQQBBAf5IAgBFBEBBASQACwsRACMBIwEgAEEPakFwcWokAQsCAAsfAQF/QQQQASEEIAQjADYCACACIAQ2AgAgA0EENgIACw==",
+  "AGFzbQEAAAABGQVgAABgAX8Bf2ABfwBgAAF/YAV/f39/fwACEAEDZW52Bm1lbW9yeQIDBBADBgUAAQIDBAYMAn8BQQALfwFBgCALB0AEDWlwY19mZmlfYWxsb2MAAQxpcGNfZmZpX2ZyZWUAAg5pcGNfZmZpX2NyZWF0ZQADDGlwY19mZmlfY2FsbAAECAEAClAFFABBAEEAQQH+SAIARQRAQQEkAAsLEQAjASMBIABBD2pBcHFqJAELAgALBABBAQsfAQF/QQQQASEFIAUjADYCACADIAU2AgAgBEEENgIACw==",
   "base64",
 );
 

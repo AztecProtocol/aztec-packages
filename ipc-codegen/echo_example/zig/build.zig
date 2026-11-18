@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(golden_exe);
 
     // In-process round trip: the generated client over FfiBackend, against the
-    // generated FFI entry exported from the same binary (libc for its buffers).
+    // generated FFI exported from the same binary (libc for its buffers).
     const ffi_test_exe = b.addExecutable(.{
         .name = "ffi_test",
         .root_module = b.createModule(.{

@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file ffi_test_dispatch.hpp
- * @brief Test helper: runs wire commands through the in-process FFI entry, the dispatch every
+ * @brief Test helper: runs wire commands through an instance of the in-process FFI, the dispatch every
  * client (bb.js, barretenberg-rs, the IPC server) goes through.
  */
 #include "barretenberg/bbapi/generated/bb_ffi.hpp"
@@ -13,7 +13,7 @@
 
 namespace bb::bbapi::ffi_test {
 
-/** A response from the FFI entry: its named-union tag and payload. */
+/** A response from the FFI: its named-union tag and payload. */
 struct FfiResponse {
     std::string type;
     msgpack::object_handle handle;
@@ -23,7 +23,17 @@ struct FfiResponse {
     std::string error_message() const { return payload().as<wire::BbErrorResponse>().message; }
 };
 
-/** Sends `cmd` to the FFI entry under the command name `name` (by default, its own). */
+/** The FFI instance every test in the binary sends its commands to. */
+inline void* ffi_instance()
+{
+    static void* instance = bb_ipc_ffi_create();
+    if (instance == nullptr) {
+        throw std::runtime_error("bb_ipc_ffi_create failed");
+    }
+    return instance;
+}
+
+/** Sends `cmd` to the FFI instance under the command name `name` (by default, its own). */
 template <typename Cmd> FfiResponse ffi_call(const Cmd& cmd, const std::string& name = Cmd::MSGPACK_SCHEMA_NAME)
 {
     // Request framing: [[CommandName, payload]], the named-union pair inside a one-element argument array.
@@ -36,7 +46,7 @@ template <typename Cmd> FfiResponse ffi_call(const Cmd& cmd, const std::string& 
 
     uint8_t* out = nullptr;
     size_t out_len = 0;
-    bb_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
+    bb_ipc_ffi_call(ffi_instance(), reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &out, &out_len);
     auto handle = msgpack::unpack(reinterpret_cast<const char*>(out), out_len);
     bb_ipc_ffi_free(out);
     auto type = handle.get().via.array.ptr[0].as<std::string>();

@@ -212,7 +212,7 @@ msgpack uses the smallest encoding that fits the value, not the declared type:
 a `u64` of `5` encodes as a single positive-fixint byte. Decoders MUST accept
 any integer encoding width for any integer field.
 
-### FFI entry
+### FFI
 
 A service linked into its caller — a native library, or a wasm reactor — takes
 requests through exported C symbols instead of a transport:
@@ -222,8 +222,6 @@ void* <svc>_ipc_ffi_create(void);
 void  <svc>_ipc_ffi_call(void* instance, const uint8_t* input, size_t input_len,
                          uint8_t** output, size_t* output_len);
 void  <svc>_ipc_ffi_destroy(void* instance);
-void  <svc>_ipc_ffi_entry(const uint8_t* input, size_t input_len,
-                          uint8_t** output, size_t* output_len);
 void* <svc>_ipc_ffi_alloc(size_t size);
 void  <svc>_ipc_ffi_free(void* ptr);
 /* native only */
@@ -234,11 +232,11 @@ void  <svc>_ipc_ffi_set_host_call(int32_t (*host_call)(
 ```
 
 `<svc>` is the implementation's FFI name: by default the schema's `service` in
-snake_case (`Bb` → `bb_ipc_ffi_entry`; a positional schema uses the generator's
+snake_case (`Bb` → `bb_ipc_ffi_call`; a positional schema uses the generator's
 type prefix, or the bare names when there is none). The prefix is what lets
 several services be linked into one binary. The schema's `service` names the wire
 protocol, so when several implementations serve one schema each passes its own
-`--ffi-name` (`wsdb_ref_ipc_ffi_entry`, `wsdb_labs_ipc_ffi_entry`) and they can
+`--ffi-name` (`wsdb_ref_ipc_ffi_call`, `aztec_wsdb_ipc_ffi_call`) and they can
 be linked together. `input` is exactly the request payload above — no framing envelope,
 since an in-process call has no transport — and `*output` receives the response
 payload in a buffer from `<svc>_ipc_ffi_alloc()` that the caller releases with
@@ -251,11 +249,10 @@ a context of its own (null if the service cannot), `_call` runs one request on
 it, and `_destroy` ends it once no call on it is running. Calls on one instance
 must not overlap, and the caller serializes them. Calls on different instances
 may run concurrently, on any threads, so a service's instances share no mutable
-state. `_entry` is `_call` on one instance of the process, made on first use,
-for callers that need no more than one. Every generator emits all of them: in
-C++ the service defines `ipc_ffi_create_instance()`, in Rust and Zig each
-instance is a `Default` (`.{}`) handler of the given type. The generated FFI
-client backends call `_entry`.
+state. Every generator emits all of them: in C++ the service defines
+`ipc_ffi_create_instance()`, in Rust and Zig each instance is a `Default`
+(`.{}`) handler of the given type. Each generated FFI client backend makes an
+instance of its own and ends it with the backend.
 
 A service calls its host (`ipc_runtime.host_call`, the `HostCallBackend`) through
 `ipc_runtime_host_call`: a wasm import, and natively a function the loading
@@ -271,8 +268,8 @@ which sets the host call function to the `hostCall` passed with each
 `callInstance`, and
 `@aztec-foundation/ipc-runtime/wasm` for a wasm module, which also expects a
 wasi reactor (`_initialize`, WASI imports, wasi-threads `thread-spawn` for a
-threads build) and finds the entry by its `_ipc_ffi_entry` suffix when not told
-its name.
+threads build), finds the service by its `_ipc_ffi_call` suffix when not told
+its FFI name, and makes one instance of it on the first call.
 
 ## Schema versioning
 

@@ -2,10 +2,10 @@
  * @file wsdb_ref_diff.test.cpp
  * @brief aztec-wsdb against wsdb-ref, barretenberg's reference world state.
  *
- * Both serve wsdb_schema.jsonc, so the generated client, WsdbApi, talks to either: `ref` over wsdb-ref's FFI entry,
- * linked in from barretenberg's static library, and `labs` over an aztec-wsdb WsdbService in this process. Each test
- * sends both the same Init and then the same requests, through `same(...)`, which expects equal answers, or through
- * `both_fail(...)`, which expects both to refuse the request.
+ * Both serve wsdb_schema.jsonc, so the generated client, WsdbApi, talks to either: `ref` over an instance of wsdb-ref's
+ * FFI, linked in from barretenberg's static library, and `labs` over an aztec-wsdb WsdbService in this process. Each
+ * test sends both the same Init and then the same requests, through `same(...)`, which expects equal answers, or
+ * through `both_fail(...)`, which expects both to refuse the request.
  */
 // The world state before the generated wire types: both declare MerkleTreeId, and the wire one must not be found
 // first while the world state headers are parsed.
@@ -34,9 +34,12 @@
 #include <unistd.h>
 #include <vector>
 
-// wsdb-ref's FFI entry, in barretenberg's static library.
+// wsdb-ref's FFI, in barretenberg's static library.
 extern "C" {
-void wsdb_ref_ipc_ffi_entry(const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
+void* wsdb_ref_ipc_ffi_create();
+void wsdb_ref_ipc_ffi_call(
+    void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
+void wsdb_ref_ipc_ffi_destroy(void* instance);
 void wsdb_ref_ipc_ffi_free(void* ptr);
 }
 
@@ -44,17 +47,21 @@ using namespace azteclabs::wsdb;
 
 namespace {
 
+/** An instance of wsdb-ref of its own; copies share it. */
 class WsdbRefBackend {
   public:
     std::vector<uint8_t> call(std::span<const uint8_t> request)
     {
         uint8_t* out = nullptr;
         size_t out_len = 0;
-        wsdb_ref_ipc_ffi_entry(request.data(), request.size(), &out, &out_len);
+        wsdb_ref_ipc_ffi_call(instance_.get(), request.data(), request.size(), &out, &out_len);
         std::vector<uint8_t> response(out, out + out_len);
         wsdb_ref_ipc_ffi_free(out);
         return response;
     }
+
+  private:
+    std::shared_ptr<void> instance_{ wsdb_ref_ipc_ffi_create(), wsdb_ref_ipc_ffi_destroy };
 };
 
 class WsdbServiceBackend {

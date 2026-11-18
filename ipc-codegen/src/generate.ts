@@ -131,7 +131,7 @@ Optional:
                            run instead where the engine supports the proposal
   --package-napi-library <file>
                            napi transport: file name of the shared library exporting the
-                           FFI entry (--ffi --server), shipped in the arch packages and
+                           service's FFI (--ffi --server), shipped in the arch packages and
                            loaded through ipc-runtime's Node-API addon
   --package-native <platform>=<path>, --package-native <platform>:<file>=<path>
                            Copy a built native file into the package's per-platform
@@ -155,9 +155,9 @@ Optional:
                            Wire tags always keep the full schema name.
   --uds                    Copy UDS backend templates (rust, zig only)
   --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
-                           client backend. With --server: the exported FFI entry
-                           (<service>_ipc_ffi_entry) over the dispatch
-  --ffi-name <name>        The name the FFI symbols carry (<name>_ipc_ffi_entry, and the
+                           client backend. With --server: the exported FFI
+                           (<service>_ipc_ffi_create/_call/...) over the dispatch
+  --ffi-name <name>        The name the FFI symbols carry (<name>_ipc_ffi_call, and the
                            wasm export a TS package's wasm transport calls). Defaults
                            to the schema's service in snake_case; set it when several
                            implementations serve one schema, so each exports its own
@@ -340,7 +340,7 @@ function parseArgs(argv: string[]): Args {
   }
   if (args.ffi && !args.server && !args.client) {
     console.error(
-      `--ffi emits the client FFI backend (--client) and/or the exported FFI entry (--server)`,
+      `--ffi emits the client FFI backend (--client) and/or the exported FFI (--server)`,
     );
     process.exit(1);
   }

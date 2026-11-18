@@ -230,7 +230,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-# The core object list: what FFI consumers of bb-external need (bb_ipc_ffi_entry()).
+# The core object list: what FFI consumers of bb-external need (bb_ipc_ffi_create() and the rest).
 set(BB_EXTERNAL_TARGET_OBJECTS ${BARRETENBERG_TARGET_OBJECTS})
 
 # world_state_reference is the in-memory reference world state. It is vm2-free; vm2_stub satisfies its
@@ -257,7 +257,7 @@ if(NOT WASM)
         $<TARGET_OBJECTS:vm2_stub>
     )
 
-    # The same objects as bb's FFI entry in a plain shared library, for the napi transport: ipc-runtime's
+    # The same objects as bb's FFI in a plain shared library, for the napi transport: ipc-runtime's
     # Node-API addon loads it, and it exports only the FFI symbols, like libbb_avm_sim.so (see
     # avm/CMakeLists.txt). Named .so on every platform.
     add_library(

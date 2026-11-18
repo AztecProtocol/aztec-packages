@@ -7,7 +7,7 @@ import {
 } from "./wasm/node/index.js";
 
 /**
- * A module whose every call is a host call: the entry passes its request to the target "oracle" and
+ * A module whose every call is a host call: it passes its request to the target "oracle" and
  * returns whatever the host answers (the host's message, when the call fails). Its source:
  *
  *   (module
@@ -20,12 +20,13 @@ import {
  *       (global.get $next)
  *       (global.set $next (i32.add (global.get $next) (local.get $n))))
  *     (func (export "ipc_ffi_free") (param i32))
- *     (func (export "ipc_ffi_entry") (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
+ *     (func (export "ipc_ffi_create") (result i32) (i32.const 1))
+ *     (func (export "ipc_ffi_call") (param $instance i32) (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
  *       (drop (call $host_call (i32.const 16) (i32.const 6)
  *         (local.get $in) (local.get $len) (local.get $out) (local.get $out_len)))))
  */
 const HOST_CALL_ECHO = Buffer.from(
-  "AGFzbQEAAAABGwRgBn9/f39/fwF/YAF/AX9gAX8AYAR/f39/AAIZAQtpcGNfcnVudGltZQlob3N0X2NhbGwAAAMEAwECAwUDAQAQBgcBfwFBgCALBzkEBm1lbW9yeQIADWlwY19mZmlfYWxsb2MAAQxpcGNfZmZpX2ZyZWUAAg1pcGNfZmZpX2VudHJ5AAMKIgMLACMAIwAgAGokAAsCAAsRAEEQQQYgACABIAIgAxAAGgsLDAEAQRALBm9yYWNsZQ==",
+  "AGFzbQEAAAABIAVgBn9/f39/fwF/YAF/AX9gAX8AYAABf2AFf39/f38AAhkBC2lwY19ydW50aW1lCWhvc3RfY2FsbAAAAwUEAQIDBAUDAQAQBgcBfwFBgCALB0kFBm1lbW9yeQIADWlwY19mZmlfYWxsb2MAAQxpcGNfZmZpX2ZyZWUAAg5pcGNfZmZpX2NyZWF0ZQADDGlwY19mZmlfY2FsbAAECicECwAjACMAIABqJAALAgALBABBAQsRAEEQQQYgASACIAMgBBAAGgsLDAEAQRALBm9yYWNsZQ==",
   "base64",
 );
 

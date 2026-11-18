@@ -36,8 +36,8 @@ export interface WasmFfiOptions {
   /** WASI environ for the module. `HARDWARE_CONCURRENCY` and `RAYON_NUM_THREADS` default to `threads`. */
   env?: Record<string, string>;
   logger?: (msg: string) => void;
-  /** FFI entry export; default: the module's one `<service>_ipc_ffi_entry` export. */
-  entry?: string;
+  /** The name the module's FFI exports carry (`<ffiName>_ipc_ffi_call`); default: the module's one such name. */
+  ffiName?: string;
   /** The services the module's `ipc_runtime.host_call` reaches, by target name (see `HostCallTarget`). */
   hostCall?: HostCallTargets;
 }
@@ -251,7 +251,7 @@ class Threads {
  */
 export class WasmFfiEngine {
   private constructor(
-    /** The module instance, for reaching exports of its own beyond the FFI entry. */
+    /** The module instance, for reaching exports of its own beyond the FFI. */
     readonly host: WasmInstanceHost,
     private readonly threadWorkers: Threads | undefined,
     readonly memory: WebAssembly.Memory,
@@ -313,7 +313,7 @@ export class WasmFfiEngine {
               module,
               memory,
               env,
-              entry: opts.entry,
+              ffiName: opts.ffiName,
             },
             logger,
           )
@@ -324,7 +324,7 @@ export class WasmFfiEngine {
       memory,
       env,
       logger,
-      entry: opts.entry,
+      ffiName: opts.ffiName,
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
       hostCall: opts.hostCall,
@@ -434,7 +434,7 @@ function createMemory(
  * from the owner's event loop while its native thread blocks.
  *
  * An instance is loaded with `WasmFfiBackend.create({ worker })` or
- * `NapiFfiBackend.instance({ worker })`. Each kind of thread starts with the first instance that
+ * `createNapiFfiBackend({ worker })`. Each kind of thread starts with the first instance that
  * needs it, and lives until `destroy()`, which ends every instance on it.
  */
 export class ServiceThread {
@@ -728,7 +728,7 @@ export class WasmFfiBackend implements IpcClientAsync {
             },
             moduleMemory: opts.moduleMemory,
             env: opts.env,
-            entry: opts.entry,
+            ffiName: opts.ffiName,
           },
         },
         opts.hostCall,
