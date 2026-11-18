@@ -42,6 +42,10 @@ export function createWasiImports(
   memory: () => WebAssembly.Memory,
   opts: WasiShimOptions = {},
 ): Record<string, (...args: number[]) => number> {
+  // wasm passes its u32 pointers and sizes as i32, so one at or above 2 GiB arrives negative: a
+  // DataView throws on it, and a relative-index method such as `fill` counts it back from the end
+  // of memory and writes at the wrong address. Every pointer and size argument is converted with
+  // `>>> 0` before use.
   const view = () => new DataView(memory().buffer);
   const bytes = () => new Uint8Array(memory().buffer);
   const decoder = new TextDecoder();
@@ -56,9 +60,9 @@ export function createWasiImports(
     countOut: number,
     sizeOut: number,
   ) => {
-    view().setUint32(countOut, entries.length, true);
+    view().setUint32(countOut >>> 0, entries.length, true);
     view().setUint32(
-      sizeOut,
+      sizeOut >>> 0,
       entries.reduce((n, e) => n + e.length, 0),
       true,
     );
@@ -69,9 +73,9 @@ export function createWasiImports(
     ptrsOut: number,
     bufOut: number,
   ) => {
-    let p = bufOut;
+    let p = bufOut >>> 0;
     entries.forEach((e, i) => {
-      view().setUint32(ptrsOut + 4 * i, p, true);
+      view().setUint32((ptrsOut >>> 0) + 4 * i, p, true);
       bytes().set(e, p);
       p += e.length;
     });
@@ -86,17 +90,19 @@ export function createWasiImports(
       sizesGet(envEntries, countOut, sizeOut),
     environ_get: (ptrsOut, bufOut) => stringsGet(envEntries, ptrsOut, bufOut),
     clock_res_get: (_id, out) => {
-      view().setBigUint64(out, 1000n, true);
+      view().setBigUint64(out >>> 0, 1000n, true);
       return ERRNO_SUCCESS;
     },
     clock_time_get: (_id, _precision, out) => {
       const ns = BigInt(
         Math.round((performance.timeOrigin + performance.now()) * 1e6),
       );
-      view().setBigUint64(out, ns, true);
+      view().setBigUint64(out >>> 0, ns, true);
       return ERRNO_SUCCESS;
     },
     random_get: (ptr, len) => {
+      ptr >>>= 0;
+      len >>>= 0;
       // getRandomValues refuses views over shared memory and caps a call at 64 KiB: fill a
       // private buffer in chunks and copy it in.
       const dst = bytes();
@@ -108,6 +114,8 @@ export function createWasiImports(
       return ERRNO_SUCCESS;
     },
     fd_write: (fd, iovs, iovsLen, nwrittenOut) => {
+      iovs >>>= 0;
+      iovsLen >>>= 0;
       let total = 0;
       let text = "";
       for (let i = 0; i < iovsLen; i++) {
@@ -128,13 +136,14 @@ export function createWasiImports(
           sink(line);
         }
       }
-      view().setUint32(nwrittenOut, total, true);
+      view().setUint32(nwrittenOut >>> 0, total, true);
       return ERRNO_SUCCESS;
     },
     fd_fdstat_get: (fd, out) => {
       if (fd > 2) {
         return ERRNO_BADF;
       }
+      out >>>= 0;
       bytes().fill(0, out, out + 24);
       view().setUint8(out, 2); // filetype: character device
       return ERRNO_SUCCESS;
