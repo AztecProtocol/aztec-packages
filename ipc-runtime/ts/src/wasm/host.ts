@@ -145,6 +145,7 @@ export class WasmInstanceHost {
     readonly memory: WebAssembly.Memory,
     private readonly create: WasmFn | undefined,
     private readonly ffiCall: WasmFn | undefined,
+    private readonly ffiDestroy: WasmFn | undefined,
     /** The call as JSPI's `promising` wraps it, when the instance suspends. */
     private readonly suspendingCall:
       | ((...args: number[]) => Promise<unknown>)
@@ -259,6 +260,7 @@ export class WasmInstanceHost {
       memory,
       create,
       ffiCall,
+      ffiFn("ipc_ffi_destroy"),
       ffiCall && suspend?.promising(ffiCall),
       exports[pair[0]] as WasmFn,
       exports[pair[1]] as WasmFn,
@@ -435,6 +437,27 @@ export class WasmInstanceHost {
   }
 
   /**
+   * End the service instance, if a call made one, so its destructors run as a native instance's do.
+   * Skipped while a call is in progress (the instance is still in use) or after a trap, which can
+   * leave the module unable to run them; the module instance is dropped either way.
+   */
+  destroy(): void {
+    const handle = this.handle;
+    this.handle = 0;
+    if (handle === 0 || this.inCall || this.trapped || !this.ffiDestroy) {
+      return;
+    }
+    try {
+      this.ffiDestroy(handle);
+    } catch (cause) {
+      this.logger(`wasm service instance did not end cleanly: ${String(this.explain(cause))}`);
+    }
+  }
+
+  /** Whether a call has trapped: the module's state is then unknown. */
+  private trapped = false;
+
+  /**
    * One FFI round trip: request bytes in, a copy of the response bytes out. The request is placed
    * in module memory, and the response is read from where the module left it and released with the
    * module's own free, as the FFI contract requires.
@@ -451,6 +474,7 @@ export class WasmInstanceHost {
       this.ffiCall!(instance, slots + SLOTS_BYTES, input.length, slots, slots + 4);
     } catch (cause) {
       this.inCall = false;
+      this.trapped = true;
       throw this.explain(cause);
     }
     return this.finish(slots);
@@ -473,6 +497,7 @@ export class WasmInstanceHost {
       );
     } catch (cause) {
       this.inCall = false;
+      this.trapped = true;
       throw this.explain(cause);
     }
     return this.finish(slots);

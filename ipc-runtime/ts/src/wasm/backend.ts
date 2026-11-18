@@ -377,6 +377,7 @@ export class WasmFfiEngine {
   }
 
   async destroy(): Promise<void> {
+    this.host.destroy();
     await this.threadWorkers?.destroy();
   }
 }

@@ -108,3 +108,48 @@ test("a synchronous backend takes synchronous answers, and refuses asynchronous 
   );
   refusing.destroy();
 });
+
+/**
+ * A module that answers a call with its request, and whose `ipc_ffi_destroy` tells the host target
+ * "ended" which instance it is ending (create() makes instance 7). Its source:
+ *
+ *   (module
+ *     (import "ipc_runtime" "host_call"
+ *       (func $host_call (param i32 i32 i32 i32 i32 i32) (result i32)))
+ *     (memory (export "memory") 16)
+ *     (global $next (mut i32) (i32.const 4096))
+ *     (data (i32.const 16) "ended")
+ *     (func (export "ipc_ffi_alloc") (param $n i32) (result i32)
+ *       (global.get $next)
+ *       (global.set $next (i32.add (global.get $next) (local.get $n))))
+ *     (func (export "ipc_ffi_free") (param i32))
+ *     (func (export "ipc_ffi_create") (result i32) (i32.const 7))
+ *     (func (export "ipc_ffi_destroy") (param $instance i32)
+ *       (i32.store (i32.const 0) (local.get $instance))
+ *       (drop (call $host_call (i32.const 16) (i32.const 5) (i32.const 0) (i32.const 4) (i32.const 32) (i32.const 36))))
+ *     (func (export "ipc_ffi_call") (param $instance i32) (param $in i32) (param $len i32) (param $out i32) (param $out_len i32)
+ *       (i32.store (local.get $out) (local.get $in))
+ *       (i32.store (local.get $out_len) (local.get $len))))
+ */
+const REPORTS_ITS_END = Buffer.from(
+  "AGFzbQEAAAABIAVgBn9/f39/fwF/YAF/AX9gAX8AYAABf2AFf39/f38AAhkBC2lwY19ydW50aW1lCWhvc3RfY2FsbAAAAwYFAQIDAgQFAwEAEAYHAX8BQYAgCwdbBgZtZW1vcnkCAA1pcGNfZmZpX2FsbG9jAAEMaXBjX2ZmaV9mcmVlAAIOaXBjX2ZmaV9jcmVhdGUAAw9pcGNfZmZpX2Rlc3Ryb3kABAxpcGNfZmZpX2NhbGwABQo/BQsAIwAjACAAaiQACwIACwQAQQcLGABBACAANgIAQRBBBUEAQQRBIEEkEAAaCxAAIAMgATYCACAEIAI2AgALCwsBAEEQCwVlbmRlZA==",
+  "base64",
+);
+
+test("destroying a backend ends the service instance its calls made, and makes none", async () => {
+  const ended: number[] = [];
+  const hostCall = {
+    ended: (request: Uint8Array) => {
+      ended.push(new DataView(request.buffer, request.byteOffset).getUint32(0, true));
+      return new Uint8Array();
+    },
+  };
+  const used = await createWasmFfiBackendSync({ module: new WebAssembly.Module(REPORTS_ITS_END), hostCall });
+  assert.equal(text(used.call(bytes("hi"))), "hi");
+  used.destroy();
+  assert.deepEqual(ended, [7]);
+
+  const unused = await createWasmFfiBackendSync({ module: new WebAssembly.Module(REPORTS_ITS_END), hostCall });
+  unused.destroy();
+  assert.deepEqual(ended, [7], "a backend that was never called has no instance to end");
+});
