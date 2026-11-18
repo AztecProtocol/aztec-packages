@@ -36,6 +36,8 @@ namespace ipc::napi {
  * not wait on a call to this thread, which cannot run until the host call is answered.
  *
  * The thread keeps the event loop alive only while a load, call, unload or destroy is in flight.
+ * When the environment is torn down (process exit, or a worker ending) without destroy(), a cleanup
+ * hook ends every instance and the thread, failing a host call still waiting on JS.
  * With IPC_NAPI_SPIN_US set, the thread spins that long for the next job before it sleeps.
  */
 class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
@@ -112,6 +114,14 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
         int64_t slot, std::string_view target, const uint8_t* request, size_t len, std::vector<uint8_t>& answer);
     /** Hands `message` to the event loop; false once the thread-safe function is closing. */
     bool post(std::unique_ptr<ToJs> message);
+    /**
+     * Ends every instance and the thread, and releases the thread-safe function, unless destroy() has.
+     * It must run before node closes the thread-safe function at teardown: node finalizes this object
+     * while holding that function's lock, where releasing it would deadlock.
+     */
+    void stop();
+    static void on_env_cleanup(void* self);
+    void remove_cleanup_hook();
 
     Napi::FunctionReference on_host_call_;
     Tsfn tsfn_;
@@ -122,6 +132,9 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
     std::deque<Job> jobs_;
     /** jobs_.size(), readable without the mutex, for the spin before the thread sleeps. */
     std::atomic<size_t> queued_{ 0 };
+    /** The host call the thread is blocked on, for stop() to fail when JS can no longer answer. */
+    HostCallWait* waiting_ = nullptr;
+    bool stopping_ = false;
     std::chrono::microseconds spin_{ 0 };
     // Owned by the native thread.
     std::map<int64_t, Slot> slots_;
@@ -129,6 +142,8 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
     int64_t next_slot_ = 0;
     int64_t in_flight_ = 0;
     bool destroyed_ = false;
+    napi_env env_ = nullptr;
+    bool cleanup_hooked_ = false;
 };
 
 } // namespace ipc::napi
