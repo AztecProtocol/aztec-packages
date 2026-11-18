@@ -3,6 +3,7 @@
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
+#include <utility>
 
 namespace {
 std::shared_ptr<bb::srs::factories::CrsFactory<bb::curve::BN254>> bn254_crs_factory;       // NOLINT
@@ -23,12 +24,22 @@ std::filesystem::path bb_crs_path()
     return base / ".bb-crs";
 }
 
-void init_bn254_mem_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
+void init_bn254_mem_crs_factory(std::vector<g1::affine_element> points, g2::affine_element const& g2_point)
 {
     if (bn254_crs_factory != nullptr) {
         return;
     }
-    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
+    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(points), g2_point);
+}
+
+void init_bn254_mem_crs_factory(std::shared_ptr<const void> storage,
+                                std::span<const g1::affine_element> points,
+                                g2::affine_element const& g2_point)
+{
+    if (bn254_crs_factory != nullptr) {
+        return;
+    }
+    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(storage), points, g2_point);
 }
 
 void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points)
