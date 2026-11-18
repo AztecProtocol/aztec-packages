@@ -4,8 +4,8 @@
  * @brief The wsdb service without a transport: the world state, the dispatch pool, the per-fork scheduler and the
  * generated async handler over them.
  *
- * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service opens no stores until
- * Init, which carries the genesis; the data directory, map sizes and threads come from the config.
+ * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service has no stores, pool or
+ * scheduler until Init, which carries the genesis and, in its options, the data directory, map sizes and threads.
  */
 #include "common/thread_pool.hpp"
 #include "world_state/world_state.hpp"
@@ -16,27 +16,29 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
-
-namespace CLI {
-class App;
-}
 
 namespace azteclabs::wsdb {
 
 class WsdbScheduler;
 
-struct WsdbConfig {
+/** aztec-wsdb's own configuration, which Init carries in its `options`. */
+struct WsdbOptions {
     std::string data_dir;
-    // LMDB map sizes in KB, as "{treeId:value,...}".
-    std::string map_sizes_json;
+    // LMDB map sizes in KB, by tree; trees not named keep the default.
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> map_sizes;
     uint32_t threads = 16;
-};
 
-/** Registers the WsdbConfig options on a CLI (sub)command. */
-void add_wsdb_config_options(CLI::App& app, WsdbConfig& config);
+    /**
+     * Reads Init's options: a msgpack map with `dataDir` (required), `mapSizes` (an array of { treeId, sizeKb }) and
+     * `threads`. Throws on anything else, so options meant for another implementation are refused.
+     */
+    static WsdbOptions decode(const std::optional<std::vector<uint8_t>>& options);
+};
 
 class WsdbService {
   public:
@@ -44,7 +46,7 @@ class WsdbService {
      * @param has_pending_request Whether another request is already waiting; reads run inline on the submitting
      *        thread only when this is false (see WsdbScheduler).
      */
-    WsdbService(const WsdbConfig& config, std::function<bool()> has_pending_request);
+    explicit WsdbService(std::function<bool()> has_pending_request);
     ~WsdbService();
 
     WsdbService(const WsdbService&) = delete;
@@ -60,7 +62,7 @@ class WsdbService {
     std::vector<uint8_t> call(std::span<const uint8_t> request);
 
   private:
-    WsdbConfig config_;
+    std::function<bool()> has_pending_request_;
     std::mutex init_mutex_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching

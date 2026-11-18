@@ -5,16 +5,12 @@
 
 namespace azteclabs::wsdb {
 
-struct WsdbConfig;
-
 /**
  * @brief Start the aztec-wsdb IPC server.
  *
- * Listens on input_path, builds the WsdbService from config and runs the IPC reactor until shutdown.
+ * Listens on input_path, builds the WsdbService and runs the IPC reactor until shutdown. The service is configured
+ * by the first request, Init.
  */
-int execute_wsdb_server(const std::string& input_path,
-                        const WsdbConfig& config,
-                        size_t request_ring_size,
-                        size_t response_ring_size);
+int execute_wsdb_server(const std::string& input_path, size_t request_ring_size, size_t response_ring_size);
 
 } // namespace azteclabs::wsdb

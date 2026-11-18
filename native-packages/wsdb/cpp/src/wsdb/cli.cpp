@@ -1,11 +1,11 @@
 #include "wsdb/cli.hpp"
 #include "common/assert.hpp"
 #include "common/log.hpp"
-#include <msgpack.hpp>
 #include "world_state/world_state.hpp"
 #include "wsdb/generated/wsdb_ipc_server.hpp"
 #include "wsdb/wsdb_ipc_server.hpp"
 #include "wsdb/wsdb_service.hpp"
+#include <msgpack.hpp>
 
 #include <CLI/CLI.hpp>
 #include <cstdint>
@@ -37,9 +37,6 @@ int parse_and_run_wsdb(int argc, char* argv[])
     msgpack_run_command->add_option(
         "-i,--input", input_path, "IPC socket/shm path (.sock for UDS, .shm for shared memory)");
 
-    WsdbConfig config;
-    add_wsdb_config_options(*msgpack_run_command, config);
-
     size_t request_ring_size = 1024 * 1024;
     msgpack_run_command
         ->add_option(
@@ -62,7 +59,7 @@ int parse_and_run_wsdb(int argc, char* argv[])
 
     try {
         if (msgpack_run_command->parsed()) {
-            return execute_wsdb_server(input_path, config, request_ring_size, response_ring_size);
+            return execute_wsdb_server(input_path, request_ring_size, response_ring_size);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';

@@ -9,10 +9,7 @@
 
 namespace azteclabs::wsdb {
 
-int execute_wsdb_server(const std::string& input_path,
-                        const WsdbConfig& config,
-                        size_t request_ring_size,
-                        size_t response_ring_size)
+int execute_wsdb_server(const std::string& input_path, size_t request_ring_size, size_t response_ring_size)
 {
     // Create the IPC server and listen BEFORE the (potentially slow) WorldState
     // construction: LMDB open and genesis prefill can take arbitrarily long on
@@ -46,7 +43,7 @@ int execute_wsdb_server(const std::string& input_path,
     }
     std::cerr << "aztec-wsdb listening on " << input_path << '\n';
 
-    WsdbService service(config, [&server]() { return server->has_pending_request(); });
+    WsdbService service([&server]() { return server->has_pending_request(); });
     std::cerr << "aztec-wsdb IPC server ready" << '\n';
 
     // Async dispatch: the reactor reads each request and hands it to the

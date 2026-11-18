@@ -250,7 +250,8 @@ void handle_find_leaf_indices(WsdbRequest& ctx,
                       case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
                       case world_state::MerkleTreeId::ARCHIVE: {
                           auto typed_leaves = from_wire<std::vector<fr>>(cmd.leaves);
-                          ctx.world_state().find_leaf_indices<fr>(revision, tree_id, typed_leaves, indices, start_index);
+                          ctx.world_state().find_leaf_indices<fr>(
+                              revision, tree_id, typed_leaves, indices, start_index);
                           break;
                       }
                       default:
@@ -596,13 +597,13 @@ void handle_sync_block(WsdbRequest& ctx, wire::WsdbSyncBlock&& cmd, Responder<wi
         }
 
         WorldStateStatusFull status = ctx.world_state().sync_block(block_state_ref,
-                                                                 block_header_hash,
-                                                                 padded_note_hashes,
-                                                                 padded_l1_to_l2_messages,
-                                                                 padded_nullifiers,
-                                                                 public_data_writes,
-                                                                 expected_archive_root,
-                                                                 expected_previous_archive_root);
+                                                                   block_header_hash,
+                                                                   padded_note_hashes,
+                                                                   padded_l1_to_l2_messages,
+                                                                   padded_nullifiers,
+                                                                   public_data_writes,
+                                                                   expected_archive_root,
+                                                                   expected_previous_archive_root);
         return wire::WsdbSyncBlockResponse{ .status = status };
     });
 }
@@ -762,9 +763,9 @@ void handle_copy_stores(WsdbRequest& ctx, wire::WsdbCopyStores&& cmd, Responder<
     });
 }
 
-// Opens the stores at Init's genesis. Runs on the submitting thread, not the scheduler: until it returns there is no
-// world state for other work to run on, and a request that arrives meanwhile is refused. A service started with its
-// genesis, or already sent Init, refuses it: its stores already hold a chain.
+// Opens the stores at Init's genesis, configured by its options. Runs on the submitting thread, not the scheduler:
+// until it returns there is no scheduler or world state for other work to run on, and a request that arrives
+// meanwhile is refused. A service already sent Init refuses it: its stores already hold a chain.
 void handle_init(WsdbRequest& ctx, wire::WsdbInit&& cmd, Responder<wire::WsdbInitResponse> respond)
 {
     try {

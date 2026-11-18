@@ -312,6 +312,22 @@ TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
               std::string::npos);
 }
 
+TEST(WsdbRef, InitRefusesOptions)
+{
+    Service service;
+    auto error = error_of(service.call<wire::WsdbInitResponse>(
+        "WsdbInit",
+        wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
+                        .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
+                        .prefilledPublicData = {},
+                        .prefilledNullifiers = {},
+                        .genesisTimestamp = 0,
+                        .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH),
+                        .options = std::vector<uint8_t>{ 0x80 } },
+        "WsdbInitResponse"));
+    EXPECT_NE(error.find("takes no Init options"), std::string::npos) << error;
+}
+
 TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 {
     Service service;

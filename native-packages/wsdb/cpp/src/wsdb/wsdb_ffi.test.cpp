@@ -10,6 +10,7 @@
 #include "world_state/test_genesis.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
+#include "wsdb/wsdb_test_options.hpp"
 
 #include <gtest/gtest.h>
 
@@ -29,11 +30,10 @@ namespace {
 /** libaztec_wsdb's entry, from the library itself: it is built next to this binary, in ../lib. */
 struct Library {
     void* handle = nullptr;
-    void* (*create_with_args)(int, const char* const*) = nullptr;
+    void* (*create)() = nullptr;
     void (*call)(void*, const uint8_t*, size_t, uint8_t**, size_t*) = nullptr;
     void (*destroy)(void*) = nullptr;
     void (*free)(void*) = nullptr;
-    int32_t (*thread_safe)() = nullptr;
 
     Library()
     {
@@ -43,11 +43,10 @@ struct Library {
         if (handle == nullptr) {
             throw std::runtime_error(std::string("dlopen: ") + dlerror());
         }
-        bind(create_with_args, "aztec_wsdb_ipc_ffi_create_with_args");
+        bind(create, "aztec_wsdb_ipc_ffi_create");
         bind(call, "aztec_wsdb_ipc_ffi_call");
         bind(destroy, "aztec_wsdb_ipc_ffi_destroy");
         bind(free, "aztec_wsdb_ipc_ffi_free");
-        bind(thread_safe, "aztec_wsdb_ipc_ffi_thread_safe");
     }
     Library(const Library&) = delete;
     Library& operator=(const Library&) = delete;
@@ -100,7 +99,7 @@ template <typename W = wire::Fr> W wire_fr(const fr& value)
     return w;
 }
 
-wire::WsdbInit genesis_init()
+wire::WsdbInit genesis_init(std::vector<uint8_t> options)
 {
     wire::WsdbInit init{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
                                           { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
@@ -115,6 +114,7 @@ wire::WsdbInit genesis_init()
     for (const auto& nullifier : world_state::test_genesis_nullifiers()) {
         init.prefilledNullifiers.push_back(wire_fr(nullifier));
     }
+    init.options = std::move(options);
     return init;
 }
 
@@ -131,16 +131,14 @@ class WsdbFfiTest : public ::testing::Test {
     }
     void TearDown() override { std::filesystem::remove_all(root_); }
 
-    /** An initialized instance with its stores in their own directory under this test's. */
+    /** An instance initialized with its stores in their own directory under this test's. */
     void* open(const std::string& name)
     {
         auto dir = root_ / name;
         std::filesystem::create_directories(dir);
-        std::string dir_arg = dir.string();
-        std::vector<const char*> args{ "--data-dir", dir_arg.c_str(), "--threads", "4" };
-        void* instance = library().create_with_args(static_cast<int>(args.size()), args.data());
+        void* instance = library().create();
         if (instance != nullptr) {
-            Api(LibraryBackend(instance)).init(genesis_init());
+            Api(LibraryBackend(instance)).init(genesis_init(test_support::wsdb_options(dir.string(), 4)));
         }
         return instance;
     }
@@ -152,7 +150,9 @@ class WsdbFfiTest : public ::testing::Test {
 /** One caller's work on its own fork: appends interleaved with reads of the fork's uncommitted state. */
 wire::Fr run_on_fork(Api& api, uint64_t fork, uint64_t seed)
 {
-    wire::WorldStateRevision uncommitted{ .forkId = fork, .blockNumber = merkle_tree::LATEST_BLOCK, .includeUncommitted = true };
+    wire::WorldStateRevision uncommitted{ .forkId = fork,
+                                          .blockNumber = merkle_tree::LATEST_BLOCK,
+                                          .includeUncommitted = true };
     for (uint64_t batch = 0; batch < 20; batch++) {
         std::vector<wire::Fr> leaves;
         for (uint64_t i = 0; i < 4; i++) {
@@ -169,17 +169,6 @@ wire::Fr run_on_fork(Api& api, uint64_t fork, uint64_t seed)
 }
 
 } // namespace
-
-TEST_F(WsdbFfiTest, DeclaresItselfThreadSafe)
-{
-    EXPECT_EQ(library().thread_safe(), 1);
-}
-
-TEST_F(WsdbFfiTest, RefusesAnInstanceWithoutADataDirectory)
-{
-    std::vector<const char*> args{ "--threads", "4" };
-    EXPECT_EQ(library().create_with_args(static_cast<int>(args.size()), args.data()), nullptr);
-}
 
 TEST_F(WsdbFfiTest, ManyThreadsOnOneInstanceGetTheirSerialResults)
 {
@@ -234,7 +223,9 @@ TEST_F(WsdbFfiTest, ManyThreadsWritingOneForkKeepEveryLeaf)
     ASSERT_NE(instance, nullptr);
     Api api{ LibraryBackend(instance) };
     auto fork = api.create_fork({ .latest = true, .blockNumber = 0 }).forkId;
-    wire::WorldStateRevision uncommitted{ .forkId = fork, .blockNumber = merkle_tree::LATEST_BLOCK, .includeUncommitted = true };
+    wire::WorldStateRevision uncommitted{ .forkId = fork,
+                                          .blockNumber = merkle_tree::LATEST_BLOCK,
+                                          .includeUncommitted = true };
     auto start = api.get_tree_info({ .treeId = note_hash_tree, .revision = uncommitted }).size;
 
     std::vector<std::thread> threads;

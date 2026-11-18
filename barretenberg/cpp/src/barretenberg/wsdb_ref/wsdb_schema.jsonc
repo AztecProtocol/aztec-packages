@@ -484,8 +484,9 @@
     // The first command: the genesis the world state starts from, before any block. Anything sent before it is
     // undefined. treeHeights names each of the five trees once; treePrefill gives each indexed tree (nullifier,
     // public data) its initial size, prefill included. What a second Init does is the service's own: wsdb-ref
-    // restarts at the new genesis. A service whose genesis is fixed when it is created (aztec-wsdb) answers Init
-    // with an error.
+    // restarts at the new genesis; aztec-wsdb, whose stores hold a chain from then on, answers it with an error.
+    // options configures the implementation itself (where and how it stores the trees): msgpack whose shape each
+    // implementation defines, and that one refuses if it cannot read it. wsdb-ref takes none.
     "Init": {
       "request": {
         "treeHeights": "TreeHeight[]",
@@ -493,7 +494,8 @@
         "prefilledPublicData": "PublicDataLeafValue[]",
         "prefilledNullifiers": "Fr[]",
         "genesisTimestamp": "u64",
-        "initialHeaderGeneratorPoint": "u32"
+        "initialHeaderGeneratorPoint": "u32",
+        "options": "bytes?"
       },
       "response": {}
     }

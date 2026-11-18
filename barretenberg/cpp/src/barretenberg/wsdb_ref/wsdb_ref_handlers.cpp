@@ -791,6 +791,9 @@ void handle_copy_stores(WsdbRefContext& /*ctx*/,
 void handle_init(WsdbRefContext& ctx, wire::WsdbInit&& cmd, Responder<wire::WsdbInitResponse> respond)
 {
     serve(respond, [&]() -> wire::WsdbInitResponse {
+        if (cmd.options.has_value() && !cmd.options->empty()) {
+            throw std::runtime_error("wsdb-ref takes no Init options");
+        }
         GenesisConfig genesis;
         std::array<bool, 5> has_height{};
         for (const auto& [tree_id, height] : cmd.treeHeights) {

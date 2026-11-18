@@ -64,7 +64,7 @@ execute_process(
             --schema ${wsdb_schema} --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
             --server --client --cpp-namespace azteclabs::wsdb
             --cpp-include-dir wsdb/generated
-            --ffi --ffi-name aztec_wsdb --ffi-args --ffi-thread-safe
+            --ffi --ffi-name aztec_wsdb
     COMMAND_ERROR_IS_FATAL ANY)
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env "WSDB_FOUNDATION_VERSION=${version}" "${pkg}/scripts/remake-constants.sh"
@@ -91,12 +91,13 @@ add_executable(aztec-wsdb ${sources})
 target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)
 
 # The same service in-process: libaztec_wsdb, whose aztec_wsdb_ipc_ffi_* entry takes calls from many threads at
-# once (one instance per world state, made with aztec_wsdb_ipc_ffi_create_with_args from the `msgpack run`
-# options). Exports only that entry, so the libraries it links (libc++, wsdb-ref's own entry) stay private.
+# once (one instance per world state, configured by Init like the process). Exports only that entry, so the
+# libraries it links (libc++, wsdb-ref's own entry) stay private.
 set(lib_sources ${sources})
-list(REMOVE_ITEM lib_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp)
+list(REMOVE_ITEM lib_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/cli.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/wsdb_ipc_server.cpp)
 add_library(aztec_wsdb_ffi SHARED EXCLUDE_FROM_ALL ${lib_sources})
-target_link_libraries(aztec_wsdb_ffi PRIVATE ${libs} CLI11::CLI11)
+target_link_libraries(aztec_wsdb_ffi PRIVATE ${libs})
 set_target_properties(aztec_wsdb_ffi PROPERTIES
     OUTPUT_NAME aztec_wsdb
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
