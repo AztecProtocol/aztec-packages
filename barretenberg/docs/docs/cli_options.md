@@ -100,14 +100,35 @@ For resource-constrained environments like mobile devices, `bb` can use memory-m
 bb prove -b ./target/circuit.json -w ./target/witness.gz --slow_low_memory -o ./target
 ```
 
-You can control the file-backed storage budget with `--storage_budget`. When the budget is exceeded, `bb` falls back to RAM:
+You can cap the file-backed storage with `--storage_budget`. Proving fails if it needs more than the budget; it does not fall back to RAM:
 
 ```bash
-# Allow up to 500MB of file-backed storage, falling back to RAM for the rest
+# Allow up to 500MB of file-backed storage
 bb prove -b ./target/circuit.json -w ./target/witness.gz --slow_low_memory --storage_budget 500m -o ./target
 ```
 
-This trades proving speed for lower memory usage.
+This trades proving speed for lower memory usage: proving is typically 10-20% slower, and more under a tight memory cap.
+
+The scratch files go in the temp directory (`TMPDIR`). When low memory mode turns on, `bb` checks once that it can create and map a file there. If it cannot (the directory is missing or read-only, or is on tmpfs, whose files are memory), `bb` logs one line and keeps polynomials in RAM; the rest of the mode stays on. Point `TMPDIR` at a directory on a disk filesystem to avoid that. After a successful check, a full disk or an exceeded `--storage_budget` still fails the proof.
+
+Low memory mode maps the BN254 CRS from a file when `bb` loads it from a directory (`--crs_path`). Points handed to bb.js or another bbapi host through `SrsInitSrs` go to a scratch file, counted against the storage budget, when the mode is on before `SrsInitSrs` runs; a CRS loaded before the mode is turned on stays in RAM.
+
+#### From a bbapi host
+
+An application that embeds barretenberg turns the mode on with the bbapi command `LowMemoryConfigure` before it sets up the CRS:
+
+| Field | Meaning |
+|-------|---------|
+| `mode` | `"off"`, `"on"` or `"automatic"`. Automatic turns the mode on when the memory the process can still use (`os_proc_available_memory`) is below `automatic_threshold`; it does so on iOS only and means off on every other platform, Android included. |
+| `storage_directory` | Where the scratch files go. Defaults to the temp directory. |
+| `storage_budget` | Bytes of scratch files allowed in total. Unlimited by default. |
+| `automatic_threshold` | Bytes, for `"automatic"`. Defaults to 2 GiB. |
+
+The response reports whether the mode is on (`enabled`, which for `"automatic"` is what it resolved to) and whether polynomials are file backed (`file_backed_polynomials`).
+
+On Android pass a writable `storage_directory`, such as the app's cache directory; there is no usable temp directory by default, so the mode otherwise keeps polynomials in RAM. `bb` returns freed heap memory to the system only under glibc, so not on Android or Apple platforms.
+
+On macOS the system allocator keeps freed large blocks in a cache by default, which keeps them in the process's memory footprint. Run `bb` with `MallocLargeCache=0` in the environment to turn that cache off, for example `MallocLargeCache=0 bb prove ... --slow_low_memory`; iOS has it off by default.
 
 ### Verification Key Policy (`--vk_policy`)
 
