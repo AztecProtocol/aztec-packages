@@ -40,7 +40,10 @@ describe.each([
   });
 
   it('refuses to change an asynchronous singleton without losing the existing instance', async () => {
-    const instance = new Barretenberg({ call: async () => new Uint8Array(), destroy: async () => {} }, enabled);
+    const instance = new Barretenberg(
+      { call: () => Promise.resolve(new Uint8Array()), destroy: async () => {} },
+      enabled,
+    );
     jest.spyOn(Barretenberg, 'new').mockResolvedValue(instance);
     await Barretenberg.initSingleton(enabled);
     await expect(Barretenberg.initSingleton(disabled)).rejects.toThrow('already configured');

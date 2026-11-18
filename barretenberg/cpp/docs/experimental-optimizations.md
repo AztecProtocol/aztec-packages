@@ -74,3 +74,31 @@ Compare each setting in separate processes. Circuit witnesses, gates, verificati
 keys and proof validity must remain equivalent with the rollup flag on and off.
 Native IPA work overlaps circuit/proof construction when enabled and completes
 synchronously when disabled. Unsupported native-only paths retain their WASM fallback.
+
+## Verification keys and verifiers
+
+A verification key fixes what verifiers accept, so it is always derived by the
+existing implementations. With `BB_EXPERIMENTAL_OPTIMIZATIONS` or
+`ROLLUP_EXPERIMENTAL_OPTIMIZATIONS` enabled BB proves, but does not derive keys.
+The AVM setting is unrestricted: its key is fixed in source.
+
+`bb write_vk`, `bb aztec_process`, `bb verify`, `bb batch_verify` and
+`bb avm_verify` run nothing else in their process and ignore the environment:
+all three settings are frozen as disabled. Build scripts that call them need no
+environment handling.
+
+Every other entry point rejects key derivation in an enabled process. This
+covers `CircuitComputeVk`, `ChonkComputeVk`, `CircuitProve` without a
+precomputed key (`bb prove --write_vk`), and the Chonk `recompute` and `rewrite`
+key policies. Derive the key in a process with both settings disabled and supply
+it: `bb write_vk` followed by `bb prove -k`. `bb gates`, the Chonk `check`
+policy and proving with a supplied key are unrestricted. A circuit that the
+optimizations construct differently then fails the prover's own check against
+the supplied key instead of producing a different key.
+
+In bb.js, `UltraHonkBackend.generateProof` takes the key as its third argument.
+On an enabled backend `getVerificationKey`, `verifyProof` and
+`generateRecursiveProofArtifacts` are rejected; obtain the key from, and verify
+with, a backend created with the settings explicitly `false`. Because omitted
+settings follow the Node environment, a process that exports a setting for its
+prover must pass `false` explicitly for every backend whose verdict it trusts.

@@ -828,8 +828,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
               flags.ipa_accumulation);
     }
 
+    // These commands derive a verification key or act as a verifier, and run nothing else in the process, so they
+    // always use the existing implementations, whatever the environment requests.
+    const bool force_optimizations_off = write_vk->parsed() || aztec_process->parsed() || verify->parsed() ||
+                                         batch_verify->parsed() || avm_verify_command->parsed();
     try {
-        initialize_experimental_optimizations();
+        initialize_experimental_optimizations(force_optimizations_off ? ExperimentalOptimizationsMode::ForceDisabled
+                                                                      : ExperimentalOptimizationsMode::FromEnvironment);
     } catch (std::runtime_error const& error) {
 #ifndef BB_NO_EXCEPTIONS
         info(error.what());

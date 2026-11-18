@@ -5,6 +5,7 @@
 #include "barretenberg/chonk/proof_compression.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -311,6 +312,7 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME("ChonkComputeVk");
+    require_vk_derivation_allowed("ChonkComputeVk");
     info("ChonkComputeVk - deriving Chonk verification key for circuit '",
          circuit.name,
          "' (kind=",

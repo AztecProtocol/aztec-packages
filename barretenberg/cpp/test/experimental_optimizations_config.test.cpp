@@ -1,6 +1,8 @@
 #include "barretenberg/common/experimental_optimizations.hpp"
 
+#include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <gtest/gtest.h>
 
 #if !defined(__wasm__) && !defined(_WIN32)
@@ -123,6 +125,71 @@ TEST(RollupExperimentalOptimizations, RejectsInvalidEnvironment)
     EXPECT_THROW(bb::initialize_experimental_optimizations(), std::runtime_error);
     unsetenv("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS");
 #endif
+}
+
+TEST(ExperimentalOptimizations, DisabledInitializationIgnoresEnvironment)
+{
+    EXPECT_EXIT(
+        {
+            setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            setenv("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            bb::initialize_experimental_optimizations(bb::ExperimentalOptimizationsMode::ForceDisabled);
+            bb::initialize_experimental_optimizations();
+            std::_Exit(bb::experimental_optimizations_enabled() || bb::rollup_experimental_optimizations_enabled() ||
+                               bb::avm_experimental_optimizations_enabled()
+                           ? 1
+                           : 0);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
+}
+
+TEST(ExperimentalOptimizations, DisabledInitializationRejectsEnabledProcess)
+{
+    EXPECT_DEATH(
+        {
+            setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            bb::initialize_experimental_optimizations();
+            try {
+                bb::initialize_experimental_optimizations(bb::ExperimentalOptimizationsMode::ForceDisabled);
+            } catch (const std::exception& error) {
+                std::fputs(error.what(), stderr);
+                std::abort();
+            }
+        },
+        "already initialized as enabled");
+}
+
+TEST(ExperimentalOptimizations, VkDerivationRequiresOptimizationsOff)
+{
+    for (const char* flag : { "BB_EXPERIMENTAL_OPTIMIZATIONS", "ROLLUP_EXPERIMENTAL_OPTIMIZATIONS" }) {
+        EXPECT_DEATH(
+            {
+                setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
+                setenv("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
+                setenv(flag, "1", 1);
+                bb::initialize_experimental_optimizations();
+                try {
+                    bb::require_vk_derivation_allowed("test");
+                } catch (const std::exception& error) {
+                    std::fputs(error.what(), stderr);
+                    std::abort();
+                }
+            },
+            "verification key cannot be derived");
+    }
+    EXPECT_EXIT(
+        {
+            setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
+            setenv("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
+            setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            bb::initialize_experimental_optimizations();
+            bb::require_vk_derivation_allowed("test");
+            std::_Exit(0);
+        },
+        ::testing::ExitedWithCode(0),
+        "");
 }
 
 #endif
