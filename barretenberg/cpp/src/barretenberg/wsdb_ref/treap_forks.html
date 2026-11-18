@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Persistent Treap Forks</title>
+<!--
+  An interactive explainer for world_state_reference/persistent_key_index.hpp: how its treap insert works and why
+  path copying makes the reference world state's forks, checkpoints and per-block states cost one pointer each.
+  Self-contained: open this file in a browser.
+-->
+<style>
+/* Layout: one reading column; the playground breaks out wider, controls above the tree. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --fg: #1b2430;
+  --muted: #5d6877;
+  --line: #d5dae2;
+  --new: #0f7a6c;
+  --new-soft: #d7efe9;
+  --shared: #8b96a6;
+  --code-bg: #eceff3;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1a2028; --fg: #e3e8ee; --muted: #98a3b3; --line: #2e3744;
+    --new: #4cc7b2; --new-soft: #183a35; --shared: #6c7889; --code-bg: #212833; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1a2028; --fg: #e3e8ee; --muted: #98a3b3; --line: #2e3744;
+  --new: #4cc7b2; --new-soft: #183a35; --shared: #6c7889; --code-bg: #212833; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 40px; }
+.prose { max-width: 66ch; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 12px; font-weight: 600; text-wrap: balance; }
+h2 { font-size: 1.3rem; margin: 0 0 10px; font-weight: 600; text-wrap: balance; }
+p { margin: 0 0 12px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+.lede { color: var(--muted); font-size: 1.05rem; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.rule h3 { margin: 0 0 6px; font-size: 1rem; }
+.rule p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.play { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+select, input, button {
+  font: inherit; font-size: 0.95rem; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 10px;
+}
+input { width: 6.5em; font-family: var(--font-mono); }
+button { cursor: pointer; background: var(--new); color: var(--surface); border-color: var(--new); font-weight: 500; }
+button.secondary { background: var(--bg); color: var(--fg); border-color: var(--line); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--new); outline-offset: 2px; }
+.status { font-size: 0.92rem; color: var(--muted); min-height: 1.5em; }
+.status strong { color: var(--fg); }
+
+.split { display: grid; grid-template-columns: 220px 1fr; gap: 16px; min-width: 0; }
+@media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+.versions { display: grid; gap: 4px; align-content: start; }
+.versions h3, .trace h3 { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; font-weight: 500; }
+.ver {
+  text-align: left; background: transparent; color: var(--fg); border: 1px solid transparent; border-radius: 6px;
+  padding: 5px 8px; font-size: 0.9rem; display: flex; gap: 8px; align-items: baseline; font-weight: 400;
+}
+.ver .mono { font-weight: 600; }
+.ver .note { color: var(--muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ver[aria-pressed="true"] { border-color: var(--new); background: var(--new-soft); }
+.canvas { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; }
+.canvas svg { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.85rem; color: var(--muted); }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; }
+.trace ol { margin: 0; padding-left: 1.3em; font-size: 0.92rem; color: var(--muted); }
+.trace li { margin-bottom: 2px; }
+
+.forkdiag { overflow-x: auto; }
+pre { background: var(--code-bg); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.55; margin: 0 0 12px; }
+@media (prefers-reduced-motion: no-preference) { .nodeg { transition: opacity .2s; } }
+</style>
+
+</head>
+<body>
+<main>
+  <header class="prose">
+    <h1>Persistent Treap Forks</h1>
+    <p class="lede">How wsdb-ref's <code>PersistentKeyIndex</code> keeps an ordered key → leaf-index map that can be forked, checkpointed and kept per block for the cost of copying one pointer.</p>
+  </header>
+
+  <section class="prose">
+    <h2>A treap is a search tree and a heap at once</h2>
+    <p>Each node carries a key and a priority. The tree obeys two orderings at the same time, and for a given set of keys and priorities only one tree satisfies both.</p>
+  </section>
+  <div class="rules">
+    <div class="rule"><h3>By key: a search tree</h3><p>Smaller keys go left, larger keys go right, so <code>find</code> and <code>predecessor</code> (the indexed trees' low-leaf lookup) walk one root-to-leaf path.</p></div>
+    <div class="rule"><h3>By priority: a heap</h3><p>A parent's priority is higher than its children's. Random priorities make the shape that of a random insertion order, so the depth stays O(log n) on average.</p></div>
+    <div class="rule"><h3>Priority = hash(key)</h3><p>wsdb-ref uses splitmix64 of the key instead of a random number, so the shape depends only on the set of keys and every run builds the same tree.</p></div>
+  </div>
+
+  <section class="play" aria-label="Treap playground">
+    <div class="controls">
+      <div class="field"><label for="key">Key to insert</label><input id="key" inputmode="numeric" value="42"></div>
+      <button id="insert" type="button">Insert into selected version</button>
+      <button id="random" type="button" class="secondary">Insert a random key</button>
+      <div class="field"><label for="compare">Compare with</label><select id="compare"></select></div>
+    </div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="split">
+      <div class="versions" id="versions"><h3>Versions</h3></div>
+      <div style="display:grid;gap:12px;min-width:0">
+        <div class="canvas" id="canvas"></div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--new)"></span>allocated by this version</span>
+          <span><span class="swatch" style="background:var(--surface);border:2px solid var(--shared)"></span>the same node object as in the compared version</span>
+          <span><span class="mono" style="color:var(--new)">- - -</span> new node pointing into a shared subtree</span>
+        </div>
+        <div class="trace" id="trace"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="prose">
+    <h2>Why an insert copies only one path</h2>
+    <p>Nodes are immutable (<code>shared_ptr&lt;const Node&gt;</code>). An insert walks down from the root while the existing node's priority is higher, rebuilding each node it passes with one new child pointer. Where the new key's priority wins, it splits that subtree by key and takes the two halves as its children; the split also rebuilds only the nodes on its path. Every subtree off that path is reused as is.</p>
+    <p>So a version is just a root pointer. The old root still describes the old tree, untouched, and the new root shares everything except about log n nodes with it. Select an older version above and insert into it: that is a fork, and both branches keep sharing the nodes they had in common.</p>
+  </section>
+
+  <section class="prose">
+    <h2>How the reference world state forks</h2>
+    <p>Each of the five trees pairs a <code>PersistentMerkleTree</code> (built on the same path-copying idea) with a <code>PersistentKeyIndex</code>. Both are a root pointer, so the whole state is ten pointers:</p>
+    <pre>struct Trees {
+    NullifierTree   nullifier;    // tree root + key index root
+    AppendOnlyTree  note_hash;    // tree root + key index root
+    PublicDataTree  public_data;  // tree root + key index root
+    AppendOnlyTree  l1_to_l2;     // tree root + key index root
+    AppendOnlyTree  archive;      // tree root + key index root
+};  // "Copying one is copying ten pointers."</pre>
+    <p>From there each operation is a copy of <code>Trees</code>:</p>
+    <ul>
+      <li><strong>Committed blocks</strong>: keep a <code>Trees</code> per block, so reads at any block are direct.</li>
+      <li><strong>Fork</strong>: copy the <code>Trees</code> of the block it starts from, then write to the copy.</li>
+      <li><strong>Checkpoint</strong>: push a copy of the fork's current <code>Trees</code>; revert pops it back, commit drops it.</li>
+    </ul>
+    <p>No operation copies tree contents. Writes pay O(log n) new nodes each, whichever version they write to, and memory is shared by every version that still points at it.</p>
+  </section>
+</main>
+
+<script>
+const MASK = (1n << 64n) - 1n;
+// splitmix64 over the key's limbs, as in persistent_key_index.hpp; small keys have only limb 0.
+function priority(key) {
+  let x = BigInt(key);
+  x = (x + 0x9e3779b97f4a7c15n) & MASK;
+  x = ((x ^ (x >> 30n)) * 0xbf58476d1ce4e5b9n) & MASK;
+  x = ((x ^ (x >> 27n)) * 0x94d049bb133111ebn) & MASK;
+  return x ^ (x >> 31n);
+}
+let nextId = 0;
+const mk = (key, index, prio, left, right) => ({ id: ++nextId, key, index, prio, left, right });
+const withChildren = (n, l, r) => mk(n.key, n.index, n.prio, l, r);
+
+function split(node, key, trace) {
+  if (!node) return [null, null];
+  if (node.key < key) {
+    trace.push(`split: ${node.key} < ${key}, so ${node.key} goes below; copy it and keep splitting its right side`);
+    const [below, above] = split(node.right, key, trace);
+    return [withChildren(node, node.left, below), above];
+  }
+  trace.push(`split: ${node.key} > ${key}, so ${node.key} goes above; copy it and keep splitting its left side`);
+  const [below, above] = split(node.left, key, trace);
+  return [below, withChildren(node, above, node.right)];
+}
+function insert(node, fresh, trace) {
+  if (!node) { trace.push(`empty slot: ${fresh.key} becomes a leaf here`); return fresh; }
+  if (fresh.prio > node.prio) {
+    trace.push(`${fresh.key}'s priority beats ${node.key}'s: ${fresh.key} takes this spot and splits ${node.key}'s subtree around itself`);
+    const [below, above] = split(node, fresh.key, trace);
+    return withChildren(fresh, below, above);
+  }
+  const dir = fresh.key < node.key ? "left" : "right";
+  trace.push(`${node.key} keeps its place (higher priority); copy it and go ${dir}`);
+  return fresh.key < node.key
+    ? withChildren(node, insert(node.left, fresh, trace), node.right)
+    : withChildren(node, node.left, insert(node.right, fresh, trace));
+}
+function find(node, key) { while (node) { if (key === node.key) return node; node = key < node.key ? node.left : node.right; } return null; }
+function collect(root, out = new Set()) { if (root) { out.add(root); collect(root.left, out); collect(root.right, out); } return out; }
+function count(root) { return collect(root).size; }
+
+const versions = [];
+function addVersion(parent, key, note) {
+  const base = parent ? parent.root : null;
+  const trace = [];
+  const root = insert(base, mk(key, (parent ? count(parent.root) : 0), priority(key), null, null), trace);
+  const v = { id: versions.length, parent, root, note, key, trace };
+  versions.push(v);
+  return v;
+}
+
+// Example history: a committed block, then two forks from it.
+let v = null;
+for (const k of [50, 20, 80, 10, 30, 65, 90, 40]) v = addVersion(v, k, `insert ${k}`);
+const block = v; block.note = "insert 40 · committed block";
+const forkA = addVersion(block, 35, "fork A: insert 35");
+addVersion(forkA, 72, "fork A: insert 72");
+addVersion(block, 85, "fork B: insert 85");
+let selected = versions[versions.length - 1];
+let compareId = "parent";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function depthOf(v) { let d = 0; while (v.parent) { d++; v = v.parent; } return d; }
+function forkDepth(v) {
+  // Indent where a version is not its parent's first child, so forks read as branches.
+  let indent = 0, cur = v;
+  while (cur.parent) {
+    const siblings = versions.filter(x => x.parent === cur.parent);
+    if (siblings[0] !== cur) indent++;
+    cur = cur.parent;
+  }
+  return indent;
+}
+function renderVersions() {
+  const box = $("versions");
+  box.innerHTML = "<h3>Versions</h3>";
+  for (const ver of versions) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "ver"; b.setAttribute("aria-pressed", ver === selected);
+    b.style.marginLeft = (forkDepth(ver) * 14) + "px";
+    b.innerHTML = `<span class="mono">v${ver.id}</span><span class="note">${esc(ver.note)}</span>`;
+    b.onclick = () => { selected = ver; render(); };
+    box.appendChild(b);
+  }
+}
+function renderCompare() {
+  const sel = $("compare");
+  sel.innerHTML = `<option value="parent">its parent version</option>` +
+    versions.filter(x => x !== selected).map(x => `<option value="${x.id}">v${x.id} · ${esc(x.note)}</option>`).join("");
+  sel.value = compareId === "parent" || versions[compareId] !== selected ? String(compareId) : "parent";
+}
+function compareVersion() {
+  if (compareId === "parent") return selected.parent;
+  const c = versions[Number(compareId)];
+  return c === selected ? selected.parent : c;
+}
+function renderTree() {
+  const other = compareVersion();
+  const shared = other ? collect(other.root) : new Set();
+  const nodes = [];
+  (function walk(n, depth) { if (!n) return; walk(n.left, depth + 1); nodes.push({ n, depth }); walk(n.right, depth + 1); })(selected.root, 0);
+  const pos = new Map();
+  const dx = 58, dy = 76, padX = 36, padY = 40;
+  nodes.forEach(({ n, depth }, i) => pos.set(n, { x: padX + i * dx, y: padY + depth * dy }));
+  const maxDepth = Math.max(0, ...nodes.map(o => o.depth));
+  const w = padX * 2 + (nodes.length - 1) * dx, h = padY * 2 + maxDepth * dy + 12;
+  let edges = "", circles = "";
+  for (const { n } of nodes) {
+    const p = pos.get(n);
+    for (const c of [n.left, n.right]) {
+      if (!c) continue;
+      const q = pos.get(c), isNew = !shared.has(n), childShared = shared.has(c);
+      const stroke = isNew ? "var(--new)" : "var(--shared)";
+      const dash = isNew && childShared ? ' stroke-dasharray="5 4"' : "";
+      edges += `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="${stroke}" stroke-width="2"${dash}/>`;
+    }
+  }
+  for (const { n } of nodes) {
+    const p = pos.get(n), isNew = !shared.has(n);
+    const fill = isNew ? "var(--new)" : "var(--surface)";
+    const stroke = isNew ? "var(--new)" : "var(--shared)";
+    const text = isNew ? "var(--surface)" : "var(--fg)";
+    const pr = (n.prio >> 48n).toString(16).padStart(4, "0");
+    circles += `<g class="nodeg"><title>key ${n.key}, leaf index ${n.index}, priority 0x${n.prio.toString(16).padStart(16, "0")}</title>
+      <circle cx="${p.x}" cy="${p.y}" r="21" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+      <text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-family="var(--font-mono)" font-size="14" font-weight="600" fill="${text}">${n.key}</text>
+      <text x="${p.x}" y="${p.y + 37}" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--muted)">${pr}</text></g>`;
+  }
+  const svgW = Math.max(w, 320);
+  $("canvas").innerHTML = `<svg width="${svgW}" height="${h}" viewBox="0 0 ${svgW} ${h}" role="img" aria-label="Treap for version v${selected.id}">
+    <text x="8" y="16" font-size="10" fill="var(--muted)" font-family="var(--font-mono)">priority (top 16 bits) under each key · higher priority sits higher</text>
+    ${edges}${circles}</svg>`;
+  const total = nodes.length, fresh = nodes.filter(o => !shared.has(o.n)).length;
+  $("status").innerHTML = other
+    ? `<strong>v${selected.id}</strong> has ${total} nodes. <strong>${fresh}</strong> are its own; <strong>${total - fresh}</strong> are the very same objects as in v${other.id}.`
+    : `<strong>v${selected.id}</strong> is the first version: all ${total} nodes are its own.`;
+}
+function renderTrace(extra) {
+  const lines = selected.trace.map(t => `<li>${esc(t)}</li>`).join("");
+  $("trace").innerHTML = `<h3>How v${selected.id} was made from ${selected.parent ? "v" + selected.parent.id : "an empty index"}: insert ${selected.key} (priority 0x${(priority(selected.key) >> 48n).toString(16).padStart(4, "0")}…)</h3><ol>${lines}</ol>${extra || ""}`;
+}
+function render(extra) { renderVersions(); renderCompare(); renderTree(); renderTrace(extra); }
+
+function doInsert(key) {
+  if (!Number.isInteger(key) || key < 0 || key > 9999) { $("status").textContent = "Enter a whole number from 0 to 9999."; return; }
+  if (find(selected.root, key)) {
+    $("status").innerHTML = `${key} is already in v${selected.id}. Like <code>with()</code>, inserting it returns the same version unchanged.`;
+    return;
+  }
+  const isFork = versions.some(x => x.parent === selected);
+  selected = addVersion(selected, key, `${isFork ? "fork: " : ""}insert ${key}`);
+  compareId = "parent";
+  render();
+}
+$("insert").onclick = () => doInsert(Number($("key").value.trim()));
+$("key").addEventListener("keydown", e => { if (e.key === "Enter") doInsert(Number($("key").value.trim())); });
+$("random").onclick = () => {
+  let k; do { k = 1 + Math.floor(Math.random() * 99); } while (find(selected.root, k));
+  $("key").value = k; doInsert(k);
+};
+$("compare").onchange = e => { compareId = e.target.value; renderTree(); };
+render();
+</script>
+</body>
+</html>

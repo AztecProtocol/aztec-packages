@@ -51,6 +51,8 @@ function netlifyRoutes(origin: string): Record<string, Handler> {
     "/network/operators/full-node/setup": redirect(`${origin}/operate/operators/full-node/setup`),
     "/operate/operators/full-node/setup": send(200, "text/html; charset=UTF-8", "<html></html>"),
     "/developers/overview.md": send(200, "text/markdown; charset=UTF-8", TWIN, { vary: "Accept-Encoding" }),
+    "/developers/docs.md": redirect(`${origin}/developers/docs/foundational-topics.md`),
+    "/developers/docs/foundational-topics.md": send(200, "text/markdown; charset=UTF-8", "# Foundational topics\n"),
     "/developers/overview": (req, res) =>
       req.headers.accept?.includes("text/markdown")
         ? send(200, "text/markdown; charset=utf-8", TWIN, { vary: "Accept-Encoding, Accept" })(req, res)
@@ -94,7 +96,7 @@ test("a site that answers like Netlify passes every check and its commit id is p
   const { origin } = await serve(netlifyRoutes);
   const { code, out } = await run([origin, "--commit", SHA]);
   assert.equal(code, 0, out);
-  assert.equal(out.split("\n").filter((l) => l.startsWith("ok ")).length, 8, out);
+  assert.equal(out.split("\n").filter((l) => l.startsWith("ok ")).length, 9, out);
   assert.match(out, new RegExp(`commit id: ${SHA}`));
 });
 
@@ -109,6 +111,7 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
     "/developers/docs/resources/migration_notes.md": send(200, "text/markdown", "Included versions: none\n"),
     "/commit.txt": send(200, "text/plain", "not a commit\n"),
     "/typescript-api/testnet/llms.txt": redirect(`${o}/typescript-api/mainnet/llms.txt`, 302),
+    "/developers/docs.md": send(404, "text/html; charset=utf-8", "<h1>Page Not Found</h1>"),
   }));
   const { code, out } = await run([origin]);
   assert.equal(code, 1);
@@ -119,6 +122,7 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   assert.match(fail("B4"), /browser request: content-type text\/markdown/);
   assert.match(fail("B5"), /6\.0\.0 not among the included versions/);
   assert.match(fail("B7"), /not a commit id/);
+  assert.match(fail("B9"), /\/developers\/docs\.md: expected 301, got 404/);
   assert.match(fail("B8"), new RegExp(`/typescript-api/testnet/llms\\.txt: redirects to /typescript-api/mainnet/llms\\.txt, expected /typescript-api/${folderOf("testnet")}/llms\\.txt`));
   assert.deepEqual(elsewhere.hits, []);
 });
