@@ -1,55 +1,36 @@
 #pragma once
 
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "unistd.h"
 #include <atomic>
-#include <cstring>
-#include <fcntl.h>
-#include <filesystem>
+#include <cstddef>
 #include <memory>
-#if !defined(__wasm__) && !defined(_WIN32)
-#include <sys/mman.h>
-#endif
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern bool slow_low_memory;
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern size_t storage_budget;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern std::atomic<size_t> current_storage_usage;
 
-// Parse storage size string (e.g., "500m", "2g", "1024k")
-size_t parse_size_string(const std::string& size_str);
+#if !defined(__wasm__) && !defined(_WIN32)
+namespace bb::detail {
+/**
+ * @brief When polynomials are file backed (low memory mode), a new file mapping for count elements of element_size
+ * bytes; otherwise, or when count is 0, null.
+ * @details The mapping reads as zero. The returned pointer owns it: releasing the last reference unmaps it and
+ * returns its bytes to the storage budget (low_memory::storage_budget). Fails rather than falling back to the heap; see
+ * backing_memory.cpp.
+ */
+std::shared_ptr<void> allocate_file_backed(size_t count, size_t element_size);
+} // namespace bb::detail
+#endif
 
+/**
+ * @brief Storage for polynomial coefficients: an aligned heap allocation, or a file mapping (bb::detail::
+ * allocate_file_backed).
+ */
 template <typename Fr> struct BackingMemory {
     // Common raw data pointer used by all storage types
     Fr* raw_data = nullptr;
 
 #if !defined(__wasm__) && !defined(_WIN32)
-    // File-backed data substruct with cleanup metadata
-    struct FileBackedData {
-        size_t file_size;
-        std::string filename;
-        int fd;
-        Fr* raw_data_ptr;
-
-        ~FileBackedData()
-        {
-            if (raw_data_ptr != nullptr && file_size > 0) {
-                munmap(raw_data_ptr, file_size);
-                current_storage_usage.fetch_sub(file_size);
-            }
-            if (fd >= 0) {
-                close(fd);
-            }
-            if (!filename.empty()) {
-                std::filesystem::remove(filename);
-            }
-        }
-    };
-    std::shared_ptr<FileBackedData> file_backed;
+    // Owns the file mapping raw_data points into, if any.
+    std::shared_ptr<void> file_backed;
 #endif
     // Aligned memory data substruct
     std::shared_ptr<Fr[]> aligned_memory;
@@ -82,20 +63,34 @@ template <typename Fr> struct BackingMemory {
         return *this;
     }
 
-    // Allocate memory, preferring file-backed if in low memory mode.
-    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves.
+    // Allocate memory, file-backed in low memory mode (failing rather than falling back to the heap).
+    // Memory is NOT zeroed — callers that need zeroed memory must do so themselves (see is_file_backed).
     static BackingMemory allocate(size_t size)
     {
         BackingMemory memory;
 #if !defined(__wasm__) && !defined(_WIN32)
-        if (slow_low_memory) {
-            if (try_allocate_file_backed(memory, size)) {
-                return memory;
-            }
+        if (auto mapping = bb::detail::allocate_file_backed(size, sizeof(Fr))) {
+            memory.raw_data = static_cast<Fr*>(mapping.get());
+            memory.file_backed = std::move(mapping);
+            return memory;
         }
 #endif
         allocate_aligned(memory, size);
         return memory;
+    }
+
+    /**
+     * @brief Whether raw_data is a file mapping. A newly allocated one reads as zero without being written, so a caller
+     * zeroing new memory skips it: writing the zeros would dirty every page, and a dirty file page must be written back
+     * before it can be reclaimed.
+     */
+    bool is_file_backed() const noexcept
+    {
+#if !defined(__wasm__) && !defined(_WIN32)
+        return file_backed != nullptr;
+#else
+        return false;
+#endif
     }
 
     ~BackingMemory() = default;
@@ -115,75 +110,4 @@ template <typename Fr> struct BackingMemory {
         memory.aligned_memory = std::shared_ptr<Fr[]>(ptr, [](Fr* p) { delete[] p; });
         memory.raw_data = ptr;
     }
-
-#if !defined(__wasm__) && !defined(_WIN32)
-    static bool try_allocate_file_backed(BackingMemory& memory, size_t size)
-    {
-        if (size == 0) {
-            return false;
-        }
-
-        if (size > std::numeric_limits<size_t>::max() / sizeof(Fr)) {
-            return false;
-        }
-
-        size_t required_bytes = size * sizeof(Fr);
-
-        // Check and update storage usage to enforce budget
-        size_t current_usage = current_storage_usage.load();
-        while (true) {
-            if (current_usage + required_bytes > storage_budget) {
-                return false;
-            }
-            if (current_storage_usage.compare_exchange_weak(current_usage, current_usage + required_bytes)) {
-                break;
-            }
-        }
-
-        size_t file_size = required_bytes;
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-
-        std::filesystem::path temp_dir;
-        try {
-            temp_dir = std::filesystem::temp_directory_path();
-        } catch (const std::exception&) {
-            temp_dir = std::filesystem::current_path();
-        }
-
-        std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
-
-        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC | O_EXCL, 0600);
-        if (fd < 0) {
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
-        }
-
-        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            close(fd);
-            std::filesystem::remove(filename);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
-        }
-
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-        if (addr == MAP_FAILED) {
-            close(fd);
-            std::filesystem::remove(filename);
-            current_storage_usage.fetch_sub(required_bytes);
-            return false;
-        }
-
-        auto file_backed_data = std::make_shared<FileBackedData>();
-        file_backed_data->file_size = file_size;
-        file_backed_data->filename = filename;
-        file_backed_data->fd = fd;
-        file_backed_data->raw_data_ptr = static_cast<Fr*>(addr);
-
-        memory.raw_data = static_cast<Fr*>(addr);
-        memory.file_backed = std::move(file_backed_data);
-
-        return true;
-    }
-#endif
 };
