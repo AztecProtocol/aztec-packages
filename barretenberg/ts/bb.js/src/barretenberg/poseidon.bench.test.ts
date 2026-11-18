@@ -20,9 +20,9 @@ interface Mode {
   run(inputs: Uint8Array[], iterations: number): Promise<void> | void;
 }
 
-function asyncModes(name: string, key: string, api: Barretenberg, pipelined: boolean): Mode[] {
+function asyncModes(name: string, key: string, api: Barretenberg): Mode[] {
   const hash = async (inputs: Uint8Array[]) => (await api.poseidon2Hash({ inputs })).hash;
-  const modes: Mode[] = [
+  return [
     {
       name,
       key,
@@ -33,9 +33,7 @@ function asyncModes(name: string, key: string, api: Barretenberg, pipelined: boo
         }
       },
     },
-  ];
-  if (pipelined) {
-    modes.push({
+    {
       name: `${name} Pipelined`,
       key: `${key}_pipelined`,
       hash,
@@ -46,9 +44,8 @@ function asyncModes(name: string, key: string, api: Barretenberg, pipelined: boo
         }
         await Promise.all(promises);
       },
-    });
-  }
-  return modes;
+    },
+  ];
 }
 
 function syncMode(name: string, key: string, api: BarretenbergSync): Mode {
@@ -65,9 +62,9 @@ function syncMode(name: string, key: string, api: BarretenbergSync): Mode {
 }
 
 /**
- * poseidon2Hash over every backend bb.js has in node, against the WASM module on the calling thread:
- * - asynchronous (Barretenberg): WASM, a bb process over a unix socket, and bb's library in-process (napi) on a
- *   native thread; the last two also pipelined, with every call in flight at once;
+ * poseidon2Hash over every backend bb.js has in node, against the WASM module on the calling thread (WASM Sync):
+ * - asynchronous (Barretenberg), each off the calling thread: WASM on a worker, a bb process over a unix socket, and
+ *   bb's library in-process (napi) on a native thread; each also pipelined, with every call in flight at once;
  * - synchronous (BarretenbergSync): WASM, a bb process over shared memory, and bb's library in-process (napi), each
  *   on the calling thread.
  *
@@ -85,16 +82,11 @@ describe('poseidon2Hash benchmark: every backend', () => {
   const benchResults: { name: string; value: number; unit: string }[] = [];
 
   beforeAll(async () => {
-    const newAsync = async (
-      name: string,
-      key: string,
-      options: Parameters<typeof Barretenberg.new>[0],
-      pipelined: boolean,
-    ) => {
+    const newAsync = async (name: string, key: string, options: Parameters<typeof Barretenberg.new>[0]) => {
       try {
         const api = await Barretenberg.new(options);
         asyncApis.push(api);
-        modes.push(...asyncModes(name, key, api, pipelined));
+        modes.push(...asyncModes(name, key, api));
       } catch (error) {
         warnBackendInitialization(name, error);
       }
@@ -108,11 +100,11 @@ describe('poseidon2Hash benchmark: every backend', () => {
         warnBackendInitialization(name, error);
       }
     };
-    await newAsync('WASM', 'wasm', { backend: BackendType.Wasm, threads: 1, skipSrsInit: true }, false);
-    wasm = modes[0];
-    await newAsync('Native Socket', 'socket', { backend: BackendType.NativeUnixSocket, threads: 1 }, true);
-    await newAsync('Napi', 'napi', { backend: BackendType.Napi, skipSrsInit: true }, true);
     await newSync('WASM Sync', 'wasm_sync', { backend: BackendType.Wasm, threads: 1 });
+    wasm = modes[0];
+    await newAsync('WASM', 'wasm', { backend: BackendType.Wasm, threads: 1, skipSrsInit: true });
+    await newAsync('Native Socket', 'socket', { backend: BackendType.NativeUnixSocket, threads: 1 });
+    await newAsync('Napi', 'napi', { backend: BackendType.Napi, skipSrsInit: true });
     await newSync('Native Shared Sync', 'shm_sync', { backend: BackendType.NativeSharedMemory, threads: 1 });
     await newSync('Napi Sync', 'napi_sync', { backend: BackendType.Napi });
   }, 20000);

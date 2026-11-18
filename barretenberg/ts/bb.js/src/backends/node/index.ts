@@ -46,7 +46,7 @@ export async function createAsyncBackend(
       );
 
     case BackendType.Napi:
-      logger('Using napi backend (an instance of the bb library on a worker thread)');
+      logger('Using napi backend (an instance of the bb library on a native thread)');
       return await createBackend({
         backend: 'napi',
         logger: options.logger,
@@ -54,19 +54,14 @@ export async function createAsyncBackend(
       });
 
     case BackendType.Wasm:
-    case BackendType.WasmWorker: {
-      // WasmWorker hosts the module in a worker thread; Wasm runs it on the calling thread, where
-      // every call blocks until bb returns.
-      const worker = type === BackendType.WasmWorker;
-      logger(`Using WASM backend (worker: ${worker})`);
+      logger('Using WASM backend (on a worker)');
       return await createBackend({
         backend: 'wasm',
         threads: options.threads,
         logger: options.logger,
         unref: options.unref,
-        wasm: { module: wasmPath, memory: options.memory, worker },
+        wasm: { module: wasmPath, memory: options.memory },
       });
-    }
 
     default:
       throw new Error(`Unknown backend type: ${type}`);

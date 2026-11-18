@@ -18,18 +18,15 @@ export async function createAsyncBackend(
 ): Promise<IpcClientAsync> {
   switch (type) {
     case BackendType.Wasm:
-    case BackendType.WasmWorker: {
-      const worker = type === BackendType.WasmWorker;
-      logger(`Using WASM backend (worker: ${worker})`);
+      logger('Using WASM backend (on a worker)');
       return await createBackend({
         backend: 'wasm',
         // bb.js's documented behaviour: a page served without COOP/COEP gets the single-threaded
         // module, whatever thread count was asked for.
         threads: sharedMemoryAvailable() ? options.threads : 1,
         logger,
-        wasm: { module: options.wasmPath, memory: options.memory, worker },
+        wasm: { module: options.wasmPath, memory: options.memory },
       });
-    }
 
     default:
       throw new Error(`Unknown backend type: ${type}`);

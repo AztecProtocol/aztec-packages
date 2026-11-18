@@ -40,61 +40,54 @@ const slowUpper =
     return bytes(text(request).toUpperCase());
   };
 
-for (const worker of [false, true]) {
-  const where = worker ? "on a worker" : "on the calling thread";
-
-  test(`a module ${where} waits for an asynchronous host-call answer`, async () => {
-    const backend = await createWasmFfiBackend({
-      module: module(),
-      worker,
-      hostCall: { oracle: slowUpper(() => 20) },
-    });
-    try {
-      assert.equal(text(await backend.call(bytes("hello"))), "HELLO");
-    } finally {
-      await backend.destroy();
-    }
+test("a module waits for an asynchronous host-call answer", async () => {
+  const backend = await createWasmFfiBackend({
+    module: module(),
+    hostCall: { oracle: slowUpper(() => 20) },
   });
+  try {
+    assert.equal(text(await backend.call(bytes("hello"))), "HELLO");
+  } finally {
+    await backend.destroy();
+  }
+});
 
-  test(`calls into a module ${where} run one at a time, each getting its own answer`, async () => {
-    // Earlier requests are answered later, so overlapping calls would get each other's answers.
-    const backend = await createWasmFfiBackend({
-      module: module(),
-      worker,
-      hostCall: { oracle: slowUpper((r) => 40 - 10 * Number(r.at(-1))) },
-    });
-    try {
-      const requests = ["call0", "call1", "call2", "call3"];
-      const answers = await Promise.all(
-        requests.map((r) => backend.call(bytes(r))),
-      );
-      assert.deepEqual(
-        answers.map(text),
-        requests.map((r) => r.toUpperCase()),
-      );
-    } finally {
-      await backend.destroy();
-    }
+test("calls into a module run one at a time, each getting its own answer", async () => {
+  // Earlier requests are answered later, so overlapping calls would get each other's answers.
+  const backend = await createWasmFfiBackend({
+    module: module(),
+    hostCall: { oracle: slowUpper((r) => 40 - 10 * Number(r.at(-1))) },
   });
+  try {
+    const requests = ["call0", "call1", "call2", "call3"];
+    const answers = await Promise.all(
+      requests.map((r) => backend.call(bytes(r))),
+    );
+    assert.deepEqual(
+      answers.map(text),
+      requests.map((r) => r.toUpperCase()),
+    );
+  } finally {
+    await backend.destroy();
+  }
+});
 
-  test(`an asynchronous host-call failure ${where} reaches the module as the host's message`, async () => {
-    const backend = await createWasmFfiBackend({
-      module: module(),
-      worker,
-      hostCall: {
-        oracle: async () => {
-          await sleep(5);
-          throw new Error("no such note");
-        },
+test("an asynchronous host-call failure reaches the module as the host's message", async () => {
+  const backend = await createWasmFfiBackend({
+    module: module(),
+    hostCall: {
+      oracle: async () => {
+        await sleep(5);
+        throw new Error("no such note");
       },
-    });
-    try {
-      assert.equal(text(await backend.call(bytes("x"))), "no such note");
-    } finally {
-      await backend.destroy();
-    }
+    },
   });
-}
+  try {
+    assert.equal(text(await backend.call(bytes("x"))), "no such note");
+  } finally {
+    await backend.destroy();
+  }
+});
 
 test("a synchronous backend takes synchronous answers, and refuses asynchronous ones", async () => {
   const sync = await createWasmFfiBackendSync({

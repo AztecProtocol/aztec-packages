@@ -853,15 +853,12 @@ export interface ${prefix}WasmOptions {
    */
   module?: WasmModuleSource;
   /**
-   * Where a call runs. Default (true) is a dedicated worker, so a long call never blocks the
-   * caller — the right choice for proving, and the only safe one on a browser's main thread.
-   * False runs the module on the calling thread and every call blocks it until the module
-   * returns, which is cheaper per call and fine for short work off the main thread. For short
-   * work *on* the main thread, prefer the synchronous backend, which always runs there. A
-   * ServiceThread (ipc-runtime's createServiceThread()) runs it on that worker, beside the other modules
-   * loaded there, which it can then reach as host-call targets with no message passing.
+   * Where the module runs (asynchronous backend): a ServiceThread (ipc-runtime's createServiceThread()),
+   * beside the other modules loaded there, which it can then reach as host-call targets with no message
+   * passing; default a worker of its own. Either way a call never blocks the caller. To run on the
+   * calling thread, use the synchronous backend.
    */
-  worker?: boolean | ServiceThread;
+  worker?: ServiceThread;
   /**
    * The services the module reaches from inside through its host (\`ipc_runtime.host_call\`), by
    * the target name it calls them by: another module's service (on the same worker, a direct
@@ -1174,12 +1171,11 @@ ${
     ? `
 ## Which thread the work runs on
 
-The caller chooses. An asynchronous wasm backend runs the module in a worker by
-default, so a long call never blocks the caller; \`{ wasm: { worker: false } }\`
-runs it on the calling thread instead, blocking until it returns. The
-synchronous backend always runs on the calling thread, which is what short work
-such as hashing wants, including on a browser's main thread. A spawned process
-is off the caller's thread either way.
+The API chooses. The synchronous backend always runs on the calling thread,
+which is what short work such as hashing wants, including on a browser's main
+thread. An asynchronous backend never does: wasm runs the module in a worker of
+its own, or on the ServiceThread passed as \`{ wasm: { worker } }\`, beside the
+modules already there. A spawned process is off the caller's thread either way.
 `
     : ""
 }

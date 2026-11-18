@@ -4,11 +4,7 @@ import {
   type HostCallAnswer,
   WasmInstanceHost,
 } from "./host.js";
-import {
-  type HostCallTargets,
-  hostCallOn,
-  unwrapTarget,
-} from "./host_call.js";
+import { type HostCallTargets, hostCallOn, unwrapTarget } from "./host_call.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
@@ -73,27 +69,22 @@ export interface WasmFfiBinding {
   platform: WasmPlatform;
   /** Spawn a worker hosting one module instance per wasi thread. */
   createThreadWorker: () => WorkerHandle;
-  /** Spawn the worker hosting the main instance when `worker: true`. */
+  /** Spawn the worker hosting the main instance when no ServiceThread is given. */
   createMainWorker: () => WorkerHandle;
 }
 
 export interface WasmFfiBackendOptions extends WasmFfiOptions {
   /**
-   * Where the main instance runs. Default (true): a dedicated worker, so a long call never blocks
-   * the caller's event loop and, in browsers, the thread pool is spawned from a worker. A
-   * `ServiceThread`: that thread, shared with the other instances loaded on it, which can then be
-   * each other's host-call targets with no message passing between them. False: the calling thread,
-   * and every call blocks it until it returns or waits on a host call.
+   * The ServiceThread the main instance runs on, shared with the other instances loaded there, which
+   * can then be each other's host-call targets with no message passing between them. Default: a
+   * worker of its own. Either way a call never blocks the caller; to run on the calling thread, use
+   * the synchronous backend.
    */
-  worker?: boolean | ServiceThread;
+  worker?: ServiceThread;
   /** Override the worker factories the platform entry binds. */
   createThreadWorker?: () => WorkerHandle;
   createMainWorker?: () => WorkerHandle;
 }
-
-const SERVICE_THREAD = Symbol.for(
-  "@aztec-foundation/ipc-runtime/service-thread",
-);
 
 /** What a worker slot runs: a wasm module's main instance, or an instance of a service's shared library (node). */
 export type WorkerInstanceSource = {
@@ -104,14 +95,6 @@ export type WorkerInstanceSource = {
 /** Something that lives and ends with a ServiceThread (see `attachment`). */
 interface Attachment {
   destroy(): Promise<void>;
-}
-
-export function isServiceThread(value: unknown): value is ServiceThread {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as Record<symbol, unknown>)[SERVICE_THREAD] === true
-  );
 }
 
 /** Above this, more wasi threads stop paying for themselves; the engine clamps to it. */
@@ -455,8 +438,6 @@ function createMemory(
  * needs it, and lives until `destroy()`, which ends every instance on it.
  */
 export class ServiceThread {
-  /** Recognised by brand rather than instanceof, so two copies of this package in one app agree. */
-  readonly [SERVICE_THREAD] = true;
   private nextSlot = 0;
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
@@ -713,8 +694,7 @@ export class ServiceThread {
  */
 export class WasmFfiBackend implements IpcClientAsync {
   private constructor(
-    private readonly engine: WasmFfiEngine | undefined,
-    private readonly worker: ServiceThread | undefined,
+    private readonly worker: ServiceThread,
     private readonly slot: number,
     /** Whether the worker is this backend's alone, ending with it. */
     private readonly ownsWorker: boolean,
@@ -729,28 +709,11 @@ export class WasmFfiBackend implements IpcClientAsync {
       createThreadWorker: opts.createThreadWorker ?? binding.createThreadWorker,
       createMainWorker: opts.createMainWorker ?? binding.createMainWorker,
     };
-    if (opts.worker === false) {
-      return new WasmFfiBackend(
-        await WasmFfiEngine.create(
-          {
-            ...opts,
-            hostCall: hostCallOn(opts.hostCall, syncCallerOf),
-            suspending: true,
-          },
-          bound,
-        ),
-        undefined,
-        -1,
-        false,
-      );
-    }
     // Compile here so the (cached, streaming) compilation happens once and the compiled Module is
     // what crosses to the worker, rather than each side compiling the same bytes.
     const module = await compileWasmModule(opts.module, bound.platform);
-    const ownsWorker = !isServiceThread(opts.worker);
-    const worker = isServiceThread(opts.worker)
-      ? opts.worker
-      : ServiceThread.create(bound);
+    const ownsWorker = opts.worker === undefined;
+    const worker = opts.worker ?? ServiceThread.create(bound);
     try {
       const slot = await worker.load(
         {
@@ -771,7 +734,7 @@ export class WasmFfiBackend implements IpcClientAsync {
         opts.hostCall,
         opts.logger,
       );
-      return new WasmFfiBackend(undefined, worker, slot, ownsWorker);
+      return new WasmFfiBackend(worker, slot, ownsWorker);
     } catch (e) {
       if (ownsWorker) {
         await worker.destroy();
@@ -785,54 +748,22 @@ export class WasmFfiBackend implements IpcClientAsync {
     return this.worker === worker ? this.slot : undefined;
   }
 
-  /**
-   * @internal A synchronous call into the module, when it runs on the calling thread and makes no
-   * host calls (one that does is suspended through them, so it can only be called asynchronously).
-   */
-  syncCaller(): ((input: Uint8Array) => Uint8Array) | undefined {
-    const engine = this.engine;
-    return engine && !engine.suspends
-      ? (input) => engine.call(input)
-      : undefined;
-  }
-
-  /** Calls on the calling thread, chained: a suspended call leaves the thread free for another. */
-  private queue: Promise<unknown> = Promise.resolve();
-
   call(input: Uint8Array): Promise<Uint8Array> {
-    const engine = this.engine;
-    if (!engine) {
-      return this.worker!.call(this.slot, input);
-    }
-    if (!engine.suspends) {
-      try {
-        return Promise.resolve(engine.call(input));
-      } catch (e) {
-        return Promise.reject(e);
-      }
-    }
-    const result = this.queue.then(() => engine.callAsync(input));
-    this.queue = result.catch(() => {});
-    return result;
+    return this.worker.call(this.slot, input);
   }
 
   /** Let the host process exit even while the module's workers are alive (node). */
   unref(): void {
-    this.engine?.unref();
     if (this.ownsWorker) {
-      this.worker?.unref();
+      this.worker.unref();
     }
   }
 
   async destroy(): Promise<void> {
-    if (this.engine) {
-      await this.engine.destroy();
-      return;
-    }
     if (this.ownsWorker) {
-      await this.worker!.destroy();
+      await this.worker.destroy();
     } else {
-      await this.worker!.unload(this.slot);
+      await this.worker.unload(this.slot);
     }
   }
 }
@@ -885,7 +816,6 @@ function syncCallerOf(
   const syncCaller = (backend as { syncCaller?: unknown }).syncCaller;
   return typeof syncCaller === "function"
     ? (syncCaller.call(backend) as
-        | ((request: Uint8Array) => Uint8Array)
-        | undefined)
+        ((request: Uint8Array) => Uint8Array) | undefined)
     : undefined;
 }

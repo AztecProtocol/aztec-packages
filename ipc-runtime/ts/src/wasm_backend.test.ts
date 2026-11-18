@@ -195,24 +195,21 @@ const FIRST_INSTANCE = Buffer.from(
   "base64",
 );
 
-for (const worker of [false, true]) {
-  test(`the main instance ${worker ? "on a worker" : "on the calling thread"} is the one that initializes its shared memory`, async () => {
-    const backend = await createWasmFfiBackend({
-      module: new WebAssembly.Module(FIRST_INSTANCE),
-      moduleMemory: { initial: 4, maximum: 16, shared: true },
-      worker,
-      threads: 2,
-      memory: { initial: 4, maximum: 16 },
-    });
-    try {
-      const reply = await backend.call(Uint8Array.of(0));
-      assert.equal(
-        new DataView(reply.buffer, reply.byteOffset).getUint32(0, true),
-        1,
-        "another instance initialized the memory first, so the main thread's TLS is never set up",
-      );
-    } finally {
-      await backend.destroy();
-    }
+test("the main instance is the one that initializes its shared memory", async () => {
+  const backend = await createWasmFfiBackend({
+    module: new WebAssembly.Module(FIRST_INSTANCE),
+    moduleMemory: { initial: 4, maximum: 16, shared: true },
+    threads: 2,
+    memory: { initial: 4, maximum: 16 },
   });
-}
+  try {
+    const reply = await backend.call(Uint8Array.of(0));
+    assert.equal(
+      new DataView(reply.buffer, reply.byteOffset).getUint32(0, true),
+      1,
+      "another instance initialized the memory first, so the main thread's TLS is never set up",
+    );
+  } finally {
+    await backend.destroy();
+  }
+});

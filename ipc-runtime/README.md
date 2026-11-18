@@ -228,7 +228,7 @@ FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
 
 | Export                        | Role                                                                                     |
 |-------------------------------|------------------------------------------------------------------------------------------|
-| `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
+| `WasmFfiBackend`              | async `IpcClientAsync`; main instance on a worker of its own or a given `ServiceThread`, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
 | `ServiceThread`, `createServiceThread` | a worker thread several service instances share (`worker: <ServiceThread>`), wasm modules or instances of services' shared libraries, so each can reach another directly |
@@ -249,16 +249,16 @@ each target name the module calls to another module's backend, any backend or
 generated service, or a function from request bytes to response bytes, which
 may answer asynchronously.
 
-An asynchronous backend's wasm module (`WasmFfiBackend`, on a service thread
-or on the calling thread) waits for an asynchronous answer through JSPI
-(`WebAssembly.Suspending`/`promising`): the module's stack is suspended until
-the answer settles, with no worker, `SharedArrayBuffer` or cross-origin
-isolation needed. JSPI suspends on every host call, so only a module that
-imports `host_call` is run that way; calls into one module are queued, since
-one suspended mid-call must not be entered again. An engine without JSPI
-fails such a module's load. A napi instance calls its host from a native
-stack, which JSPI can't suspend: on a service thread, the thread waits on a
-shared buffer (`Atomics.wait`) for the owner's answer instead.
+An asynchronous backend never runs on the calling thread; to run there, use
+the synchronous one. Its wasm module (`WasmFfiBackend`, on its worker) waits for
+an asynchronous answer through JSPI (`WebAssembly.Suspending`/`promising`): the
+module's stack is suspended until the answer settles, with no
+`SharedArrayBuffer` or cross-origin isolation needed. JSPI suspends on every
+host call, so only a module that imports `host_call` is run that way; calls
+into one module are queued, since one suspended mid-call must not be entered
+again. An engine without JSPI fails such a module's load. A napi instance calls
+its host from a native stack, which JSPI can't suspend: its native thread
+blocks until the owner's answer arrives instead.
 
 A backend on the same `ServiceThread` is called directly from the thread, with
 no message passing; anything else is called on the thread that created the

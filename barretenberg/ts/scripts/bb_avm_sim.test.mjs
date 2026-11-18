@@ -287,18 +287,14 @@ test("on a shared worker, Simulate reaches wsdb-ref beside it and a contract DB 
   }
 });
 
-test("on the calling thread, the asynchronous service waits on an asynchronous contract DB", async () => {
+test("on workers of their own, the asynchronous services wait on an asynchronous contract DB", async () => {
   const contractDB = fixtureContractDB();
-  const wsdb = await WsdbService.create({
-    backend: "wasm",
-    wasm: { worker: false },
-  });
+  const wsdb = await WsdbService.create({ backend: "wasm" });
   await wsdb.init(GENESIS);
-  // JSPI suspends the AVM's module while this thread answers; wsdb-ref, making no host calls, answers it directly.
+  // JSPI suspends the AVM's module on its worker while this thread answers, from wsdb-ref's worker or the contract DB.
   const avm = await AvmService.create({
     backend: "wasm",
     wasm: {
-      worker: false,
       hostCall: {
         wsdb,
         cdb: async (request) => {

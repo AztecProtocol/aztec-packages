@@ -30,12 +30,11 @@ the generated API itself.
 
 ## Which thread the work runs on
 
-The caller chooses. An asynchronous wasm backend runs the module in a worker by
-default, so a long call never blocks the caller; `{ wasm: { worker: false } }`
-runs it on the calling thread instead, blocking until it returns. The
-synchronous backend always runs on the calling thread, which is what short work
-such as hashing wants, including on a browser's main thread. A spawned process
-is off the caller's thread either way.
+The API chooses. The synchronous backend always runs on the calling thread,
+which is what short work such as hashing wants, including on a browser's main
+thread. An asynchronous backend never does: wasm runs the module in a worker of
+its own, or on the ServiceThread passed as `{ wasm: { worker } }`, beside the
+modules already there. A spawned process is off the caller's thread either way.
 
 ## Entries per host
 

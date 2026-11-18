@@ -48,8 +48,11 @@ export class Barretenberg extends AsyncApi {
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
-   *   1. NativeUnixSocket (if bb binary available)
-   *   2. WasmWorker (in browser) or Wasm (in Node.js)
+   *   1. NativeUnixSocket (node, if the bb binary is available)
+   *   2. Wasm
+   *
+   * Every backend runs off the calling thread: a bb process, or bb in-process on a thread of its own (a worker for
+   * Wasm, a native thread for Napi). For calls on the calling thread, use BarretenbergSync.
    */
   static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? (() => {});
@@ -57,11 +60,7 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (
-        options.backend === BackendType.Wasm ||
-        options.backend === BackendType.WasmWorker ||
-        options.backend === BackendType.Napi
-      ) {
+      if (options.backend === BackendType.Wasm || options.backend === BackendType.Napi) {
         await backend.initInProcess();
       }
       return backend;
@@ -72,16 +71,11 @@ export class Barretenberg extends AsyncApi {
         return new Barretenberg(await createAsyncBackend(BackendType.NativeUnixSocket, options, logger), options);
       } catch (err: any) {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
-        const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
-        await backend.initInProcess();
-        return backend;
       }
-    } else {
-      logger(`In browser, using WASM over worker backend.`);
-      const backend = new Barretenberg(await createAsyncBackend(BackendType.WasmWorker, options, logger), options);
-      await backend.initInProcess();
-      return backend;
     }
+    const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
+    await backend.initInProcess();
+    return backend;
   }
 
   /**
@@ -206,7 +200,7 @@ export class BarretenbergSync extends SyncApi {
    *   3. Wasm
    *
    * Supported backends: Wasm, Napi, NativeSharedMem
-   * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
+   * Not supported: NativeUnixSocket (asynchronous only). Every backend runs on the calling thread.
    */
   static async new(options: BackendOptions = {}) {
     const logger = options.logger ?? (() => {});

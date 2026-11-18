@@ -26,30 +26,25 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
   );
 }
 
-// The wasm transport runs the service's own wasi reactor in-process, with no binary at all.
-// Both the worker-hosted and calling-thread forms, and the synchronous one.
+// The wasm transport runs the service's own wasi reactor in-process, with no binary at all: the
+// asynchronous form on a worker of its own, and the synchronous one on the calling thread.
 if (transportArg === "wasm") {
-  for (const worker of [true, false]) {
-    const wasmService = await EchoService.create({
-      backend: "wasm",
-      wasm: { worker },
-    });
-    try {
-      const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef]);
-      assertBytes((await wasmService.bytes({ data })).data, data, `wasm(worker=${worker}).bytes`);
-      const fields = await wasmService.fields({ a: 1, b: 2, name: "wasm" });
-      assertEqual(fields.name, "wasm", `wasm(worker=${worker}).fields.name`);
-      await wasmService
-        .fail({ message: "boom" })
-        .then(() => {
-          throw new Error(`wasm(worker=${worker}): fail should reject`);
-        })
-        .catch((e: Error) => {
-          if (!e.message.includes("boom")) throw e;
-        });
-    } finally {
-      await wasmService.destroy();
-    }
+  const wasmService = await EchoService.create({ backend: "wasm" });
+  try {
+    const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef]);
+    assertBytes((await wasmService.bytes({ data })).data, data, "wasm.bytes");
+    const fields = await wasmService.fields({ a: 1, b: 2, name: "wasm" });
+    assertEqual(fields.name, "wasm", "wasm.fields.name");
+    await wasmService
+      .fail({ message: "boom" })
+      .then(() => {
+        throw new Error("wasm: fail should reject");
+      })
+      .catch((e: Error) => {
+        if (!e.message.includes("boom")) throw e;
+      });
+  } finally {
+    await wasmService.destroy();
   }
 
   const sync = await EchoServiceSync.create({ backend: "wasm" });
