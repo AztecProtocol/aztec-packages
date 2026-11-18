@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 
 namespace acir_format {
 
@@ -65,7 +66,7 @@ void HonkRecursionConstraintsOutput<Builder>::update_triple_ipa_opening(
 }
 
 template <>
-std::pair<OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>>, HonkProof> HonkRecursionConstraintsOutput<
+std::pair<OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>>, IpaOpeningProofTask<>> HonkRecursionConstraintsOutput<
     UltraCircuitBuilder>::perform_IPA_accumulation(UltraCircuitBuilder& builder) const
 {
     using RecursiveCurve = stdlib::grumpkin<UltraCircuitBuilder>;
@@ -87,14 +88,16 @@ std::pair<OpeningClaim<stdlib::grumpkin<UltraCircuitBuilder>>, HonkProof> HonkRe
 
     CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
     if (accumulators.size() == 2) {
-        return RecursiveIPA::accumulate(commitment_key, std::move(accumulators[0]), std::move(accumulators[1]));
+        return RecursiveIPA::accumulate_deferred(
+            commitment_key, std::move(accumulators[0]), std::move(accumulators[1]));
     }
     if (accumulators.size() == 1) {
-        return RecursiveIPA::prove_accumulator_claim(commitment_key, std::move(accumulators[0]));
+        return RecursiveIPA::prove_accumulator_claim_deferred(commitment_key, std::move(accumulators[0]));
     }
     if (accumulators.empty()) {
         info("Proving with UltraRollupHonk but no IPA claims exist.");
-        return RecursiveIPA::create_random_valid_ipa_claim_and_proof(builder);
+        const auto [poly, x] = RecursiveIPA::sample_random_opening();
+        return RecursiveIPA::create_valid_ipa_claim_deferred(builder, poly, x);
     }
     throw_or_abort("Too many nested IPA accumulators to accumulate");
 }
@@ -111,7 +114,8 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::perform_full_IPA_verif
                  2U,
                  "Root rollup must accumulate two IPA proofs.");
 
-    auto [ipa_claim, ipa_proof] = perform_IPA_accumulation(builder);
+    auto [ipa_claim, ipa_proof_task] = perform_IPA_accumulation(builder);
+    const HonkProof ipa_proof = ipa_proof_task.prove();
 
     // IPA verification
     VerifierCommitmentKey<stdlib::grumpkin<UltraCircuitBuilder>> verifier_commitment_key(
@@ -132,10 +136,14 @@ void HonkRecursionConstraintsOutput<UltraCircuitBuilder>::finalize(UltraCircuitB
         using IO = stdlib::recursion::honk::RollupIO;
 
         // We have multiple IPA claims, we need to accumulate them
-        auto [ipa_claim, ipa_proof] = perform_IPA_accumulation(builder);
+        auto [ipa_claim, ipa_proof_task] = perform_IPA_accumulation(builder);
 
-        // Set proof
-        builder.ipa_proof = ipa_proof;
+        // Nothing reads the proof before the circuit is proven, so it is computed in the background meanwhile
+        if (bb::rollup_experimental_optimizations_enabled()) {
+            builder.set_pending_ipa_proof(std::move(ipa_proof_task).launch());
+        } else {
+            builder.ipa_proof = ipa_proof_task.prove();
+        }
 
         // Propagate pairing points and ipa claim
         IO inputs;

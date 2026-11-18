@@ -3,6 +3,7 @@
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
@@ -632,3 +633,58 @@ TEST(PlookupTests, Sha256InputMultiTablesMatchBasicTableSizes)
         }
     }
 }
+#ifndef __wasm__
+TEST(PlookupTests, SelectedNativeResultsMatchFullProjection)
+{
+    // Each API runs on an independent equal builder, so witness indices and gate state can be compared.
+    for (size_t api = 0; api < 4; ++api) {
+        for (size_t mask = 0; mask < (api == 0 ? 4U : 2U); ++mask) {
+            Builder full_builder;
+            Builder selected_builder;
+            const auto make_key = [](Builder& builder, const fr& value, bool witness) {
+                field_ct key = witness ? field_ct(witness_ct(&builder, value)) : field_ct(&builder, value);
+                // Exercise normalization of a nontrivial affine witness expression.
+                return witness ? key * fr(3) + fr(7) : key;
+            };
+            const auto full_a = make_key(full_builder, fr(12345), (mask & 1U) != 0);
+            const auto selected_a = make_key(selected_builder, fr(12345), (mask & 1U) != 0);
+            const auto full_b = make_key(full_builder, fr(6789), (mask & 2U) != 0);
+            const auto selected_b = make_key(selected_builder, fr(6789), (mask & 2U) != 0);
+            const auto table = api == 0 ? MultiTableId::UINT32_XOR : MultiTableId::KECCAK_FORMAT_INPUT;
+            const auto full = api == 0 ? plookup_read::get_lookup_accumulators(table, full_a, full_b, true)
+                                       : plookup_read::get_lookup_accumulators(table, full_a);
+            const auto compare = [&](const field_ct& expected, const field_ct& actual) {
+                EXPECT_EQ(expected.get_value(), actual.get_value());
+                EXPECT_TRUE(field_ct::witness_indices_match(expected, actual));
+                EXPECT_EQ(expected.is_constant(), actual.is_constant());
+                EXPECT_TRUE(expected.is_normalized());
+                EXPECT_TRUE(actual.is_normalized());
+                EXPECT_EQ(expected.get_origin_tag(), actual.get_origin_tag());
+                EXPECT_EQ(actual.get_context(), &selected_builder);
+            };
+            if (api == 0) {
+                compare(full[ColumnIdx::C3][0], plookup_read::read_from_2_to_1_table(table, selected_a, selected_b));
+            } else if (api == 1) {
+                compare(full[ColumnIdx::C2][0], plookup_read::read_from_1_to_2_table(table, selected_a));
+            } else if (api == 2) {
+                const auto pair = plookup_read::read_pair_from_table(table, selected_a);
+                compare(full[ColumnIdx::C2][0], pair.first);
+                compare(full[ColumnIdx::C3][0], pair.second);
+            } else {
+                const auto pair = plookup_read::read_first_and_last_from_table(table, selected_a);
+                compare(full[ColumnIdx::C2][0], pair.first);
+                compare(full[ColumnIdx::C3].back(), pair.second);
+            }
+            EXPECT_EQ(full_builder.get_variables(), selected_builder.get_variables());
+            EXPECT_EQ(full_builder.num_gates(), selected_builder.num_gates());
+            // The schema records circuit variables, selectors, wires and lookup data.
+            const auto full_circuit = full_builder.export_circuit();
+            const auto selected_circuit = selected_builder.export_circuit();
+            EXPECT_EQ(std::string(full_circuit.data(), full_circuit.size()),
+                      std::string(selected_circuit.data(), selected_circuit.size()));
+            EXPECT_TRUE(CircuitChecker::check(full_builder));
+            EXPECT_TRUE(CircuitChecker::check(selected_builder));
+        }
+    }
+}
+#endif

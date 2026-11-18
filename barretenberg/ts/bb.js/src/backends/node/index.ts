@@ -1,8 +1,8 @@
-import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { createBackend, createBackendSync } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import * as os from 'os';
 
+import { experimentalEnvironment } from '../experimental_optimizations.js';
 import { BackendOptions, BackendType } from '../index.js';
 
 export { findBbBinary } from '@aztec-foundation/bb.js-api';
@@ -14,7 +14,11 @@ const SHM_RING_SIZE = 1024 * 1024 * 4;
 /** Resolve experimental options once, including before a backend fallback. */
 export function resolveExperimentalOptions(options: BackendOptions): BackendOptions {
   const env = experimentalEnvironment(options, process.env);
-  return { ...options, experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1' };
+  return {
+    ...options,
+    experimentalOptimizations: env.BB_EXPERIMENTAL_OPTIMIZATIONS === '1',
+    rollupExperimentalOptimizations: env.ROLLUP_EXPERIMENTAL_OPTIMIZATIONS === '1',
+  };
 }
 
 /**

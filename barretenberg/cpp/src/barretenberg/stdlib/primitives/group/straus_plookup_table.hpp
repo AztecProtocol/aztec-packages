@@ -63,6 +63,11 @@ template <typename Builder> class straus_plookup_table {
     const std::vector<AffineElement>& get_native_table() const { return native_table; }
 
   private:
+#ifndef __wasm__
+    friend class cycle_group<Builder>;
+    cycle_group<Builder> read_with_native_index(const field_t& index, size_t native_index);
+    cycle_group<Builder> read_at_index(const field_t& index, size_t native_index);
+#endif
     Builder* _context = nullptr;
     plookup::BasicTable* _table = nullptr;   // pointer into builder's lookup_tables deque
     std::vector<AffineElement> native_table; // precomputed table entries for witness generation
