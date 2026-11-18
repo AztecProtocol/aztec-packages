@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <vector>
@@ -51,15 +52,16 @@ class WsdbService {
     WsdbService(WsdbService&&) = delete;
     WsdbService& operator=(WsdbService&&) = delete;
 
-    /** Decodes one request, schedules its work and responds when done, possibly from a pool thread. Submissions
-     *  must come from one thread at a time. */
+    /** Decodes one request, schedules its work and responds when done, possibly from a pool thread. Requests may
+     *  be submitted from several threads at once. */
     AsyncDispatchHandler& handler() { return handler_; }
 
-    /** Runs one request in-process and waits for its response. Calls must come from one thread at a time. */
+    /** Runs one request in-process and waits for its response. Safe to call from several threads at once. */
     std::vector<uint8_t> call(std::span<const uint8_t> request);
 
   private:
     WsdbConfig config_;
+    std::mutex init_mutex_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching
     // them onto the same blocking, non-work-stealing pool could deadlock.

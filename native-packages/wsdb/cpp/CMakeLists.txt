@@ -56,7 +56,7 @@ add_subdirectory(${foundation}/ipc-runtime/cpp ${deps}/ipc-runtime)
 # implementation).
 set(wsdb_schema "${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc")
 
-# The generated server dispatch, wire types and typed client from that schema, and
+# The generated server dispatch, FFI entry, wire types and typed client from that schema, and
 # the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
 # regenerated whenever configure runs, which their inputs below trigger.
 execute_process(
@@ -64,6 +64,7 @@ execute_process(
             --schema ${wsdb_schema} --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
             --server --client --cpp-namespace azteclabs::wsdb
             --cpp-include-dir wsdb/generated
+            --ffi --ffi-name aztec_wsdb --ffi-args --ffi-thread-safe
     COMMAND_ERROR_IS_FATAL ANY)
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env "WSDB_FOUNDATION_VERSION=${version}" "${pkg}/scripts/remake-constants.sh"
@@ -89,6 +90,24 @@ set(libs wsdb_ref lmdblib ipc_runtime lmdb pthread)
 add_executable(aztec-wsdb ${sources})
 target_link_libraries(aztec-wsdb PRIVATE ${libs} CLI11::CLI11)
 
+# The same service in-process: libaztec_wsdb, whose aztec_wsdb_ipc_ffi_* entry takes calls from many threads at
+# once (one instance per world state, made with aztec_wsdb_ipc_ffi_create_with_args from the `msgpack run`
+# options). Exports only that entry, so the libraries it links (libc++, wsdb-ref's own entry) stay private.
+set(lib_sources ${sources})
+list(REMOVE_ITEM lib_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp)
+add_library(aztec_wsdb_ffi SHARED EXCLUDE_FROM_ALL ${lib_sources})
+target_link_libraries(aztec_wsdb_ffi PRIVATE ${libs} CLI11::CLI11)
+set_target_properties(aztec_wsdb_ffi PROPERTIES
+    OUTPUT_NAME aztec_wsdb
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
+    CXX_VISIBILITY_PRESET hidden)
+if(NOT APPLE)
+    set(ffi_map "${CMAKE_CURRENT_BINARY_DIR}/aztec_wsdb_ffi.map")
+    file(WRITE ${ffi_map} "{ global: aztec_wsdb_ipc_ffi_*; local: *; };\n")
+    target_link_options(aztec_wsdb_ffi PRIVATE "-Wl,--version-script=${ffi_map}")
+    set_property(TARGET aztec_wsdb_ffi APPEND PROPERTY LINK_DEPENDS ${ffi_map})
+endif()
+
 if(WSDB_BUILD_TESTS)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.13.0 GIT_SHALLOW TRUE)
@@ -99,7 +118,10 @@ if(WSDB_BUILD_TESTS)
 
     list(REMOVE_ITEM sources ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/main.cpp)
     add_executable(wsdb_tests ${sources} ${tests})
-    target_link_libraries(wsdb_tests PRIVATE ${libs} CLI11::CLI11 gmock_main gmock gtest)
+    target_link_libraries(wsdb_tests PRIVATE ${libs} CLI11::CLI11 gmock_main gmock gtest ${CMAKE_DL_LIBS})
+    # The library tests load libaztec_wsdb itself, as a host process does.
+    add_dependencies(wsdb_tests aztec_wsdb_ffi)
+
 
     add_executable(wsdb_bench ${sources} ${benches})
     target_link_libraries(wsdb_bench PRIVATE ${libs} CLI11::CLI11 benchmark::benchmark_main)

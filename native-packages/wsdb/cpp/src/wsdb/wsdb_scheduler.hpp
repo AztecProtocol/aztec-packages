@@ -18,14 +18,16 @@
  * This is the read-batch / write-barrier model: a run of reads proceeds in
  * parallel; the next write is a barrier; reads after it wait for it.
  *
- * Threading: submit_* is called only on the reactor thread (arrival order);
- * work runs on the thread pool; completions re-pump under the lock. The inline
- * read fast path runs reads directly on the reactor thread when nothing is in
- * flight and no further request is pending — so sequential AVM lookups never
- * queue. Writes always run on the pool so slow operations such as history
- * pruning cannot block the reactor from receiving requests on other forks.
- * Lifetime is via shared_from_this so a completion can safely outlive the
- * reactor loop's return.
+ * Threading: submit_* may be called from any thread, concurrently; requests on a
+ * fork are ordered as they take the scheduler's lock. Work runs on the thread
+ * pool; completions re-pump under the lock. The inline read fast path runs a read
+ * directly on its submitting thread when nothing is in flight and no further
+ * request is pending — so sequential AVM lookups never queue. An inline read
+ * counts as in flight on its fork like any other, so a write submitted from
+ * another thread meanwhile waits for it. Writes always run on the pool so slow
+ * operations such as history pruning cannot block a submitter (the IPC reactor)
+ * from receiving requests on other forks. Lifetime is via shared_from_this so a
+ * completion can safely outlive the reactor loop's return.
  */
 
 #include "common/thread_pool.hpp"
@@ -45,7 +47,7 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
   public:
     /**
      * @param has_pending_request Whether another request is already waiting to be read; a read runs inline only
-     *        when this is false and nothing is in flight. Called only on the reactor thread.
+     *        when this is false and nothing is in flight. Called under the scheduler's lock.
      */
     WsdbScheduler(azteclabs::wsdb::ThreadPool& pool, std::function<bool()> has_pending_request)
         : pool_(pool)
@@ -54,10 +56,10 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
 
     // A read on `fork`. Committed reads (independent snapshots) run concurrently
     // with everything; uncommitted reads wait behind an in-flight write on the
-    // same fork. Called only on the reactor thread.
+    // same fork.
     void submit_read(uint64_t fork, bool committed, std::function<void()> work)
     {
-        if (run_inline_if_idle(work)) {
+        if (run_inline_if_idle(fork, committed, work)) {
             return;
         }
         if (committed) {
@@ -71,7 +73,7 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
         pump(fork, lane);
     }
 
-    // A write on `fork`: exclusive on that fork. Called only on the reactor thread.
+    // A write on `fork`: exclusive on that fork.
     void submit_write(uint64_t fork, std::function<void()> work)
     {
         std::lock_guard<std::mutex> lock(mtx_);
@@ -92,16 +94,28 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
         int in_flight_mutating = 0; // of which, writes
     };
 
-    // Fully idle => run a read on the reactor thread, skipping the pool handoff AND the
-    // ordering bookkeeping. Safe because submit_* is reactor-only, so with
-    // nothing in flight this request is alone and ordering is moot.
-    bool run_inline_if_idle(std::function<void()>& work)
+    // Fully idle => run a read on its submitting thread, skipping the pool handoff. It is
+    // claimed under the lock as in flight (and, uncommitted, on its fork's lane), so a
+    // write submitted meanwhile from another thread waits for it like for any other read.
+    bool run_inline_if_idle(uint64_t fork, bool committed, std::function<void()>& work)
     {
-        if (inflight_.load(std::memory_order_acquire) == 0 && !has_pending_request_()) {
-            work();
-            return true;
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            if (inflight_.load(std::memory_order_acquire) != 0 || has_pending_request_()) {
+                return false;
+            }
+            inflight_.fetch_add(1, std::memory_order_relaxed);
+            if (!committed) {
+                lanes_[fork].in_flight++;
+            }
         }
-        return false;
+        work();
+        if (committed) {
+            inflight_.fetch_sub(1, std::memory_order_release);
+        } else {
+            complete(fork, /*mutating=*/false);
+        }
+        return true;
     }
 
     void dispatch_unordered(std::function<void()> work)

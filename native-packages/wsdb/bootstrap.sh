@@ -32,11 +32,11 @@ function generate_ts_package {
     "$@"
 }
 
-# Build the standalone aztec-wsdb binary.
+# Build the standalone aztec-wsdb binary and the in-process library (lib/libaztec_wsdb.so).
 function build_native {
   local build_dir="cpp/build"
   CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
-  cmake --build "$build_dir" --target "$WSDB_BINARY" wsdb_tests wsdb_bench
+  cmake --build "$build_dir" --target "$WSDB_BINARY" aztec_wsdb_ffi wsdb_tests wsdb_bench
 }
 
 # Cross-compile aztec-wsdb for a non-host release platform with zig (cpp/CMakePresets.json).

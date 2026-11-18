@@ -105,6 +105,8 @@ WsdbService::WsdbService(const WsdbConfig& config, std::function<bool()> has_pen
 {
     request_.scheduler = scheduler_.get();
     request_.init = [this](wire::WsdbInit&& init) {
+        // Init may race another Init from a second caller thread; only one may create the world state.
+        std::lock_guard<std::mutex> lock(init_mutex_);
         if (world_state_) {
             throw std::runtime_error("aztec-wsdb already has a world state: Init is sent once");
         }

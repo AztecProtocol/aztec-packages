@@ -91,6 +91,8 @@ interface Args {
   uds: boolean;
   ffi: boolean;
   ffiName: string;
+  ffiArgs: boolean;
+  ffiThreadSafe: boolean;
   stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
 }
@@ -161,6 +163,11 @@ Optional:
                            wasm export a TS package's wasm transport calls). Defaults
                            to the schema's service in snake_case; set it when several
                            implementations serve one schema, so each exports its own
+  --ffi-args               (cpp) Instances are created from command-line style options
+                           (<name>_ipc_ffi_create_with_args), the ones the service's
+                           process takes; the service defines ipc_ffi_create_instance(args)
+  --ffi-thread-safe        (cpp) Declare that one instance takes calls from several threads
+                           at once (<name>_ipc_ffi_thread_safe() returns 1)
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
@@ -197,6 +204,8 @@ function parseArgs(argv: string[]): Args {
     uds: false,
     ffi: false,
     ffiName: "",
+    ffiArgs: false,
+    ffiThreadSafe: false,
     stripMethodPrefix: false,
     stripTypePrefix: false,
   };
@@ -293,6 +302,12 @@ function parseArgs(argv: string[]): Args {
       case "--ffi-name":
         args.ffiName = takeValue();
         break;
+      case "--ffi-args":
+        args.ffiArgs = true;
+        break;
+      case "--ffi-thread-safe":
+        args.ffiThreadSafe = true;
+        break;
       case "--strip-method-prefix":
         args.stripMethodPrefix = true;
         break;
@@ -336,6 +351,10 @@ function parseArgs(argv: string[]): Args {
       `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module ` +
         `through the wasm transport (--package-transports wasm)`,
     );
+    process.exit(1);
+  }
+  if ((args.ffiArgs || args.ffiThreadSafe) && !(args.ffi && args.server && args.lang === "cpp")) {
+    console.error(`--ffi-args and --ffi-thread-safe describe a cpp FFI entry: use them with --ffi --server`);
     process.exit(1);
   }
   if (args.ffi && !args.server && !args.client) {
@@ -916,6 +935,8 @@ function generate(args: Args) {
         namespace: ns,
         prefix,
         ffiName,
+        ffiArgs: args.ffiArgs,
+        ffiThreadSafe: args.ffiThreadSafe,
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
         stripMethodPrefix: stripMethodPrefix,
