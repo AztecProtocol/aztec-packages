@@ -1,9 +1,10 @@
+import { assertExperimentalOptionsMatch } from '../backends/experimental_optimizations.js';
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
-import type { IpcClientAsync } from '@aztec-foundation/ipc-runtime';
+import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime';
 import { isIos } from '@aztec-foundation/ipc-runtime/wasm';
 
 import { BackendOptions, BackendType } from '../backends/index.js';
-import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
+import { createAsyncBackend, createSyncBackend, resolveExperimentalOptions } from '../backends/node/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
@@ -52,6 +53,7 @@ export class Barretenberg extends AsyncApi {
    *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
+    options = resolveExperimentalOptions(options);
     const logger = options.logger ?? (() => {});
 
     if (options.backend) {
@@ -156,13 +158,14 @@ export class Barretenberg extends AsyncApi {
     }
     try {
       barretenbergSingleton = await barretenbergSingletonPromise;
-      return barretenbergSingleton;
     } catch (error) {
       // If initialization fails, clear the singleton so next call can retry
       barretenbergSingleton = undefined;
       barretenbergSingletonPromise = undefined;
       throw error;
     }
+    assertExperimentalOptionsMatch(options, barretenbergSingleton.options);
+    return barretenbergSingleton;
   }
 
   static async destroySingleton() {
@@ -192,6 +195,13 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync> | undefined;
 let barretenbergSyncSingleton: BarretenbergSync | undefined;
 
 export class BarretenbergSync extends SyncApi {
+  constructor(
+    backend: IpcClientSync,
+    private readonly options: BackendOptions = {},
+  ) {
+    super(backend);
+  }
+
   /**
    * Create a new BarretenbergSync instance.
    *
@@ -204,20 +214,21 @@ export class BarretenbergSync extends SyncApi {
    * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
    */
   static async new(options: BackendOptions = {}) {
+    options = resolveExperimentalOptions(options);
     const logger = options.logger ?? (() => {});
 
     if (options.backend) {
-      return new BarretenbergSync(await createSyncBackend(options.backend, options, logger));
+      return new BarretenbergSync(await createSyncBackend(options.backend, options, logger), options);
     }
 
     // Try native, fallback to WASM.
     try {
-      return new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger));
+      return new BarretenbergSync(await createSyncBackend(BackendType.NativeSharedMemory, options, logger), options);
     } catch (err: any) {
       logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
     }
 
-    return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger));
+    return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger), options);
   }
 
   /**
@@ -233,7 +244,6 @@ export class BarretenbergSync extends SyncApi {
 
     try {
       barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
-      return barretenbergSyncSingleton;
     } catch (error) {
       // Clear the failure so the next call can try again, as the asynchronous singleton does.
       // Caching it would make one bad spawn permanent for the life of the process.
@@ -241,6 +251,8 @@ export class BarretenbergSync extends SyncApi {
       barretenbergSyncSingletonPromise = undefined;
       throw error;
     }
+    assertExperimentalOptionsMatch(options, barretenbergSyncSingleton.options);
+    return barretenbergSyncSingleton;
   }
 
   static destroySingleton() {
