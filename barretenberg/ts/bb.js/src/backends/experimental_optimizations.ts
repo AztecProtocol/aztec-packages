@@ -2,7 +2,10 @@ import type { BackendOptions } from './index.js';
 
 /** Resolve startup settings before creating the native process or WASM module. */
 export function experimentalEnvironment(
-  options: Pick<BackendOptions, 'experimentalOptimizations' | 'rollupExperimentalOptimizations'>,
+  options: Pick<
+    BackendOptions,
+    'experimentalOptimizations' | 'rollupExperimentalOptimizations' | 'avmExperimentalOptimizations'
+  >,
   environment: Record<string, string | undefined> = {},
 ): Record<string, string> {
   const resolve = (name: string, explicit: boolean | undefined): string => {
@@ -17,6 +20,7 @@ export function experimentalEnvironment(
   };
   return {
     BB_EXPERIMENTAL_OPTIMIZATIONS: resolve('BB_EXPERIMENTAL_OPTIMIZATIONS', options.experimentalOptimizations),
+    AVM_EXPERIMENTAL_OPTIMIZATIONS: resolve('AVM_EXPERIMENTAL_OPTIMIZATIONS', options.avmExperimentalOptimizations),
     ROLLUP_EXPERIMENTAL_OPTIMIZATIONS: resolve(
       'ROLLUP_EXPERIMENTAL_OPTIMIZATIONS',
       options.rollupExperimentalOptimizations,
@@ -37,5 +41,11 @@ export function assertExperimentalOptionsMatch(requested: BackendOptions, config
     requested.rollupExperimentalOptimizations !== (configured.rollupExperimentalOptimizations ?? false)
   ) {
     throw new Error('Rollup experimental optimizations are already configured; create a new backend to change them');
+  }
+  if (
+    requested.avmExperimentalOptimizations !== undefined &&
+    requested.avmExperimentalOptimizations !== (configured.avmExperimentalOptimizations ?? false)
+  ) {
+    throw new Error('AVM experimental optimizations are already configured; create a new backend to change them');
   }
 }

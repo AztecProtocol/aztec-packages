@@ -6,6 +6,7 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
@@ -91,6 +92,7 @@ void update_effects_counters(const TxSimulationResult& result)
 
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
+    bb::initialize_experimental_optimizations();
     // Zero all counters
     memset(enqueued_calls_counter, 0, sizeof(enqueued_calls_counter));
     memset(public_data_writes_counter, 0, sizeof(public_data_writes_counter));

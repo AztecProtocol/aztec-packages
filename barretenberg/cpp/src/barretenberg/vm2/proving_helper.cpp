@@ -27,8 +27,9 @@ AvmProvingHelper::Proof AvmProvingHelper::prove(tracegen::TraceContainer&& trace
 
     auto verification_key = std::make_shared<AvmVerifier::VerificationKey>();
 
-    auto prover = AVM_TRACK_TIME_V("proving/prove:construct_prover",
-                                   AvmProver(proving_key, verification_key, proving_key->commitment_key));
+    auto prover =
+        AVM_TRACK_TIME_V("proving/prove:construct_prover",
+                         AvmProver(proving_key, verification_key, proving_key->commitment_key, memory_optimizations));
 
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
 

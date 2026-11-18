@@ -23,7 +23,8 @@ class AvmProver {
 
     explicit AvmProver(std::shared_ptr<ProvingKey> input_proving_key,
                        std::shared_ptr<VerificationKey> vk,
-                       const PCSCommitmentKey& commitment_key);
+                       const PCSCommitmentKey& commitment_key,
+                       bool memory_optimizations = false);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
 
