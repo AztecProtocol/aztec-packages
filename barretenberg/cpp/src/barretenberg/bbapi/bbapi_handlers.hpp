@@ -171,4 +171,7 @@ void handle_srs_init_grumpkin_srs(BBApiRequest& ctx,
                                   wire::BbSrsInitGrumpkinSrs&& cmd,
                                   Responder<wire::BbSrsInitGrumpkinSrsResponse> respond);
 void handle_warmup(BBApiRequest& ctx, wire::BbWarmup&& cmd, Responder<wire::BbWarmupResponse> respond);
+void handle_low_memory_configure(BBApiRequest& ctx,
+                                 wire::BbLowMemoryConfigure&& cmd,
+                                 Responder<wire::BbLowMemoryConfigureResponse> respond);
 } // namespace bb::bbapi
