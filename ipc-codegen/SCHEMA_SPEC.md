@@ -244,11 +244,13 @@ payload in a buffer from `<svc>_ipc_ffi_alloc()` that the caller releases with
 hands over are allocated the same way when the caller lives outside the
 module's memory (wasm).
 
-An instance is what a connection is over a transport: `_create` makes one with
-a context of its own (null if the service cannot), `_call` runs one request on
-it, and `_destroy` ends it once no call on it is running. Calls on one instance
-must not overlap, and the caller serializes them. Calls on different instances
-may run concurrently, on any threads, so a service's instances share no mutable
+An instance is one context of the service: a server process holds one, which
+every connection to it shares, and `_create` makes one in-process (null if the
+service cannot). `_call` runs one request on it, and `_destroy` ends it once no
+call on it is running. Calls on one instance must not overlap, and the caller
+serializes them, unless the service documents that its instances take calls
+from many threads at once (aztec-wsdb's do). Calls on different instances may
+run concurrently, on any threads, so a service's instances share no mutable
 state. Every generator emits all of them: in C++ the service defines
 `ipc_ffi_create_instance()`, in Rust and Zig each instance is a `Default`
 (`.{}`) handler of the given type. Each generated FFI client backend makes an
