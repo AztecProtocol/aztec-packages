@@ -35,7 +35,6 @@
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
@@ -511,20 +510,7 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
         throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
                        std::to_string(bytes_per_point));
     }
-    // In low memory mode with file backing the points are decoded into a file mapping, which counts against the
-    // storage budget; otherwise into a heap vector.
-    std::shared_ptr<void> storage;
-#if !defined(__wasm__) && !defined(_WIN32)
-    storage = bb::detail::allocate_file_backed(num_points, sizeof(g1::affine_element));
-#endif
-    std::span<g1::affine_element> g1_points;
-    if (storage) {
-        g1_points = { static_cast<g1::affine_element*>(storage.get()), num_points };
-    } else {
-        auto heap_points = std::make_shared<std::vector<g1::affine_element>>(num_points);
-        g1_points = *heap_points;
-        storage = std::move(heap_points);
-    }
+    std::vector<g1::affine_element> g1_points(num_points);
     std::vector<uint8_t> uncompressed_out;
 
     if (bytes_per_point == UNCOMPRESSED_POINT_SIZE) {
@@ -584,7 +570,7 @@ void handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::BbSrsInitSrs&& cmd, Respon
     }
 
     // The G1 points are checked against the pinned chunk hashes when a verification key is computed from them.
-    bb::srs::init_bn254_mem_crs_factory(std::move(storage), g1_points, g2_point_elem);
+    bb::srs::init_bn254_mem_crs_factory(std::move(g1_points), g2_point_elem);
     respond.ok({ .points_buf = std::move(uncompressed_out) });
 }
 void handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/,

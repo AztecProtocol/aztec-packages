@@ -32,16 +32,6 @@ void init_bn254_mem_crs_factory(std::vector<g1::affine_element> points, g2::affi
     bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(points), g2_point);
 }
 
-void init_bn254_mem_crs_factory(std::shared_ptr<const void> storage,
-                                std::span<const g1::affine_element> points,
-                                g2::affine_element const& g2_point)
-{
-    if (bn254_crs_factory != nullptr) {
-        return;
-    }
-    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(storage), points, g2_point);
-}
-
 void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points)
 {
     grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(points);

@@ -68,11 +68,8 @@ struct Applied {
  * Memory keeps the kind it was allocated with: polynomials allocated while the mode was on stay file backed, and a
  * CRS loaded while it was off stays on the heap, until freed.
  *
- * Points passed in through bbapi's SrsInitSrs while the mode is on go to a file mapping, like a polynomial, and count
- * against storage_budget.
- *
  * Turning the mode on first checks that a file can be created and mapped in the storage directory. If not (missing,
- * read-only, or on tmpfs), polynomials and SrsInitSrs points stay on the heap and the rest of the mode still turns on;
+ * read-only, or on tmpfs), polynomials stay on the heap and the rest of the mode still turns on;
  * setup problems never abort. Android has no usable temp directory by default, so an Android host passes a writable
  * storage_directory. Heap trimming acts on glibc's malloc only: nothing trims the heap on Apple platforms or Android.
  *

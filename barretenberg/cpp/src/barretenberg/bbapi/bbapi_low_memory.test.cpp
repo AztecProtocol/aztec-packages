@@ -1,15 +1,9 @@
 #include "barretenberg/bbapi/ffi_test_dispatch.hpp"
 #include "barretenberg/common/low_memory.hpp"
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/polynomials/backing_memory.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/srs/factories/bn254_crs_data.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include <cstdlib>
 #include <gtest/gtest.h>
 
-// Both cases are death tests, which gtest does not provide on wasm.
+// The cases are death tests, which gtest does not provide on wasm.
 #if !defined(BB_NO_EXCEPTIONS) && GTEST_HAS_DEATH_TEST
 
 using namespace bb::bbapi;
@@ -71,56 +65,5 @@ TEST(LowMemoryConfigureDeathTest, RejectedWhileAChonkProofIsInProgress)
         ::testing::ExitedWithCode(0),
         "");
 }
-
-#if !defined(_WIN32)
-// Exit codes name the first check that failed.
-int crs_given_through_bbapi()
-{
-    constexpr size_t num_points = 16;
-    auto configured = ffi_call(wire::BbLowMemoryConfigure{ .mode = "on",
-                                                           .storage_budget = std::nullopt,
-                                                           .storage_directory = std::nullopt,
-                                                           .automatic_threshold = std::nullopt });
-    if (configured.is_error() ||
-        !configured.payload().as<wire::BbLowMemoryConfigureResponse>().file_backed_polynomials) {
-        return 1;
-    }
-    // Successive doublings of the generator: distinct points, so the MSM below meets no edge case.
-    std::vector<bb::g1::affine_element> points;
-    std::vector<uint8_t> points_buf;
-    bb::g1::element point = bb::g1::one;
-    for (size_t i = 0; i < num_points; ++i) {
-        points.emplace_back(point);
-        const auto bytes = to_buffer(points.back());
-        points_buf.insert(points_buf.end(), bytes.begin(), bytes.end());
-        point = point.dbl();
-    }
-    const size_t usage_before = current_storage_usage.load();
-    auto initialized = ffi_call(wire::BbSrsInitSrs{ .points_buf = std::move(points_buf),
-                                                    .num_points = static_cast<uint32_t>(num_points),
-                                                    .g2_point = to_buffer(bb::srs::get_bn254_g2_crs_element()) });
-    if (initialized.is_error()) {
-        return 2;
-    }
-    // The points live in a file mapping, which counts against the storage budget.
-    if (current_storage_usage.load() - usage_before != num_points * sizeof(bb::g1::affine_element)) {
-        return 3;
-    }
-    auto crs_points = bb::srs::get_bn254_crs_factory()->get_crs(num_points)->get_monomial_points();
-    auto scalars = bb::Polynomial<bb::fr>::random(num_points);
-    bb::g1::element expected = bb::g1::point_at_infinity;
-    for (size_t i = 0; i < num_points; ++i) {
-        expected += points[i] * scalars[i];
-    }
-    const auto commitment = bb::scalar_multiplication::pippenger<bb::curve::BN254>(scalars, crs_points);
-    return commitment == expected ? 0 : 4;
-}
-
-TEST(LowMemoryConfigureDeathTest, CrsGivenThroughBbapiIsFileBacked)
-{
-    GTEST_FLAG_SET(death_test_style, "threadsafe");
-    EXPECT_EXIT(std::_Exit(crs_given_through_bbapi()), ::testing::ExitedWithCode(0), "");
-}
-#endif
 
 #endif

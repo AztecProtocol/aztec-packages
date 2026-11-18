@@ -111,7 +111,7 @@ This trades proving speed for lower memory usage: proving is typically 10-20% sl
 
 The scratch files go in the temp directory (`TMPDIR`). When low memory mode turns on, `bb` checks once that it can create and map a file there. If it cannot (the directory is missing or read-only, or is on tmpfs, whose files are memory), `bb` logs one line and keeps polynomials in RAM; the rest of the mode stays on. Point `TMPDIR` at a directory on a disk filesystem to avoid that. After a successful check, a full disk or an exceeded `--storage_budget` still fails the proof.
 
-Low memory mode maps the BN254 CRS from a file when `bb` loads it from a directory (`--crs_path`). Points handed to bb.js or another bbapi host through `SrsInitSrs` go to a scratch file, counted against the storage budget, when the mode is on before `SrsInitSrs` runs; a CRS loaded before the mode is turned on stays in RAM.
+Low memory mode maps the BN254 CRS from a file when `bb` loads it from a directory (`--crs_path`). A CRS loaded before the mode is turned on, or handed to bb.js or another bbapi host through `SrsInitSrs`, stays in RAM.
 
 #### From a bbapi host
 

@@ -4,7 +4,6 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <filesystem>
 #include <memory>
-#include <span>
 
 namespace bb::srs {
 // Path to ~/.bb-crs where we store the downloaded crs files
@@ -22,10 +21,6 @@ inline void init_file_crs_factory(const std::filesystem::path& path)
 // Initializes the crs using memory buffers
 void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points);
 void init_bn254_mem_crs_factory(std::vector<bb::g1::affine_element> points, bb::g2::affine_element const& g2_point);
-/** @brief As above, serving points held by storage (a heap vector or a file mapping), which must keep them alive. */
-void init_bn254_mem_crs_factory(std::shared_ptr<const void> storage,
-                                std::span<const bb::g1::affine_element> points,
-                                bb::g2::affine_element const& g2_point);
 
 // Initializes the crs using files if available, otherwise using the network
 void init_grumpkin_net_crs_factory(const std::filesystem::path& path);
