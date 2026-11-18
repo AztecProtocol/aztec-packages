@@ -388,7 +388,7 @@ async function simulateOnSharedThread(wsdbBackend, avmBackend) {
   }
 }
 
-test("napi instances and wasm modules share a thread in any combination, with the same result", async () => {
+test("napi instances and wasm modules on one ServiceThread, in any combination, give the same result", async () => {
   const reference = await simulateOnSharedThread("wasm", "wasm");
   assert.ok(reference.added > 0);
   for (const [wsdbBackend, avmBackend] of [

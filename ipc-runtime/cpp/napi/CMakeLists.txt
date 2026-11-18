@@ -35,6 +35,7 @@ string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})
 add_library(ipc_runtime_napi SHARED
   init.cpp
   ffi_library.cpp
+  service_thread.cpp
   msgpack_client_wrapper.cpp
   msgpack_client_async.cpp
 )

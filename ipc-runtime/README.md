@@ -259,20 +259,25 @@ no message passing; anything else is called on the thread that created the
 backend. A module only reaches modules loaded before it, so siblings cannot
 call round in a cycle. The instances on one thread run one call at a time, so a
 handler on the owning thread must not wait on an instance of the same thread,
-which cannot run until the handler answers. A napi instance's siblings must
-answer it synchronously. `WasmFfiBackendSync` and napi instances on the
-calling thread take only synchronous answers.
+which cannot run until the handler answers. `WasmFfiBackendSync` and napi
+instances on the calling thread take only synchronous answers.
 
 `NapiFfiBackend` and `NapiFfiBackendSync` (main entry, node only) run a
 service's shared library, loaded by this package's Node-API addon
 (`loadNapiFfiLibrary`). A library that exports instances (`_create`, `_call`,
 `_destroy`, `_set_host_call`; see the FFI section of `SCHEMA_SPEC.md`) gets one
 instance per backend through `instance()`, which takes the same `worker` and
-`hostCall` options as a wasm module: the instance runs on a `ServiceThread`,
-or on the calling thread for the sync backend, and its host calls are routed
-the same way. Wasm modules and napi instances can share one thread and call
-each other in either direction. A library without instances has one process
-wide context, called on the libuv pool.
+`hostCall` options as a wasm module. The async backend's instance runs on a
+native thread, `NapiServiceThread`: its own, or the one a `ServiceThread`
+keeps beside its wasm worker for napi instances. No JS runs there, so a call
+costs one wake of that thread and one of the event loop, and calls in flight
+together settle in batches. Napi instances on one native thread reach each
+other directly; any other host call is answered on the event loop while the
+native thread blocks. `IPC_NAPI_SPIN_US` makes the thread spin that long for
+the next call before it sleeps, saving a wake for calls made back to back at
+the cost of that CPU time. The sync backend's instance runs on the calling
+thread. A library without instances has one process wide context, called on
+the libuv pool.
 
 ### Zig (`zig/`)
 
