@@ -34,6 +34,7 @@ string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})
 add_library(ipc_runtime_napi SHARED
   init.cpp
   ffi_library.cpp
+  service_thread.cpp
   msgpack_client_wrapper.cpp
 )
 # Pin the output location so the addon lands at <build>/lib/ipc_runtime_napi.node

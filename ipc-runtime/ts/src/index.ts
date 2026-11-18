@@ -37,6 +37,7 @@ export {
   NapiFfiBackendSync,
   NapiInstanceBackend,
   NapiInstanceBackendSync,
+  NapiServiceThread,
   loadNapiFfiLibrary,
 } from "./napi_ffi.js";
 export {

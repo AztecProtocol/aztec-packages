@@ -1044,7 +1044,7 @@ export const ARCH_PACKAGE_STEM = '${packageStem(this.opts.packageName)}';
   NapiFfiBackendSync,
   loadNapiFfiLibrary,
 } from '@aztec-foundation/ipc-runtime';
-import { type HostCallTargets, type ServiceThread, createServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
+import type { HostCallTargets, ServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
 import { ${findLibrary} } from './platform.js';
 
 /**
@@ -1056,9 +1056,9 @@ export interface ${prefix}NapiOptions {
   /** The library to load instead of the installed one (else \`${this.opts.napiLibraryEnvVar}\`, else the arch package). */
   libraryPath?: string;
   /**
-   * Where the instance runs (asynchronous backend): a ServiceThread (ipc-runtime's createServiceThread())
-   * shared with the instances loaded there, wasm modules or napi instances, which it can then reach
-   * as host-call targets synchronously; default a worker of its own.
+   * Where the instance runs (asynchronous backend): the native thread of a ServiceThread (ipc-runtime's
+   * createServiceThread()), shared with the napi instances loaded there, which it can then reach as
+   * host-call targets directly; default a native thread of its own.
    */
   worker?: ServiceThread;
   /** The services the service reaches through its host (\`ipc_runtime.host_call\`), by target name. */
@@ -1076,17 +1076,19 @@ function resolveLibrary(options: ${prefix}NapiOptions): string {
   return libraryPath;
 }
 
-/** The service in-process through its library: an instance of its own on a worker, if the library has instances. */
+/** The service in-process through its library: an instance of its own on a native thread, if the library has instances. */
 export async function createNapiBackend(options: ${prefix}NapiOptions = {}): Promise<IpcClientAsync> {
   const libraryPath = resolveLibrary(options);
   const library = loadNapiFfiLibrary(libraryPath, '${ffiName}');
   if (!library.hasInstances) {
     return new NapiFfiBackend(library);
   }
-  return NapiFfiBackend.instance(
-    { libraryPath, ffiName: '${ffiName}', worker: options.worker, hostCall: options.hostCall },
-    createServiceThread,
-  );
+  return NapiFfiBackend.instance({
+    libraryPath,
+    ffiName: '${ffiName}',
+    worker: options.worker,
+    hostCall: options.hostCall,
+  });
 }
 
 /** The synchronous form: an instance of its own on, and blocking, the calling thread. */
@@ -1110,7 +1112,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): IpcCl
       process &&
         `- \`'process'\`: spawns the \`${this.opts.binaryName}\` binary (node) and talks to it over ${[this.uds && "a unix socket (the asynchronous form)", this.shm && "shared memory (the synchronous form)"].filter(Boolean).join(" and ")}. The binary is resolved from \`${this.opts.binaryEnvVar}\`, an explicit \`process.binaryPath\`, or the installed arch package (one of this package's optional dependencies).`,
       napi &&
-        `- \`'napi'\`: runs the service in-process (node) from its shared library, \`${this.opts.napiLibrary}\`, which exports the service's FFI entry; \`@aztec-foundation/ipc-runtime\`'s Node-API addon loads it and calls the entry. Each backend gets an instance of the service of its own: the asynchronous backend's runs on a worker (its own, or the shared \`napi.worker\`, where it can reach the instances beside it as host-call targets), and the synchronous backend's on the calling thread. \`napi.hostCall\` names the services it reaches through its host. The library is resolved from \`${this.opts.napiLibraryEnvVar}\`, an explicit \`napi.libraryPath\`, or the installed arch package.`,
+        `- \`'napi'\`: runs the service in-process (node) from its shared library, \`${this.opts.napiLibrary}\`, which exports the service's FFI entry; \`@aztec-foundation/ipc-runtime\`'s Node-API addon loads it and calls the entry. Each backend gets an instance of the service of its own: the asynchronous backend's runs on a native thread (its own, or that of the shared \`napi.worker\`, where it can reach the napi instances beside it as host-call targets), and the synchronous backend's on the calling thread. \`napi.hostCall\` names the services it reaches through its host. The library is resolved from \`${this.opts.napiLibraryEnvVar}\`, an explicit \`napi.libraryPath\`, or the installed arch package.`,
       wasm &&
         `- \`'wasm'\`: runs the service's wasm module in-process (node and browsers) through \`@aztec-foundation/ipc-runtime/wasm\`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with \`new URL(..., import.meta.url)\`, so bundlers emit them as chunks and assets of the application, and only the module actually chosen is ever fetched (Vite users: exclude the package from \`optimizeDeps\`). The module ships uncompressed, which is what lets the browser stream it into \`WebAssembly.compileStreaming\` and cache the compiled code between visits; serve it with your host's own compression. Where that is not possible, \`wasm.module\` takes a compressed copy — or bytes, a \`Response\`, or an already compiled \`Module\`.`,
       `- an object: anything with \`call(bytes)\`/\`destroy()\`, for a transport of your own (a bridge to a natively linked library, for instance).`,

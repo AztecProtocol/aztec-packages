@@ -6,8 +6,6 @@ import {
 } from "./host.js";
 import {
   type HostCallTargets,
-  answerHostCall,
-  createHostCallChannel,
   hostCallOn,
   unwrapTarget,
 } from "./host_call.js";
@@ -98,12 +96,15 @@ const SERVICE_THREAD = Symbol.for(
 );
 
 /** What a worker slot runs: a wasm module's main instance, or an instance of a service's shared library (node). */
-export type WorkerInstanceSource =
-  | {
-      module: WebAssembly.Module;
-      options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">;
-    }
-  | { napi: { libraryPath: string; ffiName: string } };
+export type WorkerInstanceSource = {
+  module: WebAssembly.Module;
+  options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">;
+};
+
+/** Something that lives and ends with a ServiceThread (see `attachment`). */
+interface Attachment {
+  destroy(): Promise<void>;
+}
 
 export function isServiceThread(value: unknown): value is ServiceThread {
   return (
@@ -442,15 +443,16 @@ function createMemory(
 }
 
 /**
- * A worker thread hosting service instances, each in a slot of its own: wasm modules' main
- * instances, and instances of napi addons (node). The instances on one thread run one call at a
- * time between them, and an instance can reach another as a host-call target directly. Handlers of
- * the owner's own answer by message to a wasm module, suspended (JSPI) until the answer arrives,
- * and through a shared channel to a napi instance, whose thread blocks for it.
+ * A thread hosting service instances, each in a slot of its own: wasm modules' main instances on a
+ * worker, and instances of services' shared libraries (napi, node) on a native thread beside it.
+ * The instances on one thread run one call at a time between them, and an instance can reach
+ * another on the same thread as a host-call target directly. Handlers of the owner's own answer a
+ * wasm module by message, the module suspended (JSPI) until the answer arrives, and a napi instance
+ * from the owner's event loop while its native thread blocks.
  *
  * An instance is loaded with `WasmFfiBackend.create({ worker })` or
- * `NapiFfiBackend.instance({ worker })`; the thread lives until `destroy()`, which ends every
- * instance on it.
+ * `NapiFfiBackend.instance({ worker })`. Each kind of thread starts with the first instance that
+ * needs it, and lives until `destroy()`, which ends every instance on it.
  */
 export class ServiceThread {
   /** Recognised by brand rather than instanceof, so two copies of this package in one app agree. */
@@ -464,32 +466,46 @@ export class ServiceThread {
     number,
     Map<string, (request: Uint8Array) => Promise<Uint8Array>>
   >();
+  private readonly attachments = new Map<symbol, Attachment>();
+  private workerHandle: WorkerHandle | undefined;
+  private unrefed = false;
   private destroyed = false;
 
-  private constructor(
-    private readonly worker: WorkerHandle,
-    /**
-     * Where a napi instance, blocked on its native stack, gets the owner's answers. Absent where
-     * SharedArrayBuffer is (a page that is not cross-origin isolated), which has no napi either.
-     */
-    private readonly channel: SharedArrayBuffer | undefined,
-    readonly binding: WasmFfiBinding,
-  ) {
-    worker.onMessage((msg) => this.onMessage(msg));
-    worker.onError((err) => this.failAll(err));
+  private constructor(readonly binding: WasmFfiBinding) {}
+
+  /** A thread for instances; nothing is spawned until one is loaded. */
+  static create(binding: WasmFfiBinding): ServiceThread {
+    return new ServiceThread(binding);
   }
 
-  /** Spawn the worker; nothing runs on it until a module is loaded. */
-  static create(binding: WasmFfiBinding): ServiceThread {
-    const channel =
-      typeof SharedArrayBuffer === "undefined"
-        ? undefined
-        : createHostCallChannel();
-    const worker = binding.createMainWorker();
-    if (channel) {
-      worker.postMessage({ type: "channel", channel });
+  /** The worker the wasm modules run on, spawned with the first. */
+  private get worker(): WorkerHandle {
+    if (!this.workerHandle) {
+      const worker = this.binding.createMainWorker();
+      worker.onMessage((msg) => this.onMessage(msg));
+      worker.onError((err) => this.failAll(err));
+      if (this.unrefed) {
+        worker.unref();
+      }
+      this.workerHandle = worker;
     }
-    return new ServiceThread(worker, channel, binding);
+    return this.workerHandle;
+  }
+
+  /**
+   * @internal Something living and ending with this thread under `key`, made by `create` the first
+   * time it is asked for: the native thread its napi instances run on.
+   */
+  attachment<T extends Attachment>(key: symbol, create: () => T): T {
+    if (this.destroyed) {
+      throw new Error("service thread destroyed");
+    }
+    let attached = this.attachments.get(key);
+    if (!attached) {
+      attached = create();
+      this.attachments.set(key, attached);
+    }
+    return attached as T;
   }
 
   /** @internal Load a module into a new slot; host-call targets are already described for it. */
@@ -580,7 +596,7 @@ export class ServiceThread {
       case "host-call":
         void this.answer(
           msg.slot,
-          msg.blocking ? undefined : msg.id,
+          msg.id,
           msg.target,
           new Uint8Array(msg.request),
         );
@@ -613,13 +629,10 @@ export class ServiceThread {
     }
   }
 
-  /**
-   * Run the owner's handler for an instance's host call and send the answer to it: by message to a
-   * suspended wasm module (`id`), or through the channel to a blocked napi instance.
-   */
+  /** Run the owner's handler for a module's host call and send the answer to the suspended module. */
   private async answer(
     slot: number,
-    id: number | undefined,
+    id: number,
     target: string,
     request: Uint8Array,
   ): Promise<void> {
@@ -636,13 +649,6 @@ export class ServiceThread {
       bytes = new TextEncoder().encode(
         e instanceof Error ? e.message : String(e),
       );
-    }
-    if (id === undefined) {
-      if (!this.channel) {
-        throw new Error("a blocking host call needs SharedArrayBuffer");
-      }
-      answerHostCall(this.channel, status, bytes);
-      return;
     }
     // A private copy to transfer, for the reason `call` makes one.
     const copy = new Uint8Array(bytes.byteLength);
@@ -665,27 +671,38 @@ export class ServiceThread {
     this.loading.clear();
   }
 
-  /** Let the host process exit even while the worker is alive (node). */
+  /**
+   * Let the host process exit even while the worker is alive (node). A napi instance's native
+   * thread holds the process only while a call to it is in flight anyway.
+   */
   unref(): void {
-    this.worker.unref();
+    this.unrefed = true;
+    this.workerHandle?.unref();
   }
 
-  /** End the worker and every module on it. */
+  /** End the worker and the native thread, and every instance on them. */
   async destroy(): Promise<void> {
     if (this.destroyed) {
       return;
     }
+    this.destroyed = true;
+    const attachments = [...this.attachments.values()];
+    this.attachments.clear();
+    await Promise.all(attachments.map((a) => a.destroy()));
+    const worker = this.workerHandle;
+    if (!worker) {
+      return;
+    }
     const done = new Promise<void>((resolve) => {
-      this.worker.onMessage((msg) => {
+      worker.onMessage((msg) => {
         if (msg?.type === "destroyed") {
           resolve();
         }
       });
     });
-    this.worker.postMessage({ type: "destroy" });
+    worker.postMessage({ type: "destroy" });
     await Promise.race([done, new Promise((r) => setTimeout(r, 2000))]);
-    this.destroyed = true;
-    await this.worker.terminate();
+    await worker.terminate();
     this.failAll(new Error("wasm backend destroyed"));
   }
 }
