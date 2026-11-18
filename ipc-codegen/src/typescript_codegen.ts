@@ -579,10 +579,12 @@ export interface IpcClientAsync {
   destroy(): Promise<void>;
 }
 
+const encoder = new Encoder({ useRecords: false, variableMapSize: true });
+const decoder = new Decoder({ useRecords: false });
+
 async function msgpackCall(backend: IpcClientAsync, input: any[]) {
-  const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
-  const encodedResult = await backend.call(inputBuffer);
-  return new Decoder({ useRecords: false }).unpack(encodedResult);
+  const encodedResult = await backend.call(encoder.pack(input));
+  return decoder.unpack(encodedResult);
 }
 
 export class AsyncApi implements AsyncApiBase {
@@ -612,13 +614,22 @@ ${imports}
 
 export interface IpcClientSync {
   call(input: Uint8Array): Uint8Array;
+  /** Like call, but the returned bytes are only valid until the next call. */
+  callTransient?(input: Uint8Array): Uint8Array;
   destroy(): void;
 }
 
+const encoder = new Encoder({ useRecords: false, variableMapSize: true });
+const decoder = new Decoder({ useRecords: false });
+// A transient response is overwritten by the next call, so decoded binary fields must be copies, not views of it.
+const transientDecoder = new Decoder({ useRecords: false, copyBuffers: true });
+
 function msgpackCall(backend: IpcClientSync, input: any[]) {
-  const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
-  const encodedResult = backend.call(inputBuffer);
-  return new Decoder({ useRecords: false }).unpack(encodedResult);
+  const inputBuffer = encoder.pack(input);
+  if (backend.callTransient) {
+    return transientDecoder.unpack(backend.callTransient(inputBuffer));
+  }
+  return decoder.unpack(backend.call(inputBuffer));
 }
 
 export class SyncApi implements SyncApiBase {
