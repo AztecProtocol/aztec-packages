@@ -93,6 +93,7 @@ function test_cmds {
   # silently dropping coverage.
   for server in "${shm_server_langs[@]}"; do
     echo "$prefix $script matrix $server ts shm"
+    echo "$prefix $script matrix $server ts shm-sync"
   done
 }
 

@@ -7,7 +7,8 @@
 #   run_cross_language_test.sh golden <lang>            # lang in {rust, ts, cpp, zig}
 #   run_cross_language_test.sh matrix <server-lang> <client-lang> [transport]
 #                                                       # langs in {rust, ts, cpp, zig}
-#                                                       # transport in {uds, shm}, default uds
+#                                                       # transport in {uds, shm, shm-sync}, default uds
+#                                                       # (shm-sync: the TS client's SyncApi over shm)
 #
 # SHM transport requires ipc-runtime's NAPI addon (built by
 # ipc-runtime/bootstrap.sh) when TS is the client. There's no SHM TS server.
@@ -70,7 +71,11 @@ run_matrix() {
   server_cmd=$(server_cmd_for "$server_lang")
   client_cmd=$(client_cmd_for "$client_lang")
 
-  if [ "$transport" = "shm" ] && [ "$server_lang" = "ts" ]; then
+  if [ "$transport" = "shm-sync" ] && [ "$client_lang" != "ts" ]; then
+    echo "shm-sync transport is only a TS client mode" >&2
+    exit 1
+  fi
+  if [[ "$transport" == shm* ]] && [ "$server_lang" = "ts" ]; then
     echo "shm transport not supported as TS server (no shm_server in ipc-runtime/ts)" >&2
     exit 1
   fi
@@ -78,9 +83,9 @@ run_matrix() {
   local ext path basename
   case "$transport" in
     uds) ext="sock" ;;
-    shm) ext="shm" ;;
+    shm|shm-sync) ext="shm" ;;
     *)
-      echo "unknown transport: $transport (expected uds|shm)" >&2; exit 1 ;;
+      echo "unknown transport: $transport (expected uds|shm|shm-sync)" >&2; exit 1 ;;
   esac
   basename="echo-matrix-${server_lang}-${client_lang}-${transport}-$$"
   path="${basename}.${ext}"
@@ -94,8 +99,8 @@ run_matrix() {
         wait ${server_pid} 2>/dev/null || true; \
         rm -f '$path'" EXIT
 
-  if [ "$transport" = "shm" ] && [ "$client_lang" = "ts" ]; then
-    $client_cmd --socket "$path" --transport shm
+  if [[ "$transport" == shm* ]] && [ "$client_lang" = "ts" ]; then
+    $client_cmd --socket "$path" --transport "$transport"
   else
     $client_cmd --socket "$path"
   fi
@@ -110,7 +115,7 @@ case "$kind" in
     run_matrix "${2:?matrix requires <server-lang>}" "${3:?matrix requires <client-lang>}" "${4:-uds}"
     ;;
   *)
-    echo "Usage: $0 golden <lang> | matrix <server-lang> <client-lang> [uds|shm]" >&2
+    echo "Usage: $0 golden <lang> | matrix <server-lang> <client-lang> [uds|shm|shm-sync]" >&2
     exit 1
     ;;
 esac

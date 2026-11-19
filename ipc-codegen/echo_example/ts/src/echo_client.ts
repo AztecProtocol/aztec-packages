@@ -1,25 +1,30 @@
 /**
  * Echo IPC client (TypeScript) — uses the GENERATED AsyncApi client over the
  * @aztec-foundation/ipc-runtime transport. Defaults to UDS; pass `--transport shm` to
- * drive the bundled NAPI SHM client (`createNapiShmAsyncClient`) instead.
+ * drive the bundled NAPI SHM client (`createNapiShmAsyncClient`) instead, or
+ * `--transport shm-sync` for the GENERATED SyncApi over `createNapiShmSyncClient`.
  * Path suffix follows the same convention as ipc::make_client on the C++
  * side: `.sock` for UDS, `.shm` for MPSC-SHM rings.
  *
- * Usage: npx tsx echo_client.ts --socket /tmp/echo.sock [--transport uds|shm]
+ * Usage: npx tsx echo_client.ts --socket /tmp/echo.sock [--transport uds|shm|shm-sync]
  * Exits 0 on success, 1 on failure.
  */
 import {
   createNapiShmAsyncClient,
+  createNapiShmSyncClient,
   UdsIpcClient,
   type IpcClientAsync,
 } from "@aztec-foundation/ipc-runtime";
 import { AsyncApi } from "./generated/async.js";
+import { SyncApi } from "./generated/sync.js";
 
 const args = process.argv.slice(2);
 const socketIdx = args.indexOf("--socket");
 const socketPath = socketIdx >= 0 ? args[socketIdx + 1] : undefined;
 if (!socketPath) {
-  console.error("Usage: echo_client.ts --socket <path> [--transport uds|shm]");
+  console.error(
+    "Usage: echo_client.ts --socket <path> [--transport uds|shm|shm-sync]",
+  );
   process.exit(1);
 }
 
@@ -28,8 +33,10 @@ function testHash(base: number): Uint8Array {
 }
 const transportIdx = args.indexOf("--transport");
 const transport = transportIdx >= 0 ? args[transportIdx + 1] : "uds";
-if (transport !== "uds" && transport !== "shm") {
-  console.error(`Unknown --transport '${transport}' (expected uds|shm)`);
+if (transport !== "uds" && transport !== "shm" && transport !== "shm-sync") {
+  console.error(
+    `Unknown --transport '${transport}' (expected uds|shm|shm-sync)`,
+  );
   process.exit(1);
 }
 
@@ -49,12 +56,17 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
 
 async function run() {
   // SHM clients identify the shared-memory base name without the `.shm`
-  // suffix — match ipc::make_client's behaviour on the C++ side.
-  const client: IpcClientAsync =
-    transport === "shm"
-      ? createNapiShmAsyncClient(socketPath!.replace(/\.shm$/, ""))
-      : await UdsIpcClient.connect(socketPath!);
-  const api = new AsyncApi(client);
+  // suffix — match ipc::make_client's behaviour on the C++ side. The sync API
+  // returns values rather than promises; awaiting them works the same.
+  const shmName = socketPath!.replace(/\.shm$/, "");
+  const api: AsyncApi | SyncApi =
+    transport === "shm-sync"
+      ? new SyncApi(createNapiShmSyncClient(shmName))
+      : new AsyncApi(
+          transport === "shm"
+            ? (createNapiShmAsyncClient(shmName) as IpcClientAsync)
+            : await UdsIpcClient.connect(socketPath!),
+        );
 
   // Test 1: EchoBytes
   const testData = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);
@@ -159,6 +171,21 @@ async function run() {
     throw new Error(`EchoFail: expected error message, got '${failMessage}'`);
   }
   console.error("echo_client(ts): EchoFail OK");
+
+  // Test 9: the sync client decodes each response from one scratch buffer it
+  // reuses, so a response must stay intact after later calls, including one
+  // larger than the scratch buffer's initial 64 KiB.
+  const first = await api.bytes({ data: Uint8Array.from([1, 2, 3, 4]) });
+  const large = Uint8Array.from({ length: 200_000 }, (_v, i) => i & 0xff);
+  const largeResp = await api.bytes({ data: large });
+  await api.bytes({ data: Uint8Array.from([9, 9, 9, 9]) });
+  assertBytes(
+    first.data,
+    Uint8Array.from([1, 2, 3, 4]),
+    "EchoBytes kept response",
+  );
+  assertBytes(largeResp.data, large, "EchoBytes large response");
+  console.error("echo_client(ts): kept responses OK");
 
   await api.destroy();
   console.error("echo_client(ts): all tests passed");

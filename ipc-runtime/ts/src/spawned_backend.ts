@@ -653,6 +653,18 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
   }
 
   call(input: Uint8Array): Uint8Array {
+    return this.guarded(() => this.client.call(input));
+  }
+
+  callTransient(input: Uint8Array): Uint8Array {
+    return this.guarded(() =>
+      this.client.callTransient
+        ? this.client.callTransient(input)
+        : this.client.call(input),
+    );
+  }
+
+  private guarded(roundTrip: () => Uint8Array): Uint8Array {
     if (this.destroyed) {
       throw new IpcError(
         `${this.options.binaryName} backend destroyed`,
@@ -660,7 +672,7 @@ export class SpawnedProcessBackendSync implements IpcClientSync {
       );
     }
     try {
-      return this.client.call(input);
+      return roundTrip();
     } catch (err) {
       // The call holds the main thread, so the child's exit event hasn't run:
       // the native client reports the death itself. Report it with the log
