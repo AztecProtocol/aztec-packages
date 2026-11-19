@@ -677,29 +677,31 @@ ${methods}
     this.errorTypeName = schema.errorTypeName;
     const errorType = this.typeName(this.errorTypeName);
 
-    // Generate handler interface
-    const handlerMethods = schema.commands
-      .map((c) => {
-        const methodName = this.toMethodName(c.name);
-        const cmdType = this.typeName(c.name);
-        const respType = this.typeName(c.responseType);
-        return `  ${methodName}(command: ${cmdType}): Promise<${respType}>;`;
-      })
-      .join("\n");
+    // Generate handler interfaces
+    const handlerMethods = (sync: boolean) =>
+      schema.commands
+        .map((c) => {
+          const methodName = this.toMethodName(c.name);
+          const cmdType = this.typeName(c.name);
+          const respType = this.typeName(c.responseType);
+          return `  ${methodName}(command: ${cmdType}): ${sync ? respType : `Promise<${respType}>`};`;
+        })
+        .join("\n");
 
     // Generate dispatch switch cases
-    const dispatchCases = schema.commands
-      .map((c) => {
-        const methodName = this.toMethodName(c.name);
-        const cmdType = this.typeName(c.name);
-        const respType = this.typeName(c.responseType);
-        return `      case '${c.name}': {
+    const dispatchCases = (sync: boolean) =>
+      schema.commands
+        .map((c) => {
+          const methodName = this.toMethodName(c.name);
+          const cmdType = this.typeName(c.name);
+          const respType = this.typeName(c.responseType);
+          return `      case '${c.name}': {
         const cmd = to${cmdType}(payload);
-        const result = await handler.${methodName}(cmd);
+        const result = ${sync ? "" : "await "}handler.${methodName}(cmd);
         return ['${c.responseType}', from${respType}(result)];
       }`;
-      })
-      .join("\n");
+        })
+        .join("\n");
 
     const typeImports = new Set<string>();
     const valueImports = new Set<string>();
@@ -723,7 +725,15 @@ import { ${sortedValueImports.join(", ")} } from './api_types.js';
 
 /** Handler interface — implement this to serve commands. */
 export interface Handler {
-${handlerMethods}
+${handlerMethods(false)}
+}
+
+/**
+ * The handler of a caller that must answer synchronously, such as a synchronous wasm
+ * backend's host-call target, which holds its thread until the answer returns.
+ */
+export interface SyncHandler {
+${handlerMethods(true)}
 }
 
 /**
@@ -738,7 +748,24 @@ export async function dispatch(
 ): Promise<[string, any]> {
   try {
     switch (commandName) {
-${dispatchCases}
+${dispatchCases(false)}
+      default:
+        return ['${this.errorTypeName}', { message: \`Unknown command: \${commandName}\` }];
+    }
+  } catch (err: any) {
+    return ['${this.errorTypeName}', { message: err?.message ?? String(err) }];
+  }
+}
+
+/** dispatch, for a SyncHandler. */
+export function dispatchSync(
+  handler: SyncHandler,
+  commandName: string,
+  payload: any,
+): [string, any] {
+  try {
+    switch (commandName) {
+${dispatchCases(true)}
       default:
         return ['${this.errorTypeName}', { message: \`Unknown command: \${commandName}\` }];
     }
@@ -750,6 +777,23 @@ ${dispatchCases}
 const requestDecoder = new Decoder({ useRecords: false });
 const responseEncoder = new Encoder({ useRecords: false, variableMapSize: true });
 
+/** The request's [commandName, payload], or the encoded error response for a malformed one. */
+function decodeRequest(requestBytes: Uint8Array): [string, any] | Uint8Array {
+  try {
+    const request = requestDecoder.unpack(requestBytes) as [[string, any]];
+    const [[commandName, payload]] = request;
+    if (typeof commandName !== 'string') {
+      throw new Error('expected [name, payload] request framing');
+    }
+    return [commandName, payload ?? {}];
+  } catch (err: any) {
+    return responseEncoder.pack([
+      '${this.errorTypeName}',
+      { message: \`Malformed request: \${err?.message ?? String(err)}\` },
+    ]);
+  }
+}
+
 /**
  * Decode a framed request, dispatch it, and encode the framed response.
  * All failures (malformed framing included) produce a decodable error
@@ -760,21 +804,24 @@ export async function handleRequest(
   handler: Handler,
   requestBytes: Uint8Array,
 ): Promise<Uint8Array> {
-  let commandName: string;
-  let payload: any;
-  try {
-    const request = requestDecoder.unpack(requestBytes) as [[string, any]];
-    [[commandName, payload]] = request;
-    if (typeof commandName !== 'string') {
-      throw new Error('expected [name, payload] request framing');
-    }
-  } catch (err: any) {
-    return responseEncoder.pack([
-      '${this.errorTypeName}',
-      { message: \`Malformed request: \${err?.message ?? String(err)}\` },
-    ]);
+  const request = decodeRequest(requestBytes);
+  if (request instanceof Uint8Array) {
+    return request;
   }
-  const [respName, respPayload] = await dispatch(handler, commandName, payload ?? {});
+  const [respName, respPayload] = await dispatch(handler, request[0], request[1]);
+  return responseEncoder.pack([respName, respPayload]);
+}
+
+/** handleRequest, for a SyncHandler. */
+export function handleRequestSync(
+  handler: SyncHandler,
+  requestBytes: Uint8Array,
+): Uint8Array {
+  const request = decodeRequest(requestBytes);
+  if (request instanceof Uint8Array) {
+    return request;
+  }
+  const [respName, respPayload] = dispatchSync(handler, request[0], request[1]);
   return responseEncoder.pack([respName, respPayload]);
 }
 `;

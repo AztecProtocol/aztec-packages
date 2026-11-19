@@ -1,0 +1,12 @@
+# The generated client package (@aztec-labs/kv-sqlite) and Files server bindings (@aztec-labs/kv-sqlite-files).
+ts/
+files/
+cpp/build*/
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+node_modules
+*.log
