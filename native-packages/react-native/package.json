@@ -1,0 +1,71 @@
+{
+  "name": "@aztec-foundation/react-native",
+  "version": "0.1.0",
+  "description": "Runs Aztec's client stack (a labs PXE, bb.js, Noir) in a React Native app: bb, the ACVM and the PXE's store (kv-sqlite) linked in natively, reached through JSI.",
+  "type": "commonjs",
+  "main": "./js/index.js",
+  "types": "./js/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./js/index.d.ts",
+      "default": "./js/index.js"
+    },
+    "./metro": "./metro/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "js",
+    "metro",
+    "cpp",
+    "android",
+    "ios",
+    "prebuilt",
+    "third_party",
+    "AztecReactNative.podspec",
+    "react-native.config.js",
+    "README.md"
+  ],
+  "dependencies": {
+    "@aztec-foundation/ipc-runtime": "0.1.0",
+    "@aztec-labs/acvm": "0.1.0",
+    "@aztec-labs/acvm-oracle": "0.1.0",
+    "@babel/plugin-transform-export-namespace-from": "^7.27.1",
+    "buffer": "^6.0.3",
+    "events": "^3.3.0",
+    "hash.js": "^1.1.7",
+    "util": "^0.12.5"
+  },
+  "peerDependencies": {
+    "@babel/core": "^7.0.0",
+    "react-native": ">=0.76"
+  },
+  "packageManager": "yarn@4.13.0",
+  "devDependencies": {
+    "@aztec-labs/kv-sqlite": "0.1.0",
+    "@babel/cli": "^7.29.0",
+    "@babel/core": "^7.29.0",
+    "@react-native/babel-preset": "0.88.1",
+    "esbuild": "^0.25.0",
+    "msgpackr": "^1.11.2"
+  },
+  "resolutions": {
+    "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts",
+    "@aztec-labs/acvm": "portal:../acvm/ts",
+    "@aztec-labs/acvm-oracle": "portal:../acvm/oracle",
+    "@aztec-labs/kv-sqlite": "portal:../kv-sqlite/ts",
+    "@aztec-labs/acvm-darwin-arm64": "portal:../acvm/ts/packages/acvm-darwin-arm64",
+    "@aztec-labs/kv-sqlite-darwin-arm64": "portal:../kv-sqlite/ts/packages/kv-sqlite-darwin-arm64",
+    "@aztec-labs/acvm-darwin-x64": "portal:../acvm/ts/packages/acvm-darwin-x64",
+    "@aztec-labs/kv-sqlite-darwin-x64": "portal:../kv-sqlite/ts/packages/kv-sqlite-darwin-x64",
+    "@aztec-labs/acvm-linux-arm64": "portal:../acvm/ts/packages/acvm-linux-arm64",
+    "@aztec-labs/kv-sqlite-linux-arm64": "portal:../kv-sqlite/ts/packages/kv-sqlite-linux-arm64",
+    "@aztec-labs/acvm-linux-x64": "portal:../acvm/ts/packages/acvm-linux-x64",
+    "@aztec-labs/kv-sqlite-linux-x64": "portal:../kv-sqlite/ts/packages/kv-sqlite-linux-x64"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AztecProtocol/aztec-packages",
+    "directory": "native-packages/react-native"
+  }
+}

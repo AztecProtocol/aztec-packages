@@ -254,6 +254,7 @@ dependencies = [
  "acir",
  "acvm",
  "base64 0.22.1",
+ "blake3",
  "bn254_blackbox_solver",
  "flate2",
  "ipc-runtime",

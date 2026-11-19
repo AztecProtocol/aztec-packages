@@ -38,7 +38,7 @@ function binding(): JsiBinding | undefined {
   return (globalThis as { __ipcRuntimeJsi?: JsiBinding }).__ipcRuntimeJsi;
 }
 
-/** Whether the JSI binding is installed: the app links ipc-runtime's React Native module. */
+/** Whether the JSI binding is installed: the app has @aztec-foundation/react-native's native module. */
 export function jsiAvailable(): boolean {
   return binding() !== undefined;
 }
@@ -47,8 +47,8 @@ function requireBinding(ffiName: string): JsiBinding {
   const jsi = binding();
   if (!jsi) {
     throw new Error(
-      `${ffiName}: the ipc-runtime JSI binding is not installed. Add @aztec-foundation/ipc-runtime-react-native ` +
-        "to the app (it installs the binding when the app starts), and the native package of the service.",
+      `${ffiName}: the ipc-runtime JSI binding is not installed. Add @aztec-foundation/react-native to the app, ` +
+        "and import it before anything else (it installs the binding).",
     );
   }
   return jsi;
@@ -150,7 +150,8 @@ export class JsiFfiBackendSync implements IpcClientSync {
     private readonly ffiName: string,
     private readonly instance: JsiInstanceSync,
     private readonly hostCall:
-      ((target: string, request: Uint8Array) => Uint8Array) | undefined,
+      | ((target: string, request: Uint8Array) => Uint8Array)
+      | undefined,
   ) {}
 
   /** @internal A synchronous call into the instance, for a host-call target on this thread. */

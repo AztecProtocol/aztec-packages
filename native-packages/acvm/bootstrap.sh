@@ -67,6 +67,29 @@ function build {
   yarn build
 }
 
+# The library's static form for each mobile target, at rust/target/<target>/release/libaztec_acvm.a: what
+# @aztec-foundation/react-native links into an app (iOS devices and simulators, Android devices and emulators).
+# Pure Rust there (blake3's pure feature), so cargo needs only the targets' standard libraries.
+mobile_targets="aarch64-apple-ios aarch64-apple-ios-sim aarch64-linux-android x86_64-linux-android"
+
+function build_mobile {
+  echo_header "acvm build_mobile"
+  if cache_download acvm-mobile-$hash.tar.gz; then
+    return
+  fi
+  generate_rust
+  (
+    flock -x 200
+    rustup target add $mobile_targets
+  ) 200>/tmp/rustup.lock
+  for target in $mobile_targets; do
+    (cd rust && cargo rustc --locked --release --lib --crate-type staticlib --target $target \
+      --no-default-features --features ffi)
+  done
+  cache_upload acvm-mobile-$hash.tar.gz \
+    $(for target in $mobile_targets; do echo rust/target/$target/release/libaztec_acvm.a; done)
+}
+
 function test_cmds {
   echo "$hash:CPUS=4 native-packages/acvm/bootstrap.sh test_rust"
   echo "$hash native-packages/acvm/scripts/acvm_test.sh"
@@ -97,7 +120,7 @@ function release {
   (cd oracle && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f ipc_codegen generate_rust generate_ts build_rust build test_cmds test_rust test clean release
+export -f ipc_codegen generate_rust generate_ts build_rust build build_mobile test_cmds test_rust test clean release
 
 case "$cmd" in
   "")

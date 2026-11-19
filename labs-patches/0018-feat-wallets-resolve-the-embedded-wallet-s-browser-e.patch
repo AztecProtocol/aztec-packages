@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Thu, 19 Nov 2026 16:10:39 +0000
+Subject: [PATCH] feat(wallets): resolve the embedded wallet's browser entry
+ under React Native
+
+Metro does not apply the browser export condition on native platforms.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/wallets/package.json b/yarn-project/wallets/package.json
+index 5606b1cfbcdeb10a09e45adcf98b4e0aa19c1438..c05ce7f31ea79a5b7a2e274372f59ad9905ef2b9 100644
+--- a/yarn-project/wallets/package.json
++++ b/yarn-project/wallets/package.json
+@@ -5,6 +5,10 @@
+   "type": "module",
+   "exports": {
+     "./embedded": {
++      "react-native": {
++        "types": "./dest/embedded/entrypoints/browser.d.ts",
++        "default": "./dest/embedded/entrypoints/browser.js"
++      },
+       "browser": {
+         "types": "./dest/embedded/entrypoints/browser.d.ts",
+         "default": "./dest/embedded/entrypoints/browser.js"
