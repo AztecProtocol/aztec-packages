@@ -10,7 +10,7 @@ import {IEscapeHatchCore, Status, CandidateInfo, Hatch} from "@aztec/core/interf
 import {EscapeHatch} from "@aztec/core/EscapeHatch.sol";
 import {Epoch, Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {ProposedHeader, ProposedHeaderLib, GasFees} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib, ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {
@@ -135,7 +135,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
    *   - header fields from fixture for blockHeadersHash/blobsHash/outHash, rest overridden
    */
   function _buildProposeArgs(address _proposer) internal view returns (ProposeArgs memory args, bytes memory blobs) {
-    bytes32 archive = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archive = TestConstants.GENESIS_ARCHIVE_ROOT;
     Slot slotNumber = rollup.getCurrentSlot();
 
     // Build header fresh, only copying blockHeadersHash/blobsHash/outHash from fixture

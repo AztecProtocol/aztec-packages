@@ -13,7 +13,7 @@ hash=$(hash_str \
   $(semver check $REF_NAME && echo 1 || echo 0) \
   ${AVM_TRANSPILER:-1})
 
-# bb.js compiles against @aztec-foundation/bb.js-api, which the bb-js-api make target builds first.
+# bb.js compiles against @aztec-foundation/bb.js-api, which the bb-ts-packages make target builds first.
 function formatting {
   echo_header "bb.js formatting"
   yarn formatting
