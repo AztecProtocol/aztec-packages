@@ -33,6 +33,14 @@ export function registerBackend(
   registry().set(service, factories);
 }
 
+/** The registered backend for a service, if a native package registered one. */
+export function findRegisteredBackend<K extends keyof RegisteredBackends>(
+  service: string,
+  kind: K,
+): RegisteredBackends[K] | undefined {
+  return registry().get(service)?.[kind];
+}
+
 /**
  * The registered backend for a service, or a message naming what to install. `hint` is the
  * package a caller should be told about.
