@@ -1,17 +1,13 @@
 // Tests of the generated @aztec-labs/acvm package, from its build: a program solves to the same result through
-// the spawned aztec-acvm binary and through the wasm module, with its oracles answered asynchronously by this
-// thread: over a socket the binary connects to (an @aztec-labs/acvm-oracle server), and through the wasm
-// module's `oracle` host-call target, the module suspended (JSPI) while the answer is awaited.
+// the spawned aztec-acvm binary, an instance of its library (napi) and the wasm module, with its oracles answered
+// asynchronously by this thread through each backend's `oracle` host-call target: over a socket the process
+// reaches, while the library's thread waits, and with the wasm module suspended (JSPI).
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { UdsIpcServer } from "@aztec-foundation/ipc-runtime";
-import { AcvmService } from "@aztec-labs/acvm";
+import { AcvmService, AcvmServiceSync } from "@aztec-labs/acvm";
 import { handleRequest } from "@aztec-labs/acvm-oracle";
 
 const fixtures = new URL("../rust/tests/fixtures/", import.meta.url);
@@ -88,28 +84,22 @@ async function execute(service, program, values, oracles, options = {}) {
 }
 
 const services = {};
-let oracleServer;
 before(async () => {
-  const oracleSocket = join(tmpdir(), `acvm-oracle-${randomUUID()}.sock`);
-  oracleServer = await UdsIpcServer.listen(oracleSocket, (_client, request) =>
-    answerOracle(request),
-  );
   services.process = await AcvmService.create({
     backend: "process",
-    process: { extraArgs: ["--oracle", oracleSocket] },
+    process: { hostCall: { oracle: answerOracle } },
+  });
+  services.napi = await AcvmService.create({
+    backend: "napi",
+    napi: { hostCall: { oracle: answerOracle } },
   });
   services.wasm = await AcvmService.create({
     backend: "wasm",
     wasm: { hostCall: { oracle: answerOracle } },
   });
-  services.wasmCallingThread = await AcvmService.create({
-    backend: "wasm",
-    wasm: { worker: false, hostCall: { oracle: answerOracle } },
-  });
 });
 after(async () => {
   await Promise.all(Object.values(services).map((s) => s.destroy()));
-  await oracleServer?.close();
 });
 
 test("every backend solves a program to the same witness and stack", async () => {
@@ -130,8 +120,8 @@ test("every backend solves a program to the same witness and stack", async () =>
     3,
     "msgpack-compact, uncompressed",
   );
+  assert.deepEqual(results.napi, results.process);
   assert.deepEqual(results.wasm, results.process);
-  assert.deepEqual(results.wasmCallingThread, results.process);
 });
 
 test("every backend waits on asynchronous oracles", async () => {
@@ -186,8 +176,8 @@ test("a program that fails comes back as the same failure from every backend", a
     failures.process.rawAssertionPayload.selector,
     "11740580735536159235",
   );
+  assert.deepEqual(failures.napi, failures.process);
   assert.deepEqual(failures.wasm, failures.process);
-  assert.deepEqual(failures.wasmCallingThread, failures.process);
 });
 
 test("an oracle that throws fails the execution with its message, and the service carries on", async () => {
@@ -206,5 +196,40 @@ test("an oracle that throws fails the execution with its message, and the servic
       [16],
       name,
     );
+  }
+});
+
+test("the synchronous backends solve on the calling thread to the same witness and stack", async () => {
+  const expected = await execute(services.process, "acir_calls", [2, 7], undefined, {
+    witness: true,
+    witnessStack: true,
+  });
+  for (const backend of ["napi", "wasm"]) {
+    const service = await AcvmServiceSync.create({ backend });
+    try {
+      const result = service.executeProgram({
+        executionId: nextExecutionId++,
+        bytecode: bytecode("acir_calls"),
+        initialWitness: inputs([2, 7]),
+        returnWitnessMap: true,
+        returnWitnessStack: true,
+      });
+      assert.deepEqual(result, expected, backend);
+      // With no host-call target bound, a foreign call is a service error, and the service carries on.
+      assert.throws(
+        () =>
+          service.executeProgram({
+            executionId: nextExecutionId++,
+            bytecode: bytecode("oracles"),
+            initialWitness: inputs([4, 1, 2, 3]),
+            returnWitnessMap: false,
+            returnWitnessStack: false,
+          }),
+        /oracle/,
+        backend,
+      );
+    } finally {
+      service.destroy();
+    }
   }
 });

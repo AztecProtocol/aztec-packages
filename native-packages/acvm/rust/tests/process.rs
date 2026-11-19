@@ -92,9 +92,14 @@ struct Acvm {
 impl Acvm {
     fn spawn(name: &str, oracle: Option<&str>) -> Self {
         let input = socket(name);
-        let mut args = vec!["msgpack", "run", "--input", input.as_str()];
+        let mut args = vec![
+            "msgpack".to_string(),
+            "run".into(),
+            "--input".into(),
+            input.clone(),
+        ];
         if let Some(oracle) = oracle {
-            args.extend(["--oracle", oracle]);
+            args.extend(["--host-call".to_string(), format!("oracle={oracle}")]);
         }
         let child = Command::new(env!("CARGO_BIN_EXE_aztec-acvm"))
             .args(&args)
@@ -174,7 +179,10 @@ fn without_an_oracle_server_programs_without_foreign_calls_still_solve() {
             false,
         )
         .expect_err("a foreign call with nowhere to go is a service error");
-    assert!(error.to_string().contains("no Oracle service"), "{error}");
+    assert!(
+        error.to_string().contains("no host-call target \"oracle\""),
+        "{error}"
+    );
 
     // The service carries on.
     let response = acvm

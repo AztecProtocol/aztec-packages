@@ -1,4 +1,4 @@
-//! The Acvm service's handler, shared by the native server and the wasm module's FFI entry.
+//! The Acvm service's handler, shared by the server process, the native library and the wasm module.
 
 use acir::brillig::{ForeignCallParam, ForeignCallResult};
 use acir::native_types::{Witness, WitnessMap};
@@ -11,37 +11,31 @@ use crate::generated::acvm::acvm_server::{Handler, Responder};
 use crate::generated::acvm::acvm_types::{
     AcvmExecuteProgram, AcvmExecuteProgramResponse, Bin32, WitnessEntry,
 };
+use crate::generated::acvm::host_call_backend::HostCallBackend;
 use crate::generated::oracle::backend::Backend;
 use crate::generated::oracle::error::{IpcError, Result as OracleResult};
-use crate::generated::oracle::host_call_backend::HostCallBackend;
 use crate::generated::oracle::oracle_client::OracleApi;
 use crate::generated::oracle::oracle_types::{Bin32 as OracleBin32, ForeignCallValue};
 
-/// The host-call target a wasm module reaches the Oracle service by.
+/// The host-call target the ACVM reaches the Oracle service by.
 pub const ORACLE_HOST_CALL_TARGET: &str = "oracle";
 
-/// Where foreign calls go.
-pub enum OracleBackend {
-    /// Nowhere: a program making a foreign call fails with a service error.
-    None,
-    /// The host's `oracle` host-call target, from a wasm module.
-    HostCall(HostCallBackend),
-    /// An Oracle server over ipc-runtime (`aztec-acvm --oracle <path>`).
-    #[cfg(feature = "ipc-runtime")]
-    Ipc(ipc_runtime::IpcClient),
+/// The Oracle service at the host's `oracle` target. The acvm module's `HostCallBackend` is the
+/// one whose host-call function the FFI exports and the process routing set.
+pub struct HostOracle(HostCallBackend);
+
+impl Default for HostOracle {
+    fn default() -> Self {
+        Self(HostCallBackend::new(ORACLE_HOST_CALL_TARGET))
+    }
 }
 
-impl Backend for OracleBackend {
+impl Backend for HostOracle {
     fn call(&mut self, input: &[u8]) -> OracleResult<Vec<u8>> {
-        match self {
-            OracleBackend::None => Err(IpcError::Backend(
-                "no Oracle service to answer foreign calls (start aztec-acvm with --oracle <path>)"
-                    .to_string(),
-            )),
-            OracleBackend::HostCall(backend) => backend.call(input),
-            #[cfg(feature = "ipc-runtime")]
-            OracleBackend::Ipc(client) => Backend::call(client, input),
-        }
+        use crate::generated::acvm::backend::Backend as _;
+        self.0
+            .call(input)
+            .map_err(|e| IpcError::Backend(e.to_string()))
     }
 
     fn destroy(&mut self) -> OracleResult<()> {
@@ -49,30 +43,26 @@ impl Backend for OracleBackend {
     }
 }
 
-pub struct AcvmHandler {
-    oracle: OracleApi<OracleBackend>,
+pub struct AcvmHandler<B: Backend = HostOracle> {
+    oracle: OracleApi<B>,
 }
 
-impl AcvmHandler {
-    pub fn new(oracle: OracleBackend) -> Self {
+impl<B: Backend> AcvmHandler<B> {
+    /// A handler whose foreign calls go to `oracle`.
+    pub fn new(oracle: B) -> Self {
         Self {
             oracle: OracleApi::new(oracle),
         }
     }
 }
 
-/// A wasm module asks its host; a native one has no Oracle service until given one.
 impl Default for AcvmHandler {
     fn default() -> Self {
-        Self::new(if cfg!(target_arch = "wasm32") {
-            OracleBackend::HostCall(HostCallBackend::new(ORACLE_HOST_CALL_TARGET))
-        } else {
-            OracleBackend::None
-        })
+        Self::new(HostOracle::default())
     }
 }
 
-impl Handler for AcvmHandler {
+impl<B: Backend> Handler for AcvmHandler<B> {
     fn execute_program(
         &mut self,
         cmd: AcvmExecuteProgram,

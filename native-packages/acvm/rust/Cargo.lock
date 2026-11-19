@@ -743,9 +743,7 @@ dependencies = [
 
 [[package]]
 name = "ipc-runtime"
-version = "7.0.0-nightly.20261031"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e475ec8a4af375bf1c14299d14256c6e1c2bc8b2478b639ea2b25231e706dc6"
+version = "0.1.0"
 dependencies = [
  "cc",
 ]

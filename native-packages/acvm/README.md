@@ -1,9 +1,10 @@
 # aztec-acvm
 
 The ACVM as an IPC service: solves compiled Noir (ACIR) programs to a witness, with every oracle
-(Brillig foreign call) answered by the caller. One Rust crate (`rust/`) builds both a native binary,
-`aztec-acvm`, and a wasm module, behind one generated TypeScript client, `@aztec-labs/acvm`: the
-binary in node, the wasm module in browsers or wherever a process can't be spawned.
+(Brillig foreign call) answered by the caller. One Rust crate (`rust/`) builds a native binary,
+`aztec-acvm`, a native library, `libaztec_acvm.so`, and a wasm module, behind one generated TypeScript
+client, `@aztec-labs/acvm`: the process or the library (napi) in node, the wasm module in browsers or
+wherever neither can run.
 
 ## Wire contracts
 
@@ -19,32 +20,37 @@ binary in node, the wasm module in browsers or wherever a process can't be spawn
 
 ## Oracles
 
-The handler is the same in both builds; only where foreign calls go differs.
+The handler is the same in every build, and calls its host's `oracle` host-call target; each backend
+binds it from `hostCall: { oracle }`, the same option for all three:
 
-- Native: the binary is a client of an Oracle server, `aztec-acvm msgpack run --input <path>
-  --oracle <path>`. Without `--oracle`, a program making a foreign call fails with a service error.
-- wasm: the module calls its host's `oracle` host-call target (`hostCall: { oracle }` when creating
-  the wasm backend). The host may answer asynchronously: JSPI suspends the module until it does.
+- process: ipc-runtime serves the target on a socket and starts the binary with
+  `--host-call oracle=<path>`. Without it, a program making a foreign call fails with a service error.
+- napi: ipc-runtime passes the library its host-call function (`acvm_ipc_ffi_set_host_call`); the
+  instance's thread waits while the host answers.
+- wasm: the module's `ipc_runtime.host_call` import. JSPI suspends the module while the host answers.
+
+The host may answer asynchronously in all three.
 
 ```ts
-const server = await UdsIpcServer.listen(oracleSocket, (_, request) => handleRequest(oracles, request));
-const native = await AcvmService.create({ backend: 'process', process: { extraArgs: ['--oracle', oracleSocket] } });
-const wasm = await AcvmService.create({ backend: 'wasm', wasm: { hostCall: { oracle: request => handleRequest(oracles, request) } } });
+const oracle = (request: Uint8Array) => handleRequest(oracles, request);
+const acvm = await AcvmService.create({ backend: 'napi', napi: { hostCall: { oracle } } });
 ```
+
+`AcvmServiceSync` runs the library or the module on the calling thread; its host calls must answer
+synchronously.
 
 ## Dependencies
 
-Everything outside this directory comes from one aztec-packages release, pinned by tag in
-`foundation.pin`: ipc-codegen from npm (`IPC_CODEGEN_DIR` points at a checkout's instead), and the
-`ipc-runtime` crate from crates.io at the same version, which `rust/Cargo.toml` names and
-`bootstrap.sh` checks. The noir crates (`acir`, `acvm`, `bn254_blackbox_solver`) come from crates.io at
-the version that compiles the programs run here. The TypeScript runtime is portaled from this tree.
+The package builds against this checkout's ipc-codegen and ipc-runtime (the `ipc-runtime` crate by
+path, the TypeScript runtime portaled). The noir crates (`acir`, `acvm`, `bn254_blackbox_solver`) come
+from crates.io at the version `noir/noir-repo` is, the version that compiles the programs run here.
 
 ## Tests
 
 - `rust/tests/execute.rs`: the executor against fixture programs (`rust/tests/programs`, compiled into
   `rust/tests/fixtures` by `regenerate.sh`), its witness stacks against the ones `nargo execute`
   writes.
-- `rust/tests/process.rs`: the binary, spawned, with an Oracle server the test serves.
-- `scripts/acvm.test.mjs`: the package, through the binary and the wasm module (on a worker and on the
-  calling thread), with oracles answered asynchronously; every backend gives the same result.
+- `rust/tests/process.rs`: the binary, spawned, reaching an Oracle server the test serves through
+  `--host-call oracle=<path>`.
+- `scripts/acvm.test.mjs`: the package, through the process, the library and the wasm module, with
+  oracles answered asynchronously; every backend gives the same result, the synchronous ones included.

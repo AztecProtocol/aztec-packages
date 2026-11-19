@@ -5,77 +5,66 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 ROOT=$(git rev-parse --show-toplevel)
 PKG="$ROOT/native-packages/acvm"
 ACVM_BINARY=aztec-acvm
+ACVM_LIBRARY=libaztec_acvm.so
 WASM_TARGET=wasm32-wasip1
 
-# Everything outside this package comes from the release pinned in foundation.pin: ipc-codegen from
-# npm, the ipc-runtime crate from crates.io (rust/Cargo.toml pins the same version), and the noir
-# crates at the version rust/Cargo.toml names. The TS runtime is portaled from this tree, as wsdb's is.
+# While acvm lives in aztec-packages it builds against this checkout's ipc-codegen and ipc-runtime
+# (the Rust crate by path, the TS runtime portaled), so the build follows their sources
+# (.rebuild_patterns). The noir crates come from crates.io at the version noir/noir-repo is.
 hash=$(cache_content_hash .rebuild_patterns)
-version=$(sed 's/^v//' "$PKG/foundation.pin")
 
-# The ipc-codegen to generate with: the pinned release, or a checkout's (IPC_CODEGEN_DIR) while
-# the release lacks something this package needs.
 function ipc_codegen {
-  if [ -n "${IPC_CODEGEN_DIR:-}" ]; then
-    node --experimental-strip-types --no-warnings "$IPC_CODEGEN_DIR/src/generate.ts" "$@"
-  else
-    npx -y "@aztec-foundation/ipc-codegen@$version" "$@"
-  fi
+  node --experimental-strip-types --no-warnings "$ROOT/ipc-codegen/src/generate.ts" "$@"
 }
 
-function check_pins {
-  if ! grep -q "^ipc-runtime = { version = \"=$version\"" rust/Cargo.toml; then
-    echo_stderr "rust/Cargo.toml's ipc-runtime must be =$version, the version foundation.pin names."
-    exit 1
-  fi
-}
-
-function generate {
+function generate_rust {
   rm -rf rust/src/generated
-  # The Acvm service: served by the crate, and called by its tests over ipc-runtime.
+  # The Acvm service: served by the binary, exported by the library and the wasm module, and
+  # called by the crate's tests over ipc-runtime.
   ipc_codegen --schema acvm_schema.jsonc --lang rust --server --client --uds --ffi \
     --out rust/src/generated/acvm
-  # The Oracle service: the crate's client to it, natively over ipc-runtime and in wasm over
-  # host_call, and the server its tests answer foreign calls with.
+  # The Oracle service: the crate's client to it, and the server its tests answer foreign calls with.
   ipc_codegen --schema oracle_schema.jsonc --lang rust --server --client --uds \
     --out rust/src/generated/oracle
+}
+
+# The TS packages: the Acvm client over the binary (uds), the library (napi) and the wasm module,
+# and the Oracle service's server bindings, for the caller that answers foreign calls.
+function generate_ts {
   ipc_codegen --schema acvm_schema.jsonc --lang ts \
     --package "$PKG/ts" \
     --package-name @aztec-labs/acvm \
     --binary-name "$ACVM_BINARY" \
     --prefix Acvm \
     --strip-method-prefix \
-    --package-transports uds,wasm \
+    --package-transports uds,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
-    --package-wasm-module acvm.wasm
-  # Server bindings for the Oracle service, for the caller that answers foreign calls.
+    --package-napi-library "$ACVM_LIBRARY" \
+    --package-napi-library-env-var ACVM_NAPI_PATH \
+    --package-wasm-module "acvm.wasm=$PKG/rust/target/$WASM_TARGET/release/aztec_acvm.wasm" \
+    "$@"
   ipc_codegen --schema oracle_schema.jsonc --lang ts --server \
     --package "$PKG/oracle" \
     --package-name @aztec-labs/acvm-oracle
 }
 
-function build_native {
+# The binary, the library (with its FFI exports, and none of the server's ipc-runtime) and the
+# wasm module.
+function build_rust {
   (cd rust && cargo build --locked --release --bin "$ACVM_BINARY")
-  local target_dir="ts/build/$(arch)-$(os)"
-  mkdir -p "$target_dir"
-  cp "rust/target/release/$ACVM_BINARY" "$target_dir/$ACVM_BINARY"
-}
-
-function build_wasm {
-  (cd rust && cargo build --locked --release --lib --target $WASM_TARGET --no-default-features --features wasm)
-  mkdir -p ts/wasm
-  cp "rust/target/$WASM_TARGET/release/aztec_acvm.wasm" ts/wasm/acvm.wasm
+  (cd rust && cargo build --locked --release --lib --no-default-features --features ffi)
+  (cd rust && cargo build --locked --release --lib --target $WASM_TARGET --no-default-features --features ffi)
 }
 
 function build {
   echo_header "acvm build"
-  check_pins
-  generate
-  build_native
-  build_wasm
+  generate_rust
+  build_rust
+  generate_ts \
+    --package-native "$(arch)-$(os)=$PKG/rust/target/release/$ACVM_BINARY" \
+    --package-native "$(arch)-$(os):$ACVM_LIBRARY=$PKG/rust/target/release/$ACVM_LIBRARY"
   npm_install_deps
   yarn build
-  yarn workspace @aztec-labs/acvm run prepare_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$ACVM_BINARY"
 }
 
 function test_cmds {
@@ -98,14 +87,9 @@ function clean {
   rm -rf ts oracle node_modules rust/target rust/src/generated
 }
 
+# Not yet in the root bootstrap's release lists: this machine's platform only.
 function release {
-  check_pins
-  generate
-  build_native
-  build_wasm
-  npm_install_deps
-  yarn build
-  yarn workspace @aztec-labs/acvm run prepare_arch_packages
+  build
   for package_dir in ts/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
@@ -113,7 +97,7 @@ function release {
   (cd oracle && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f ipc_codegen check_pins generate build_native build_wasm build test_cmds test_rust test clean release
+export -f ipc_codegen generate_rust generate_ts build_rust build test_cmds test_rust test clean release
 
 case "$cmd" in
   "")
