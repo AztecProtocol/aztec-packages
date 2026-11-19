@@ -7,6 +7,7 @@ import {
   type WasmMemoryImport,
   WasmFfiBackend,
   WasmFfiBackendSync,
+  WasmWorker,
 } from "./backend.js";
 
 export type { WasmModuleSource } from "./module_source.js";
@@ -23,7 +24,14 @@ export {
   WasmFfiBackend,
   WasmFfiBackendSync,
   WasmFfiEngine,
+  WasmWorker,
 } from "./backend.js";
+export {
+  type HostCallHandler,
+  type HostCallTarget,
+  type HostCallTargets,
+  SERVICE_BACKEND,
+} from "./host_call.js";
 export { compileWasmModule } from "./module_source.js";
 export { WasmExitError } from "./wasi_shim.js";
 export { runMainWorker } from "./main_worker.js";
@@ -37,6 +45,11 @@ export {
 
 export interface WasmEntry {
   createWasmFfiBackend(opts: WasmFfiBackendOptions): Promise<WasmFfiBackend>;
+  /**
+   * A worker several modules can share (`createWasmFfiBackend({ worker })`), so each can be
+   * another's host-call target with no message passing between them.
+   */
+  createWasmWorker(): WasmWorker;
   createWasmFfiBackendSync(opts: WasmFfiOptions): Promise<WasmFfiBackendSync>;
   /** Whether this platform can run a module's threads build (a shared memory is available). */
   sharedMemoryAvailable(): boolean;
@@ -46,6 +59,7 @@ export interface WasmEntry {
 export function bindEntry(binding: WasmFfiBinding): WasmEntry {
   return {
     createWasmFfiBackend: (opts) => WasmFfiBackend.create(opts, binding),
+    createWasmWorker: () => WasmWorker.create(binding),
     createWasmFfiBackendSync: (opts) =>
       WasmFfiBackendSync.create(opts, binding),
     sharedMemoryAvailable: () => binding.platform.sharedMemoryAvailable(),

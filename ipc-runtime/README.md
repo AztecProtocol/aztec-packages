@@ -225,6 +225,7 @@ FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
 | `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
+| `WasmWorker`, `createWasmWorker` | a worker several modules share (`worker: <WasmWorker>`), so each can reach another directly |
 | `runMainWorker`, `runThreadWorker` | bodies for a package's own worker scripts                                          |
 | `compileWasmModule`           | `Module` from a URL, `Response`, raw or gzipped bytes; streaming compilation for URLs      |
 
@@ -233,7 +234,31 @@ browsers that cache compiled wasm start from optimized code on a repeat visit.
 Memory is created to the module's declared shape (a threads build gets a
 shared memory even for one thread), WASI is served by a small shim (clock,
 random, stdout/stderr to the logger, environ). The module must be a plain WASI
-reactor: an import beyond WASI and wasi-threads fails the load, naming it.
+reactor: an import beyond WASI, wasi-threads and `ipc_runtime.host_call` fails
+the load, naming it.
+
+`ipc_runtime.host_call` is how a module reaches services its host provides
+(the C++ side is ipc-codegen's `HostCallBackend`). The `hostCall` option binds
+each target name the module calls to another module's backend, any backend or
+generated service, or a function from request bytes to response bytes, which
+may answer asynchronously.
+
+An asynchronous backend (`WasmFfiBackend`, on a worker or on the calling
+thread) waits for an asynchronous answer through JSPI
+(`WebAssembly.Suspending`/`promising`): the module's stack is suspended until
+the answer settles, with no worker, `SharedArrayBuffer` or cross-origin
+isolation needed. JSPI suspends on every host call, so only a module that
+imports `host_call` is run that way; calls into one module are queued, since
+one suspended mid-call must not be entered again. An engine without JSPI
+fails such a module's load.
+
+A backend on the same `WasmWorker` is called directly from the worker, with no
+message passing; anything else is called on the thread that created the
+backend. A module only reaches modules loaded before it, so siblings cannot
+call round in a cycle. The modules on one worker run one call at a time, so a
+handler on the owning thread must not wait on a module of the same worker,
+which cannot run until the handler answers. `WasmFfiBackendSync` takes only
+synchronous answers.
 
 ### Zig (`zig/`)
 
