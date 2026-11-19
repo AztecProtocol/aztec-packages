@@ -1,7 +1,9 @@
 # aztec-acvm
 
 The ACVM as an IPC service: solves compiled Noir (ACIR) programs to a witness, with every oracle
-(Brillig foreign call) answered by the caller. One Rust crate (`rust/`) builds a native binary,
+(Brillig foreign call) answered by the caller, and encodes and decodes their values by their ABI.
+Between them, its commands cover what acvm_js and noirc_abi_wasm do for the PXE, so a runtime without
+WebAssembly (React Native's Hermes) can run a PXE on the native library. One Rust crate (`rust/`) builds a native binary,
 `aztec-acvm`, a native library, `libaztec_acvm.so`, and a wasm module, behind one generated TypeScript
 client, `@aztec-labs/acvm`: the process or the library (napi) in node, the wasm module in browsers or
 wherever neither can run.
@@ -13,7 +15,9 @@ wherever neither can run.
   witness stack (msgpack, uncompressed: the form bb takes as a prover's witness). A program that fails
   to solve comes back as a `failure` on the response, with acvm_js's fields (message, call stack, raw
   assertion payload, function ids); a service error is a program that can't be read, or a foreign
-  call that got no answer.
+  call that got no answer. `AbiEncode`, `AbiDecode` and `DecodeAssertionPayload` are
+  noirc_abi_wasm's encoder, over the JSON its bindings use; `CompressWitnessStack` and
+  `DecompressWitnessStack` are acvm_js's, in the gzipped form nargo writes.
 - `oracle_schema.jsonc`, the `Oracle` service: `ForeignCall` carries one Brillig foreign call, tagged
   with the `executionId` of the `ExecuteProgram` it belongs to, so one server can answer every
   caller's executions. The caller serves it; `@aztec-labs/acvm-oracle` is its generated server bindings.
@@ -42,11 +46,14 @@ synchronously.
 ## Dependencies
 
 The package builds against this checkout's ipc-codegen and ipc-runtime (the `ipc-runtime` crate by
-path, the TypeScript runtime portaled). The noir crates (`acir`, `acvm`, `bn254_blackbox_solver`) come
-from crates.io at the version `noir/noir-repo` is, the version that compiles the programs run here.
+path, the TypeScript runtime portaled), and its noir crates (`acir`, `acvm`, `bn254_blackbox_solver`,
+`noirc_abi`) by path from `noir/noir-repo`, the noir that compiles the programs run here. `noirc_abi`
+is not published, so none of them come from crates.io.
 
 ## Tests
 
+- `rust/tests/abi.rs`: the ABI commands against the fixture programs' ABIs, and witness stacks
+  round-tripping in nargo's format.
 - `rust/tests/execute.rs`: the executor against fixture programs (`rust/tests/programs`, compiled into
   `rust/tests/fixtures` by `regenerate.sh`), its witness stacks against the ones `nargo execute`
   writes.

@@ -10,7 +10,7 @@ WASM_TARGET=wasm32-wasip1
 
 # While acvm lives in aztec-packages it builds against this checkout's ipc-codegen and ipc-runtime
 # (the Rust crate by path, the TS runtime portaled), so the build follows their sources
-# (.rebuild_patterns). The noir crates come from crates.io at the version noir/noir-repo is.
+# (.rebuild_patterns). Its noir crates come by path from noir/noir-repo, so it follows those too.
 hash=$(cache_content_hash .rebuild_patterns)
 
 function ipc_codegen {

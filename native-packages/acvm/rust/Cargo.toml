@@ -25,10 +25,14 @@ ipc-runtime = ["dep:ipc-runtime"]
 ffi = ["dep:libc"]
 
 [dependencies]
-# Must match the noir that compiled the programs run here (noir/noir-repo).
-acir = "=1.0.0-rc.5"
-acvm = "=1.0.0-rc.5"
-bn254_blackbox_solver = "=1.0.0-rc.5"
+# This tree's noir (noir/noir-repo), the noir that compiles the programs run here. noirc_abi is not
+# published, so every noir crate comes by path, at one version.
+acir = { path = "../../../noir/noir-repo/acvm-repo/acir" }
+acvm = { path = "../../../noir/noir-repo/acvm-repo/acvm", features = ["bn254"] }
+bn254_blackbox_solver = { path = "../../../noir/noir-repo/acvm-repo/bn254_blackbox_solver" }
+noirc_abi = { path = "../../../noir/noir-repo/tooling/noirc_abi", features = ["bn254"] }
+iter-extended = { path = "../../../noir/noir-repo/utils/iter-extended" }
+serde_json = "1.0"
 ipc-runtime = { path = "../../../ipc-runtime/rust", optional = true }
 libc = { version = "0.2", optional = true }
 rmp-serde = "1.3"
