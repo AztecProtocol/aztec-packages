@@ -54,6 +54,18 @@ void raw_exec(const std::string& path, const std::string& sql)
 
 } // namespace
 
+TEST(KvStore, CreatesTheDatabasesDirectory)
+{
+    TempDir dir;
+    auto path = dir.file("a/b/store.sqlite");
+    {
+        Store store(path, std::nullopt);
+        store.put("map:m", b("k"), b("v"));
+    }
+    Store reopened(path, std::nullopt);
+    EXPECT_EQ(reopened.get("map:m", { b("k") }), (std::vector<std::optional<Bytes>>{ b("v") }));
+}
+
 TEST(KvStore, MapPutGetHasDelete)
 {
     Store store(std::nullopt, std::nullopt);

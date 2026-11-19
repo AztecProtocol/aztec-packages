@@ -5,6 +5,9 @@
 #include <sqlite3mc_amalgamation.h>
 
 #include <algorithm>
+#ifndef __wasi__
+#include <filesystem>
+#endif
 #include <stdexcept>
 
 namespace aztec::kv {
@@ -139,6 +142,17 @@ Store::Store(std::optional<std::string> path, std::optional<Bytes> encryption_ke
     if (encryption_key && !path_) {
         throw std::invalid_argument("encryptionKey is not supported for ephemeral (:memory:) stores");
     }
+#ifndef __wasi__
+    // A fresh app's data directory, say, has no directory for its store yet. (The wasm module's files are the
+    // host's, which has none to make.)
+    if (path_) {
+        auto dir = std::filesystem::path(*path_).parent_path();
+        std::error_code error;
+        if (!dir.empty() && !std::filesystem::create_directories(dir, error) && error) {
+            throw std::runtime_error("cannot create " + dir.string() + ": " + error.message());
+        }
+    }
+#endif
     int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX;
     if (sqlite3_open_v2(path_ ? path_->c_str() : ":memory:", &db_, flags, nullptr) != SQLITE_OK) {
         std::string message = db_ ? sqlite3_errmsg(db_) : "out of memory";
