@@ -8,7 +8,7 @@ BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
 WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
-WSDB_REF_ADDON=wsdb_ref_napi.node
+WSDB_REF_LIBRARY=libwsdb_ref.so
 WSDB_REF_BINARY=wsdb-ref
 
 hash=$(hash_str \
@@ -100,8 +100,8 @@ function generate_wsdb_ref_package {
     --package-transports uds,shm,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --binary-name "$WSDB_REF_BINARY" \
-    --package-napi-addon "$WSDB_REF_ADDON" \
-    --package-napi-addon-env-var WSDB_REF_NAPI_PATH \
+    --package-napi-library "$WSDB_REF_LIBRARY" \
+    --package-napi-library-env-var WSDB_REF_NAPI_PATH \
     --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm" \
     "$@"
 }
@@ -126,7 +126,7 @@ function generate_packages {
     bb_js_api+=(--package-native "$platform=$dir/bin/dist/bb")
     bb_avm_sim+=(--package-native "$platform=$dir/bin/$BB_AVM_SIM_BINARY")
     wsdb_ref+=(--package-native "$platform=$dir/bin/$WSDB_REF_BINARY")
-    wsdb_ref+=(--package-native "$platform:$WSDB_REF_ADDON=$dir/lib/$WSDB_REF_ADDON")
+    wsdb_ref+=(--package-native "$platform:$WSDB_REF_LIBRARY=$dir/lib/$WSDB_REF_LIBRARY")
   done
   generate_bb_avm_sim_package "${every[@]}" "${bb_avm_sim[@]}"
   generate_cdb_package
