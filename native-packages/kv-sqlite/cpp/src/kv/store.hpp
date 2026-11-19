@@ -10,7 +10,7 @@
  *
  * `key_count` is the entry's index. `hash` identifies the value within its key: the SHA-256 of the value
  * (lowercase hex), with "#<index>" appended for entries appended without `unique`, which may repeat a value. The
- * browser store wrote ohash digests there; opening such a database rewrites them once (user_version 0 to 1).
+ * browser store wrote ohash digests there, which this store does not compute, so it does not match those values.
  * `slot` is any string unique to (container, key, index); the browser store's slots stay as they were.
  */
 

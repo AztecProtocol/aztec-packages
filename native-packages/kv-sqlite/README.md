@@ -29,7 +29,9 @@ Native builds use the file system directly and never call it.
 One table holds every container's entries, in the layout `@aztec-labs/kv-store`'s browser store has always
 written, so its databases open here unchanged, encrypted ones included (the same SQLite3 Multiple Ciphers release,
 ChaCha20, keyed with the raw key). The `hash` column, which identifies a value within its key, now holds the value's
-SHA-256; opening a database the browser store wrote rewrites its digests once (`user_version` 0 to 1). See
+SHA-256, where the browser store wrote an `ohash` of the JS value. Its maps read and write as before, but values it
+appended to a multimap or array are not matched by value (dedup, `DeleteValue`): a store holding those should move to
+a fresh database, as the PXE does by bumping its schema version. See
 `cpp/src/kv/store.hpp`.
 
 ## Tests

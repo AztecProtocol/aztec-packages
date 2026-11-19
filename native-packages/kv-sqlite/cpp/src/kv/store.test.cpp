@@ -202,7 +202,9 @@ TEST(KvStore, EncryptedStoreNeedsItsKey)
     EXPECT_THROW(Store(path, Bytes(31, 7)), std::invalid_argument);
 }
 
-// A database as the browser store left it: its own slot strings and ohash digests in `hash`.
+// A database as the browser store left it: its own slot strings and ohash digests in `hash`. Its maps read and
+// write as ever; its multimap and array values carry digests of the JS value, which this store does not compute, so
+// they read back but are not matched by value.
 TEST(KvStore, OpensTheBrowserStoresDatabases)
 {
     TempDir dir;
@@ -219,10 +221,7 @@ TEST(KvStore, OpensTheBrowserStoresDatabases)
     )");
     Store store(path, std::nullopt);
     EXPECT_EQ(store.get("map:m", { b("k") })[0], b("v"));
-    // Its multimap values are identified by value again: dedup and DeleteValue see them.
-    EXPECT_EQ(store.append("map:mm", b("k"), { b("x") }, true), 2U);
-    store.delete_value("map:mm", b("k"), b("y"));
-    EXPECT_EQ(store.values("map:mm", b("k")), (std::vector<Bytes>{ b("x") }));
+    EXPECT_EQ(store.values("map:mm", b("k")), (std::vector<Bytes>{ b("x"), b("y") }));
     // A put replaces the entry the browser store wrote, under its slot string or not.
     store.put("map:m", b("k"), b("v2"));
     EXPECT_EQ(store.count("map:m", std::nullopt), 1U);

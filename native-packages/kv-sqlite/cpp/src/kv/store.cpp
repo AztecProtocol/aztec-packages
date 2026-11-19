@@ -26,9 +26,6 @@ constexpr const char* SCHEMA_SQL = R"(
   CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
 )";
 
-/** user_version once the `hash` column holds value_hash digests (the browser store's ohash ones before). */
-constexpr int HASHES_ARE_DIGESTS = 1;
-
 std::string hex(const uint8_t* data, size_t length)
 {
     static constexpr char digits[] = "0123456789abcdef";
@@ -43,13 +40,6 @@ std::string hex(const uint8_t* data, size_t length)
 std::string slot(const std::string& container, const Bytes& key, uint64_t index)
 {
     return container + ':' + hex(key.data(), key.size()) + ':' + std::to_string(index);
-}
-
-void sql_value_hash(sqlite3_context* context, int /*argc*/, sqlite3_value** argv)
-{
-    auto* data = static_cast<const uint8_t*>(sqlite3_value_blob(argv[0]));
-    auto hash = value_hash(data, static_cast<size_t>(sqlite3_value_bytes(argv[0])));
-    sqlite3_result_text(context, hash.c_str(), static_cast<int>(hash.size()), SQLITE_TRANSIENT);
 }
 
 } // namespace
@@ -163,28 +153,6 @@ Store::Store(std::optional<std::string> path, std::optional<Bytes> encryption_ke
             std::fill(pragma.begin(), pragma.end(), '\0');
         }
         exec(SCHEMA_SQL);
-        if (sqlite3_create_function(db_,
-                                    "kv_value_hash",
-                                    1,
-                                    SQLITE_UTF8 | SQLITE_DETERMINISTIC,
-                                    nullptr,
-                                    sql_value_hash,
-                                    nullptr,
-                                    nullptr) != SQLITE_OK) {
-            fail("kv_value_hash");
-        }
-        uint64_t version = 0;
-        {
-            auto stmt = statement("PRAGMA user_version");
-            if (stmt.step()) {
-                version = stmt.integer(0);
-            }
-        }
-        if (version < HASHES_ARE_DIGESTS) {
-            // OR IGNORE: two values the browser store told apart but whose bytes are equal keep their old digest
-            // rather than failing the open on the unique index.
-            exec("BEGIN; UPDATE OR IGNORE data SET hash = kv_value_hash(value); PRAGMA user_version = 1; COMMIT;");
-        }
     } catch (...) {
         close();
         throw;
