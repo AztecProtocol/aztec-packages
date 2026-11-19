@@ -111,8 +111,10 @@ node --experimental-strip-types --no-warnings \
 | `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI entry"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which calls a linked library's `<service>_ipc_ffi_entry`. With `--server` (Rust/Zig/C++): emits the entry itself — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_entry`/`_alloc`/`_free` over the generated dispatch (the service defines `ipc_ffi_dispatcher()`). Each example's FFI test runs the generated client over the FFI backend against its own entry, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--napi` | C++ with `--server --ffi`. Also emits `<service>_napi.cpp`, a Node-API addon over the FFI entry: `call(bytes)` on the calling thread and `callAsync(bytes)` on the libuv thread pool, serialized as the entry requires. It needs only the FFI header and `node-addon-api`; build it as a shared library named `*.node`. It is what the TS `napi` transport loads. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process), `napi` (the service's Node-API addon, run in-process in node) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). A package without `uds`/`shm` has no binary and no `bin`. |
-| `--package-napi-addon <file>`, `--package-napi-addon-env-var <name>` | TS `napi` transport. File name of the addon the owning project builds from `--napi` and stages into the arch packages (listed under `ipcRuntime.nativeFiles` in `package.json`, which `ipc-runtime-prepare-arch-packages` reads), and the environment variable that overrides its path (default `<ADDON_STEM>_PATH`). Node loads an addon once per process, so every napi backend in a process shares one service context. |
+| `--package-napi-addon <file>`, `--package-napi-addon-env-var <name>` | TS `napi` transport. File name of the addon the owning project builds from `--napi` and ships in the arch packages (see `--package-native`), and the environment variable that overrides its path (default `<ADDON_STEM>_PATH`). Node loads an addon once per process, so every napi backend in a process shares one service context. |
 | `--package-wasm-module <name>=<path>`, `--package-wasm-threads-module <name>=<path>` | TS `wasm` transport. The single-thread and threads builds at `<path>`, installed into the package's `wasm/` directory as `<name>`; at least one is required. Generation reads each module's memory import and records it in the package, since a host must create an imported memory matching it and JS cannot read it from a compiled module. |
+| `--package-native <platform>=<path>`, `--package-native <platform>:<file>=<path>` | TS `--package` with a native transport. Copies a built native file into the per-platform package under `packages/<stem>-<platform>/`; repeat it for each platform and file. `<platform>` is `linux-x64`, `linux-arm64`, `darwin-x64` or `darwin-arm64`, or the build directory name (`amd64-linux`, `arm64-linux`, `amd64-macos`, `arm64-macos`). The bare form names the binary (the napi addon in a package without one); `<file>` picks the addon in a package with both. Every per-platform manifest is generated either way; a file not given is not shipped, and a copy an earlier run left is removed. |
+| `--package-every-platform` | With `--package-native`: fail unless every platform is given every native file, which is what publishing all the per-platform packages requires. |
 | `--package-wasm-wide-module <name>=<path>`, `--package-wasm-wide-threads-module <name>=<path>` | TS `wasm` transport. Optional wide-arithmetic builds of the two, installed the same way; the package runs one in place of its counterpart where the engine validates the wide-arithmetic proposal. |
 
 ### Naming flags
@@ -180,14 +182,13 @@ src/generate.ts \
 
 Produces the generated TS client under `src/generated/` (the package implies
 `--out`) plus a package shell
-(`package.json`, `tsconfig.json`, `src/index.ts`, `src/platform.ts`, and
-`scripts/prepare_arch_packages.sh`). The package exports
+(`package.json`, `tsconfig.json`, `src/index.ts`, `src/platform.ts`) and the
+per-platform package manifests under `packages/`. The package exports
 `MyServiceService.create(...)`, which wraps the generated async client around
 the backend chosen for the host (a spawned process by default here; `spawn`
 and `wasm` force one), plus `createBackend` for facades that wrap the API
-themselves. `scripts/prepare_arch_packages.sh` turns
-`build/<platform>/<binary>` directories into per-architecture npm packages
-matching the binary resolution path.
+themselves. Add `--package-native linux-x64=/path/to/myservice` (one per
+platform built) to copy the binaries into those per-platform packages.
 
 ### C++ server + client, under a project sub-include path
 
