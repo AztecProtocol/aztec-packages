@@ -1,4 +1,5 @@
-// Default main-instance worker for node: hosts the module and its thread pool off the caller's thread.
+// Default main-instance worker for node: hosts wasm modules and their thread pools off the caller's
+// thread.
 import { runMainWorker } from "../main_worker.js";
 import { nodePlatform, nodeWorkerSide } from "./platform.js";
 

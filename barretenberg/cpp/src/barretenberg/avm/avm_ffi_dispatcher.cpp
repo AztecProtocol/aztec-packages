@@ -37,13 +37,12 @@ void handle_simulate_with_hints(AvmFfiRequest& /*request*/,
 }
 
 /**
- * @brief The dispatcher behind the generated in-process FFI entry (see avm_ffi.hpp). One context serves every call.
+ * @brief An instance behind the generated in-process FFI entry (see avm_ffi.hpp). The context holds no state of its
+ * own, only the targets its host calls reach.
  */
-AsyncDispatchHandler& ipc_ffi_dispatcher()
+std::unique_ptr<FfiInstance> ipc_ffi_create_instance()
 {
-    static AvmFfiRequest request;
-    static AsyncDispatchHandler handler = make_avm_handler(request);
-    return handler;
+    return std::make_unique<FfiContext<AvmFfiRequest>>();
 }
 
 } // namespace bb::avm

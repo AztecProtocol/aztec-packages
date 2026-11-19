@@ -4,7 +4,11 @@ import {
   type HostCallAnswer,
   WasmInstanceHost,
 } from "./host.js";
-import { type HostCallTargets, hostCallOn, unwrapTarget } from "./host_call.js";
+import {
+  type HostCallTargets,
+  hostCallOn,
+  unwrapTarget,
+} from "./host_call.js";
 import { type WasmModuleSource, compileWasmModule } from "./module_source.js";
 import type { WasmPlatform, WorkerHandle } from "./platform.js";
 
@@ -77,23 +81,36 @@ export interface WasmFfiBackendOptions extends WasmFfiOptions {
   /**
    * Where the main instance runs. Default (true): a dedicated worker, so a long call never blocks
    * the caller's event loop and, in browsers, the thread pool is spawned from a worker. A
-   * `WasmWorker`: that worker, shared with the other modules loaded on it, which can then be each
-   * other's host-call targets with no message passing between them. False: the calling thread,
+   * `ServiceThread`: that thread, shared with the other instances loaded on it, which can then be
+   * each other's host-call targets with no message passing between them. False: the calling thread,
    * and every call blocks it until it returns or waits on a host call.
    */
-  worker?: boolean | WasmWorker;
+  worker?: boolean | ServiceThread;
   /** Override the worker factories the platform entry binds. */
   createThreadWorker?: () => WorkerHandle;
   createMainWorker?: () => WorkerHandle;
 }
 
-const WASM_WORKER = Symbol.for("@aztec-foundation/ipc-runtime/wasm-worker");
+const SERVICE_THREAD = Symbol.for(
+  "@aztec-foundation/ipc-runtime/service-thread",
+);
 
-function isWasmWorker(value: unknown): value is WasmWorker {
+/** What a worker slot runs: a wasm module's main instance, or an instance of a service's shared library (node). */
+export type WorkerInstanceSource = {
+  module: WebAssembly.Module;
+  options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">;
+};
+
+/** Something that lives and ends with a ServiceThread (see `attachment`). */
+interface Attachment {
+  destroy(): Promise<void>;
+}
+
+export function isServiceThread(value: unknown): value is ServiceThread {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as Record<symbol, unknown>)[WASM_WORKER] === true
+    (value as Record<symbol, unknown>)[SERVICE_THREAD] === true
   );
 }
 
@@ -426,17 +443,20 @@ function createMemory(
 }
 
 /**
- * A worker hosting the main instances of one or more modules, each in a slot of its own. The
- * modules on one worker run one call at a time between them, and a module can reach another as a
- * host-call target directly. Handlers of the owner's own answer by message, the module suspended
- * (JSPI) until the answer arrives.
+ * A thread hosting service instances, each in a slot of its own: wasm modules' main instances on a
+ * worker, and instances of services' shared libraries (napi, node) on a native thread beside it.
+ * The instances on one thread run one call at a time between them, and an instance can reach
+ * another on the same thread as a host-call target directly. Handlers of the owner's own answer a
+ * wasm module by message, the module suspended (JSPI) until the answer arrives, and a napi instance
+ * from the owner's event loop while its native thread blocks.
  *
- * A module is loaded with `WasmFfiBackend.create({ worker })`; the worker lives until `destroy()`,
- * which ends every module on it.
+ * An instance is loaded with `WasmFfiBackend.create({ worker })` or
+ * `NapiFfiBackend.instance({ worker })`. Each kind of thread starts with the first instance that
+ * needs it, and lives until `destroy()`, which ends every instance on it.
  */
-export class WasmWorker {
+export class ServiceThread {
   /** Recognised by brand rather than instanceof, so two copies of this package in one app agree. */
-  readonly [WASM_WORKER] = true;
+  readonly [SERVICE_THREAD] = true;
   private nextSlot = 0;
   private seq = 0;
   private readonly pending = new Map<number, Pending>();
@@ -446,30 +466,56 @@ export class WasmWorker {
     number,
     Map<string, (request: Uint8Array) => Promise<Uint8Array>>
   >();
+  private readonly attachments = new Map<symbol, Attachment>();
+  private workerHandle: WorkerHandle | undefined;
+  private unrefed = false;
   private destroyed = false;
 
-  private constructor(
-    private readonly worker: WorkerHandle,
-    readonly binding: WasmFfiBinding,
-  ) {
-    worker.onMessage((msg) => this.onMessage(msg));
-    worker.onError((err) => this.failAll(err));
+  private constructor(readonly binding: WasmFfiBinding) {}
+
+  /** A thread for instances; nothing is spawned until one is loaded. */
+  static create(binding: WasmFfiBinding): ServiceThread {
+    return new ServiceThread(binding);
   }
 
-  /** Spawn the worker; nothing runs on it until a module is loaded. */
-  static create(binding: WasmFfiBinding): WasmWorker {
-    return new WasmWorker(binding.createMainWorker(), binding);
+  /** The worker the wasm modules run on, spawned with the first. */
+  private get worker(): WorkerHandle {
+    if (!this.workerHandle) {
+      const worker = this.binding.createMainWorker();
+      worker.onMessage((msg) => this.onMessage(msg));
+      worker.onError((err) => this.failAll(err));
+      if (this.unrefed) {
+        worker.unref();
+      }
+      this.workerHandle = worker;
+    }
+    return this.workerHandle;
+  }
+
+  /**
+   * @internal Something living and ending with this thread under `key`, made by `create` the first
+   * time it is asked for: the native thread its napi instances run on.
+   */
+  attachment<T extends Attachment>(key: symbol, create: () => T): T {
+    if (this.destroyed) {
+      throw new Error("service thread destroyed");
+    }
+    let attached = this.attachments.get(key);
+    if (!attached) {
+      attached = create();
+      this.attachments.set(key, attached);
+    }
+    return attached as T;
   }
 
   /** @internal Load a module into a new slot; host-call targets are already described for it. */
   async load(
-    module: WebAssembly.Module,
-    options: Omit<WasmFfiOptions, "module" | "hostCall" | "logger">,
+    source: WorkerInstanceSource,
     hostCall: HostCallTargets | undefined,
     logger: ((msg: string) => void) | undefined,
   ): Promise<number> {
     if (this.destroyed) {
-      throw new Error("wasm worker destroyed");
+      throw new Error("service thread destroyed");
     }
     const slot = this.nextSlot++;
     const targets: Record<string, { sibling?: number }> = {};
@@ -504,8 +550,7 @@ export class WasmWorker {
       this.worker.postMessage({
         type: "load",
         slot,
-        module,
-        options,
+        ...source,
         hostCall: targets,
       });
     });
@@ -515,7 +560,7 @@ export class WasmWorker {
   /** @internal */
   call(slot: number, input: Uint8Array): Promise<Uint8Array> {
     if (this.destroyed) {
-      return Promise.reject(new Error("wasm worker destroyed"));
+      return Promise.reject(new Error("service thread destroyed"));
     }
     const id = ++this.seq;
     // A private copy so the request can be transferred rather than cloned. Not `slice()`: on a
@@ -562,7 +607,7 @@ export class WasmWorker {
         const pending = this.loading.get(msg.slot);
         this.loading.delete(msg.slot);
         if (msg.type === "load-error") {
-          pending?.reject(new Error(`wasm main worker: ${msg.message}`));
+          pending?.reject(new Error(`service thread: ${msg.message}`));
         } else {
           pending?.resolve(new Uint8Array());
         }
@@ -584,7 +629,7 @@ export class WasmWorker {
     }
   }
 
-  /** Run the owner's handler for a module's host call and send the answer to the waiting module. */
+  /** Run the owner's handler for a module's host call and send the answer to the suspended module. */
   private async answer(
     slot: number,
     id: number,
@@ -615,9 +660,7 @@ export class WasmWorker {
 
   private failAll(err: unknown): void {
     const error =
-      err instanceof Error
-        ? err
-        : new Error(`wasm main worker: ${String(err)}`);
+      err instanceof Error ? err : new Error(`service thread: ${String(err)}`);
     for (const pending of [
       ...this.pending.values(),
       ...this.loading.values(),
@@ -628,27 +671,38 @@ export class WasmWorker {
     this.loading.clear();
   }
 
-  /** Let the host process exit even while the worker is alive (node). */
+  /**
+   * Let the host process exit even while the worker is alive (node). A napi instance's native
+   * thread holds the process only while a call to it is in flight anyway.
+   */
   unref(): void {
-    this.worker.unref();
+    this.unrefed = true;
+    this.workerHandle?.unref();
   }
 
-  /** End the worker and every module on it. */
+  /** End the worker and the native thread, and every instance on them. */
   async destroy(): Promise<void> {
     if (this.destroyed) {
       return;
     }
+    this.destroyed = true;
+    const attachments = [...this.attachments.values()];
+    this.attachments.clear();
+    await Promise.all(attachments.map((a) => a.destroy()));
+    const worker = this.workerHandle;
+    if (!worker) {
+      return;
+    }
     const done = new Promise<void>((resolve) => {
-      this.worker.onMessage((msg) => {
+      worker.onMessage((msg) => {
         if (msg?.type === "destroyed") {
           resolve();
         }
       });
     });
-    this.worker.postMessage({ type: "destroy" });
+    worker.postMessage({ type: "destroy" });
     await Promise.race([done, new Promise((r) => setTimeout(r, 2000))]);
-    this.destroyed = true;
-    await this.worker.terminate();
+    await worker.terminate();
     this.failAll(new Error("wasm backend destroyed"));
   }
 }
@@ -660,7 +714,7 @@ export class WasmWorker {
 export class WasmFfiBackend implements IpcClientAsync {
   private constructor(
     private readonly engine: WasmFfiEngine | undefined,
-    private readonly worker: WasmWorker | undefined,
+    private readonly worker: ServiceThread | undefined,
     private readonly slot: number,
     /** Whether the worker is this backend's alone, ending with it. */
     private readonly ownsWorker: boolean,
@@ -693,24 +747,26 @@ export class WasmFfiBackend implements IpcClientAsync {
     // Compile here so the (cached, streaming) compilation happens once and the compiled Module is
     // what crosses to the worker, rather than each side compiling the same bytes.
     const module = await compileWasmModule(opts.module, bound.platform);
-    const ownsWorker = !isWasmWorker(opts.worker);
-    const worker = isWasmWorker(opts.worker)
+    const ownsWorker = !isServiceThread(opts.worker);
+    const worker = isServiceThread(opts.worker)
       ? opts.worker
-      : WasmWorker.create(bound);
+      : ServiceThread.create(bound);
     try {
       const slot = await worker.load(
-        module,
         {
-          threads: opts.threads,
-          memory: {
-            ...opts.memory,
-            // The worker cannot tell an iPad from a Mac: its navigator has no maxTouchPoints.
-            maximum:
-              opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
+          module,
+          options: {
+            threads: opts.threads,
+            memory: {
+              ...opts.memory,
+              // The worker cannot tell an iPad from a Mac: its navigator has no maxTouchPoints.
+              maximum:
+                opts.memory?.maximum ?? bound.platform.maximumMemoryPages?.(),
+            },
+            moduleMemory: opts.moduleMemory,
+            env: opts.env,
+            entry: opts.entry,
           },
-          moduleMemory: opts.moduleMemory,
-          env: opts.env,
-          entry: opts.entry,
         },
         opts.hostCall,
         opts.logger,
@@ -725,7 +781,7 @@ export class WasmFfiBackend implements IpcClientAsync {
   }
 
   /** @internal This module's slot when it runs on `worker`. */
-  slotOn(worker: WasmWorker): number | undefined {
+  slotOn(worker: ServiceThread): number | undefined {
     return this.worker === worker ? this.slot : undefined;
   }
 

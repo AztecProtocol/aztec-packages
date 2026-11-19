@@ -215,13 +215,22 @@ any integer encoding width for any integer field.
 ### FFI entry
 
 A service linked into its caller — a native library, or a wasm reactor — takes
-requests through one exported C symbol instead of a transport:
+requests through exported C symbols instead of a transport:
 
 ```c
+void* <svc>_ipc_ffi_create(void);
+void  <svc>_ipc_ffi_call(void* instance, const uint8_t* input, size_t input_len,
+                         uint8_t** output, size_t* output_len);
+void  <svc>_ipc_ffi_destroy(void* instance);
 void  <svc>_ipc_ffi_entry(const uint8_t* input, size_t input_len,
                           uint8_t** output, size_t* output_len);
 void* <svc>_ipc_ffi_alloc(size_t size);
 void  <svc>_ipc_ffi_free(void* ptr);
+/* native only */
+void  <svc>_ipc_ffi_set_host_call(int32_t (*host_call)(
+          const uint8_t* target, size_t target_len,
+          const uint8_t* request, size_t request_len,
+          uint8_t** response, size_t* response_len));
 ```
 
 `<svc>` is the implementation's FFI name: by default the schema's `service` in
@@ -235,12 +244,35 @@ since an in-process call has no transport — and `*output` receives the respons
 payload in a buffer from `<svc>_ipc_ffi_alloc()` that the caller releases with
 `<svc>_ipc_ffi_free()` (both malloc/free-compatible). Input buffers the caller
 hands over are allocated the same way when the caller lives outside the
-module's memory (wasm). The entry is not thread-safe; callers serialize their
-calls. `--server --ffi` generates it; the client side is the generated Rust/Zig/C++
-FFI backend natively and `@aztec-foundation/ipc-runtime/wasm` for a wasm
-module, which also expects a wasi reactor (`_initialize`, WASI imports,
-wasi-threads `thread-spawn` for a threads build) and finds the entry by its
-`_ipc_ffi_entry` suffix when not told its name.
+module's memory (wasm).
+
+An instance is what a connection is over a transport: `_create` makes one with
+a context of its own (null if the service cannot), `_call` runs one request on
+it, and `_destroy` ends it once no call on it is running. Calls on one instance
+must not overlap, and the caller serializes them. Calls on different instances
+may run concurrently, on any threads, so a service's instances share no mutable
+state. `_entry` is `_call` on one instance of the process, made on first use,
+for callers that need no more than one. Every generator emits all of them: in
+C++ the service defines `ipc_ffi_create_instance()`, in Rust and Zig each
+instance is a `Default` (`.{}`) handler of the given type. The generated FFI
+client backends call `_entry`.
+
+A service calls its host (`ipc_runtime.host_call`, the `HostCallBackend`) through
+`ipc_runtime_host_call`: a wasm import, and natively a function the loading
+process hands over with `_set_host_call` (one per library, shared by all its
+instances; only the C++ server has host calls, so only it exports the setter). It has the same contract either way: the answer goes in a buffer from
+`<svc>_ipc_ffi_alloc()` that the service frees, with status 0 for a response and
+non-zero for an error message. Until a host call function is set, every host
+call fails.
+
+`--server --ffi` generates it; the client side is the generated Rust/Zig/C++
+FFI backend natively, ipc-runtime's `FfiLibrary` (its Node-API addon) from node,
+which sets the host call function to the `hostCall` passed with each
+`callInstance`, and
+`@aztec-foundation/ipc-runtime/wasm` for a wasm module, which also expects a
+wasi reactor (`_initialize`, WASI imports, wasi-threads `thread-spawn` for a
+threads build) and finds the entry by its `_ipc_ffi_entry` suffix when not told
+its name.
 
 ## Schema versioning
 

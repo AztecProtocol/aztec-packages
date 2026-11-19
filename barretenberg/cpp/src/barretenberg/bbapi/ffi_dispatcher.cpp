@@ -16,17 +16,14 @@
 namespace bb::bbapi {
 
 /**
- * @brief The dispatcher behind the generated in-process FFI entry (bb_ipc_ffi_entry, see bb_ffi.hpp).
+ * @brief An instance behind the generated in-process FFI entry (bb_ipc_ffi_entry, see bb_ffi.hpp).
  *
- * One request context for the process so stateful command sequences (ChonkStart/Load/Accumulate/
- * Prove) share IVC state, mirroring a serve loop's single connection context.
+ * One request context per instance, so stateful command sequences (ChonkStart/Load/Accumulate/Prove) on it share IVC
+ * state, mirroring a serve loop's connection context.
  */
-AsyncDispatchHandler& ipc_ffi_dispatcher()
+std::unique_ptr<FfiInstance> ipc_ffi_create_instance()
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static BBApiRequest request;
-    static AsyncDispatchHandler handler = make_bb_handler(request);
-    return handler;
+    return std::make_unique<FfiContext<BBApiRequest>>();
 }
 
 } // namespace bb::bbapi
