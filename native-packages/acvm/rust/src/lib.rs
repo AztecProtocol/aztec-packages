@@ -31,9 +31,13 @@ pub mod generated {
     }
 }
 
+mod abi;
 mod executor;
 mod handler;
 
+pub use abi::{
+    abi_decode, abi_decode_error, abi_encode, compress_witness_stack, decompress_witness_stack,
+};
 pub use executor::{execute, Execution, ForeignCallResolver, Solved};
 pub use handler::{AcvmHandler, HostOracle, ORACLE_HOST_CALL_TARGET};
 

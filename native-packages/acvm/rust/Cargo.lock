@@ -5,8 +5,6 @@ version = 4
 [[package]]
 name = "acir"
 version = "1.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33a7a03c9a68273adcfd7759eaad90310127ad353261d846ad928ca6bb739248"
 dependencies = [
  "acir_field",
  "base64 0.23.1",
@@ -26,9 +24,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8fa971894114a1d2dcb19a4eb8cf8edc02dbe60d2a4c174a086069124dad598"
+version = "1.0.0-rc.5"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -43,8 +39,6 @@ dependencies = [
 [[package]]
 name = "acvm"
 version = "1.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab39f1c3688a6153bd73b95ea87559978ca92e693fd71a37a3dc9f7f8bdf71e2"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -60,8 +54,6 @@ dependencies = [
 [[package]]
 name = "acvm_blackbox_solver"
 version = "1.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f8973c27ba6c1c5597cd55835db5c0b1d7ce19e38d2f816c00ede56c5b78096"
 dependencies = [
  "acir",
  "aes",
@@ -265,7 +257,9 @@ dependencies = [
  "bn254_blackbox_solver",
  "flate2",
  "ipc-runtime",
+ "iter-extended",
  "libc",
+ "noirc_abi",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -339,8 +333,6 @@ dependencies = [
 [[package]]
 name = "bn254_blackbox_solver"
 version = "1.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f71b2d93814a2828fd0cc0f4e4a881db75132a7f89797094adf13afe43e84af"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -354,9 +346,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ea28a2dd24e4dde9e40810bd1861e109fae5857ec5e46c541e26a9e11ec167"
+version = "1.0.0-rc.5"
 dependencies = [
  "acir_field",
  "itertools 0.15.0",
@@ -367,8 +357,6 @@ dependencies = [
 [[package]]
 name = "brillig_vm"
 version = "1.0.0-rc.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f89a612ee4baf1286211187c9554e74e97fd35aa24cfa9efab21f879d47c804"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -749,6 +737,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "iter-extended"
+version = "1.0.0-rc.5"
+
+[[package]]
 name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -827,9 +819,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8583fbc531c254d91f5abc8672328021c86150a269379c85c06fea1178e4759"
+version = "1.0.0-rc.5"
 dependencies = [
  "msgpack_tagged_derive",
  "rmp",
@@ -840,13 +830,38 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged_derive"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58b8d27b681e843796ec60243bd83037a0a642dd3741326e2715d1fe6f8a450e"
+version = "1.0.0-rc.5"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "noirc_abi"
+version = "1.0.0-rc.5"
+dependencies = [
+ "acvm",
+ "iter-extended",
+ "itertools 0.15.0",
+ "noirc_printable_type",
+ "num-bigint 0.5.1",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
+]
+
+[[package]]
+name = "noirc_printable_type"
+version = "1.0.0-rc.5"
+dependencies = [
+ "acvm",
+ "iter-extended",
+ "itertools 0.15.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -995,7 +1010,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit",
+ "toml_edit 0.25.17+spec-1.1.0",
 ]
 
 [[package]]
@@ -1172,6 +1187,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serdect"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1317,6 +1341,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.8.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime 0.6.11",
+ "toml_edit 0.22.27",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1327,14 +1372,28 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
+version = "0.22.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_spanned",
+ "toml_datetime 0.6.11",
+ "toml_write",
+ "winnow 0.7.15",
+]
+
+[[package]]
+name = "toml_edit"
 version = "0.25.17+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
 dependencies = [
  "indexmap",
- "toml_datetime",
+ "toml_datetime 1.1.2+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 1.0.4",
 ]
 
 [[package]]
@@ -1343,8 +1402,14 @@ version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
 dependencies = [
- "winnow",
+ "winnow 1.0.4",
 ]
+
+[[package]]
+name = "toml_write"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "tracing"
@@ -1394,6 +1459,15 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "winnow"
+version = "0.7.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winnow"

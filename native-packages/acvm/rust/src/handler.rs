@@ -1,15 +1,18 @@
 //! The Acvm service's handler, shared by the server process, the native library and the wasm module.
 
 use acir::brillig::{ForeignCallParam, ForeignCallResult};
-use acir::native_types::{Witness, WitnessMap};
 use acir::FieldElement;
 use acvm::pwg::ForeignCallWaitInfo;
 use acvm::AcirField;
 
+use crate::abi::{self, be32, witness_entries, witness_map};
 use crate::executor::{execute, Execution};
 use crate::generated::acvm::acvm_server::{Handler, Responder};
 use crate::generated::acvm::acvm_types::{
-    AcvmExecuteProgram, AcvmExecuteProgramResponse, Bin32, WitnessEntry,
+    AcvmAbiDecode, AcvmDecodeAssertionPayload, AcvmDecodeAssertionPayloadResponse, AcvmAbiDecodeResponse,
+    AcvmAbiEncode, AcvmAbiEncodeResponse, AcvmCompressWitnessStack,
+    AcvmCompressWitnessStackResponse, AcvmDecompressWitnessStack,
+    AcvmDecompressWitnessStackResponse, AcvmExecuteProgram, AcvmExecuteProgramResponse,
 };
 use crate::generated::acvm::host_call_backend::HostCallBackend;
 use crate::generated::oracle::backend::Backend;
@@ -68,13 +71,7 @@ impl<B: Backend> Handler for AcvmHandler<B> {
         cmd: AcvmExecuteProgram,
         respond: Responder<AcvmExecuteProgramResponse>,
     ) {
-        let mut initial_witness = WitnessMap::new();
-        for entry in &cmd.initial_witness {
-            initial_witness.insert(
-                Witness(entry.index),
-                FieldElement::from_be_bytes_reduce(&entry.value.0),
-            );
-        }
+        let initial_witness = witness_map(&cmd.initial_witness);
         let execution_id = cmd.execution_id;
         let oracle = &mut self.oracle;
         let mut resolver = |call: &ForeignCallWaitInfo<FieldElement>| {
@@ -107,9 +104,9 @@ impl<B: Backend> Handler for AcvmHandler<B> {
             None
         };
         respond.ok(AcvmExecuteProgramResponse {
-            return_witness: entries(&solved.return_witness),
+            return_witness: witness_entries(&solved.return_witness),
             witness: if cmd.return_witness_map {
-                entries(solved.main_witness())
+                witness_entries(solved.main_witness())
             } else {
                 Vec::new()
             },
@@ -117,24 +114,59 @@ impl<B: Backend> Handler for AcvmHandler<B> {
             failure: None,
         });
     }
-}
 
-fn entries(witness: &WitnessMap<FieldElement>) -> Vec<WitnessEntry> {
-    witness
-        .clone()
-        .into_iter()
-        .map(|(index, value)| WitnessEntry {
-            index: index.0,
-            value: Bin32(be32(value)),
-        })
-        .collect()
-}
+    fn abi_encode(&mut self, cmd: AcvmAbiEncode, respond: Responder<AcvmAbiEncodeResponse>) {
+        match abi::abi_encode(
+            &cmd.abi_json,
+            &cmd.inputs_json,
+            cmd.return_value_json.as_deref(),
+        ) {
+            Ok(witness) => respond.ok(AcvmAbiEncodeResponse {
+                witness: witness_entries(&witness),
+            }),
+            Err(message) => respond.error(message),
+        }
+    }
 
-fn be32(value: FieldElement) -> [u8; 32] {
-    let bytes = value.to_be_bytes();
-    let mut out = [0u8; 32];
-    out[32 - bytes.len()..].copy_from_slice(&bytes);
-    out
+    fn abi_decode(&mut self, cmd: AcvmAbiDecode, respond: Responder<AcvmAbiDecodeResponse>) {
+        match abi::abi_decode(&cmd.abi_json, &witness_map(&cmd.witness)) {
+            Ok(json) => respond.ok(AcvmAbiDecodeResponse { json }),
+            Err(message) => respond.error(message),
+        }
+    }
+
+    fn decode_assertion_payload(
+        &mut self,
+        cmd: AcvmDecodeAssertionPayload,
+        respond: Responder<AcvmDecodeAssertionPayloadResponse>,
+    ) {
+        match abi::abi_decode_error(&cmd.abi_json, &cmd.payload.selector, &cmd.payload.data) {
+            Ok(json) => respond.ok(AcvmDecodeAssertionPayloadResponse { json }),
+            Err(message) => respond.error(message),
+        }
+    }
+
+    fn compress_witness_stack(
+        &mut self,
+        cmd: AcvmCompressWitnessStack,
+        respond: Responder<AcvmCompressWitnessStackResponse>,
+    ) {
+        match abi::compress_witness_stack(&cmd.stack) {
+            Ok(bytes) => respond.ok(AcvmCompressWitnessStackResponse { bytes }),
+            Err(message) => respond.error(message),
+        }
+    }
+
+    fn decompress_witness_stack(
+        &mut self,
+        cmd: AcvmDecompressWitnessStack,
+        respond: Responder<AcvmDecompressWitnessStackResponse>,
+    ) {
+        match abi::decompress_witness_stack(&cmd.bytes) {
+            Ok(stack) => respond.ok(AcvmDecompressWitnessStackResponse { stack }),
+            Err(message) => respond.error(message),
+        }
+    }
 }
 
 fn to_wire(param: &ForeignCallParam<FieldElement>) -> ForeignCallValue {

@@ -233,3 +233,51 @@ test("the synchronous backends solve on the calling thread to the same witness a
     }
   }
 });
+
+test("every backend encodes, decodes and (de)compresses as noirc_abi and acvm_js do", async () => {
+  const abi = (program) =>
+    JSON.stringify(JSON.parse(readFileSync(new URL(`${program}.json`, fixtures), "utf8")).abi);
+  const sync = await Promise.all(["napi", "wasm"].map((backend) => AcvmServiceSync.create({ backend })));
+  const nargoStack = readFileSync(new URL("acir_calls.witness.gz", fixtures));
+  try {
+    const all = [
+      ...Object.entries(services),
+      ["napi-sync", sync[0]],
+      ["wasm-sync", sync[1]],
+    ];
+    for (const [name, service] of all) {
+      const { witness } = await service.abiEncode({
+        abiJson: abi("simple"),
+        inputsJson: JSON.stringify({ x: "3", y: 5 }),
+        returnValueJson: null,
+      });
+      assert.deepEqual(witness, inputs([3, 5]), name);
+      const { json } = await service.abiDecode({
+        abiJson: abi("simple"),
+        witness: [...inputs([3, 5]), { index: 2, value: fr(16) }],
+      });
+      assert.deepEqual(
+        JSON.parse(json),
+        { inputs: { x: "0x03", y: "0x05" }, return_value: "0x10" },
+        name,
+      );
+      const decoded = await service.decodeAssertionPayload({
+        abiJson: abi("assertions"),
+        payload: { selector: "11740580735536159235", data: ["0x01", "0x02"] },
+      });
+      assert.deepEqual(JSON.parse(decoded.json), { left: "0x01", right: "0x02" }, name);
+      await assert.rejects(
+        async () =>
+          service.abiEncode({ abiJson: abi("simple"), inputsJson: "{}", returnValueJson: null }),
+        /x/,
+        name,
+      );
+      const { stack } = await service.decompressWitnessStack({ bytes: nargoStack });
+      assert.equal(stack.at(-1).index, 0, name);
+      const { bytes } = await service.compressWitnessStack({ stack });
+      assert.deepEqual((await service.decompressWitnessStack({ bytes })).stack, stack, name);
+    }
+  } finally {
+    sync.forEach((service) => service.destroy());
+  }
+});

@@ -8,3 +8,8 @@
 ^ipc-codegen/templates/
 ^ipc-runtime/rust/
 ^ipc-runtime/cpp/
+^noir/noir-repo/acvm-repo/
+^noir/noir-repo/tooling/noirc_abi/
+^noir/noir-repo/tooling/noirc_printable_type/
+^noir/noir-repo/utils/
+^noir/noir-repo/Cargo\.toml$
