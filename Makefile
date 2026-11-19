@@ -470,7 +470,7 @@ LABS_DIR := $(ROOT)/labs
 fnd-artifacts-stage: noir-projects-fnd
 	$(call build,$@,noir-projects/fnd,stage_packages)
 
-labs-deps: bb-ts l1-contracts wsdb kvdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+labs-deps: bb-ts l1-contracts wsdb kvdb kv-sqlite constants-codegen noir-projects-fnd fnd-artifacts-stage
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.
