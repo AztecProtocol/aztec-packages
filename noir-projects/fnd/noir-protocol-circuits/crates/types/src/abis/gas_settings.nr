@@ -1,6 +1,6 @@
-use crate::{abis::{gas::Gas, gas_fees::GasFees}, traits::{Deserialize, Empty, Serialize}};
+use crate::{abis::{gas::Gas, gas_fees::GasFees}, traits::{Deserialize, Empty, Packable, Serialize}};
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct GasSettings {
     pub gas_limits: Gas,
     pub teardown_gas_limits: Gas,

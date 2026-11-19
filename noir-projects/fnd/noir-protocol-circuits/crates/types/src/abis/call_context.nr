@@ -1,12 +1,12 @@
 use crate::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 // docs:start:call-context
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct CallContext {
     // The address of the contract that is making the call.
     pub msg_sender: AztecAddress,

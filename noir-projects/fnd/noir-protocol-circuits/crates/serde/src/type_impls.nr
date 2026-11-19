@@ -622,8 +622,10 @@ where
     }
 }
 
-// Create a slice of the given length with each element made from `f(i)` where `i` is the current index
-comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
+/// Creates a slice of `length` elements from `f`.
+///
+/// Each element is made from `f(i)`, where `i` is the element's index.
+pub comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
     let mut slice = @[];
     for i in 0..length {
         slice = slice.push_back(f(i));

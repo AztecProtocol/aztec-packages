@@ -8,12 +8,12 @@ use crate::{
         GENESIS_NULLIFIER_TREE_ROOT,
     },
     hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Hash, Serialize},
+    traits::{Deserialize, Empty, Hash, Packable, Serialize},
 };
 use std::meta::derive;
 
 // docs:start:block-header
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct BlockHeader {
     pub last_archive: AppendOnlyTreeSnapshot,
     pub state: StateReference,

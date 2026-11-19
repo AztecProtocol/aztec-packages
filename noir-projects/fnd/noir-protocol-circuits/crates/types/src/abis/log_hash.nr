@@ -2,10 +2,10 @@ use crate::{
     address::AztecAddress,
     constants::LOG_HASH_LENGTH,
     side_effect::{Counted, Scoped},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct LogHash {
     pub value: Field,
     pub length: u32,

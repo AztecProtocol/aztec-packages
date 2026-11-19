@@ -2,11 +2,11 @@ use crate::{
     abis::validation_requests::key_validation_request::KeyValidationRequest,
     address::AztecAddress,
     side_effect::Scoped,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct KeyValidationRequestAndSeparator {
     pub request: KeyValidationRequest,
     pub key_type_domain_separator: Field,

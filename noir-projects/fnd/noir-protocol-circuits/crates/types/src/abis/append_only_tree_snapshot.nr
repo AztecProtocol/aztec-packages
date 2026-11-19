@@ -1,7 +1,10 @@
-use crate::{constants::APPEND_ONLY_TREE_SNAPSHOT_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use crate::{
+    constants::APPEND_ONLY_TREE_SNAPSHOT_LENGTH,
+    traits::{Deserialize, Empty, Packable, Serialize},
+};
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct AppendOnlyTreeSnapshot {
     pub root: Field,
     pub next_available_leaf_index: Field,

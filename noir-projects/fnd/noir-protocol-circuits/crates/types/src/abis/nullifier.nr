@@ -1,7 +1,10 @@
-use crate::{side_effect::{Counted, Readable, Scoped}, traits::{Deserialize, Empty, Serialize}};
+use crate::{
+    side_effect::{Counted, Readable, Scoped},
+    traits::{Deserialize, Empty, Packable, Serialize},
+};
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Nullifier {
     pub value: Field,
     // A nullifier may track the note hash that it nullifies, to enable squashing. This will be discarded in the

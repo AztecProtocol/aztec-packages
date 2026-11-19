@@ -1,10 +1,10 @@
 use crate::{
     address::AztecAddress,
     side_effect::{counted::Counted, Ordered},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Packable, Serialize)]
 pub struct Scoped<T> {
     pub inner: T,
     pub contract_address: AztecAddress,

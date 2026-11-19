@@ -2,7 +2,7 @@ use crate::{
     address::{aztec_address::AztecAddress, partial_address::PartialAddress},
     contract_class_id::ContractClassId,
     public_keys::PublicKeys,
-    traits::{Deserialize, Hash, Serialize, ToField},
+    traits::{Deserialize, Hash, Packable, Serialize, ToField},
 };
 use std::meta::derive;
 
@@ -13,7 +13,7 @@ use std::meta::derive;
 ///
 /// In particular, `original_contract_class_id` is the class the contract was *deployed* with. For upgradeable contracts
 /// which utilize the `ContractInstanceRegistry` this is NOT the class currently executing i.e. the 'current' class.
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct ContractInstance {
     pub salt: Field,
     pub deployer: AztecAddress,
