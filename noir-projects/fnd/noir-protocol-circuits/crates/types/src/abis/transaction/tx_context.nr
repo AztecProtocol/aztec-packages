@@ -1,12 +1,12 @@
 use crate::{
     abis::gas_settings::GasSettings,
     constants::TX_CONTEXT_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 // docs:start:tx-context
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct TxContext {
     // The chain ID on which this transaction is executed.
     pub chain_id: Field,

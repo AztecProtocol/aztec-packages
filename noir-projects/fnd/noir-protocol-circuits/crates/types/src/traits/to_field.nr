@@ -46,6 +46,30 @@ impl ToField for u128 {
         self as Field
     }
 }
+impl ToField for i8 {
+    #[inline_always]
+    fn to_field(self) -> Field {
+        self as u8 as Field
+    }
+}
+impl ToField for i16 {
+    #[inline_always]
+    fn to_field(self) -> Field {
+        self as u16 as Field
+    }
+}
+impl ToField for i32 {
+    #[inline_always]
+    fn to_field(self) -> Field {
+        self as u32 as Field
+    }
+}
+impl ToField for i64 {
+    #[inline_always]
+    fn to_field(self) -> Field {
+        self as u64 as Field
+    }
+}
 impl<let N: u32> ToField for str<N> {
     #[inline_always]
     fn to_field(self) -> Field {

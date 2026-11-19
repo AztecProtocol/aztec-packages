@@ -1,10 +1,10 @@
 use crate::{
     abis::call_context::CallContext,
     side_effect::Ordered,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PrivateCallRequest {
     pub call_context: CallContext,
     pub args_hash: Field,

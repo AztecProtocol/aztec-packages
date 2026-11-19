@@ -1,12 +1,12 @@
 use crate::{
     address::{AztecAddress, EthAddress},
     side_effect::{Counted, Scoped},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct L2ToL1Message {
     pub recipient: EthAddress,
     pub content: Field,

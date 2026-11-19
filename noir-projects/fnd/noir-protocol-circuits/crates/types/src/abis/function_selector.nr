@@ -1,7 +1,7 @@
-use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
+use crate::traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField};
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct FunctionSelector {
     // Low 32 bits of the poseidon2 hash of the function signature.
     pub inner: u32,

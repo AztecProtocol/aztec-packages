@@ -4,10 +4,10 @@ use crate::{
         leaf_preimage::IndexedTreeLeafPreimage,
         root::{root_from_sibling_path, root_from_sibling_path_with_hasher},
     },
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct MembershipWitness<let N: u32> {
     pub leaf_index: Field,
     pub sibling_path: [Field; N],

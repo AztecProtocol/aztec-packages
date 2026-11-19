@@ -4,11 +4,11 @@ use crate::{
         MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
     },
     side_effect::Counted,
-    traits::{Deserialize, Empty, FromField, Serialize},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize},
     utils::arrays::array_length,
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PublicCallRequest {
     pub msg_sender: AztecAddress,
     pub contract_address: AztecAddress,

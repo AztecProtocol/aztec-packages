@@ -1,11 +1,11 @@
 use crate::{
     abis::gas_fees::GasFees,
     address::{AztecAddress, EthAddress},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
 // docs:start:global-variables
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,

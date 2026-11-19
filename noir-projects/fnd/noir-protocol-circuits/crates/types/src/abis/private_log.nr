@@ -2,13 +2,13 @@ use crate::{
     abis::log::Log,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     side_effect::{Counted, Scoped},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
 
-#[derive(Eq, Deserialize, Serialize)]
+#[derive(Eq, Deserialize, Packable, Serialize)]
 pub struct PrivateLogData {
     pub log: Log<PRIVATE_LOG_SIZE_IN_FIELDS>,
     // The counter of the note hash this log is for. 0 if it does not link to a note hash.

@@ -1,11 +1,11 @@
 use crate::{
     abis::gas_fees::GasFees,
     constants::{PRIVATE_TX_L2_GAS_OVERHEAD, PUBLIC_TX_L2_GAS_OVERHEAD, TX_DA_GAS_OVERHEAD},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::{meta::derive, ops::{Add, Sub}};
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Gas {
     pub da_gas: u32,
     pub l2_gas: u32,

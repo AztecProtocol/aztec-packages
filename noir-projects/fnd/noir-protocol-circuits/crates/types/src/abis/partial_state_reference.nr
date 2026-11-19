@@ -1,12 +1,12 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 ///  A subset of `TreeSnapshots` that contains only the trees updated at the tx level.
 /// TODO: Rename to `TxStateTreeSnapshots`.
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PartialStateReference {
     pub note_hash_tree: AppendOnlyTreeSnapshot,
     pub nullifier_tree: AppendOnlyTreeSnapshot,

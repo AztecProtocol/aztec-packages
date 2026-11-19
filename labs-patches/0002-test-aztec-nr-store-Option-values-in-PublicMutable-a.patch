@@ -1,0 +1,173 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Nicol=C3=A1s=20Venturo?= <nicolas.venturo@gmail.com>
+Date: Thu, 19 Nov 2026 14:04:46 +0000
+Subject: [PATCH] test(aztec-nr): store Option values in PublicMutable and
+ DelayedPublicMutable
+
+
+diff --git a/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable/test.nr b/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable/test.nr
+index d9b144949dad0affa8496c0ac4c80509cc05c7d0..fd8c9a60f554ffb6df34c4ba748368a5056a1480 100644
+--- a/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable/test.nr
++++ b/noir-projects/aztec-nr/aztec/src/state_vars/delayed_public_mutable/test.nr
+@@ -4,6 +4,7 @@ use crate::{
+     test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
+ };
+ use crate::protocol::{
++    address::AztecAddress,
+     constants::DEFAULT_UPDATE_DELAY,
+     delayed_public_mutable::{compute_delayed_public_mutable_time_horizon, DelayedPublicMutableValues},
+     traits::{Empty, Packable},
+@@ -13,6 +14,9 @@ use std::mem::zeroed;
+ 
+ global new_value: MockStruct = MockStruct { a: 17, b: 42 };
+ 
++// Without the `Option`, a zero address would read the same as a value that was never set.
++global new_option_value: Option<AztecAddress> = Option::some(AztecAddress::zero());
++
+ global new_delay: u64 = 60 * 60 * 2;
+ 
+ global BELOW_MINIMUM_DELAY: u64 = DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY - 1;
+@@ -39,6 +43,18 @@ unconstrained fn in_utility(
+     DelayedPublicMutable::new(context, storage_slot)
+ }
+ 
++unconstrained fn option_in_public(
++    context: PublicContext,
++) -> DelayedPublicMutable<Option<AztecAddress>, TEST_INITIAL_DELAY, PublicContext> {
++    DelayedPublicMutable::new(context, storage_slot)
++}
++
++unconstrained fn option_in_private(
++    context: &mut PrivateContext,
++) -> DelayedPublicMutable<Option<AztecAddress>, TEST_INITIAL_DELAY, &mut PrivateContext> {
++    DelayedPublicMutable::new(context, storage_slot)
++}
++
+ #[test]
+ unconstrained fn declaring_with_minimum_delay() {
+     let _: DelayedPublicMutable<MockStruct, DELAYED_PUBLIC_MUTABLE_MINIMUM_DELAY, PublicContext> =
+@@ -145,6 +161,36 @@ unconstrained fn get_current_value_in_public_after_scheduled_change() {
+     });
+ }
+ 
++#[test]
++unconstrained fn get_current_option_value_in_public_initial_is_none() {
++    let env = TestEnvironment::new();
++
++    env.public_context(|context| {
++        let state_var = option_in_public(context);
++        assert_eq(state_var.get_current_value(), Option::none());
++    });
++}
++
++#[test]
++unconstrained fn get_current_option_value_in_public_after_scheduled_change() {
++    let env = TestEnvironment::new();
++
++    let (_, timestamp_of_change) = env.public_context(|context| {
++        let state_var = option_in_public(context);
++
++        state_var.schedule_value_change(new_option_value);
++
++        state_var.get_scheduled_value()
++    });
++
++    env.set_next_block_timestamp(timestamp_of_change + 10);
++
++    env.public_context(|context| {
++        let state_var = option_in_public(context);
++        assert_eq(state_var.get_current_value(), new_option_value);
++    });
++}
++
+ #[test]
+ unconstrained fn get_current_delay_in_public_initial() {
+     let env = TestEnvironment::new();
+@@ -277,6 +323,38 @@ unconstrained fn get_current_value_in_private_initial() {
+     });
+ }
+ 
++#[test]
++unconstrained fn get_current_option_value_in_private_initial_is_none() {
++    let env = TestEnvironment::new();
++
++    env.private_context(|context| {
++        let state_var = option_in_private(context);
++
++        assert_eq(state_var.get_current_value(), Option::none());
++    });
++}
++
++#[test]
++unconstrained fn get_current_option_value_in_private_at_change() {
++    let env = TestEnvironment::new();
++
++    let (_, timestamp_of_change) = env.public_context(|context| {
++        let state_var = option_in_public(context);
++
++        state_var.schedule_value_change(new_option_value);
++
++        state_var.get_scheduled_value()
++    });
++
++    env.mine_block_at(timestamp_of_change);
++
++    env.private_context(|context| {
++        let state_var = option_in_private(context);
++
++        assert_eq(state_var.get_current_value(), new_option_value);
++    });
++}
++
+ #[test]
+ unconstrained fn get_current_value_in_private_before_change() {
+     let env = TestEnvironment::new();
+diff --git a/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable/test.nr b/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable/test.nr
+index 3c07e5bf1fbcb559f8aa8beaf2b1529ccf905bee..d15ff95ff7e3e53f95bae8706e2fc66255ee5bb8 100644
+--- a/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable/test.nr
++++ b/noir-projects/aztec-nr/aztec/src/state_vars/public_mutable/test.nr
+@@ -12,6 +12,10 @@ fn in_utility(context: UtilityContext) -> PublicMutable<MockStruct, UtilityConte
+     PublicMutable::new(context, storage_slot)
+ }
+ 
++fn option_in_public(context: PublicContext) -> PublicMutable<Option<u64>, PublicContext> {
++    PublicMutable::new(context, storage_slot)
++}
++
+ #[test]
+ unconstrained fn read_uninitialized_public_returns_zero() {
+     let env = TestEnvironment::new();
+@@ -32,6 +36,33 @@ unconstrained fn read_uninitialized_utility_returns_default() {
+     });
+ }
+ 
++#[test]
++unconstrained fn read_uninitialized_option_public_returns_none() {
++    let env = TestEnvironment::new();
++
++    env.public_context(|context| {
++        let state_var = option_in_public(context);
++        assert_eq(state_var.read(), Option::none());
++    });
++}
++
++#[test]
++unconstrained fn write_read_option_public_other_tx() {
++    let env = TestEnvironment::new();
++
++    let value = Option::some(5);
++
++    env.public_context(|context| {
++        let state_var = option_in_public(context);
++        state_var.write(value);
++    });
++
++    env.public_context(|context| {
++        let state_var = option_in_public(context);
++        assert_eq(state_var.read(), value);
++    });
++}
++
+ #[test]
+ unconstrained fn write_read_public_same_tx() {
+     let env = TestEnvironment::new();

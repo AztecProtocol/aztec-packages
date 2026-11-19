@@ -1,7 +1,7 @@
-use crate::traits::{Deserialize, Empty, Serialize};
+use crate::traits::{Deserialize, Empty, Packable, Serialize};
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Log<let N: u32> {
     pub fields: [Field; N],
     // The actual length (number of fields) of the log to be included in the blobs.
