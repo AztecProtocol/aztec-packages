@@ -437,10 +437,11 @@ acvm-mobile: acvm
 # bb.js, bb, the ACVM and kv-sqlite from this tree under Hermes, through the module (see
 # native-packages/react-native/README.md).
 .PHONY: react-native react-native-tests react-native-mobile acvm-mobile
-react-native: ipc-codegen
+# Its node_modules portal to @aztec-labs/acvm's and kv-sqlite's generated TS packages, so those build first.
+react-native: ipc-codegen acvm kv-sqlite
 	$(call build,$@,native-packages/react-native)
 
-react-native-tests: react-native bb-ts acvm kv-sqlite
+react-native-tests: react-native bb-ts
 	$(call test,$@,native-packages/react-native)
 
 # The libraries the package ships (release only): bb and the ACVM for Android and iOS.
