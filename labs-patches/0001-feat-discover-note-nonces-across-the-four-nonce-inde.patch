@@ -1,0 +1,254 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iAmMichaelConnor <mike@aztec.foundation>
+Date: Fri, 20 Nov 2026 16:42:09 +0000
+Subject: [PATCH] feat!: discover note nonces across the four nonce index
+ sections
+
+A note hash's nonce index lies in a fixed, MAX_NOTE_HASHES_PER_TX-wide section
+chosen by where the note hash came from: private non-revertible (i), public
+non-revertible (MAX + p), private revertible (2 * MAX + i) and public
+revertible (3 * MAX + p), where i is the index in the private kernel's output
+and p the index in the tx's note hashes. All use DOM_SEP__NOTE_HASH_NONCE.
+
+- nonce discovery tries every index in all four sections
+- the PXE's kernel-less simulation gives revertible note hashes of a tx with
+  public calls the private revertible section index
+- the partial note test's completion log uses a public revertible nonce index
+
+diff --git a/CHANGELOG-DEVELOPERS.md b/CHANGELOG-DEVELOPERS.md
+index 7ddb3edbd9324f5406f3966f9f4e7a3df1ee1746..3c4ca1f62c21d16ea3a4632b7aacfe70e7e7a4b4 100644
+--- a/CHANGELOG-DEVELOPERS.md
++++ b/CHANGELOG-DEVELOPERS.md
+@@ -45,6 +45,7 @@ Note that changes to _internal_ interfaces, e.g. the aztec-nr <> PXE oracle inte
+ 
+ #### Breaking changes
+ 
++- **A note hash's nonce index lies in a fixed section chosen by where the note hash came from.** Each section is `MAX_NOTE_HASHES_PER_TX` (64) wide: private non-revertible note hashes use their index `i` in the private kernel's output, public non-revertible ones (setup) `64 + p`, private revertible ones `128 + i`, and public revertible ones (app logic, teardown) `192 + p`, where `p` is the note hash's index in the transaction's note hashes. All of them use `DOM_SEP__NOTE_HASH_NONCE`. A note created in private now has the same final note hash, and nullifier, whether or not its tx makes public calls, and its creator knows both before sending the tx. Private-only txs keep their dense indices. Nonce discovery tries all 256 indices, so contracts that rely on aztec-nr's discovery need no change. Code that recomputes a nonce itself must use the section index, such as `192 + p` for a partial note completed in app logic. A contract built against an earlier aztec-nr does not discover notes whose nonce index lies outside the first section.
+ - **`compute_secret_hash` is renamed `compute_private_content_hash`, and it returns a different hash** ([#689](https://github.com/aztec-labs-eng/aztec-node/pull/689)). The two application fields of an L1-to-L2 message are renamed for what they are: `content` is the message's public content hash, and its secret hash is its private content hash. The preimage a contract reveals to consume the message is its private content, which the application defines: a single claim secret, as in the fee juice and token bridges, or something richer. The hash now uses the `DOM_SEP__PRIVATE_CONTENT_HASH` domain separator, so a contract built with this version cannot consume a message whose hash was computed the old way: claim pending messages before upgrading, or send them again afterwards. `consume_l1_to_l2_message`, `compute_l1_to_l2_message_hash` and `compute_l1_to_l2_message_nullifier` keep their arguments in the same order, under the new names.
+ 
+   ```diff
+diff --git a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr b/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
+index e785e0072181762216fc951a566ba556b5017c44..43dd9b97b32775c1cc9b3d28790c9a2ed5acb10f 100644
+--- a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
++++ b/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
+@@ -16,6 +16,10 @@ pub(crate) struct DiscoveredNoteInfo {
+     pub(crate) inner_nullifier: Field,
+ }
+ 
++/// The number of nonce index sections: private non-revertible, public non-revertible, private revertible and public
++/// revertible, each MAX_NOTE_HASHES_PER_TX wide.
++global NOTE_HASH_NONCE_INDEX_SECTIONS: u32 = 4;
++
+ /// Searches for note nonces that will result in a note that was emitted in a transaction. While rare, it is possible
+ /// for multiple notes to have the exact same packed content and storage slot but different nonces, resulting in
+ /// different unique note hashes. Because of this this function returns a *vector* of discovered notes, though in most
+@@ -64,10 +68,13 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
+ 
+         // We need to find nonces (typically just one) that result in the siloed note hash that being uniqued into one
+         // of the transaction's effects.
+-        // The nonce is meant to be derived from the index of the note hash in the transaction effects array. However,
+-        // due to an issue in the kernels the nonce might actually use any of the possible note hash indices - not
+-        // necessarily the one that corresponds to the note hash. Hence, we need to try them all.
+-        for i in 0..MAX_NOTE_HASHES_PER_TX {
++        // The nonce index is not the note hash's index in the transaction effects array. It lies in one of four fixed,
++        // MAX_NOTE_HASHES_PER_TX-wide sections, by where the note hash came from: private non-revertible, public
++        // non-revertible (setup), private revertible, public revertible (app logic and teardown). Within a private
++        // section the offset is the note hash's index in the private kernel's output, and within a public section its
++        // index in the transaction effects array. We don't know which kind of note hash this is, so we try every
++        // index.
++        for i in 0..NOTE_HASH_NONCE_INDEX_SECTIONS * MAX_NOTE_HASHES_PER_TX {
+             let nonce_for_i = compute_note_hash_nonce(first_nullifier_in_tx, i);
+             let unique_note_hash_for_i = compute_unique_note_hash(nonce_for_i, siloed_note_hash);
+ 
+@@ -162,11 +169,12 @@ mod test {
+ 
+     use crate::protocol::{
+         address::AztecAddress,
++        constants::MAX_NOTE_HASHES_PER_TX,
+         hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
+         traits::{FromField, Packable},
+     };
+ 
+-    use super::attempt_note_nonce_discovery;
++    use super::{attempt_note_nonce_discovery, NOTE_HASH_NONCE_INDEX_SECTIONS};
+ 
+     // This implementation could be simpler, but this serves as a nice example of the expected flow in a real
+     // implementation, and as a sanity check that the interface is sufficient.
+@@ -286,8 +294,8 @@ mod test {
+         inner_nullifier: Field,
+     }
+ 
+-    unconstrained fn construct_note(value: Field, note_index_in_tx: u32) -> NoteAndData {
+-        let note_nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx);
++    unconstrained fn construct_note(value: Field, nonce_index: u32) -> NoteAndData {
++        let note_nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, nonce_index);
+ 
+         let hinted_note = MockNote::new(value)
+             .contract_address(CONTRACT_ADDRESS)
+@@ -341,6 +349,64 @@ mod test {
+         assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
+     }
+ 
++    /// Places a note with nonce index `nonce_index` at `index_in_tx` in a tx's note hashes, and checks that discovery
++    /// finds it.
++    unconstrained fn assert_discovers_note_in_section(nonce_index: u32, index_in_tx: u32) {
++        let note_and_data = construct_note(VALUE, nonce_index);
++
++        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
++            random(), random(), random(), random(), random(), random(), random(),
++        ]);
++        unique_note_hashes_in_tx.set(index_in_tx, note_and_data.unique_note_hash);
++
++        let discovered_notes = attempt_note_nonce_discovery(
++            unique_note_hashes_in_tx,
++            FIRST_NULLIFIER_IN_TX,
++            compute_note_hash,
++            compute_note_nullifier,
++            CONTRACT_ADDRESS,
++            OWNER,
++            STORAGE_SLOT,
++            RANDOMNESS,
++            MockNote::get_id(),
++            BoundedVec::from_array(note_and_data.note.pack()),
++        );
++
++        assert_eq(discovered_notes.len(), 1);
++        let discovered_note = discovered_notes.get(0);
++
++        assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
++        assert_eq(discovered_note.note_hash, note_and_data.note_hash);
++        assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
++    }
++
++    #[test]
++    unconstrained fn public_non_revertible_note() {
++        // Emitted in setup at index 3 in the tx's note hashes.
++        assert_discovers_note_in_section(MAX_NOTE_HASHES_PER_TX + 3, 3);
++    }
++
++    #[test]
++    unconstrained fn private_revertible_note_after_public_note_hashes() {
++        // A private revertible note hash at index 1 in the private kernel's output, inserted at index 4 in the tx's
++        // note hashes after public non-revertible ones.
++        assert_discovers_note_in_section(2 * MAX_NOTE_HASHES_PER_TX + 1, 4);
++    }
++
++    #[test]
++    unconstrained fn public_revertible_note() {
++        // Emitted in app logic or teardown at index 5 in the tx's note hashes.
++        assert_discovers_note_in_section(3 * MAX_NOTE_HASHES_PER_TX + 5, 5);
++    }
++
++    #[test]
++    unconstrained fn note_with_last_nonce_index() {
++        assert_discovers_note_in_section(
++            NOTE_HASH_NONCE_INDEX_SECTIONS * MAX_NOTE_HASHES_PER_TX - 1,
++            6,
++        );
++    }
++
+     #[test]
+     unconstrained fn multiple_notes_same_preimage() {
+         let first_note_index_in_tx = 3;
+diff --git a/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr b/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
+index 5b846b430dcd1a3645494dc9fb8e8e3ac15a2179..ef8f3ed66b8696b8adfb6f4adb0db0c2195b1665 100644
+--- a/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
++++ b/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
+@@ -352,6 +352,7 @@ mod test {
+     use crate::oracle::block_reference::BlockReference;
+     use crate::partial_notes::DeliveredPendingPartialNote;
+     use crate::protocol::address::AztecAddress;
++    use crate::protocol::constants::MAX_NOTE_HASHES_PER_TX;
+     use crate::protocol::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
+     use crate::test::helpers::test_environment::TestEnvironment;
+     use super::PartialNoteFsm;
+@@ -684,7 +685,9 @@ mod test {
+         contract_address: AztecAddress,
+         first_nullifier_in_tx: Field,
+     ) -> LogRetrievalResponse {
+-        let note_nonce = compute_note_hash_nonce(first_nullifier_in_tx, 0);
++        // A completion log is emitted when a partial note is completed in public, typically in app logic, so its note
++        // hash's nonce index lies in the public revertible section.
++        let note_nonce = compute_note_hash_nonce(first_nullifier_in_tx, 3 * MAX_NOTE_HASHES_PER_TX);
+         let unique_note_hash = compute_unique_note_hash(
+             note_nonce,
+             compute_siloed_note_hash(contract_address, DISCOVERED_NOTE_HASH),
+diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
+index 5f2d64798f6bff28ad06898aab3690084f5a05da..3d050aeb8d1b3997e69f58520222e07dd71d8f7f 100644
+--- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
++++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
+@@ -503,6 +503,12 @@ export async function computeSimulatedMaxExpirationTimestamp(
+   return minBigint(anchorBlockTimestamp + BigInt(MAX_TX_LIFETIME), ...classIdHorizons, ...callExpirationTimestamps);
+ }
+ 
++/**
++ * Offset of the nonce index section of private revertible note hashes in a tx with public calls. Mirrors
++ * NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE in the protocol's constants.nr.
++ */
++const NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE = 2 * MAX_NOTE_HASHES_PER_TX;
++
+ /**
+  * Generates the final public inputs of the tail kernel circuit, an empty Chonk proof
+  * and the execution steps for a `PrivateExecutionResult` as if it had been
+@@ -708,8 +714,8 @@ export async function generateSimulatedProvingResult(
+   const padding = await makePadding(paddedSideEffectAmounts);
+ 
+   if (isPrivateOnlyTx) {
+-    // We must make the note hashes unique by using the
+-    // nonce generator and their index in the tx.
++    // We must make the note hashes unique by using the nonce generator and their index in the tx. In a private-only tx
++    // every note hash counts as non-revertible, so its nonce index is its index in the private kernel's sorted output.
+     const uniqueNoteHashes = await allToCompletion(
+       siloedNoteHashes.map(async (orderedSideEffect, i) => {
+         const siloedNoteHash = orderedSideEffect.sideEffect;
+@@ -761,12 +767,26 @@ export async function generateSimulatedProvingResult(
+       siloedNoteHashes,
+       minRevertibleSideEffectCounter,
+     );
++    // Every private note hash is made unique, with a nonce index in a fixed section by category: a non-revertible
++    // note hash uses its index i in the private kernel's sorted output, and a revertible one uses
++    // NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE + i, with i still its index in the whole sorted output
++    // (non-revertible note hashes come first). Note hashes emitted in public get indices in their own sections, so
++    // these nonces do not depend on public execution.
+     const nonRevertibleUniqueNoteHashes = await allToCompletion(
+       nonRevertibleNoteHashes.map(async (noteHash, i) => {
+         const nonce = await computeNoteHashNonce(nonceGenerator, i);
+         return await computeUniqueNoteHash(nonce, noteHash);
+       }),
+     );
++    const revertibleUniqueNoteHashes = await allToCompletion(
++      revertibleNoteHashes.map(async (noteHash, j) => {
++        const nonce = await computeNoteHashNonce(
++          nonceGenerator,
++          NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE + nonRevertibleNoteHashes.length + j,
++        );
++        return await computeUniqueNoteHash(nonce, noteHash);
++      }),
++    );
+     const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
+       l2ToL1Messages.sort(sortByCounter),
+       minRevertibleSideEffectCounter,
+@@ -802,7 +822,7 @@ export async function generateSimulatedProvingResult(
+     );
+ 
+     const revertibleData = new PrivateToPublicAccumulatedData(
+-      padArrayEnd(revertibleNoteHashes.concat(padding.revertible.noteHashes), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
++      padArrayEnd(revertibleUniqueNoteHashes.concat(padding.revertible.noteHashes), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+       padArrayEnd(revertibleNullifiers.concat(padding.revertible.nullifiers), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+       padArrayEnd(revertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+       padArrayEnd(
+diff --git a/yarn-project/stdlib/src/hash/hash.ts b/yarn-project/stdlib/src/hash/hash.ts
+index f52f76520fa3c0cc99da4da43e1b173515c6ca71..1eddfc5c443274f233758727e13f2e65524a9a8b 100644
+--- a/yarn-project/stdlib/src/hash/hash.ts
++++ b/yarn-project/stdlib/src/hash/hash.ts
+@@ -34,7 +34,9 @@ export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
+ /**
+  * Computes a note hash nonce, which will be used to create a unique note hash.
+  * @param nullifierZero - The first nullifier in the tx.
+- * @param noteHashIndex - The index of the note hash.
++ * @param noteHashIndex - The nonce index of the note hash: its index in the tx's private or public note hashes, placed
++ * in a fixed MAX_NOTE_HASHES_PER_TX-wide section by category (private non-revertible, public non-revertible, private
++ * revertible, public revertible).
+  * @returns A note hash nonce.
+  */
+ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {

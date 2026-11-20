@@ -139,7 +139,7 @@ struct lookup_tx_note_hash_append_settings_ {
         ColumnAndShifts::tx_prev_note_hash_tree_size,
         ColumnAndShifts::tx_prev_note_hash_tree_root,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::tx_is_revertible,
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::tx_prev_num_note_hashes_emitted,
         ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_next_note_hash_tree_root

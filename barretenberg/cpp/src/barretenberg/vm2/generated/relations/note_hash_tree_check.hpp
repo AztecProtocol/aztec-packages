@@ -13,8 +13,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
-                                                                            3, 4, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
+                                                                            4, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,7 +39,8 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
     static constexpr size_t SR_PASSTHROUGH_SILOING = 9;
     static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 12;
     static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 13;
-    static constexpr size_t SR_MERKLE_HASH_SEPARATOR_CONSTANT = 21;
+    static constexpr size_t SR_NONCE_INDEX = 15;
+    static constexpr size_t SR_MERKLE_HASH_SEPARATOR_CONSTANT = 22;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -53,6 +54,8 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
             return "DISABLE_UNIQUENESS_ON_READ";
         case SR_PASSTHROUGH_UNIQUENESS:
             return "PASSTHROUGH_UNIQUENESS";
+        case SR_NONCE_INDEX:
+            return "NONCE_INDEX";
         case SR_MERKLE_HASH_SEPARATOR_CONSTANT:
             return "MERKLE_HASH_SEPARATOR_CONSTANT";
         }

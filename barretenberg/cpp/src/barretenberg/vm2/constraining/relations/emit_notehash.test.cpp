@@ -129,11 +129,12 @@ TEST(EmitNoteHashConstrainingTest, Interactions)
         .next_available_leaf_index = 128,
     };
     uint32_t prev_num_note_hashes_emitted = 2;
+    uint64_t nonce_index_offset = NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE;
 
     EXPECT_CALL(merkle_check, write).WillOnce(Return(57));
 
     AppendOnlyTreeSnapshot next_snapshot = note_hash_tree_check.append_note_hash(
-        note_hash, contract_address, prev_num_note_hashes_emitted, {}, prev_snapshot);
+        note_hash, contract_address, prev_num_note_hashes_emitted, nonce_index_offset, {}, prev_snapshot);
 
     TestTraceContainer trace({ {
         { C::execution_sel_execute_emit_notehash, 1 },
@@ -150,6 +151,7 @@ TEST(EmitNoteHashConstrainingTest, Interactions)
         { C::execution_prev_note_hash_tree_size, prev_snapshot.next_available_leaf_index },
         { C::execution_note_hash_tree_size, next_snapshot.next_available_leaf_index },
         { C::execution_contract_address, contract_address },
+        { C::execution_note_hash_nonce_index_offset, nonce_index_offset },
     } });
 
     NoteHashTreeCheckTraceBuilder note_hash_tree_check_trace_builder;

@@ -37,12 +37,9 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
     AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                             AztecAddress contract_address,
                                             uint64_t note_hash_counter,
+                                            uint64_t nonce_index_offset,
                                             std::span<const FF> sibling_path,
                                             const AppendOnlyTreeSnapshot& prev_snapshot) override;
-    AppendOnlyTreeSnapshot append_siloed_note_hash(const FF& siloed_note_hash,
-                                                   uint64_t note_hash_counter,
-                                                   std::span<const FF> sibling_path,
-                                                   const AppendOnlyTreeSnapshot& prev_snapshot) override;
     AppendOnlyTreeSnapshot append_unique_note_hash(const FF& unique_note_hash,
                                                    uint64_t note_hash_counter,
                                                    std::span<const FF> sibling_path,
@@ -54,12 +51,13 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;
-    FF make_nonce(uint64_t note_hash_counter) const;
+    FF make_nonce(uint64_t nonce_index) const;
     FF make_unique(const FF& siloed_note_hash, const FF& nonce) const;
     AppendOnlyTreeSnapshot append_note_hash_internal(FF note_hash,
                                                      std::optional<AztecAddress> contract_address,
                                                      bool should_make_unique,
                                                      uint64_t note_hash_counter,
+                                                     uint64_t nonce_index_offset,
                                                      std::span<const FF> sibling_path,
                                                      const AppendOnlyTreeSnapshot& prev_snapshot);
 

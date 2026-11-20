@@ -259,7 +259,7 @@ bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash)
         unique_note_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().note_hash_tree);
 }
 
-void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
+void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash, uint64_t nonce_index_offset)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
 
@@ -268,34 +268,13 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
     FF unique_note_hash = unconstrained_make_unique_note_hash(
-        siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+        siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter + nonce_index_offset);
 
     raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
     SiblingPath path =
         raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, snapshot_before.next_available_leaf_index);
-    AppendOnlyTreeSnapshot snapshot_after =
-        note_hash_tree_check.append_note_hash(note_hash, contract_address, note_hash_counter, path, snapshot_before);
-
-    // This will throw an unexpected exception if it fails.
-    BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().note_hash_tree, "Snapshot after mismatch");
-
-    tree_counters_stack.top().note_hash_counter++;
-}
-
-void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
-{
-    uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
-    AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().note_hash_tree;
-    // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
-    // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
-    FF unique_note_hash = unconstrained_make_unique_note_hash(
-        siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
-
-    raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
-    SiblingPath path =
-        raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, snapshot_before.next_available_leaf_index);
-    AppendOnlyTreeSnapshot snapshot_after =
-        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, path, snapshot_before);
+    AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.append_note_hash(
+        note_hash, contract_address, note_hash_counter, nonce_index_offset, path, snapshot_before);
 
     // This will throw an unexpected exception if it fails.
     BB_ASSERT_EQ(snapshot_after, raw_merkle_db.get_tree_roots().note_hash_tree, "Snapshot after mismatch");

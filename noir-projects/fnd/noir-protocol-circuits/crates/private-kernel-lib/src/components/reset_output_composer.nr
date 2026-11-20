@@ -23,8 +23,8 @@ use types::{
         MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS,
     },
     hash::{
-        compute_note_nonce_and_unique_note_hash, compute_siloed_note_hash, compute_siloed_nullifier,
-        compute_siloed_private_log,
+        compute_note_nonce_and_unique_note_hash, compute_private_note_hash_nonce_index,
+        compute_siloed_note_hash, compute_siloed_nullifier, compute_siloed_private_log,
     },
     side_effect::{Counted, Scoped},
     utils::arrays::ClaimedLengthArray,
@@ -40,13 +40,13 @@ pub fn silo_note_hash(note_hash: Scoped<Counted<NoteHash>>) -> Scoped<Counted<No
 pub fn uniquify_siloed_note_hash(
     siloed_note_hash: Scoped<Counted<NoteHash>>,
     first_nullifier: Field,
-    index_in_tx: u32,
+    nonce_index: u32,
 ) -> Scoped<Counted<NoteHash>> {
     let mut uniquified = siloed_note_hash;
     uniquified.inner.inner = compute_note_nonce_and_unique_note_hash(
         siloed_note_hash.inner.inner,
         first_nullifier,
-        index_in_tx,
+        nonce_index,
     );
     uniquified
 }
@@ -227,71 +227,19 @@ impl ResetOutputComposer {
             let siloed_note_hash = silo_note_hash(note_hash);
 
             // Unique:
-            let unique_siloed_note_hash =
-                uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, i);
-
-            // We don't silo revertible note hashes with a note_nonce, since we don't know their final position in the tx.
-            //
-            // Elaboration:
-            //
-            // If this tx makes public function calls, then all notes and nullifiers will be inserted
-            // within the AVM circuit instead of the rollup-tx-base-private circuit. Unlike private
-            // function execution, public function execution can revert because those functions are
-            // executed in a VM. If a public function reverts, then all revertible side-effects of
-            // the tx (from both private and public functions) are reverted and are never inserted
-            // into trees. All non-revertible side-effects are still inserted into the trees.
-            //
-            // Aside: the reason we even have non-revertible side-effects is because of
-            // fee abstraction. If a fee-payment pattern creates state representing payment to a
-            // "Fee-Payment Contract" ("FPC") (an entity willing to pay the fee on a user's behalf, kind of
-            // like a paymaster), then we need that state to be included regardless of whether the
-            // tx succeeds or reverts. We label such state as "non-revertible".
-            //
-            // Non-revertible side-effects are delineated by having a side-effect counter which is less
-            // than the tx's `min_revertible_side_effect_counter`. (The `min_revertible_side_effect_counter`
-            // is chosen by one (and only one) function of a tx; probably the FPC).
-            // Revertible side-effects are delineated by having a side-effect counter which is
-            // greater than the tx's `min_revertible_side_effect_counter`.
-            //
-            // So in the case of a tx which makes public function calls, we have these kinds of
-            // side-effects that the AVM needs to insert:
-            // - non-revertible from private-land
-            // - revertible from private-land
-            // - non-revertible from public-land
-            // - revertible from public-land
-            //
-            // The AVM does its insertions in this order:
-            // - non-revertible from private-land
-            // - non-revertible from public-land
-            // - revertible from private-land
-            // - revertible from public-land
-            //
-            // This enables it to insert non-revertible side-effects immediately, before embarking
-            // on executing any public functions (which might revert).
-            //
-            // This means the "revertible from private-land" note_hashes cannot be made unique in
-            // private-land, since the uniqueness can only be derived in public-land, because the
-            // revertible notes' indices (within the note_hashes of the tx) will only be known in
-            // public-land. See `compute_note_nonce_and_unique_note_hash` for more explanation on how the
-            // uniqueness (aka note_nonce) is derived.
-            //
-            // In summary:
-            // - If the tx `is_private_only`, then we can derive the uniqueness for all note_hashes, and
-            //   the `unique_siloed_note_hash` that we derived above are correct.
-            // - If the tx makes public function calls:
-            //   - For "non-revertible from private-land" note hashes, the `unique_siloed_note_hash`es
-            //     that we derived above are correct.
-            //   - None of the `unique_siloed_note_hash`es for "revertible" note hashes are fit for use.
+            // Every note hash emitted in private is made unique here, whether or not it is
+            // revertible, and the AVM inserts these as-is. The nonce index is `i`, this note hash's
+            // position in this (sorted, padded) array, placed in the private non-revertible or
+            // private revertible section. See `compute_unique_note_hash` for the full scheme.
             let is_non_revertible = note_hash.is_non_revertible(
                 self.previous_kernel.is_private_only,
                 self.previous_kernel.claimed_revertible_counter,
             );
-
-            padded_unique_siloed_sorted_kept_note_hashes.array[i] = if is_non_revertible {
-                unique_siloed_note_hash
-            } else {
-                siloed_note_hash
-            };
+            padded_unique_siloed_sorted_kept_note_hashes.array[i] = uniquify_siloed_note_hash(
+                siloed_note_hash,
+                siloed_first_nullifier,
+                compute_private_note_hash_nonce_index(i, is_non_revertible),
+            );
         }
         padded_unique_siloed_sorted_kept_note_hashes
     }

@@ -21,6 +21,8 @@ struct NoteHashUniquenessData {
     FF nonce;
     FF unique_note_hash;
     FF first_nullifier;
+    // The nonce index is the note hash counter plus this offset.
+    uint64_t nonce_index_offset = 0;
 
     bool operator==(const NoteHashUniquenessData& other) const = default;
 };

@@ -9,6 +9,23 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] Private note hashes are unique before the tx is sent; nonce indices lie in fixed sections
+
+The private kernel now makes every note hash emitted in private unique, revertible or not. The AVM no longer makes revertible private note hashes unique: it inserts them as-is. So a tx's creator knows the final note hash, and hence the nullifier, of every note it creates in private before broadcasting the tx, even when the tx makes public function calls.
+
+Every note hash nonce is still `poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, index)`, but the index is no longer the note hash's position in the tx. It lies in a fixed section, `MAX_NOTE_HASHES_PER_TX` (64) wide, chosen by where the note hash came from:
+
+| Note hash | Nonce index | Range |
+| --- | --- | --- |
+| Private, non-revertible | `i` | 0 to 63 |
+| Public, non-revertible (setup) | `64 + p` | 64 to 127 |
+| Private, revertible | `128 + i` | 128 to 191 |
+| Public, revertible (app logic, teardown) | `192 + p` | 192 to 255 |
+
+Here `i` is the note hash's index in the private kernel's final note hash array (all private note hashes, non-revertible first, plus padding), and `p` is its index in the tx's note hashes when the AVM emits it. In a private-only tx every note hash counts as non-revertible, so indices stay dense: `i`.
+
+**Migration:** code that recomputes a note's nonce must use the section index: for example `128 + i` for a revertible note created in private in a tx with public calls, or `192 + p` for a partial note completed in app logic. aztec-nr's nonce discovery tries all 256 indices.
+
 ### [PXE] The `resolveTaggingSecretStrategy` hook also decides self-sends
 
 The PXE used to replace the hook's answer with an address-derived secret for unconstrained delivery to one of the wallet's own accounts. It now applies the hook's answer to every message, including those. `DEFAULT_TAGGING_SECRET_STRATEGY` is replaced by `defaultTaggingSecretStrategy`, which returns the strategy the PXE applies when no hook is configured.

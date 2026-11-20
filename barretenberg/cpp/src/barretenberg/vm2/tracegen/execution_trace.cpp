@@ -368,6 +368,8 @@ void ExecutionTraceBuilder::process(
                 { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
                 { C::execution_contract_address, ex_event.after_context_event.contract_addr },
                 { C::execution_transaction_fee, ex_event.after_context_event.transaction_fee },
+                { C::execution_note_hash_nonce_index_offset,
+                  note_hash_nonce_index_offset_for_phase(ex_event.after_context_event.phase) },
                 { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
                 { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size },
