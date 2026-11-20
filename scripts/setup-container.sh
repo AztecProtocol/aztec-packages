@@ -153,14 +153,14 @@ rm wasi-sdk-34.0-${arch}-linux.tar.gz
 # =============================================================================
 # SECTION 6: Foundry
 # =============================================================================
-log_info "Installing Foundry v1.8.5..."
+log_info "Installing Foundry v1.9.0..."
 
 export PATH="/opt/rust/cargo/bin:$PATH"
 export FOUNDRY_BIN_DIR="/tmp/foundry-bin"
 export RUSTFLAGS="-C target-cpu=generic"
 
 curl -L https://foundry.paradigm.xyz | bash
-$HOME/.foundry/bin/foundryup -i v1.8.5
+$HOME/.foundry/bin/foundryup -i v1.9.0
 
 mkdir -p /opt/foundry/bin
 # foundryup's bin/ entries are symlinks to binaries elsewhere in its install
