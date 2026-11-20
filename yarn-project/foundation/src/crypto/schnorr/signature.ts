@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { mapTuple } from '@aztec/foundation/serialize';
+import { hexToBuffer } from '@aztec/foundation/string';
 
 import type { Signature } from '../signature/index.js';
 
@@ -17,6 +18,15 @@ export class SchnorrSignature implements Signature {
     if (buffer.length !== SchnorrSignature.SIZE) {
       throw new Error(`Invalid signature buffer of length ${buffer.length}.`);
     }
+  }
+
+  /**
+   * Deserializes from a hex string, as produced by `toString()`.
+   * @param str - The signature as a hex string (with or without the 0x prefix).
+   * @returns A SchnorrSignature instance.
+   */
+  static fromString(str: string): SchnorrSignature {
+    return new SchnorrSignature(hexToBuffer(str));
   }
 
   /**
@@ -49,6 +59,11 @@ export class SchnorrSignature implements Signature {
    */
   toString() {
     return `0x${this.buffer.toString('hex')}`;
+  }
+
+  /** Serializes to a hex string for JSON, so instances round-trip through `jsonStringify`. */
+  toJSON() {
+    return this.toString();
   }
 
   /**

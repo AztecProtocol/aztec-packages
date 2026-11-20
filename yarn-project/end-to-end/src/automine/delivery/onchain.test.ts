@@ -1,15 +1,10 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
-import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { ResolveCustomRequest } from '@aztec/pxe/config';
-import { deriveKeys } from '@aztec/stdlib/keys';
+import { deriveMasterMessageSigningSecretKey } from '@aztec/stdlib/keys';
+import { createInteractiveHandshakeResolver, createInteractiveHandshakeResponder } from '@aztec/wallet-sdk/delivery';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import {
-  parseInteractiveHandshakeRequest,
-  recipientSignatureToFields,
-  signInteractiveHandshake,
-} from './interactive_handshake_responder.js';
 import { buildMessageDeliveryTest } from './onchain_delivery_harness.js';
 
 describe('onchain delivery', () => {
@@ -69,32 +64,21 @@ describe('onchain delivery', () => {
     customRequestResponder: interactiveHandshakeResponder,
   });
 
-  // Serves the registry's interactive-handshake signature request for the recipient: registers the handshake on the
-  // recipient PXE, then answers with the signed response.
+  // Serves the registry's interactive-handshake signature request for the recipient: the wallet-sdk responder wrapped
+  // in the resolver that serves the sender PXE's custom-request hook.
   function interactiveHandshakeResponder(
     recipientWallet: TestWallet,
     recipientAccount: InitialAccountData,
-    recipientCompleteAddress: CompleteAddress,
   ): ResolveCustomRequest {
-    return async request => {
-      const parsed = parseInteractiveHandshakeRequest(request);
-
-      // Register before signing.
-      await recipientWallet.registerTaggingSecretSource({
-        kind: 'handshake',
-        recipient: parsed.recipient,
-        ephPk: parsed.ephPkX,
-      });
-
+    const responder = createInteractiveHandshakeResponder({
+      pxe: recipientWallet,
       // The master message-signing secret key is deliberately never held by PXE or the key store; the wallet
       // derives it client-side from the account secret.
-      const { masterMessageSigningSecretKey } = await deriveKeys(recipientAccount.secret);
-      const recipientSignature = await signInteractiveHandshake(
-        parsed,
-        recipientCompleteAddress,
-        masterMessageSigningSecretKey,
-      );
-      return recipientSignatureToFields(recipientSignature);
-    };
+      getSigningKey: () => Promise.resolve(deriveMasterMessageSigningSecretKey(recipientAccount.secret)),
+      // Backup durability is a wallet concern with no onchain effect; its semantics are pinned in the wallet-sdk
+      // unit suite, so this cell passes a no-op backup.
+      backup: () => Promise.resolve(),
+    });
+    return createInteractiveHandshakeResolver(responder);
   }
 });
