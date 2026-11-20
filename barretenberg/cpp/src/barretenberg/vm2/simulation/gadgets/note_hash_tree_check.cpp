@@ -55,11 +55,14 @@ FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_
  * The nonce ensures uniqueness of note hashes within and across transactions.
  *
  * @param note_hash_counter The index of the note hash in the transaction.
- * @return The nonce: Poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter).
+ * Only note hashes emitted by public functions are made unique by the AVM, so this uses the public nonce
+ * domain. (The private kernel makes private note hashes unique under DOM_SEP__NOTE_HASH_NONCE.)
+ *
+ * @return The nonce: Poseidon2(DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter).
  */
 FF NoteHashTreeCheck::make_nonce(uint64_t note_hash_counter) const
 {
-    return poseidon2.hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
 }
 
 /**
@@ -98,31 +101,6 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash(const FF& note_hash,
 {
     return append_note_hash_internal(
         note_hash, contract_address, /*should_make_unique=*/true, note_hash_counter, sibling_path, prev_snapshot);
-}
-
-/**
- * @brief Appends a pre-siloed note hash to the tree after making it unique.
- *
- * Skips the siloing step (the note hash is already bound to a contract) but still derives a
- * nonce and computes the unique note hash before insertion.
- *
- * @param siloed_note_hash The already-siloed note hash to append.
- * @param note_hash_counter A counter distinguishing this note hash within the transaction.
- * @param sibling_path The Merkle sibling path for the append operation.
- * @param prev_snapshot The tree snapshot before the append.
- * @return The updated tree snapshot after inserting the new leaf.
- */
-AppendOnlyTreeSnapshot NoteHashTreeCheck::append_siloed_note_hash(const FF& siloed_note_hash,
-                                                                  uint64_t note_hash_counter,
-                                                                  std::span<const FF> sibling_path,
-                                                                  const AppendOnlyTreeSnapshot& prev_snapshot)
-{
-    return append_note_hash_internal(siloed_note_hash,
-                                     /* contract_address */ std::nullopt,
-                                     /* should_make_unique */ true,
-                                     note_hash_counter,
-                                     sibling_path,
-                                     prev_snapshot);
 }
 
 /**

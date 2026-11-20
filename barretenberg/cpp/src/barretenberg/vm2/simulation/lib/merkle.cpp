@@ -47,7 +47,8 @@ FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash,
                                        const FF& first_nullifier,
                                        uint64_t note_hash_counter)
 {
-    FF nonce = Poseidon2::hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    // Only note hashes emitted by public functions are made unique by the AVM, under the public nonce domain.
+    FF nonce = Poseidon2::hash({ DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
     return Poseidon2::hash({ DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 

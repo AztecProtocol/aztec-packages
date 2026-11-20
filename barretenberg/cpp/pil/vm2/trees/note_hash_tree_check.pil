@@ -9,6 +9,8 @@ include "../precomputed.pil";
  * leaves are unique note hashes. The computation of unique note hashes is done by:
  * - Siloing the original note hash with the emitter contract address
  * - Computing a nonce as the hash of the first nullifier and the index of the note hash
+ *   (under DOM_SEP__PUBLIC_NOTE_HASH_NONCE: only note hashes emitted by public functions are made unique here;
+ *   the private kernel makes note hashes emitted by private functions unique under DOM_SEP__NOTE_HASH_NONCE)
  * - Computing the unique note hash as the hash of the nonce and the siloed note hash
  * This gadget allows to conditionally write note hashes that can be raw, already siloed or already uniqued.
  * Note that if you ask the gadget to silo the note hash, you also need to ask it to make it unique.
@@ -176,7 +178,9 @@ namespace note_hash_tree_check;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit nonce_separator;
-    sel * (constants.DOM_SEP__NOTE_HASH_NONCE - nonce_separator) = 0;
+    // Public note hashes have their own nonce domain, so their (tx-position) indices can't collide with the
+    // (private-position) indices of private note hashes.
+    sel * (constants.DOM_SEP__PUBLIC_NOTE_HASH_NONCE - nonce_separator) = 0;
 
     #[NONCE_COMPUTATION_POSEIDON2]
     sel_unique {

@@ -850,6 +850,28 @@ impl FixtureBuilder {
         }
     }
 
+    /// Makes every note hash in `note_hashes` unique in place, at its index, the way the terminal
+    /// reset does. The nonce base mirrors the circuit: this builder's first nullifier value (already
+    /// siloed in an output builder), or 0 when it has none.
+    pub fn uniquify_note_hashes(&mut self) {
+        let first_nullifier = if self.nullifiers.len() == 0 {
+            0
+        } else {
+            self.nullifiers.get(0).innermost().value
+        };
+        for i in 0..self.note_hashes.max_len() {
+            if i < self.note_hashes.len() {
+                let mut note_hash = self.note_hashes.get(i);
+                note_hash.inner.inner = compute_note_nonce_and_unique_note_hash(
+                    note_hash.innermost(),
+                    first_nullifier,
+                    i,
+                );
+                self.note_hashes.set(i, note_hash);
+            }
+        }
+    }
+
     pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let tx_request = self.to_tx_request();

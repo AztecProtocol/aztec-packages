@@ -9,6 +9,14 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] Private note hashes are unique before the tx is sent; public note hashes use their own nonce domain
+
+The private kernel now makes every note hash emitted in private unique, revertible or not, with its index among the tx's private note hashes (non-revertible first, then revertible). The AVM no longer makes revertible private note hashes unique: it inserts them as-is. So a tx's creator knows the final note hash, and hence the nullifier, of every note it creates in private before broadcasting the tx, even when the tx makes public function calls.
+
+Note hashes emitted in public are still made unique by the AVM, with their index in the tx's note hash array, but under a new domain separator, `DOM_SEP__PUBLIC_NOTE_HASH_NONCE`, so the two index spaces cannot collide.
+
+**Migration:** code that recomputes a note's nonce must use `compute_note_hash_nonce` for a note created in private and `compute_public_note_hash_nonce` for a note created in public (for example, a partial note completed in public). aztec-nr's nonce discovery tries both.
+
 ### [PXE] The `resolveTaggingSecretStrategy` hook also decides self-sends
 
 The PXE used to replace the hook's answer with an address-derived secret for unconstrained delivery to one of the wallet's own accounts. It now applies the hook's answer to every message, including those. `DEFAULT_TAGGING_SECRET_STRATEGY` is replaced by `defaultTaggingSecretStrategy`, which returns the strategy the PXE applies when no hook is configured.

@@ -80,14 +80,6 @@ void SideEffectTrackingDB::note_hash_write(const AztecAddress& contract_address,
     tracked_side_effects.add_note_hash(unique_note_hash);
 }
 
-void SideEffectTrackingDB::siloed_note_hash_write(const FF& siloed_note_hash)
-{
-    merkle_db.siloed_note_hash_write(siloed_note_hash);
-    uint32_t note_hash_counter = static_cast<uint32_t>(tracked_side_effects.get_side_effects().note_hashes.size());
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
-    tracked_side_effects.add_note_hash(unique_note_hash);
-}
-
 void SideEffectTrackingDB::unique_note_hash_write(const FF& unique_note_hash)
 {
     // The note hash is already siloed and unique.

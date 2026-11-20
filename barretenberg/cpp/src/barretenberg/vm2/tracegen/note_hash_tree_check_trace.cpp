@@ -90,7 +90,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
                       { C::note_hash_tree_check_first_nullifier, first_nullifier },
                       { C::note_hash_tree_check_nonce, nonce },
-                      { C::note_hash_tree_check_nonce_separator, DOM_SEP__NOTE_HASH_NONCE },
+                      { C::note_hash_tree_check_nonce_separator, DOM_SEP__PUBLIC_NOTE_HASH_NONCE },
                       { C::note_hash_tree_check_unique_note_hash_separator, DOM_SEP__UNIQUE_NOTE_HASH },
                       { C::note_hash_tree_check_prev_leaf_value, prev_leaf_value },
                       { C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv,

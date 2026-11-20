@@ -49,10 +49,29 @@ fn squashing_and_siloing_and_ordering() {
 
     let pi = builder.execute_with_siloing();
 
-    // The note hash at index 1 is squashed.
+    // The note hash at index 1 is squashed. The rest are made unique at their output index, with the
+    // output's first nullifier (the protocol nullifier, `nullifiers[0]`) as the nonce base. (The input's
+    // first nullifier was shuffled away, so `compute_output_note_hashes` can't be used here.)
+    let first_nullifier = nullifiers[0];
     assert_array_eq(
         pi.end.note_hashes.array,
-        builder.compute_output_note_hashes([note_hashes[0], note_hashes[2], note_hashes[3]]),
+        [
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[0],
+                0,
+                first_nullifier,
+            ),
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[2],
+                1,
+                first_nullifier,
+            ),
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[3],
+                2,
+                first_nullifier,
+            ),
+        ],
     );
     assert_eq(pi.end.note_hashes.length, 3);
 
@@ -119,7 +138,7 @@ fn siloing_for_private_only_tx_with_non_zero_revertible_counter() {
 fn siloing_before_min_revertible_side_effect_counter_is_set() {
     let mut builder = TestBuilder::new();
 
-    // The tx is not private-only, so we can't uniquify revertible note hashes with nonces.
+    // The tx is not private-only. Its revertible note hashes are still made unique.
     builder.previous_kernel.is_private_only = false;
     // The actual counter is set in a later iteration.
     assert_eq(builder.previous_kernel.min_revertible_side_effect_counter, 0);
@@ -132,18 +151,19 @@ fn siloing_before_min_revertible_side_effect_counter_is_set() {
     builder.previous_kernel.claimed_revertible_counter = builder.previous_kernel.counter + 999;
     builder.previous_kernel.counter = builder.previous_kernel.claimed_revertible_counter + 1;
 
-    // This note hash is revertible and should be siloed.
+    // This note hash is revertible and should be uniquified too, at its index in the private output.
     builder.previous_kernel.append_note_hashes(1);
     let revertible_note_hash = builder.previous_kernel.note_hashes.get(1);
 
     let pi = builder.execute_with_siloing();
 
-    let unique_siloed_note_hash =
+    let unique_siloed_non_revertible =
         builder.compute_output_unique_siloed_note_hash(non_revertible_note_hash, 0);
-    let siloed_note_hash = builder.compute_output_siloed_note_hash(revertible_note_hash);
+    let unique_siloed_revertible =
+        builder.compute_output_unique_siloed_note_hash(revertible_note_hash, 1);
     assert_array_eq(
         pi.end.note_hashes.array,
-        [unique_siloed_note_hash, siloed_note_hash],
+        [unique_siloed_non_revertible, unique_siloed_revertible],
     );
 }
 
