@@ -149,16 +149,15 @@ Critically, **the Translator does not commit to its op queue wires**. Instead, t
 
 The AVM recursive verifier uses `MegaAvmFlavor` which overrides the Mega preamble:
 
-- `TRACE_OFFSET = 1` (no masking — `MegaAvmFlavor` inherits `HasZK = false` from `MegaFlavor`).
-- Block offsets start at `TRACE_OFFSET + NUM_ZERO_ROWS = 2`.
+- `TRACE_OFFSET = 0` (no masking — `MegaAvmFlavor` inherits `HasZK = false` from `MegaFlavor`).
+- Block offsets start at `TRACE_OFFSET + NUM_ZERO_ROWS = 1`.
 
 ```
 Row 0:    zero (shiftability)
-Row 1:    first active Sumcheck row (no masking)
-Row 2+:   ecc_op block data
+Row 1+:   ecc_op block data
 ```
 
-By construction this yields exactly 2 leading zeros in the ecc_op_wire commitments, matching the Translator's `RANDOMNESS_START = 2` without any merge-protocol shift adjustment.
+Unlike `MegaZKFlavor`, the AVM trace has no leading ZK masking rows (`TRACE_OFFSET = 0`). The op queue wires are merged into the global table without an internal ZK prefix; the 2 leading zeros required for the Translator's `RANDOMNESS_START = 2` are provided by the batch-merge prefix and mini-circuit initialization rows rather than an AVM-level trace offset.
 
 ### The merge protocol shift
 
