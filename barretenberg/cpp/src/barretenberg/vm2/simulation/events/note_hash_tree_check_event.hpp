@@ -21,6 +21,9 @@ struct NoteHashUniquenessData {
     FF nonce;
     FF unique_note_hash;
     FF first_nullifier;
+    // The number of the tx's private note hashes in the tree, from which the nonce index is derived (see
+    // nonce_index_of_public_note_hash).
+    uint64_t num_private_note_hashes = 0;
 
     bool operator==(const NoteHashUniquenessData& other) const = default;
 };

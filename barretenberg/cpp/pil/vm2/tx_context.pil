@@ -32,6 +32,12 @@ namespace tx;
     pol commit prev_note_hash_tree_root;
     pol commit prev_note_hash_tree_size;
     pol commit prev_num_note_hashes_emitted;
+    // Number of the tx's private note hashes (inserted in NR_NOTE_INSERTION and R_NOTE_INSERTION) that are in the note
+    // hash tree at the start of this row. It is the "prev" value of a state column whose "next" value is
+    // `num_private_note_hashes'`; a separate "next" column is not needed because only private note hash appends
+    // change it. Public note hashes use it for their nonce index (see #[DISPATCH_EXEC_START] in tx.pil and
+    // #[NONCE_INDEX] in note_hash_tree_check.pil).
+    pol commit num_private_note_hashes;
 
     pol commit prev_nullifier_tree_root;
     pol commit prev_nullifier_tree_size;
@@ -83,6 +89,7 @@ namespace tx;
     };
 
     start_tx * prev_num_note_hashes_emitted = 0;
+    start_tx * num_private_note_hashes = 0;
 
     // Read start/end state of the nullifier tree from PI
     pol commit nullifier_pi_offset;
@@ -248,6 +255,10 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_note_hash_tree_size - prev_note_hash_tree_size') = 0;
     #[NUM_NOTE_HASHES_EMITTED_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_note_hashes_emitted - prev_num_note_hashes_emitted') = 0;
+    // Grows by one on each private note hash append (sel_note_hash_append, see tx.pil). On a reverted row it is restored
+    // to its value at the end of setup by #[RESTORE_STATE_ON_REVERT] instead.
+    #[NUM_PRIVATE_NOTE_HASHES_CONTINUITY]
+    NOT_LAST_ROW * (1 - reverted) * (num_private_note_hashes + sel_note_hash_append - num_private_note_hashes') = 0;
     #[NULLIFIER_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_nullifier_tree_root - prev_nullifier_tree_root') = 0;
     #[NULLIFIER_TREE_SIZE_CONTINUITY]
@@ -292,6 +303,7 @@ namespace tx;
         prev_note_hash_tree_root',
         prev_note_hash_tree_size',
         prev_num_note_hashes_emitted',
+        num_private_note_hashes',
         prev_nullifier_tree_root',
         prev_nullifier_tree_size',
         prev_num_nullifiers_emitted',
@@ -308,6 +320,7 @@ namespace tx;
         next_note_hash_tree_root,
         next_note_hash_tree_size,
         next_num_note_hashes_emitted,
+        num_private_note_hashes, // No private note hash is appended in setup, so this is also the value after the row.
         next_nullifier_tree_root,
         next_nullifier_tree_size,
         next_num_nullifiers_emitted,

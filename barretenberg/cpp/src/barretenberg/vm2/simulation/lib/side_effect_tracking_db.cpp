@@ -44,6 +44,11 @@ TreeStates SideEffectTrackingDB::get_tree_state() const
     return merkle_db.get_tree_state();
 }
 
+uint32_t SideEffectTrackingDB::get_num_private_note_hashes() const
+{
+    return merkle_db.get_num_private_note_hashes();
+}
+
 LowLevelMerkleDBInterface& SideEffectTrackingDB::as_unconstrained() const
 {
     return merkle_db.as_unconstrained();
@@ -76,15 +81,10 @@ void SideEffectTrackingDB::note_hash_write(const AztecAddress& contract_address,
     merkle_db.note_hash_write(contract_address, note_hash);
     FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
     uint32_t note_hash_counter = static_cast<uint32_t>(tracked_side_effects.get_side_effects().note_hashes.size());
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
-    tracked_side_effects.add_note_hash(unique_note_hash);
-}
-
-void SideEffectTrackingDB::siloed_note_hash_write(const FF& siloed_note_hash)
-{
-    merkle_db.siloed_note_hash_write(siloed_note_hash);
-    uint32_t note_hash_counter = static_cast<uint32_t>(tracked_side_effects.get_side_effects().note_hashes.size());
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
+    FF unique_note_hash = unconstrained_make_unique_note_hash(
+        siloed_note_hash,
+        first_nullifier,
+        nonce_index_of_public_note_hash(note_hash_counter, merkle_db.get_num_private_note_hashes()));
     tracked_side_effects.add_note_hash(unique_note_hash);
 }
 

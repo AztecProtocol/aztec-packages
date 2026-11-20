@@ -167,30 +167,19 @@ TEST_F(SideEffectTrackingDBTest, NoteHashWrite)
     SideEffectTrackingDB db(first_nullifier, mock_merkle_db, mock_tracker);
     AztecAddress contract_addr(0x1234);
     FF note_hash(777);
-    FF unique_note_hash = unconstrained_make_unique_note_hash(
-        unconstrained_silo_note_hash(contract_addr, note_hash), first_nullifier, note_hash_counter);
+    const uint32_t num_private_note_hashes = 0;
+    // The note hash already in the tree is public, so this one takes the second nonce index counting down.
+    FF unique_note_hash =
+        unconstrained_make_unique_note_hash(unconstrained_silo_note_hash(contract_addr, note_hash),
+                                            first_nullifier,
+                                            static_cast<uint64_t>(MAX_NOTE_HASHES_PER_TX - 1) - note_hash_counter);
 
     EXPECT_CALL(mock_tracker, get_side_effects()).WillOnce(ReturnRef(tracked_effects));
     EXPECT_CALL(mock_merkle_db, note_hash_write(contract_addr, note_hash));
+    EXPECT_CALL(mock_merkle_db, get_num_private_note_hashes()).WillOnce(Return(num_private_note_hashes));
     EXPECT_CALL(mock_tracker, add_note_hash(unique_note_hash));
 
     db.note_hash_write(contract_addr, note_hash);
-}
-
-TEST_F(SideEffectTrackingDBTest, SiloedNoteHashWrite)
-{
-    TrackedSideEffects tracked_effects = { .note_hashes = { FF(2) } };
-    const uint32_t note_hash_counter = static_cast<uint32_t>(tracked_effects.note_hashes.size());
-
-    SideEffectTrackingDB db(first_nullifier, mock_merkle_db, mock_tracker);
-    FF siloed_note_hash(555);
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
-
-    EXPECT_CALL(mock_tracker, get_side_effects()).WillOnce(ReturnRef(tracked_effects));
-    EXPECT_CALL(mock_merkle_db, siloed_note_hash_write(siloed_note_hash));
-    EXPECT_CALL(mock_tracker, add_note_hash(unique_note_hash));
-
-    db.siloed_note_hash_write(siloed_note_hash);
 }
 
 TEST_F(SideEffectTrackingDBTest, UniqueNoteHashWrite)

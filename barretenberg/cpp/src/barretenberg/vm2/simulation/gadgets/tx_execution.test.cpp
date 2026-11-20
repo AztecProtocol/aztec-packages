@@ -193,10 +193,6 @@ TEST_F(TxExecutionTest, NoteHashLimitReached)
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifier_tree.counter++;
     });
-    ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.note_hash_tree.counter++;
-        return true;
-    });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
         tree_state.note_hash_tree.counter++;
         return true;
@@ -287,10 +283,6 @@ TEST_F(TxExecutionTest, NullifierLimitReached)
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifier_tree.counter++;
-        return true;
-    });
-    ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.note_hash_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
@@ -384,10 +376,6 @@ TEST_F(TxExecutionTest, L2ToL1MessageLimitReached)
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault([&](const auto& /*nullifier*/) {
         tree_state.nullifier_tree.counter++;
-        return true;
-    });
-    ON_CALL(merkle_db, siloed_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
-        tree_state.note_hash_tree.counter++;
         return true;
     });
     ON_CALL(merkle_db, unique_note_hash_write(_)).WillByDefault([&](const auto& /*note_hash*/) {
