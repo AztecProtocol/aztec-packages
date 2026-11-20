@@ -56,19 +56,14 @@ const { result: noteHash } = await contract.methods
   .simulate({ from: alice.address });
 const siloedNoteHash = await siloNoteHash(contract.address, new Fr(noteHash));
 
-// The note's nonce index is not necessarily its position among the settled
-// hashes, so try every index and look for the result among all of them.
 let found: { settledNoteHash: Fr; noteNonce: Fr } | undefined;
-for (let index = 0; index < txEffect.noteHashes.length; index++) {
+for (const [index, settledNoteHash] of txEffect.noteHashes.entries()) {
   const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], index);
   const uniqueNoteHash = await computeUniqueNoteHash(
     noteNonce,
     siloedNoteHash,
   );
-  const settledNoteHash = txEffect.noteHashes.find((hash) =>
-    hash.equals(uniqueNoteHash),
-  );
-  if (settledNoteHash) {
+  if (uniqueNoteHash.equals(settledNoteHash)) {
     found = { settledNoteHash, noteNonce };
     break;
   }
