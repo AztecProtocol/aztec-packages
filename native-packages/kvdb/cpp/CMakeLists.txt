@@ -58,8 +58,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
 endif()
 add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024)
 add_compile_options(-Wno-deprecated-declarations -Wno-missing-field-initializers)
-add_compile_options(-stdlib=libc++)
-add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+# zig's clang always uses its own libc++ and rejects -stdlib (unused-argument warning).
+if(NOT CMAKE_CXX_COMPILER MATCHES "zig")
+    add_compile_options(-stdlib=libc++)
+    add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+endif()
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src

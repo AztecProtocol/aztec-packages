@@ -8,13 +8,13 @@
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "Build with Clang",
-      "description": "Build with globally installed Clang",
+      "displayName": "Build with Clang 20",
+      "description": "Build with the clang 20 that zig bundles, as the clang20 preset does",
       "binaryDir": "build",
       "generator": "Ninja",
       "environment": {
-        "CC": "clang",
-        "CXX": "clang++",
+        "CC": "${sourceDir}/scripts/zig-cc.sh",
+        "CXX": "${sourceDir}/scripts/zig-c++.sh",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "cacheVariables": {
@@ -42,8 +42,7 @@
         "CC": "${sourceDir}/scripts/zig-cc.sh",
         "CXX": "${sourceDir}/scripts/zig-c++.sh",
         "CFLAGS": "-g0 -fvisibility=hidden",
-        "CXXFLAGS": "-g0 -fvisibility=hidden",
-        "LDFLAGS": "-s"
+        "CXXFLAGS": "-g0 -fvisibility=hidden"
       },
       "cacheVariables": {
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
