@@ -1,0 +1,56 @@
+\section{Introduction}
+\label{sec:intro}
+
+There's already information relating to keys in \href{https://docs.aztec.network/protocol-specs/addresses-and-keys}{the protocol spec} and in \href{https://miro.com/app/board/uXjVNgnoW40=/}{the big miro diagram}. But the info in the spec is slightly outdated now, as is the info in the diagram. Also, it's hard to have discourse around keys with the crypto research team, to resolve the hand-waviness of the so-called "spec".\\
+So, this doc will be a living document, where we can discuss uncertainties and problems, and slowly hone in on a good keys design.\\
+\\
+Much of this is inspired by the \href{https://zips.z.cash/protocol/protocol.pdf}{ZCash Sapling and Orchard specs}.
+
+
+\subsection{What's actually "in protocol"?}
+
+This section probably only makes sense after reading everything else in this doc.\\
+\\
+What \textit{is} part of the protocol? It's basically everything except the app-siloed viewing key derivation schemes.
+
+\begin{itemize}
+    \item An Aztec Address, and its derivation method.
+    \item The master keys $\Npkm, \Ivpkm, \Ovpkm$ and their derivation method.
+    \item The Key Registry which stores those master keys.\\
+    \item Features that the PXE should have:
+    \begin{itemize}
+        \item The ability to compute (using the PXE's master secret keys):
+        \begin{itemize}
+            \item Hardened app-siloed secret keys.
+            \item Schnorr proofs of knowledge of a secret key, for a given public key.
+            \item Chaum-Pedersen proofs of knowledge and equality of the discrete logs of two different points. This is used for proving correct derivation of app-siloed nullifier secret keys; app-siloed outgoing viewing secret keys (if the app chooses to do this); and decryption keys (in some use cases).
+        \end{itemize}
+        \item The ability to decrypt AES ciphertexts using the PXE's master incoming viewing secret key.
+    \end{itemize}
+    \item Features imposed on the PXE:
+    \begin{itemize}
+        \item an understanding of:
+        \begin{itemize}
+            \item log layouts
+            \item ciphertext headers containing contract addresses
+            \item ciphertext headers containing symmetric keys
+            \item ciphertext headers containing pointers to other ciphertexts 
+            \item when to forward ciphertexts \& plaintexts to unconstrained app functions, so those functions may decrypt ciphertexts and/or process and store important private state.
+        \end{itemize}
+    \end{itemize}
+    \item The Tagging Precompile contract and its methods for:
+    \begin{itemize}
+        \item Deriving its own app-siloed keys;
+        \item Deriving a handshake shared secret;
+        \item Deriving tags;
+        \item Storing the shared secret and tag indices.
+        \item But note that the Tagging Precompile's choices don't impact other apps' scope to choose differently.
+    \end{itemize}
+    \item The Tagging Precompile also imposes features that the PXE must support in typescript-land/C++-land:
+    \begin{itemize}
+        \item Filtering for handshakes that originated from the Tagging Precompile contract, brute-forcing those handshakes to find pertinent handshaking secrets, and neatly storing those secrets.
+        \item Deriving tags.
+        \item Making batch queries: passing a collection of tags to a server, and receiving a blob of ciphertexts in return.
+    \end{itemize}
+    
+\end{itemize}
