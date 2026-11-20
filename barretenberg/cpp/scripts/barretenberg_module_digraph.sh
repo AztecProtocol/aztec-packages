@@ -9,7 +9,7 @@ RESULT_PNG=barretenberg_modules.png
 echo digraph BarretenbergModules { > $TMP
 # populate the directed graph
 for file in $(find ./src/barretenberg/ -iname CMakeLists.txt); do
-  opening_chars=$(head -c 19 "$file")
+  opening_chars=$(head -c 18 "$file")
     if [ "$opening_chars" == barretenberg_module ]; then
       awk -f ./scripts/barretenberg_module_digraph_edges.awk $file >> $TMP
     fi
