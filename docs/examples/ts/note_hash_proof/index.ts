@@ -56,22 +56,14 @@ const { result: noteHash } = await contract.methods
   .simulate({ from: alice.address });
 const siloedNoteHash = await siloNoteHash(contract.address, new Fr(noteHash));
 
-// A note's nonce commits to an index that is unique within its transaction,
-// which need not be the note hash's position among the settled note hashes.
-// For a private note in a private-only transaction it is the note hash's index
-// in the private kernel's output. Try each index, and look for the result
-// among the settled hashes.
 let found: { settledNoteHash: Fr; noteNonce: Fr } | undefined;
-for (let index = 0; index < txEffect.noteHashes.length; index++) {
+for (const [index, settledNoteHash] of txEffect.noteHashes.entries()) {
   const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], index);
   const uniqueNoteHash = await computeUniqueNoteHash(
     noteNonce,
     siloedNoteHash,
   );
-  const settledNoteHash = txEffect.noteHashes.find((hash) =>
-    hash.equals(uniqueNoteHash),
-  );
-  if (settledNoteHash) {
+  if (uniqueNoteHash.equals(settledNoteHash)) {
     found = { settledNoteHash, noteNonce };
     break;
   }
