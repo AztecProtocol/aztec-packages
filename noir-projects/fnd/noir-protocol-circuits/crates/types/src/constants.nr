@@ -681,10 +681,15 @@ pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
 /// Used by [`crate::hash::compute_unique_note_hash`].
 pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
 
-/// Domain separator for nonces.
+/// Domain separator for the nonces of note hashes emitted by private functions.
 ///
 /// Used by [`crate::hash::compute_note_hash_nonce`].
 pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+
+/// Domain separator for the nonces of note hashes emitted by public functions (by the AVM).
+///
+/// Used by [`crate::hash::compute_public_note_hash_nonce`].
+pub global DOM_SEP__PUBLIC_NOTE_HASH_NONCE: u32 = 476841530;
 
 /// Domain separator for note nullifiers.
 ///

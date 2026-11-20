@@ -114,7 +114,7 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
 
     FF next_root = 234567;
 
-    std::vector<FF> nonce_hash_inputs = { DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter };
+    std::vector<FF> nonce_hash_inputs = { DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter };
     EXPECT_CALL(poseidon2, hash(nonce_hash_inputs)).WillOnce(Return(nonce));
 
     std::vector<FF> unique_note_hash_inputs = { DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
@@ -174,7 +174,7 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
     std::vector<FF> siloed_note_hash_inputs = { DOM_SEP__SILOED_NOTE_HASH, contract_address, raw_note_hash };
     EXPECT_CALL(poseidon2, hash(siloed_note_hash_inputs)).WillOnce(Return(siloed_note_hash));
 
-    std::vector<FF> nonce_hash_inputs = { DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter };
+    std::vector<FF> nonce_hash_inputs = { DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter };
     EXPECT_CALL(poseidon2, hash(nonce_hash_inputs)).WillOnce(Return(nonce));
 
     std::vector<FF> unique_note_hash_inputs = { DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };

@@ -20,7 +20,7 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(386);
     const auto constants_DOM_SEP__SILOED_NOTE_HASH = FF(3361878420UL);
     const auto constants_DOM_SEP__UNIQUE_NOTE_HASH = FF(226850429);
-    const auto constants_DOM_SEP__NOTE_HASH_NONCE = FF(1721808740);
+    const auto constants_DOM_SEP__PUBLIC_NOTE_HASH_NONCE = FF(476841530);
     const auto constants_DOM_SEP__MERKLE_HASH = FF(2982624097UL);
     const auto note_hash_tree_check_READ = (FF(1) - in.get(C::note_hash_tree_check_write));
     const auto note_hash_tree_check_PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF =
@@ -123,7 +123,7 @@ void note_hash_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::note_hash_tree_check_sel)) *
-                   (CView(constants_DOM_SEP__NOTE_HASH_NONCE) -
+                   (CView(constants_DOM_SEP__PUBLIC_NOTE_HASH_NONCE) -
                     static_cast<View>(in.get(C::note_hash_tree_check_nonce_separator)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }

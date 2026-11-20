@@ -225,18 +225,10 @@ impl TestBuilder {
         self,
         note_hashes: [Scoped<Counted<NoteHash>>; N],
     ) -> [Scoped<Counted<NoteHash>>; N] {
-        let is_private_only = self.previous_kernel.is_private_only;
-        let claimed_revertible_counter = self.previous_kernel.claimed_revertible_counter;
-
         let mut output = note_hashes;
         for i in 0..N {
-            let note_hash = note_hashes[i];
-            // We don't silo revertible note hashes with nonces, since we don't know their final position in the tx
-            output[i] = if note_hash.is_non_revertible(is_private_only, claimed_revertible_counter) {
-                self.compute_output_unique_siloed_note_hash(note_hash, i)
-            } else {
-                self.compute_output_siloed_note_hash(note_hash)
-            };
+            // Every private note hash is made unique at its index, revertible or not.
+            output[i] = self.compute_output_unique_siloed_note_hash(note_hashes[i], i);
         }
         output
     }

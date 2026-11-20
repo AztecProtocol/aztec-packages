@@ -42,7 +42,6 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
     void nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
     void siloed_nullifier_write(const FF& nullifier) override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
-    void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
     void pad_trees() override;
 

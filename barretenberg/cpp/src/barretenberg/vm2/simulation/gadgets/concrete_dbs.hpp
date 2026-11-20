@@ -95,7 +95,6 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Returns a unique note hash stored in the tree at leaf_index.
     bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
-    void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
 

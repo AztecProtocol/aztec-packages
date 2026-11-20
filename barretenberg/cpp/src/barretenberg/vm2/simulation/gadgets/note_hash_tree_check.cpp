@@ -55,11 +55,14 @@ FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_
  * The nonce ensures uniqueness of note hashes within and across transactions.
  *
  * @param note_hash_counter The index of the note hash in the transaction.
- * @return The nonce: Poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter).
+ * Only note hashes emitted by public functions are made unique by the AVM, so this uses the public nonce
+ * domain. (The private kernel makes private note hashes unique under DOM_SEP__NOTE_HASH_NONCE.)
+ *
+ * @return The nonce: Poseidon2(DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter).
  */
 FF NoteHashTreeCheck::make_nonce(uint64_t note_hash_counter) const
 {
-    return poseidon2.hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return poseidon2.hash({ DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
 }
 
 /**

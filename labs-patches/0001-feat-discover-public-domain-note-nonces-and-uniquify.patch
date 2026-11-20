@@ -1,0 +1,216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: iAmMichaelConnor <mike@aztec.foundation>
+Date: Fri, 20 Nov 2026 15:57:40 +0000
+Subject: [PATCH] feat!: discover public-domain note nonces and uniquify
+ revertible private note hashes in PXE simulation
+
+Private note hashes are now made unique in private with their index among the
+tx's private note hashes, revertible or not. Note hashes emitted in public use
+DOM_SEP__PUBLIC_NOTE_HASH_NONCE with their tx index.
+
+- nonce discovery tries every index in both nonce domains
+- the PXE's kernel-less simulation uniquifies revertible note hashes of txs with
+  public calls, matching the private kernel
+- the new separator joins aztec-nr's domain-separator collision test
+
+diff --git a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr b/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
+index e785e0072181762216fc951a566ba556b5017c44..f28af4483f510a0778cd9d2773b9f45da73ab21f 100644
+--- a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
++++ b/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
+@@ -4,7 +4,7 @@ use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
+ use crate::protocol::{
+     address::AztecAddress,
+     constants::MAX_NOTE_HASHES_PER_TX,
+-    hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
++    hash::{compute_note_hash_nonce, compute_public_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
+     traits::ToField,
+ };
+ 
+@@ -64,11 +64,17 @@ pub(crate) unconstrained fn attempt_note_nonce_discovery(
+ 
+         // We need to find nonces (typically just one) that result in the siloed note hash that being uniqued into one
+         // of the transaction's effects.
+-        // The nonce is meant to be derived from the index of the note hash in the transaction effects array. However,
+-        // due to an issue in the kernels the nonce might actually use any of the possible note hash indices - not
+-        // necessarily the one that corresponds to the note hash. Hence, we need to try them all.
+-        for i in 0..MAX_NOTE_HASHES_PER_TX {
+-            let nonce_for_i = compute_note_hash_nonce(first_nullifier_in_tx, i);
++        // A note hash emitted in private gets its nonce from its index among the tx's private note hashes, which is
++        // not necessarily its index in the transaction effects array (public note hashes may come before it). A note
++        // hash emitted in public gets its nonce from its index in the transaction effects array, under a separate
++        // nonce domain. We don't know which kind of note hash this is, so we try every index in both domains.
++        for k in 0..2 * MAX_NOTE_HASHES_PER_TX {
++            let i = k % MAX_NOTE_HASHES_PER_TX;
++            let nonce_for_i = if k < MAX_NOTE_HASHES_PER_TX {
++                compute_note_hash_nonce(first_nullifier_in_tx, i)
++            } else {
++                compute_public_note_hash_nonce(first_nullifier_in_tx, i)
++            };
+             let unique_note_hash_for_i = compute_unique_note_hash(nonce_for_i, siloed_note_hash);
+ 
+             let matching_notes = bvec_filter(
+@@ -162,7 +168,9 @@ mod test {
+ 
+     use crate::protocol::{
+         address::AztecAddress,
+-        hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
++        hash::{
++            compute_note_hash_nonce, compute_public_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash,
++        },
+         traits::{FromField, Packable},
+     };
+ 
+@@ -287,8 +295,20 @@ mod test {
+     }
+ 
+     unconstrained fn construct_note(value: Field, note_index_in_tx: u32) -> NoteAndData {
+-        let note_nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx);
++        construct_note_with_nonce(
++            value,
++            compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx),
++        )
++    }
++
++    unconstrained fn construct_public_note(value: Field, note_index_in_tx: u32) -> NoteAndData {
++        construct_note_with_nonce(
++            value,
++            compute_public_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx),
++        )
++    }
+ 
++    unconstrained fn construct_note_with_nonce(value: Field, note_nonce: Field) -> NoteAndData {
+         let hinted_note = MockNote::new(value)
+             .contract_address(CONTRACT_ADDRESS)
+             .owner(OWNER)
+@@ -341,6 +361,66 @@ mod test {
+         assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
+     }
+ 
++    #[test]
++    unconstrained fn private_note_after_public_note_hashes() {
++        // A private revertible note hash whose nonce index (its index among the tx's private note hashes) is lower
++        // than its index in the tx effects, because public non-revertible note hashes were inserted before it.
++        let private_note_index = 1;
++        let note_and_data = construct_note(VALUE, private_note_index);
++
++        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
++            random(), random(), random(), random(), random(), random(), random(),
++        ]);
++        unique_note_hashes_in_tx.set(4, note_and_data.unique_note_hash);
++
++        let discovered_notes = attempt_note_nonce_discovery(
++            unique_note_hashes_in_tx,
++            FIRST_NULLIFIER_IN_TX,
++            compute_note_hash,
++            compute_note_nullifier,
++            CONTRACT_ADDRESS,
++            OWNER,
++            STORAGE_SLOT,
++            RANDOMNESS,
++            MockNote::get_id(),
++            BoundedVec::from_array(note_and_data.note.pack()),
++        );
++
++        assert_eq(discovered_notes.len(), 1);
++        assert_eq(discovered_notes.get(0).note_nonce, note_and_data.note_nonce);
++    }
++
++    #[test]
++    unconstrained fn public_note() {
++        let note_index_in_tx = 3;
++        let note_and_data = construct_public_note(VALUE, note_index_in_tx);
++
++        let mut unique_note_hashes_in_tx = BoundedVec::from_array([
++            random(), random(), random(), random(), random(), random(), random(),
++        ]);
++        unique_note_hashes_in_tx.set(note_index_in_tx, note_and_data.unique_note_hash);
++
++        let discovered_notes = attempt_note_nonce_discovery(
++            unique_note_hashes_in_tx,
++            FIRST_NULLIFIER_IN_TX,
++            compute_note_hash,
++            compute_note_nullifier,
++            CONTRACT_ADDRESS,
++            OWNER,
++            STORAGE_SLOT,
++            RANDOMNESS,
++            MockNote::get_id(),
++            BoundedVec::from_array(note_and_data.note.pack()),
++        );
++
++        assert_eq(discovered_notes.len(), 1);
++        let discovered_note = discovered_notes.get(0);
++
++        assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
++        assert_eq(discovered_note.note_hash, note_and_data.note_hash);
++        assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
++    }
++
+     #[test]
+     unconstrained fn multiple_notes_same_preimage() {
+         let first_note_index_in_tx = 3;
+diff --git a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+index 021a87300a6f11256ef2d474da691f441cd42ae7..143dccebbbf881606068dc394838faf18677df15 100644
+--- a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
++++ b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
+@@ -33,19 +33,20 @@ use crate::protocol::constants::{
+     DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS,
+     DOM_SEP__PROTOCOL_NULLIFIER, DOM_SEP__PUBLIC_BYTECODE, DOM_SEP__PUBLIC_CALLDATA, DOM_SEP__PUBLIC_DATA_MERKLE,
+     DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__PUBLIC_LEAF_SLOT,
+-    DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH, DOM_SEP__RETRIEVED_BYTECODES_MERKLE,
+-    DOM_SEP__SALTED_INITIALIZATION_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
+-    DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH, DOM_SEP__TSK_M, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
+-    DOM_SEP__UNIQUE_NOTE_HASH, DOM_SEP__WRITTEN_SLOTS_MERKLE,
++    DOM_SEP__PUBLIC_NOTE_HASH_NONCE, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
++    DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__SALTED_INITIALIZATION_HASH, DOM_SEP__SIGNATURE_PAYLOAD,
++    DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH, DOM_SEP__TSK_M,
++    DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH, DOM_SEP__WRITTEN_SLOTS_MERKLE,
+ };
+ use crate::protocol::hash::poseidon2_hash_bytes;
+ 
+ /// The complete set of domain separators owned by the protocol.
+ ///
+ /// Kept in sync with the `protocol_types` crate.
+-global PROTOCOL_DOMAIN_SEPARATORS: [u32; 59] = [
++global PROTOCOL_DOMAIN_SEPARATORS: [u32; 60] = [
+     DOM_SEP__NOTE_HASH,
+     DOM_SEP__NOTE_HASH_NONCE,
++    DOM_SEP__PUBLIC_NOTE_HASH_NONCE,
+     DOM_SEP__UNIQUE_NOTE_HASH,
+     DOM_SEP__SILOED_NOTE_HASH,
+     DOM_SEP__NOTE_NULLIFIER,
+diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
+index 5f2d64798f6bff28ad06898aab3690084f5a05da..346ba4f1ffdab6eb3cbf723c001aa72a56cccff2 100644
+--- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
++++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
+@@ -761,12 +761,21 @@ export async function generateSimulatedProvingResult(
+       siloedNoteHashes,
+       minRevertibleSideEffectCounter,
+     );
++    // Every private note hash is made unique with its index among the tx's private note hashes (non-revertible
++    // first, then revertible), exactly as in a private-only tx. Note hashes emitted in public use a separate nonce
++    // domain, so the AVM inserting public non-revertible note hashes in between does not change these nonces.
+     const nonRevertibleUniqueNoteHashes = await allToCompletion(
+       nonRevertibleNoteHashes.map(async (noteHash, i) => {
+         const nonce = await computeNoteHashNonce(nonceGenerator, i);
+         return await computeUniqueNoteHash(nonce, noteHash);
+       }),
+     );
++    const revertibleUniqueNoteHashes = await allToCompletion(
++      revertibleNoteHashes.map(async (noteHash, i) => {
++        const nonce = await computeNoteHashNonce(nonceGenerator, nonRevertibleNoteHashes.length + i);
++        return await computeUniqueNoteHash(nonce, noteHash);
++      }),
++    );
+     const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
+       l2ToL1Messages.sort(sortByCounter),
+       minRevertibleSideEffectCounter,
+@@ -802,7 +811,7 @@ export async function generateSimulatedProvingResult(
+     );
+ 
+     const revertibleData = new PrivateToPublicAccumulatedData(
+-      padArrayEnd(revertibleNoteHashes.concat(padding.revertible.noteHashes), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
++      padArrayEnd(revertibleUniqueNoteHashes.concat(padding.revertible.noteHashes), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+       padArrayEnd(revertibleNullifiers.concat(padding.revertible.nullifiers), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+       padArrayEnd(revertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+       padArrayEnd(

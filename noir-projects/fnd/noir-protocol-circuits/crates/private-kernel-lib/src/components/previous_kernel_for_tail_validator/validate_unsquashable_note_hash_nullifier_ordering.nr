@@ -30,12 +30,9 @@ use types::{
 /// `push_nullifier_unsafe` instead leaves the link at `0` and is not checked here.
 ///
 /// The note hash side, `note_hash.innermost()`, is the terminal Reset circuit's output. Every surviving note
-/// hash has been siloed, and the note nonce has been applied to those whose final index is already known:
-///
-/// | Note hash                                       | tx with public calls | private-only tx |
-/// |-------------------------------------------------|----------------------|-----------------|
-/// | non-revertible (counter < revertible counter)   | unique               | unique          |
-/// | revertible                                      | siloed only          | unique          |
+/// hash has been siloed and made unique with its note nonce, revertible or not, and whether or not the tx makes
+/// public function calls (see `compute_unique_note_hash`). So the value matched below is the value the note hash
+/// settles under.
 ///
 /// The PXE assigns the nonce in the third row of the first table when the tx enters the revertible phase, from
 /// the same siloed protocol nullifier and the same index the Reset circuit uses, so the two sides agree for a
@@ -61,15 +58,11 @@ use types::{
 /// with a non-zero link is rejected by the counter check, because its own counter is `0`.
 pub fn validate_unsquashable_note_hash_nullifier_ordering(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
-    // Should be known at compile time.
-    is_for_public: bool,
 ) {
     // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
     let note_hash_index_for_each_nullifier =
         unsafe { get_note_hash_index_for_each_nullifier(previous_kernel_public_inputs) };
 
-    let min_revertible_side_effect_counter =
-        previous_kernel_public_inputs.min_revertible_side_effect_counter;
     let nullifiers = previous_kernel_public_inputs.end.nullifiers;
     let note_hashes = previous_kernel_public_inputs.end.note_hashes;
     for i in 0..nullifiers.array.len() {
@@ -110,19 +103,6 @@ pub fn validate_unsquashable_note_hash_nullifier_ordering(
                 note_hash.counter() < nullifier.counter(),
                 "Cannot link a note hash emitted after a nullifier",
             );
-            // The Reset circuit outputs a non-revertible note hash as its unique value (siloed, then combined
-            // with the note nonce). A revertible note hash in a tx with public calls is output siloed only and
-            // gets its nonce from the AVM later, so it settles under a different value from the one matched
-            // above, and a nullifier derived from that value would not nullify the settled note. Requiring a
-            // non-revertible note hash means the link can only match a unique note hash.
-            //
-            // A private-only tx outputs every note hash unique, so only tail-to-public needs this check.
-            if is_for_public {
-                assert(
-                    note_hash.counter() < min_revertible_side_effect_counter,
-                    "Linked note hash must be non-revertible",
-                );
-            }
             // Note: No need to verify logs linked to a note hash are squashed.
             // When a note hash is squashed, all associated logs are guaranteed to be removed.
             // See reset/transient_data/transient_data_validator.nr for details.

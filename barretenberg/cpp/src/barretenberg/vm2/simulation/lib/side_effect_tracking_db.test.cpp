@@ -177,22 +177,6 @@ TEST_F(SideEffectTrackingDBTest, NoteHashWrite)
     db.note_hash_write(contract_addr, note_hash);
 }
 
-TEST_F(SideEffectTrackingDBTest, SiloedNoteHashWrite)
-{
-    TrackedSideEffects tracked_effects = { .note_hashes = { FF(2) } };
-    const uint32_t note_hash_counter = static_cast<uint32_t>(tracked_effects.note_hashes.size());
-
-    SideEffectTrackingDB db(first_nullifier, mock_merkle_db, mock_tracker);
-    FF siloed_note_hash(555);
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
-
-    EXPECT_CALL(mock_tracker, get_side_effects()).WillOnce(ReturnRef(tracked_effects));
-    EXPECT_CALL(mock_merkle_db, siloed_note_hash_write(siloed_note_hash));
-    EXPECT_CALL(mock_tracker, add_note_hash(unique_note_hash));
-
-    db.siloed_note_hash_write(siloed_note_hash);
-}
-
 TEST_F(SideEffectTrackingDBTest, UniqueNoteHashWrite)
 {
     SideEffectTrackingDB db(first_nullifier, mock_merkle_db, mock_tracker);
