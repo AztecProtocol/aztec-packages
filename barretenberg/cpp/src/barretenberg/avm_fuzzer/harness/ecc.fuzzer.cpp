@@ -62,7 +62,7 @@ Fq random_fq_scalar(std::mt19937_64& rng)
         limbs[i] = dist(rng);
     }
 
-    return Fq(limbs[0], limbs[1], limbs[2], limbs[3]);
+    return Fq(uint256_t(limbs[0], limbs[1], limbs[2], limbs[3]));
 }
 
 // Right now just mutate the address within the u32 range
@@ -155,7 +155,13 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     std::mt19937_64 rng(seed);
 
     // Deserialize current input
-    EccFuzzerInput input = EccFuzzerInput::from_buffer(data);
+    EccFuzzerInput input;
+    try {
+        input = EccFuzzerInput::from_buffer(data);
+    } catch (...) {
+        input.to_buffer(data);
+        return sizeof(EccFuzzerInput);
+    }
 
     // We want to define sensible mutation of points as random bits are unlikely to yield valid points.
     // Lib Fuzzer will stack 5-6 mutations on top of each other by default
@@ -239,7 +245,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     // Parse input
-    const EccFuzzerInput input = EccFuzzerInput::from_buffer(data);
+    EccFuzzerInput input;
+    try {
+        input = EccFuzzerInput::from_buffer(data);
+    } catch (...) {
+        return 0;
+    }
     bool error = false;
 
     EmbeddedCurvePoint point_p = EmbeddedCurvePoint(input.p);
