@@ -35,7 +35,9 @@ fn nargo(dir: &Path) -> Command {
 /// Scrubs nargo stderr before snapshotting:
 ///
 /// 1. Drops `Waiting for lock on git dependencies cache...` lines that nargo
-///    emits when concurrent test invocations contend on its git-deps cache.
+///    emits when concurrent test invocations contend on its git-deps cache,
+///    and `Cloning into '<path>'...` lines that appear only the first time
+///    nargo resolves a git dependency on a runner.
 /// 2. Replaces the absolute repo prefix with `<repo>` so call-stack lines
 ///    pointing into `aztec-nr/aztec/src/macros/...` are stable across machines.
 /// 3. Replaces `:line:col` suffixes on `<repo>` lines with `:<line>:<col>`, and
@@ -51,7 +53,7 @@ fn scrub_stderr(s: String) -> String {
     let prefix = format!("{}/", repo_root().display());
     let mut in_repo_frame = false;
     s.lines()
-        .filter(|l| !l.contains("Waiting for lock"))
+        .filter(|l| !l.contains("Waiting for lock") && !l.starts_with("Cloning into "))
         .map(|l| {
             let l = l.replace(&prefix, "<repo>/");
             let trimmed = l.trim_start();
