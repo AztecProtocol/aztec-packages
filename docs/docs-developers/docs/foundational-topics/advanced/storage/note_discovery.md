@@ -91,7 +91,7 @@ The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility
 
 3. **Parse message type**: Successfully decrypted messages are dispatched by type — private notes, partial notes, or private events.
 
-4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the unique note hashes emitted in the same transaction. It computes candidate nonces for every possible index, using both `compute_note_hash_nonce(first_nullifier, index)` (for a note hash emitted in private, whose index is its position among the transaction's private note hashes) and `compute_public_note_hash_nonce(first_nullifier, index)` (for one emitted in public, whose index is its position among all the transaction's note hashes), and checks whether recomputing the unique note hash with each candidate nonce produces one of the transaction's note hashes. A match confirms the note was emitted in this transaction and provides the nonce needed to later nullify it. (Note hash tree inclusion is validated separately.)
+4. **Nonce discovery** (for notes): To confirm a decrypted note is valid, the system must match it against the unique note hashes emitted in the same transaction. It iterates the note hashes in the transaction, computes candidate nonces using `compute_note_hash_nonce(first_nullifier, note_index)` (a domain-separated Poseidon2 hash), and checks whether recomputing the unique note hash with each candidate nonce produces a match. A match confirms the note was emitted in this transaction and provides the nonce needed to later nullify it. (Note hash tree inclusion is validated separately.)
 
 5. **Store**: Validated notes are added to the PXE database, making them available for use in future transactions.
 
