@@ -1,6 +1,7 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/bn254_msm_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
@@ -43,6 +44,11 @@ HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
     // non-native-field gate. Kernels drop it and never carry these constraints.
     if constexpr (Builder::ExecutionTrace::has_gate_kind(GateKind::Nnf)) {
         for (const auto& [constraint, opcode_idx] : zip_view(honk_recursion_data.first, honk_recursion_data.second)) {
+            if (constraint.proof_type == BN254_MSM) {
+                create_bn254_msm_constraint(builder, constraint);
+                gate_counter.track_diff(gates_per_opcode, opcode_idx);
+                continue; // An MSM assertion produces no KZG pairing accumulator.
+            }
             HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
             if (constraint.proof_type == HONK_ZK) {

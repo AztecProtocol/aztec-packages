@@ -23,7 +23,9 @@ using namespace stdlib;
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, CHONK };
+// BN254_MSM is an experimental MSM assertion, not a recursive proof verifier (see bn254_msm_constraint.hpp).
+// Its value 9 is deliberately not mirrored in the Noir constants yet.
+enum PROOF_TYPE : uint8_t { HONK, OINK, HN, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, HN_FINAL, CHONK, BN254_MSM };
 
 // Check if a PROOF_TYPE is a HyperNova variant (OINK, HN, HN_FINAL)
 constexpr bool is_hypernova_proof_type(uint32_t proof_type)
@@ -61,6 +63,7 @@ static_assert(PROOF_TYPE::OINK == 1);
 static_assert(PROOF_TYPE::HN == 2);
 static_assert(PROOF_TYPE::HN_FINAL == 7);
 static_assert(PROOF_TYPE::CHONK == 8);
+static_assert(PROOF_TYPE::BN254_MSM == 9);
 } // namespace detail
 
 /**
