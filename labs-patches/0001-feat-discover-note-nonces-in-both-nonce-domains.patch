@@ -1,18 +1,30 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: iAmMichaelConnor <mike@aztec.foundation>
-Date: Fri, 20 Nov 2026 15:57:40 +0000
-Subject: [PATCH] feat!: discover public-domain note nonces and uniquify
- revertible private note hashes in PXE simulation
+Date: Fri, 20 Nov 2026 16:27:39 +0000
+Subject: [PATCH] feat!: discover note nonces in both nonce domains
 
-Private note hashes are now made unique in private with their index among the
-tx's private note hashes, revertible or not. Note hashes emitted in public use
-DOM_SEP__PUBLIC_NOTE_HASH_NONCE with their tx index.
+Private note hashes are made unique in private with their index among the tx's
+private note hashes, revertible or not. Note hashes emitted in public use
+DOM_SEP__PUBLIC_NOTE_HASH_NONCE with their index in the tx's note hashes.
 
 - nonce discovery tries every index in both nonce domains
-- the PXE's kernel-less simulation uniquifies revertible note hashes of txs with
-  public calls, matching the private kernel
+- the PXE's kernel-less simulation uniquifies every private note hash once,
+  before splitting by revertibility, matching the private kernel
+- computePublicNoteHashNonce in stdlib
 - the new separator joins aztec-nr's domain-separator collision test
 
+diff --git a/CHANGELOG-DEVELOPERS.md b/CHANGELOG-DEVELOPERS.md
+index 7ddb3edbd9324f5406f3966f9f4e7a3df1ee1746..21e673f05b50742437863816be832941bf311211 100644
+--- a/CHANGELOG-DEVELOPERS.md
++++ b/CHANGELOG-DEVELOPERS.md
+@@ -45,6 +45,7 @@ Note that changes to _internal_ interfaces, e.g. the aztec-nr <> PXE oracle inte
+ 
+ #### Breaking changes
+ 
++- **Note hashes emitted by public functions use their own nonce domain, `DOM_SEP__PUBLIC_NOTE_HASH_NONCE`.** A note created in private now has the same final note hash, and nullifier, whether or not its tx makes public calls, and its creator knows both before sending the tx. Nonce discovery tries both domains, so contracts that rely on aztec-nr's discovery need no change. Code that recomputes a nonce itself must use `compute_note_hash_nonce` for a note hash emitted in private and `compute_public_note_hash_nonce` for one emitted in public, such as a partial note completed in public. A contract built against an earlier aztec-nr does not discover notes emitted in public under the new protocol.
+ - **`compute_secret_hash` is renamed `compute_private_content_hash`, and it returns a different hash** ([#689](https://github.com/aztec-labs-eng/aztec-node/pull/689)). The two application fields of an L1-to-L2 message are renamed for what they are: `content` is the message's public content hash, and its secret hash is its private content hash. The preimage a contract reveals to consume the message is its private content, which the application defines: a single claim secret, as in the fee juice and token bridges, or something richer. The hash now uses the `DOM_SEP__PRIVATE_CONTENT_HASH` domain separator, so a contract built with this version cannot consume a message whose hash was computed the old way: claim pending messages before upgrading, or send them again afterwards. `consume_l1_to_l2_message`, `compute_l1_to_l2_message_hash` and `compute_l1_to_l2_message_nullifier` keep their arguments in the same order, under the new names.
+ 
+   ```diff
 diff --git a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr b/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
 index e785e0072181762216fc951a566ba556b5017c44..f28af4483f510a0778cd9d2773b9f45da73ab21f 100644
 --- a/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr
@@ -149,6 +161,29 @@ index e785e0072181762216fc951a566ba556b5017c44..f28af4483f510a0778cd9d2773b9f45d
      #[test]
      unconstrained fn multiple_notes_same_preimage() {
          let first_note_index_in_tx = 3;
+diff --git a/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr b/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
+index 5b846b430dcd1a3645494dc9fb8e8e3ac15a2179..66217519bae1a15c36eaedb35373c5f963bb255b 100644
+--- a/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
++++ b/noir-projects/aztec-nr/aztec/src/partial_notes/fsm.nr
+@@ -352,7 +352,7 @@ mod test {
+     use crate::oracle::block_reference::BlockReference;
+     use crate::partial_notes::DeliveredPendingPartialNote;
+     use crate::protocol::address::AztecAddress;
+-    use crate::protocol::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
++    use crate::protocol::hash::{compute_public_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
+     use crate::test::helpers::test_environment::TestEnvironment;
+     use super::PartialNoteFsm;
+ 
+@@ -684,7 +684,8 @@ mod test {
+         contract_address: AztecAddress,
+         first_nullifier_in_tx: Field,
+     ) -> LogRetrievalResponse {
+-        let note_nonce = compute_note_hash_nonce(first_nullifier_in_tx, 0);
++        // A completion log is emitted when a partial note is completed in public, so its note hash has a public nonce.
++        let note_nonce = compute_public_note_hash_nonce(first_nullifier_in_tx, 0);
+         let unique_note_hash = compute_unique_note_hash(
+             note_nonce,
+             compute_siloed_note_hash(contract_address, DISCOVERED_NOTE_HASH),
 diff --git a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr b/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
 index 021a87300a6f11256ef2d474da691f441cd42ae7..143dccebbbf881606068dc394838faf18677df15 100644
 --- a/noir-projects/aztec-nr/aztec/src/test/domain_separators.nr
@@ -180,32 +215,61 @@ index 021a87300a6f11256ef2d474da691f441cd42ae7..143dccebbbf881606068dc394838faf1
      DOM_SEP__SILOED_NOTE_HASH,
      DOM_SEP__NOTE_NULLIFIER,
 diff --git a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-index 5f2d64798f6bff28ad06898aab3690084f5a05da..346ba4f1ffdab6eb3cbf723c001aa72a56cccff2 100644
+index 5f2d64798f6bff28ad06898aab3690084f5a05da..fcacc496b42b0b01c0bfb17d34e5f6654f95fd85 100644
 --- a/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
 +++ b/yarn-project/pxe/src/contract_function_simulator/contract_function_simulator.ts
-@@ -761,12 +761,21 @@ export async function generateSimulatedProvingResult(
-       siloedNoteHashes,
+@@ -707,20 +707,20 @@ export async function generateSimulatedProvingResult(
+   );
+   const padding = await makePadding(paddedSideEffectAmounts);
+ 
++  // Every private note hash is made unique with its index among the tx's private note hashes (sorted by counter, so
++  // non-revertible first), whether or not the tx makes public calls. Note hashes emitted in public use a separate
++  // nonce domain, so the AVM inserting public non-revertible note hashes in between does not change these nonces.
++  const uniqueNoteHashes = await allToCompletion(
++    siloedNoteHashes.map(async ({ sideEffect, counter }, i) => {
++      const nonce = await computeNoteHashNonce(nonceGenerator, i);
++      return new OrderedSideEffect(await computeUniqueNoteHash(nonce, sideEffect), counter);
++    }),
++  );
++
+   if (isPrivateOnlyTx) {
+-    // We must make the note hashes unique by using the
+-    // nonce generator and their index in the tx.
+-    const uniqueNoteHashes = await allToCompletion(
+-      siloedNoteHashes.map(async (orderedSideEffect, i) => {
+-        const siloedNoteHash = orderedSideEffect.sideEffect;
+-        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+-        const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+-        return uniqueNoteHash;
+-      }),
+-    );
+     const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
+       padArrayEnd(
+-        [...uniqueNoteHashes, ...padding.nonRevertible.noteHashes, ...padding.revertible.noteHashes],
++        [...uniqueNoteHashes.map(getEffect), ...padding.nonRevertible.noteHashes, ...padding.revertible.noteHashes],
+         Fr.ZERO,
+         MAX_NOTE_HASHES_PER_TX,
+       ),
+@@ -757,16 +757,10 @@ export async function generateSimulatedProvingResult(
+     gasUsed = meterGasUsed(accumulatedDataForRollup, isPrivateOnlyTx);
+     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
+   } else {
+-    const [nonRevertibleNoteHashes, revertibleNoteHashes] = splitOrderedSideEffects(
+-      siloedNoteHashes,
++    const [nonRevertibleUniqueNoteHashes, revertibleUniqueNoteHashes] = splitOrderedSideEffects(
++      uniqueNoteHashes,
        minRevertibleSideEffectCounter,
      );
-+    // Every private note hash is made unique with its index among the tx's private note hashes (non-revertible
-+    // first, then revertible), exactly as in a private-only tx. Note hashes emitted in public use a separate nonce
-+    // domain, so the AVM inserting public non-revertible note hashes in between does not change these nonces.
-     const nonRevertibleUniqueNoteHashes = await allToCompletion(
-       nonRevertibleNoteHashes.map(async (noteHash, i) => {
-         const nonce = await computeNoteHashNonce(nonceGenerator, i);
-         return await computeUniqueNoteHash(nonce, noteHash);
-       }),
-     );
-+    const revertibleUniqueNoteHashes = await allToCompletion(
-+      revertibleNoteHashes.map(async (noteHash, i) => {
-+        const nonce = await computeNoteHashNonce(nonceGenerator, nonRevertibleNoteHashes.length + i);
-+        return await computeUniqueNoteHash(nonce, noteHash);
-+      }),
-+    );
+-    const nonRevertibleUniqueNoteHashes = await allToCompletion(
+-      nonRevertibleNoteHashes.map(async (noteHash, i) => {
+-        const nonce = await computeNoteHashNonce(nonceGenerator, i);
+-        return await computeUniqueNoteHash(nonce, noteHash);
+-      }),
+-    );
      const [nonRevertibleL2ToL1Messages, revertibleL2ToL1Messages] = splitOrderedSideEffects(
        l2ToL1Messages.sort(sortByCounter),
        minRevertibleSideEffectCounter,
-@@ -802,7 +811,7 @@ export async function generateSimulatedProvingResult(
+@@ -802,7 +796,7 @@ export async function generateSimulatedProvingResult(
      );
  
      const revertibleData = new PrivateToPublicAccumulatedData(
@@ -214,3 +278,35 @@ index 5f2d64798f6bff28ad06898aab3690084f5a05da..346ba4f1ffdab6eb3cbf723c001aa72a
        padArrayEnd(revertibleNullifiers.concat(padding.revertible.nullifiers), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
        padArrayEnd(revertibleL2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
        padArrayEnd(
+diff --git a/yarn-project/stdlib/src/hash/hash.ts b/yarn-project/stdlib/src/hash/hash.ts
+index f52f76520fa3c0cc99da4da43e1b173515c6ca71..805f54431fdaa8c89a4d192c133f1f2d000d162c 100644
+--- a/yarn-project/stdlib/src/hash/hash.ts
++++ b/yarn-project/stdlib/src/hash/hash.ts
+@@ -32,15 +32,25 @@ export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
+ }
+ 
+ /**
+- * Computes a note hash nonce, which will be used to create a unique note hash.
++ * Computes the nonce of a note hash emitted in private, which will be used to create a unique note hash.
+  * @param nullifierZero - The first nullifier in the tx.
+- * @param noteHashIndex - The index of the note hash.
++ * @param noteHashIndex - The index of the note hash among the tx's private note hashes.
+  * @returns A note hash nonce.
+  */
+ export function computeNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {
+   return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], DomainSeparator.NOTE_HASH_NONCE);
+ }
+ 
++/**
++ * Computes the nonce of a note hash emitted in public, which will be used to create a unique note hash.
++ * @param nullifierZero - The first nullifier in the tx.
++ * @param noteHashIndex - The index of the note hash in the tx's note hashes.
++ * @returns A note hash nonce.
++ */
++export function computePublicNoteHashNonce(nullifierZero: Fr, noteHashIndex: number): Promise<Fr> {
++  return poseidon2HashWithSeparator([nullifierZero, noteHashIndex], DomainSeparator.PUBLIC_NOTE_HASH_NONCE);
++}
++
+ /**
+  * Computes a siloed note hash, given the contract address and the note hash itself.
+  * A siloed note hash effectively namespaces a note hash to a specific contract.

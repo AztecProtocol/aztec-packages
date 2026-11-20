@@ -580,7 +580,7 @@ void TxExecution::insert_revertibles(const Tx& tx)
         }
     }
 
-    // 2. Write the siloed non-unique note hashes.
+    // 2. Write the note hashes. The private kernel already made them unique.
     if (tx.revertible_accumulated_data.note_hashes.empty()) {
         emit_empty_phase(TransactionPhase::R_NOTE_INSERTION);
     } else {

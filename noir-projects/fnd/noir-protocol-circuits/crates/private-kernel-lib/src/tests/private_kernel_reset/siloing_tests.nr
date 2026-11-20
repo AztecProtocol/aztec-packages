@@ -49,10 +49,29 @@ fn squashing_and_siloing_and_ordering() {
 
     let pi = builder.execute_with_siloing();
 
-    // The note hash at index 1 is squashed.
+    // The note hash at index 1 is squashed. The rest are made unique at their output index, with the
+    // output's first nullifier (the protocol nullifier, `nullifiers[0]`) as the nonce base. (The input's
+    // first nullifier was shuffled away, so `compute_output_note_hashes` can't be used here.)
+    let first_nullifier = nullifiers[0];
     assert_array_eq(
         pi.end.note_hashes.array,
-        builder.compute_output_note_hashes([note_hashes[0], note_hashes[2], note_hashes[3]]),
+        [
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[0],
+                0,
+                first_nullifier,
+            ),
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[2],
+                1,
+                first_nullifier,
+            ),
+            builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[3],
+                2,
+                first_nullifier,
+            ),
+        ],
     );
     assert_eq(pi.end.note_hashes.length, 3);
 

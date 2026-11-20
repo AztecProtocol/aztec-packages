@@ -35,14 +35,6 @@ class MockNoteHashTreeCheck : public NoteHashTreeCheckInterface {
                 (override));
 
     MOCK_METHOD(AppendOnlyTreeSnapshot,
-                append_siloed_note_hash,
-                (const FF& siloed_note_hash,
-                 uint64_t note_hash_counter,
-                 std::span<const FF> sibling_path,
-                 const AppendOnlyTreeSnapshot& prev_snapshot),
-                (override));
-
-    MOCK_METHOD(AppendOnlyTreeSnapshot,
                 append_unique_note_hash,
                 (const FF& unique_note_hash,
                  uint64_t note_hash_counter,

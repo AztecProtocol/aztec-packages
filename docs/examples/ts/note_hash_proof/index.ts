@@ -40,6 +40,7 @@ assert.equal(balance, value);
 // docs:start:find_note_hash
 import {
   computeNoteHashNonce,
+  computePublicNoteHashNonce,
   computeUniqueNoteHash,
   siloNoteHash,
 } from "@aztec-labs/stdlib/hash";
@@ -56,16 +57,28 @@ const { result: noteHash } = await contract.methods
   .simulate({ from: alice.address });
 const siloedNoteHash = await siloNoteHash(contract.address, new Fr(noteHash));
 
+// A note hash emitted in private takes its nonce from its index among the
+// transaction's private note hashes; one emitted in public takes it from its
+// index among all of the transaction's note hashes, under a separate domain.
+// Try every index in both, and look for the result among the settled hashes.
 let found: { settledNoteHash: Fr; noteNonce: Fr } | undefined;
-for (const [index, settledNoteHash] of txEffect.noteHashes.entries()) {
-  const noteNonce = await computeNoteHashNonce(txEffect.nullifiers[0], index);
-  const uniqueNoteHash = await computeUniqueNoteHash(
-    noteNonce,
-    siloedNoteHash,
-  );
-  if (uniqueNoteHash.equals(settledNoteHash)) {
-    found = { settledNoteHash, noteNonce };
-    break;
+search: for (let index = 0; index < txEffect.noteHashes.length; index++) {
+  for (const computeNonce of [
+    computeNoteHashNonce,
+    computePublicNoteHashNonce,
+  ]) {
+    const noteNonce = await computeNonce(txEffect.nullifiers[0], index);
+    const uniqueNoteHash = await computeUniqueNoteHash(
+      noteNonce,
+      siloedNoteHash,
+    );
+    const settledNoteHash = txEffect.noteHashes.find((hash) =>
+      hash.equals(uniqueNoteHash),
+    );
+    if (settledNoteHash) {
+      found = { settledNoteHash, noteNonce };
+      break search;
+    }
   }
 }
 if (!found) {

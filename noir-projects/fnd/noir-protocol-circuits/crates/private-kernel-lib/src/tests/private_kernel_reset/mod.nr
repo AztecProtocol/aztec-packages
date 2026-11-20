@@ -225,10 +225,29 @@ impl TestBuilder {
         self,
         note_hashes: [Scoped<Counted<NoteHash>>; N],
     ) -> [Scoped<Counted<NoteHash>>; N] {
+        // For setups that don't squash or reorder the first nullifier, the output's first nullifier
+        // (the note-nonce base) is the input's first nullifier.
+        self.compute_output_note_hashes_with_first_nullifier(
+            note_hashes,
+            self.previous_kernel.nullifiers.get_unchecked(0),
+        )
+    }
+
+    /// Like `compute_output_note_hashes`, but names the output's first nullifier explicitly, for
+    /// tests whose input's first nullifier is squashed or shuffled away.
+    pub fn compute_output_note_hashes_with_first_nullifier<let N: u32>(
+        self,
+        note_hashes: [Scoped<Counted<NoteHash>>; N],
+        first_nullifier: Scoped<Counted<Nullifier>>,
+    ) -> [Scoped<Counted<NoteHash>>; N] {
         let mut output = note_hashes;
         for i in 0..N {
             // Every private note hash is made unique at its index, revertible or not.
-            output[i] = self.compute_output_unique_siloed_note_hash(note_hashes[i], i);
+            output[i] = self.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[i],
+                i,
+                first_nullifier,
+            );
         }
         output
     }

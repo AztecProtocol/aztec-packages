@@ -93,58 +93,6 @@ TEST(AvmSimulationNoteHashTree, WriteUnique)
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
-TEST(AvmSimulationNoteHashTree, WriteSiloed)
-{
-    StrictMock<MockPoseidon2> poseidon2;
-    StrictMock<MockMerkleCheck> merkle_check;
-
-    EventEmitter<NoteHashTreeCheckEvent> event_emitter;
-    FF first_nullifier = 1;
-    NoteHashTreeCheck note_hash_tree_check(first_nullifier, poseidon2, merkle_check, event_emitter);
-
-    std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
-    AppendOnlyTreeSnapshot snapshot = {
-        .root = 123456,
-        .next_available_leaf_index = 128,
-    };
-    FF siloed_note_hash = 42;
-    uint64_t note_hash_counter = 10;
-    FF nonce = 43;
-    FF unique_note_hash = 44;
-
-    FF next_root = 234567;
-
-    std::vector<FF> nonce_hash_inputs = { DOM_SEP__PUBLIC_NOTE_HASH_NONCE, first_nullifier, note_hash_counter };
-    EXPECT_CALL(poseidon2, hash(nonce_hash_inputs)).WillOnce(Return(nonce));
-
-    std::vector<FF> unique_note_hash_inputs = { DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash };
-    EXPECT_CALL(poseidon2, hash(unique_note_hash_inputs)).WillOnce(Return(unique_note_hash));
-
-    EXPECT_CALL(
-        merkle_check,
-        write(DOM_SEP__MERKLE_HASH, FF(0), unique_note_hash, snapshot.next_available_leaf_index, _, snapshot.root))
-        .WillOnce(Return(next_root));
-
-    AppendOnlyTreeSnapshot next_snapshot =
-        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, sibling_path, snapshot);
-
-    EXPECT_EQ(next_snapshot.next_available_leaf_index, snapshot.next_available_leaf_index + 1);
-    NoteHashTreeReadWriteEvent expect_event = { .note_hash = siloed_note_hash,
-                                                .leaf_index = snapshot.next_available_leaf_index,
-                                                .prev_snapshot = snapshot,
-                                                .append_data = NoteHashAppendData{
-                                                    .uniqueness_data =
-                                                        NoteHashUniquenessData{
-                                                            .nonce = nonce,
-                                                            .unique_note_hash = unique_note_hash,
-                                                            .first_nullifier = first_nullifier,
-                                                        },
-                                                    .note_hash_counter = note_hash_counter,
-                                                    .next_snapshot = next_snapshot,
-                                                } };
-    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
-}
-
 TEST(AvmSimulationNoteHashTree, WriteRaw)
 {
     StrictMock<MockPoseidon2> poseidon2;

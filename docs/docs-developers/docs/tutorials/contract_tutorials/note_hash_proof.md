@@ -81,7 +81,7 @@ The owner's PXE now holds the note:
 
 ## Find the note hash and nonce
 
-The settled note hash is in the transaction's effects, next to the hashes of every other note the transaction created. Constrained delivery, for example, also re-creates a note in the handshake registry. Each settled hash has a nonce that comes from the transaction's first nullifier and the hash's position, so the script finds the note's position the way the PXE does during [note discovery](../../foundational-topics/advanced/storage/note_discovery.md#the-sync-process): it silos the note's hash to the contract and compares it, under each position's nonce, with the hash settled there.
+The settled note hash is in the transaction's effects, next to the hashes of every other note the transaction created. Constrained delivery, for example, also re-creates a note in the handshake registry. Each settled hash has a nonce that comes from the transaction's first nullifier and an index: for a note hash emitted in private, its index among the transaction's private note hashes; for one emitted in public, its index among all of them, under a separate domain separator. So the script finds the note's nonce the way the PXE does during [note discovery](../../foundational-topics/advanced/storage/note_discovery.md#the-sync-process): it silos the note's hash to the contract, makes it unique under each candidate nonce, and looks for the result among the settled hashes.
 
 The contract computes the note's hash with a utility function, which runs in your PXE and sends no transaction:
 

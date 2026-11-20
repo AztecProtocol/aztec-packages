@@ -104,31 +104,6 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash(const FF& note_hash,
 }
 
 /**
- * @brief Appends a pre-siloed note hash to the tree after making it unique.
- *
- * Skips the siloing step (the note hash is already bound to a contract) but still derives a
- * nonce and computes the unique note hash before insertion.
- *
- * @param siloed_note_hash The already-siloed note hash to append.
- * @param note_hash_counter A counter distinguishing this note hash within the transaction.
- * @param sibling_path The Merkle sibling path for the append operation.
- * @param prev_snapshot The tree snapshot before the append.
- * @return The updated tree snapshot after inserting the new leaf.
- */
-AppendOnlyTreeSnapshot NoteHashTreeCheck::append_siloed_note_hash(const FF& siloed_note_hash,
-                                                                  uint64_t note_hash_counter,
-                                                                  std::span<const FF> sibling_path,
-                                                                  const AppendOnlyTreeSnapshot& prev_snapshot)
-{
-    return append_note_hash_internal(siloed_note_hash,
-                                     /* contract_address */ std::nullopt,
-                                     /* should_make_unique */ true,
-                                     note_hash_counter,
-                                     sibling_path,
-                                     prev_snapshot);
-}
-
-/**
  * @brief Appends a pre-computed unique note hash directly to the tree.
  *
  * Skips both siloing and uniqueness derivation -- the note hash is inserted as-is. This is
