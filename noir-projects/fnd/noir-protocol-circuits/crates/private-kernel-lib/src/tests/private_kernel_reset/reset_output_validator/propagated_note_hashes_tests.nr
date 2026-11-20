@@ -9,6 +9,7 @@ fn previous_note_hashes_sorted() {
 
     builder.previous_kernel.append_note_hashes(4);
     builder.output.append_siloed_note_hashes(4);
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }
@@ -22,6 +23,7 @@ fn previous_note_hashes_not_sorted() {
     swap_items(&mut builder.previous_kernel.note_hashes, 0, 2);
 
     builder.output.append_siloed_note_hashes(4);
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }
@@ -33,6 +35,7 @@ fn output_note_hashes_not_sorted() {
     builder.previous_kernel.append_note_hashes(4);
 
     builder.output.append_siloed_note_hashes(4);
+    builder.output.uniquify_note_hashes();
     // Swap 2 of the note hashes in the output.
     swap_items(&mut builder.output.note_hashes, 0, 2);
 
@@ -47,6 +50,7 @@ fn extra_non_empty_note_hash_in_output() {
 
     // Append an extra item to the output.
     builder.output.append_siloed_note_hashes(3);
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }
@@ -60,6 +64,7 @@ fn previous_note_hashes_beyond_claimed_length() {
     builder.previous_kernel.note_hashes = BoundedVec::from_parts(note_hashes, 1);
 
     builder.output.append_siloed_note_hashes(2);
+    builder.output.uniquify_note_hashes();
     let output_note_hashes = builder.output.note_hashes.storage();
     builder.output.note_hashes = BoundedVec::from_parts(output_note_hashes, 1);
 
@@ -70,7 +75,7 @@ fn previous_note_hashes_beyond_claimed_length() {
     builder.validate_siloing_with_output_hints(output_hints);
 
     // This test fails because the validator compares the output note hashes beyond the claimed length with the padded
-    // note hashes, which don't match the siloed note hashes computed from the extra note hashes in the previous kernel.
+    // note hashes, which don't match the unique note hashes computed from the extra note hashes in the previous kernel.
 }
 
 #[test]
@@ -90,6 +95,7 @@ fn with_padded_note_hashes() {
 
     builder.output.append_siloed_note_hashes(3);
     builder.output.append_padded_note_hashes(2);
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }
@@ -103,6 +109,7 @@ fn output_note_hash_with_forged_contract_address() {
 
     builder.previous_kernel.append_note_hashes(2);
     builder.output.append_siloed_note_hashes(2);
+    builder.output.uniquify_note_hashes();
 
     let mut note_hash = builder.output.note_hashes.get(0);
     note_hash.contract_address.inner += 1;
@@ -117,6 +124,7 @@ fn output_note_hash_with_zeroed_contract_address() {
 
     builder.previous_kernel.append_note_hashes(2);
     builder.output.append_siloed_note_hashes(2);
+    builder.output.uniquify_note_hashes();
 
     // Zero is the value an attacker can write into both operands of the tail's guard without
     // knowing either contract's address, and it was the sentinel the retired siloing convention
@@ -148,6 +156,7 @@ fn note_hashes_from_two_contracts() {
     builder.output.contract_address = emitter_b;
     builder.output.append_siloed_note_hashes(1);
     builder.output.contract_address = emitter_a;
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }
@@ -168,6 +177,7 @@ fn output_note_hashes_with_swapped_contract_addresses() {
     builder.output.contract_address = emitter_b;
     builder.output.append_siloed_note_hashes(1);
     builder.output.contract_address = emitter_a;
+    builder.output.uniquify_note_hashes();
 
     // Exchange the two emitters. Both siloed values stay correct under their own input address, so
     // nothing but the scope binding can catch this.
@@ -193,6 +203,7 @@ fn padded_note_hash_with_forged_contract_address() {
 
     builder.output.append_siloed_note_hashes(2);
     builder.output.append_padded_note_hashes(1);
+    builder.output.uniquify_note_hashes();
 
     // Padding must keep the masking address, not an address of the prover's choosing.
     let mut padded = builder.output.note_hashes.get(2);
@@ -209,6 +220,7 @@ fn more_non_empty_note_hashes_than_capped_size() {
     // Add one more than the amount to be siloed.
     builder.previous_kernel.append_note_hashes(NOTE_HASH_SILOING_AMOUNT + 1);
     builder.output.append_siloed_note_hashes(NOTE_HASH_SILOING_AMOUNT + 1);
+    builder.output.uniquify_note_hashes();
 
     builder.validate_siloing();
 }

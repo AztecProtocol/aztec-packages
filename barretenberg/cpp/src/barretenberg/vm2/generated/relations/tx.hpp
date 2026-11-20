@@ -13,9 +13,9 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 2, 3, 5, 3, 3, 3, 5, 4, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 2, 3, 3,
-        5, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+    static constexpr std::array<size_t, 66> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 2, 3, 5, 3, 3, 3, 5, 4, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3, 2, 3,
+        3, 5, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3, 4, 3, 2, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -55,20 +55,21 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_READ_PI_OFFSET_INIT = 21;
     static constexpr size_t SR_INCR_READ_PI_OFFSET = 22;
     static constexpr size_t SR_TEARDOWN_ON_SEL = 25;
-    static constexpr size_t SR_IS_TREE_INSERT_PHASE_ON_SEL = 31;
-    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 33;
-    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 38;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_INCREMENT = 43;
-    static constexpr size_t SR_NULLIFIER_EMITTED_COUNT_INCREMENT = 44;
-    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 46;
-    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 49;
-    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 50;
-    static constexpr size_t SR_COMPUTE_FEE = 52;
-    static constexpr size_t SR_TEARDOWN_GETS_FEE = 53;
-    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 54;
-    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 62;
-    static constexpr size_t SR_PAD_NULLIFIER_TREE = 63;
-    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 64;
+    static constexpr size_t SR_NOTE_HASH_NONCE_INDEX_OFFSET = 30;
+    static constexpr size_t SR_IS_TREE_INSERT_PHASE_ON_SEL = 32;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 34;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 39;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_INCREMENT = 44;
+    static constexpr size_t SR_NULLIFIER_EMITTED_COUNT_INCREMENT = 45;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 47;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 50;
+    static constexpr size_t SR_SEL_ACTIVE_ON_COLLECT_FEE = 51;
+    static constexpr size_t SR_COMPUTE_FEE = 53;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 54;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 55;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 63;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 64;
+    static constexpr size_t SR_SEL_ACTIVE_ON_CLEANUP = 65;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -110,6 +111,8 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
             return "INCR_READ_PI_OFFSET";
         case SR_TEARDOWN_ON_SEL:
             return "TEARDOWN_ON_SEL";
+        case SR_NOTE_HASH_NONCE_INDEX_OFFSET:
+            return "NOTE_HASH_NONCE_INDEX_OFFSET";
         case SR_IS_TREE_INSERT_PHASE_ON_SEL:
             return "IS_TREE_INSERT_PHASE_ON_SEL";
         case SR_MAX_NOTE_HASH_WRITES_REACHED:

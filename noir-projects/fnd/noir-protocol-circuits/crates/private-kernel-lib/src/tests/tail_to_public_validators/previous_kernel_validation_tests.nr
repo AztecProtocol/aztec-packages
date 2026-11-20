@@ -150,12 +150,12 @@ fn nullifier_linked_to_non_revertible_note_hash() {
     let _ = builder.execute();
 }
 
-#[test(should_fail_with = "Linked note hash must be non-revertible")]
+#[test]
 fn nullifier_linked_to_revertible_note_hash() {
     let mut builder = TestBuilder::new();
 
-    // A revertible note hash is output siloed only, so a link to that value passes the value check.
-    builder.previous_kernel.append_siloed_note_hashes(1);
+    // A revertible note hash is output unique too, so it settles under the value the link matches.
+    builder.previous_kernel.append_siloed_unique_note_hashes(1);
     let note_hash = builder.previous_kernel.note_hashes.get(0);
     builder.previous_kernel.add_siloed_nullifier_for_note_hash(456, note_hash.innermost());
 

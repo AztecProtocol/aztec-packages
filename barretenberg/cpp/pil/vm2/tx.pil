@@ -331,6 +331,14 @@ namespace tx;
     sel_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
     sel_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
+    // Note hashes emitted by an enqueued call get nonce indices in the public non-revertible section (setup) or the
+    // public revertible section (app logic, teardown). `is_revertible` is fixed per phase by #[READ_PHASE_SPEC].
+    pol commit note_hash_nonce_index_offset;
+    #[NOTE_HASH_NONCE_INDEX_OFFSET]
+    sel_process_call_request * (constants.NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE
+        + is_revertible * (constants.NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE - constants.NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE)
+        - note_hash_nonce_index_offset) = 0;
+
     // Public call requests are dispatched to the execution trace.
     // We match the values to the start of an enqueued call in the execution trace.
     // Key: In execution, the pair `context_id` and `enqueued_call_start == 1` characterizes a unique row.
@@ -344,6 +352,7 @@ namespace tx;
         fee,
         is_static,
         calldata_size,
+        note_hash_nonce_index_offset,
         // Tree State
         prev_note_hash_tree_root,
         prev_note_hash_tree_size,
@@ -375,6 +384,7 @@ namespace tx;
         execution.transaction_fee,
         execution.is_static,
         execution.parent_calldata_size,
+        execution.note_hash_nonce_index_offset,
         // Tree State
         execution.prev_note_hash_tree_root,
         execution.prev_note_hash_tree_size,
@@ -512,9 +522,8 @@ namespace tx;
         prev_note_hash_tree_size,
         prev_note_hash_tree_root,
         precomputed.zero, // Already siloed. (No need to pass address.)
-        is_revertible, // Used as `sel_unique`: revertible note hashes need to be made unique with a nonce.
-                       // On rows where sel_note_hash_append == 1 (NR_NOTE_INSERTION or R_NOTE_INSERTION),
-                       // is_revertible is exactly the discriminator we want.
+        precomputed.zero, // Already unique: the private kernel makes every private note hash unique,
+                          // revertible or not. (No `sel_unique`.)
         prev_num_note_hashes_emitted,
         discard, // from tx_discard.pil virtual trace
         next_note_hash_tree_root

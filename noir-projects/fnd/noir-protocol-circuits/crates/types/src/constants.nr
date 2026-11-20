@@ -73,6 +73,13 @@ pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_
 
 // "PER TRANSACTION" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_TX: u32 = 1 << NOTE_HASH_SUBTREE_HEIGHT;
+// A note hash's nonce index lies in a fixed section of [0, 4 * MAX_NOTE_HASHES_PER_TX) chosen by
+// where the note hash came from: private non-revertible at offset 0, then these. Each category holds
+// at most MAX_NOTE_HASHES_PER_TX note hashes, so the sections can't overlap. See
+// `crate::hash::compute_unique_note_hash`.
+pub global NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE: u32 = MAX_NOTE_HASHES_PER_TX;
+pub global NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE: u32 = 2 * MAX_NOTE_HASHES_PER_TX;
+pub global NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE: u32 = 3 * MAX_NOTE_HASHES_PER_TX;
 pub global MAX_NULLIFIERS_PER_TX: u32 = 1 << NULLIFIER_SUBTREE_HEIGHT;
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u32 = 16;
 pub global MAX_ENQUEUED_CALLS_PER_TX: u32 = 32;
@@ -1159,7 +1166,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_CO
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 14532;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 14553;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;

@@ -20,12 +20,9 @@ class NoteHashTreeCheckInterface {
     virtual AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,
                                                     AztecAddress contract_address,
                                                     uint64_t note_hash_counter,
+                                                    uint64_t nonce_index_offset,
                                                     std::span<const FF> sibling_path,
                                                     const AppendOnlyTreeSnapshot& prev_snapshot) = 0;
-    virtual AppendOnlyTreeSnapshot append_siloed_note_hash(const FF& siloed_note_hash,
-                                                           uint64_t note_hash_counter,
-                                                           std::span<const FF> sibling_path,
-                                                           const AppendOnlyTreeSnapshot& prev_snapshot) = 0;
     virtual AppendOnlyTreeSnapshot append_unique_note_hash(const FF& unique_note_hash,
                                                            uint64_t note_hash_counter,
                                                            std::span<const FF> sibling_path,

@@ -1380,7 +1380,8 @@ void Execution::emit_note_hash(ContextInterface& context, MemoryAddress note_has
         throw OpcodeExecutionException("EMITNOTEHASH: Maximum number of note hashes reached");
     }
 
-    merkle_db.note_hash_write(context.get_address(), note_hash.as<FF>());
+    merkle_db.note_hash_write(
+        context.get_address(), note_hash.as<FF>(), note_hash_nonce_index_offset_for_phase(context.get_phase()));
 }
 
 /**

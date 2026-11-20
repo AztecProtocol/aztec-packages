@@ -792,8 +792,10 @@ TEST_F(ExecutionSimulationTest, EmitNoteHash)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::SETUP));
     EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
-    EXPECT_CALL(merkle_db, note_hash_write(address, note_hash.as<FF>()));
+    EXPECT_CALL(merkle_db,
+                note_hash_write(address, note_hash.as<FF>(), NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE));
 
     execution.emit_note_hash(context, note_hash_addr);
 }

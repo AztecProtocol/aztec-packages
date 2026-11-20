@@ -10,7 +10,8 @@ use crate::{
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__NOTE_HASH_NONCE,
         DOM_SEP__PRIVATE_LOG_FIRST_FIELD, DOM_SEP__SILOED_NOTE_HASH, DOM_SEP__SILOED_NULLIFIER,
-        DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        DOM_SEP__UNIQUE_NOTE_HASH, FUNCTION_TREE_HEIGHT,
+        NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
         TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
@@ -76,25 +77,40 @@ pub fn compute_siloed_note_hash(contract_address: AztecAddress, note_hash: Field
 /// and hence before an archive block root had been established for that block -- but that feature
 /// was abandoned for the Aztec Network for having too many bad tradeoffs).
 ///
-/// (
-///   Edit: it is no longer true that all final note_hashes will be known by the creator of a tx
-///   before they send it to the network. If a tx makes public function calls, then _revertible_
-///   note_hashes that are created in private will not be made unique in private by the Reset circuit,
-///   but will instead be made unique by the AVM, because the `note_index_in_tx` will not be known
-///   until the AVM has executed the public functions of the tx. (See an explanation in
-///   reset_output_composer.nr for why).
-///   For some such txs, the `note_index_in_tx` might still be predictable through simulation, but
-///   for txs whose public functions create a varying number of non-revertible notes (determined at
-///   runtime), the `note_index_in_tx` will not be deterministically derivable before submitting the
-///   tx to the network.
-/// )
-///
 /// We use the `first_nullifier` of a tx as a seed of uniqueness. We have a guarantee that there will
 /// always be at least one nullifier per tx, because the init circuit will create one if one isn't
 /// created naturally by any functions of the tx. (Search "protocol_nullifier").
-/// We combine the `first_nullifier` with the note's index (its position within this tx's new
-/// note_hashes array) (`note_index_in_tx`) to get a truly unique value to inject into a note, which
-/// we call a `note_nonce`.
+///
+/// The nonce also commits to an index that is unique within the tx:
+///     `note_nonce = H(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, nonce_index)`
+/// The nonce index lies in a fixed, `MAX_NOTE_HASHES_PER_TX`-wide section chosen by the note hash's
+/// category (writing MAX for `MAX_NOTE_HASHES_PER_TX`):
+///
+/// | category                                  | nonce index | range          |
+/// |-------------------------------------------|-------------|----------------|
+/// | private, non-revertible                   | i           | [0, MAX)       |
+/// | public, non-revertible (setup)            | MAX + p     | [MAX, 2MAX)    |
+/// | private, revertible                       | 2MAX + i    | [2MAX, 3MAX)   |
+/// | public, revertible (app logic, teardown)  | 3MAX + p    | [3MAX, 4MAX)   |
+///
+/// - `i` is the note hash's position in the private kernel's final (squashed, sorted, padded) note
+///   hash array, non-revertible note hashes first. A private revertible note hash keeps its position
+///   in that whole array, not its position among the revertible ones. The private kernel makes every
+///   private note hash unique, so the tx's creator knows all of them before broadcasting the tx.
+/// - `p` is the note hash's position in the tx's note hash array when the AVM emits it. That
+///   position depends on public execution, so these nonces are only known once the tx has run.
+///
+/// "Revertible" for a private note hash means `!is_non_revertible(is_private_only,
+/// claimed_revertible_counter)`. In a private-only tx everything is non-revertible, so its indices
+/// are dense: `i`. In a tx with public calls, padding note hashes (counter `MAX_U32_VALUE`) are
+/// revertible.
+///
+/// Each category holds at most MAX note hashes and `i, p < MAX`, so the sections are disjoint and no
+/// two note hashes of a tx share a nonce. The nonce index is not the note hash's position in the note
+/// hash tree, and nothing requires it to be: it only has to be unique within the tx. (The AVM
+/// inserts the tx's note hashes in the order private non-revertible, public non-revertible, private
+/// revertible, public revertible, so a private revertible note hash's tree position depends on
+/// public execution, but its nonce does not.)
 pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [note_nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
@@ -107,6 +123,16 @@ pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u
         [first_nullifier_in_tx, note_index_in_tx as Field],
         DOM_SEP__NOTE_HASH_NONCE,
     )
+}
+
+/// The nonce index of a note hash emitted in private: `index` is its position in the private
+/// kernel's final note hash array. See `compute_unique_note_hash`.
+pub fn compute_private_note_hash_nonce_index(index: u32, is_non_revertible: bool) -> u32 {
+    if is_non_revertible {
+        index
+    } else {
+        index + NOTE_HASH_NONCE_INDEX_OFFSET_PRIVATE_REVERTIBLE
+    }
 }
 
 pub fn compute_note_nonce_and_unique_note_hash(

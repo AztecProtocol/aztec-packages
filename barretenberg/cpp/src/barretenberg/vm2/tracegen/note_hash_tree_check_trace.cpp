@@ -45,6 +45,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 
         bool should_unique = false;
         uint64_t note_hash_counter = 0;
+        uint64_t nonce_index_offset = 0;
         FF next_root = 0;
         FF first_nullifier = 0;
 
@@ -60,6 +61,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                 unique_note_hash = append_data.uniqueness_data->unique_note_hash;
                 nonce = append_data.uniqueness_data->nonce;
                 first_nullifier = append_data.uniqueness_data->first_nullifier;
+                nonce_index_offset = append_data.uniqueness_data->nonce_index_offset;
             }
             note_hash_counter = append_data.note_hash_counter;
             next_root = append_data.next_snapshot.root;
@@ -69,38 +71,41 @@ void NoteHashTreeCheckTraceBuilder::process(
         bool exists = prev_leaf_value == unique_note_hash;
         FF prev_leaf_value_unique_note_hash_diff = prev_leaf_value - unique_note_hash;
 
-        trace.set(row,
-                  { { { C::note_hash_tree_check_sel, 1 },
-                      { C::note_hash_tree_check_const_three, 3 },
-                      { C::note_hash_tree_check_write, write },
-                      { C::note_hash_tree_check_exists, exists },
-                      { C::note_hash_tree_check_note_hash, note_hash },
-                      { C::note_hash_tree_check_leaf_index, event.leaf_index },
-                      { C::note_hash_tree_check_prev_root, event.prev_snapshot.root },
-                      { C::note_hash_tree_check_sel_silo, should_silo },
-                      { C::note_hash_tree_check_address, address },
-                      { C::note_hash_tree_check_sel_unique, should_unique },
-                      { C::note_hash_tree_check_note_hash_index, note_hash_counter },
-                      { C::note_hash_tree_check_discard, discard },
-                      { C::note_hash_tree_check_next_root, next_root },
-                      { C::note_hash_tree_check_siloed_note_hash, siloed_note_hash },
-                      { C::note_hash_tree_check_siloing_separator, DOM_SEP__SILOED_NOTE_HASH },
-                      { C::note_hash_tree_check_unique_note_hash, unique_note_hash },
-                      { C::note_hash_tree_check_first_nullifier_pi_index,
-                        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
-                      { C::note_hash_tree_check_first_nullifier, first_nullifier },
-                      { C::note_hash_tree_check_nonce, nonce },
-                      { C::note_hash_tree_check_nonce_separator, DOM_SEP__NOTE_HASH_NONCE },
-                      { C::note_hash_tree_check_unique_note_hash_separator, DOM_SEP__UNIQUE_NOTE_HASH },
-                      { C::note_hash_tree_check_prev_leaf_value, prev_leaf_value },
-                      { C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv,
-                        prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
-                      { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
-                      { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
-                      { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
-                      { C::note_hash_tree_check_sel_write_to_public_inputs, write && (!discard) },
-                      { C::note_hash_tree_check_public_inputs_index,
-                        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
+        trace.set(
+            row,
+            { { { C::note_hash_tree_check_sel, 1 },
+                { C::note_hash_tree_check_const_three, 3 },
+                { C::note_hash_tree_check_write, write },
+                { C::note_hash_tree_check_exists, exists },
+                { C::note_hash_tree_check_note_hash, note_hash },
+                { C::note_hash_tree_check_leaf_index, event.leaf_index },
+                { C::note_hash_tree_check_prev_root, event.prev_snapshot.root },
+                { C::note_hash_tree_check_sel_silo, should_silo },
+                { C::note_hash_tree_check_address, address },
+                { C::note_hash_tree_check_sel_unique, should_unique },
+                { C::note_hash_tree_check_note_hash_index, note_hash_counter },
+                { C::note_hash_tree_check_nonce_index_offset, nonce_index_offset },
+                { C::note_hash_tree_check_nonce_index, should_unique ? note_hash_counter + nonce_index_offset : 0 },
+                { C::note_hash_tree_check_discard, discard },
+                { C::note_hash_tree_check_next_root, next_root },
+                { C::note_hash_tree_check_siloed_note_hash, siloed_note_hash },
+                { C::note_hash_tree_check_siloing_separator, DOM_SEP__SILOED_NOTE_HASH },
+                { C::note_hash_tree_check_unique_note_hash, unique_note_hash },
+                { C::note_hash_tree_check_first_nullifier_pi_index,
+                  AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
+                { C::note_hash_tree_check_first_nullifier, first_nullifier },
+                { C::note_hash_tree_check_nonce, nonce },
+                { C::note_hash_tree_check_nonce_separator, DOM_SEP__NOTE_HASH_NONCE },
+                { C::note_hash_tree_check_unique_note_hash_separator, DOM_SEP__UNIQUE_NOTE_HASH },
+                { C::note_hash_tree_check_prev_leaf_value, prev_leaf_value },
+                { C::note_hash_tree_check_prev_leaf_value_unique_note_hash_diff_inv,
+                  prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
+                { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
+                { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
+                { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
+                { C::note_hash_tree_check_sel_write_to_public_inputs, write && (!discard) },
+                { C::note_hash_tree_check_public_inputs_index,
+                  AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
         row++;
     });
 

@@ -18,8 +18,6 @@ FF unconstrained_silo_nullifier(const AztecAddress& contract_address, const FF& 
 
 FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& note_hash);
 
-FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash,
-                                       const FF& first_nullifier,
-                                       uint64_t note_hash_counter);
+FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash, const FF& first_nullifier, uint64_t nonce_index);
 
 } // namespace bb::avm2::simulation
