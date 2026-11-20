@@ -61,6 +61,9 @@ struct TreeCounters {
     uint32_t note_hash_counter;
     uint32_t nullifier_counter;
     uint32_t l2_to_l1_msg_counter;
+    // The tx's private note hashes in the note hash tree (a subset of note_hash_counter). Public note hashes derive
+    // their nonce index from it, see nonce_index_of_public_note_hash.
+    uint32_t num_private_note_hashes;
     // public data tree counter is tracked via the written public data slots tree
 
     bool operator==(const TreeCounters& other) const = default;

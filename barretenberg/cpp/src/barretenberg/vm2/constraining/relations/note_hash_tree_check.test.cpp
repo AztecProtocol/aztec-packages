@@ -196,7 +196,12 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
                                               unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, 0, 128, sibling_path),
                                           .next_available_leaf_index = 128 };
 
-    note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
+    note_hash_tree_check_simulator.append_note_hash(raw_note_hash,
+                                                    AztecAddress(7),
+                                                    10,
+                                                    /*num_private_note_hashes=*/4,
+                                                    sibling_path,
+                                                    prev_snapshot);
 
     NoteHashTreeCheckTraceBuilder note_hash_tree_check_builder;
     note_hash_tree_check_builder.process(note_hash_tree_check_event_emitter.dump_events(), trace);
@@ -288,6 +293,36 @@ TEST(NoteHashTreeCheckConstrainingTests, NegativePassthroughUniqueness)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS),
         note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_PASSTHROUGH_UNIQUENESS));
+}
+
+TEST(NoteHashTreeCheckConstrainingTests, NegativeNonceIndex)
+{
+    // With 10 note hashes in the tree, 4 of them private, 6 public note hashes precede this one, so its nonce index
+    // counts down to MAX_NOTE_HASHES_PER_TX - 1 - 6.
+    TestTraceContainer trace({ {
+        { C::note_hash_tree_check_sel, 1 },
+        { C::note_hash_tree_check_write, 1 },
+        { C::note_hash_tree_check_sel_unique, 1 },
+        { C::note_hash_tree_check_note_hash_index, 10 },
+        { C::note_hash_tree_check_num_private_note_hashes, 4 },
+        { C::note_hash_tree_check_nonce_index, MAX_NOTE_HASHES_PER_TX - 1 - 6 },
+    } });
+
+    check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_NONCE_INDEX);
+
+    // The note hash's index in the tx is not its nonce index.
+    trace.set(C::note_hash_tree_check_nonce_index, 0, 10);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_NONCE_INDEX),
+                              note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_NONCE_INDEX));
+
+    // Ignoring the private note hashes would collide with a public note hash emitted before.
+    trace.set(C::note_hash_tree_check_nonce_index, 0, MAX_NOTE_HASHES_PER_TX - 1 - 10);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_NONCE_INDEX),
+                              note_hash_tree_check::get_subrelation_label(note_hash_tree_check::SR_NONCE_INDEX));
+
+    // Only made-unique note hashes are constrained.
+    trace.set(C::note_hash_tree_check_sel_unique, 0, 0);
+    check_relation<note_hash_tree_check>(trace, note_hash_tree_check::SR_NONCE_INDEX);
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativeWrongMerkleHashSeparator)

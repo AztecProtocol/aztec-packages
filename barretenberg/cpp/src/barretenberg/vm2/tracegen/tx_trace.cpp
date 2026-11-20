@@ -584,6 +584,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     Gas gas_used = startup_event_data.gas_used;
     // Track whether this tx reverted.
     bool tx_reverted = false;
+    // Track the tx's private note hashes in the note hash tree (tx_num_private_note_hashes), and their number at the
+    // end of setup, which a revert restores (#[RESTORE_STATE_ON_REVERT]).
+    uint32_t num_private_note_hashes = 0;
+    uint32_t num_private_note_hashes_at_end_of_setup = 0;
 
     // From here we start populating the trace.
 
@@ -635,6 +639,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                           { C::tx_reverted, tx_phase_event->reverted ? 1 : 0 },
                           { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
                           { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
+                          { C::tx_num_private_note_hashes, num_private_note_hashes },
                           { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                           { C::tx_sel_read_phase_length, (phase_counter == 0 && !is_one_shot_phase(phase)) ? 1 : 0 },
                           { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
@@ -660,6 +665,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     },
                     [&](const PrivateAppendTreeEvent& event) {
                         trace.set(row, handle_append_tree_event(event, phase, tx_phase_event->state_before));
+                        const bool is_note_hash_phase =
+                            phase == TransactionPhase::NR_NOTE_INSERTION || phase == TransactionPhase::R_NOTE_INSERTION;
+                        if (is_note_hash_phase && !tx_phase_event->reverted) {
+                            num_private_note_hashes++;
+                        }
                     },
                     [&](const PrivateEmitL2L1MessageEvent& event) {
                         trace.set(row, handle_l2_l1_msg_event(event, tx_phase_event->state_before, discard));
@@ -677,6 +687,13 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(phase, current_gas_limit, row == 1));
+
+            if (phase == TransactionPhase::SETUP) {
+                num_private_note_hashes_at_end_of_setup = num_private_note_hashes;
+            }
+            if (tx_phase_event->reverted) {
+                num_private_note_hashes = num_private_note_hashes_at_end_of_setup;
+            }
 
             phase_counter++; // Inner loop counter.
             row++;

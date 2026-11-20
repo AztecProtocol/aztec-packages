@@ -43,11 +43,9 @@ FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& 
     return Poseidon2::hash({ DOM_SEP__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
-FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash,
-                                       const FF& first_nullifier,
-                                       uint64_t note_hash_counter)
+FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash, const FF& first_nullifier, uint64_t nonce_index)
 {
-    FF nonce = Poseidon2::hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    FF nonce = Poseidon2::hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, nonce_index });
     return Poseidon2::hash({ DOM_SEP__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 

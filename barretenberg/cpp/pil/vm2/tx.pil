@@ -344,6 +344,8 @@ namespace tx;
         fee,
         is_static,
         calldata_size,
+        num_private_note_hashes, // from tx_context.pil: private note hashes in the tree during the enqueued call.
+                                 // Note hashes the call emits derive their nonce index from it (see emit_notehash.pil).
         // Tree State
         prev_note_hash_tree_root,
         prev_note_hash_tree_size,
@@ -375,6 +377,7 @@ namespace tx;
         execution.transaction_fee,
         execution.is_static,
         execution.parent_calldata_size,
+        execution.num_private_note_hashes,
         // Tree State
         execution.prev_note_hash_tree_root,
         execution.prev_note_hash_tree_size,
@@ -512,9 +515,8 @@ namespace tx;
         prev_note_hash_tree_size,
         prev_note_hash_tree_root,
         precomputed.zero, // Already siloed. (No need to pass address.)
-        is_revertible, // Used as `sel_unique`: revertible note hashes need to be made unique with a nonce.
-                       // On rows where sel_note_hash_append == 1 (NR_NOTE_INSERTION or R_NOTE_INSERTION),
-                       // is_revertible is exactly the discriminator we want.
+        precomputed.zero, // Already unique: the private kernel makes every private note hash unique,
+                          // revertible or not. (No `sel_unique`.)
         prev_num_note_hashes_emitted,
         discard, // from tx_discard.pil virtual trace
         next_note_hash_tree_root

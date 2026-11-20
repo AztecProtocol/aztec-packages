@@ -107,10 +107,7 @@ pub fn validate_previous_kernel_for_tail(
 
     l2_to_l1_msgs.for_each(|msg| msg.innermost().recipient.validate());
 
-    validate_unsquashable_note_hash_nullifier_ordering(
-        previous_kernel_public_inputs,
-        is_for_public,
-    );
+    validate_unsquashable_note_hash_nullifier_ordering(previous_kernel_public_inputs);
 
     for private_log in private_logs.array {
         assert(

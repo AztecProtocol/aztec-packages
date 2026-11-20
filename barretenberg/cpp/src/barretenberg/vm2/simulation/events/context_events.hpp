@@ -49,6 +49,9 @@ struct ContextEvent {
     uint32_t numPublicLogFields = 0;
     uint32_t numL2ToL1Messages = 0;
 
+    // The tx's private note hashes in the note hash tree. Constant during an enqueued call.
+    uint32_t num_private_note_hashes = 0;
+
     // Phase
     TransactionPhase phase = TransactionPhase::NR_NULLIFIER_INSERTION;
 };

@@ -86,6 +86,8 @@ class HighLevelMerkleDBInterface {
     virtual ~HighLevelMerkleDBInterface() = default;
 
     virtual TreeStates get_tree_state() const = 0;
+    // The number of the tx's private note hashes (written with unique_note_hash_write) in the note hash tree.
+    virtual uint32_t get_num_private_note_hashes() const = 0;
 
     virtual FF storage_read(const AztecAddress& contract_address, const FF& slot) const = 0;
     virtual void storage_write(const AztecAddress& contract_address,
@@ -101,8 +103,9 @@ class HighLevelMerkleDBInterface {
     virtual void siloed_nullifier_write(const FF& nullifier) = 0;
 
     virtual bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const = 0;
+    // Writes a note hash emitted in public. Its nonce index is given by nonce_index_of_public_note_hash.
     virtual void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) = 0;
-    virtual void siloed_note_hash_write(const FF& note_hash) = 0;
+    // Writes a private note hash, which the private kernel already made unique.
     virtual void unique_note_hash_write(const FF& note_hash) = 0;
     virtual bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const = 0;
 

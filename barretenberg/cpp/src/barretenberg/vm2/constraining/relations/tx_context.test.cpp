@@ -184,6 +184,42 @@ TEST(TxContextConstrainingTest, Continuity)
         tx_context::get_subrelation_label(tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY));
 }
 
+TEST(TxContextConstrainingTest, NumPrivateNoteHashesContinuity)
+{
+    TestTraceContainer trace({
+        {
+            // Row 0: private note hash append
+            { C::tx_sel, 1 },
+            { C::tx_sel_note_hash_append, 1 },
+            { C::tx_num_private_note_hashes, 2 },
+        },
+        {
+            // Row 1: app logic, reverts
+            { C::tx_sel, 1 },
+            { C::tx_reverted, 1 },
+            { C::tx_num_private_note_hashes, 3 },
+        },
+        {
+            // Row 2: restored end of setup state
+            { C::tx_sel, 1 },
+            { C::tx_num_private_note_hashes, 1 },
+        },
+    });
+
+    check_relation<tx_context>(trace, tx_context::SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY);
+
+    // Negative test: if not reverted, it shouldn't be able to rollback the count from row 1 to row 2
+    trace.set(C::tx_reverted, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY),
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY));
+    trace.set(C::tx_reverted, 1, 1);
+
+    // Negative test: a private note hash append must be counted
+    trace.set(C::tx_num_private_note_hashes, 1, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY),
+                              tx_context::get_subrelation_label(tx_context::SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY));
+}
+
 TEST(TxContextConstrainingTest, StateMutability)
 {
     TestTraceContainer trace({

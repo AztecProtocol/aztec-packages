@@ -192,7 +192,7 @@ using lookup_tx_context_public_inputs_read_reverted_relation =
 struct lookup_tx_context_restore_state_on_revert_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_RESTORE_STATE_ON_REVERT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 15;
     static constexpr Column SRC_SELECTOR = Column::tx_reverted;
     static constexpr Column DST_SELECTOR = Column::tx_sel;
     static constexpr Column COUNTS = Column::lookup_tx_context_restore_state_on_revert_counts;
@@ -203,6 +203,7 @@ struct lookup_tx_context_restore_state_on_revert_settings_ {
         ColumnAndShifts::tx_prev_note_hash_tree_root_shift,
         ColumnAndShifts::tx_prev_note_hash_tree_size_shift,
         ColumnAndShifts::tx_prev_num_note_hashes_emitted_shift,
+        ColumnAndShifts::tx_num_private_note_hashes_shift,
         ColumnAndShifts::tx_prev_nullifier_tree_root_shift,
         ColumnAndShifts::tx_prev_nullifier_tree_size_shift,
         ColumnAndShifts::tx_prev_num_nullifiers_emitted_shift,
@@ -219,6 +220,7 @@ struct lookup_tx_context_restore_state_on_revert_settings_ {
         ColumnAndShifts::tx_next_note_hash_tree_root,
         ColumnAndShifts::tx_next_note_hash_tree_size,
         ColumnAndShifts::tx_next_num_note_hashes_emitted,
+        ColumnAndShifts::tx_num_private_note_hashes,
         ColumnAndShifts::tx_next_nullifier_tree_root,
         ColumnAndShifts::tx_next_nullifier_tree_size,
         ColumnAndShifts::tx_next_num_nullifiers_emitted,
