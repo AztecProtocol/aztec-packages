@@ -1,8 +1,8 @@
 #include "aes128.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include <cassert>
 #include <cstdint>
 #include <vector>
 
@@ -103,20 +103,20 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     // Compare outputs - ref_input now contains the encrypted data
     if (circuit_bytes.size() != ref_input.size()) {
         // This should never happen if our padding logic is correct
-        assert(false && "Circuit and reference output sizes don't match");
+        BB_ASSERT(false, "Circuit and reference output sizes don't match");
         return 1;
     }
 
     for (size_t i = 0; i < circuit_bytes.size(); ++i) {
         if (circuit_bytes[i] != ref_input[i]) {
             // This should never happen if our circuit is correct
-            assert(false && "Circuit output doesn't match reference implementation");
+            BB_ASSERT(false, "Circuit output doesn't match reference implementation");
             return 1;
         }
     }
 
     // Verify circuit is valid
-    assert(bb::CircuitChecker::check(builder));
+    BB_ASSERT(bb::CircuitChecker::check(builder));
 
     return 0;
 }
