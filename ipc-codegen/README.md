@@ -235,10 +235,12 @@ src/generate.ts \
 ```
 
 Produces `myservice_types.rs`, `myservice_client.rs`, plus `backend.rs`,
-`error.rs`, `ffi_backend.rs` and `host_call_backend.rs`. From a wasm module,
-`MyServiceApi::new(HostCallBackend::new("myservice"))` calls whatever the host
-binds to `myservice` through the `ipc_runtime.host_call` import, as the C++
-`HostCallBackend` does (on wasm32 it needs the `libc` crate). UDS/SHM transport is provided by the
+`error.rs`, `ffi_backend.rs` and `host_call_backend.rs`. `MyServiceApi::new(HostCallBackend::new("myservice"))`
+calls whatever the host binds to `myservice`, as the C++ `HostCallBackend` does: in a wasm module
+through the `ipc_runtime.host_call` import (on wasm32 it needs the `libc` crate), in a native
+library through the function its host passes to `<service>_ipc_ffi_set_host_call`, and in a server
+process (`--server --uds`) at the paths `--host-call name=path` names, once the process calls
+`process_host_calls::route_host_calls(process_host_calls::host_call_args(&args)?)`. UDS/SHM transport is provided by the
 `ipc-runtime` Rust crate; the consumer chooses which to use via the path
 suffix passed at runtime. The skeleton flag also writes a one-time
 `myservice_handlers.rs`, `main.rs`, `Cargo.toml`, and `generate.sh` into the

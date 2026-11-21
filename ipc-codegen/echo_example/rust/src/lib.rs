@@ -2,6 +2,7 @@
 // `ipc-runtime` crate; the per-language UDS template that used to live
 // here (ipc_server.rs / uds_backend.rs) is gone — the runtime is shared.
 pub mod generated {
+    pub mod async_host;
     pub mod backend;
     pub mod echo_client;
     #[cfg(feature = "ffi")]
@@ -12,6 +13,8 @@ pub mod generated {
     #[cfg(feature = "ffi")]
     pub mod ffi_backend;
     pub mod host_call_backend;
+    #[cfg(feature = "ipc-runtime")]
+    pub mod process_host_calls;
 }
 
 pub mod handler;
@@ -26,4 +29,8 @@ pub use generated::error;
 // handler the socket server uses. With `ffi_backend` in the same crate, the
 // generated client can call it without any process (see tests/ffi_roundtrip.rs).
 #[cfg(feature = "ffi")]
-crate::export_echo_ffi!(crate::generated::echo_ffi, crate::handler::EchoHandler);
+crate::export_echo_ffi!(
+    crate::generated::echo_ffi,
+    crate::handler::EchoHandler,
+    asynchronous
+);

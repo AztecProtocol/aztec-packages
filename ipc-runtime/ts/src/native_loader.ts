@@ -86,6 +86,9 @@ export interface NativeServiceThread {
   unload(slot: number): Promise<void>;
   answer(token: unknown, status: number, bytes: Uint8Array): void;
   destroy(): Promise<void>;
+  loadAsync(libraryPath: string, ffiName: string): Promise<number>;
+  submit(slot: number, requestId: number, input: Uint8Array): void;
+  deliver(slot: number, callId: number, status: number, bytes: Uint8Array): void;
 }
 
 /**
@@ -103,6 +106,7 @@ export function loadIpcRuntimeNapi(customPath?: string): {
     libraryPath: string,
     ffiName: string,
   ) => {
+    hasAsyncInstances(): boolean;
     createInstance(): unknown;
     callInstance(
       instance: unknown,
@@ -117,6 +121,13 @@ export function loadIpcRuntimeNapi(customPath?: string): {
       target: string,
       request: Uint8Array,
       token: unknown,
+    ) => void,
+    onAsyncEvent?: (
+      slot: number,
+      kind: number,
+      id: number,
+      target: string,
+      bytes: Uint8Array,
     ) => void,
   ) => NativeServiceThread;
 } {

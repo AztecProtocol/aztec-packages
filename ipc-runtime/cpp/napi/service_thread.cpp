@@ -61,10 +61,13 @@ ServiceThread::ServiceThread(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
 {
     Napi::Env env = info.Env();
-    if (info.Length() != 1 || !info[0].IsFunction()) {
-        throw Napi::TypeError::New(env, "expected (onHostCall: function)");
+    if (info.Length() < 1 || !info[0].IsFunction() || (info.Length() >= 2 && !info[1].IsFunction())) {
+        throw Napi::TypeError::New(env, "expected (onHostCall: function, onAsyncEvent?: function)");
     }
     on_host_call_ = Napi::Persistent(info[0].As<Napi::Function>());
+    if (info.Length() >= 2) {
+        on_async_event_ = Napi::Persistent(info[1].As<Napi::Function>());
+    }
     tsfn_ = Tsfn::New(env, "ipc-runtime service thread", 0, 1, this);
     // Idle until something is in flight (see enqueue).
     tsfn_.Unref(env);
@@ -172,6 +175,114 @@ Napi::Value ServiceThread::load(const Napi::CallbackInfo& info)
     return enqueue(env, std::move(job));
 }
 
+Napi::Value ServiceThread::load_async(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (destroyed_) {
+        throw Napi::Error::New(env, "service thread destroyed");
+    }
+    if (info.Length() != 2 || !info[0].IsString() || !info[1].IsString()) {
+        throw Napi::TypeError::New(env, "expected (libraryPath: string, ffiName: string)");
+    }
+    if (on_async_event_.IsEmpty()) {
+        throw Napi::Error::New(env, "this service thread was made without onAsyncEvent");
+    }
+    Job job{ .kind = Job::Kind::LoadAsync, .slot = next_slot_ };
+    try {
+        job.loaded = load_library(info[0].As<Napi::String>(), info[1].As<Napi::String>());
+    } catch (const std::exception& e) {
+        throw Napi::Error::New(env, e.what());
+    }
+    if (job.loaded->create_async == nullptr) {
+        throw Napi::Error::New(env,
+                               info[0].As<Napi::String>().Utf8Value() + ": exports no asynchronous instances (" +
+                                   info[1].As<Napi::String>().Utf8Value() + "_ipc_ffi_create_async)");
+    }
+    next_slot_++;
+    return enqueue(env, std::move(job));
+}
+
+void ServiceThread::enqueue_unsettled(Napi::Env env, Job job, bool pending)
+{
+    if (pending) {
+        outstanding_[job.slot]++;
+        if (in_flight_++ == 0) {
+            tsfn_.Ref(env);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        jobs_.push_back(std::move(job));
+        queued_++;
+    }
+    has_jobs_.notify_one();
+}
+
+Napi::Value ServiceThread::submit(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (destroyed_) {
+        throw Napi::Error::New(env, "service thread destroyed");
+    }
+    if (info.Length() != 3 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsTypedArray() ||
+        info[2].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array) {
+        throw Napi::TypeError::New(env, "expected (slot: number, requestId: number, input: Uint8Array)");
+    }
+    auto input = info[2].As<Napi::Uint8Array>();
+    enqueue_unsettled(env,
+                      Job{ .kind = Job::Kind::Submit,
+                           .slot = info[0].As<Napi::Number>().Int64Value(),
+                           .input = std::vector<uint8_t>(input.Data(), input.Data() + input.ByteLength()),
+                           .id = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value()) },
+                      true);
+    return env.Undefined();
+}
+
+Napi::Value ServiceThread::deliver(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    if (destroyed_) {
+        return env.Undefined();
+    }
+    if (info.Length() != 4 || !info[0].IsNumber() || !info[1].IsNumber() || !info[2].IsNumber() ||
+        !info[3].IsTypedArray() || info[3].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array) {
+        throw Napi::TypeError::New(env, "expected (slot: number, callId: number, status: number, bytes: Uint8Array)");
+    }
+    auto bytes = info[3].As<Napi::Uint8Array>();
+    enqueue_unsettled(env,
+                      Job{ .kind = Job::Kind::Deliver,
+                           .slot = info[0].As<Napi::Number>().Int64Value(),
+                           .input = std::vector<uint8_t>(bytes.Data(), bytes.Data() + bytes.ByteLength()),
+                           .id = static_cast<uint64_t>(info[1].As<Napi::Number>().Int64Value()),
+                           .status = info[2].As<Napi::Number>().Int32Value() },
+                      false);
+    return env.Undefined();
+}
+
+void ServiceThread::on_async_respond(void* ctx, uint64_t request_id, const uint8_t* response, size_t len)
+{
+    auto* async = static_cast<AsyncCtx*>(ctx);
+    auto message = std::make_unique<ToJs>();
+    message->kind = ToJs::Kind::AsyncRespond;
+    message->slot = async->slot;
+    message->id = request_id;
+    message->bytes.assign(response, response + len);
+    async->thread->post(std::move(message));
+}
+
+void ServiceThread::on_async_call(
+    void* ctx, uint64_t call_id, const uint8_t* target, size_t target_len, const uint8_t* request, size_t len)
+{
+    auto* async = static_cast<AsyncCtx*>(ctx);
+    auto message = std::make_unique<ToJs>();
+    message->kind = ToJs::Kind::AsyncCall;
+    message->slot = async->slot;
+    message->id = call_id;
+    message->target.assign(reinterpret_cast<const char*>(target), target_len);
+    message->bytes.assign(request, request + len);
+    async->thread->post(std::move(message));
+}
+
 Napi::Value ServiceThread::call(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
@@ -198,6 +309,15 @@ Napi::Value ServiceThread::unload(const Napi::CallbackInfo& info)
     }
     if (info.Length() != 1 || !info[0].IsNumber()) {
         throw Napi::TypeError::New(env, "expected (slot: number)");
+    }
+    // Requests still out on an instance being ended never get a response: stop counting them.
+    auto outstanding = outstanding_.find(info[0].As<Napi::Number>().Int64Value());
+    if (outstanding != outstanding_.end()) {
+        in_flight_ -= outstanding->second;
+        outstanding_.erase(outstanding);
+        if (in_flight_ == 0) {
+            tsfn_.Unref(env);
+        }
     }
     return enqueue(env, Job{ .kind = Job::Kind::Unload, .slot = info[0].As<Napi::Number>().Int64Value() });
 }
@@ -248,6 +368,31 @@ bool ServiceThread::post(std::unique_ptr<ToJs> message)
 void ServiceThread::call_js(Napi::Env env, Napi::Function, ServiceThread* self, ToJs* raw)
 {
     std::unique_ptr<ToJs> message(raw);
+    if (message->kind == ToJs::Kind::AsyncRespond || message->kind == ToJs::Kind::AsyncCall) {
+        if (env == nullptr) {
+            return;
+        }
+        bool respond = message->kind == ToJs::Kind::AsyncRespond;
+        try {
+            self->on_async_event_.Call({ Napi::Number::New(env, static_cast<double>(message->slot)),
+                                         Napi::Number::New(env, respond ? 0 : 1),
+                                         Napi::Number::New(env, static_cast<double>(message->id)),
+                                         Napi::String::New(env, message->target),
+                                         to_uint8_array(env, message->bytes) });
+        } catch (const Napi::Error&) {
+            // The event handler's own failure; the instance carries on.
+        }
+        if (respond) {
+            auto outstanding = self->outstanding_.find(message->slot);
+            if (outstanding != self->outstanding_.end() && outstanding->second > 0) {
+                outstanding->second--;
+                if (--self->in_flight_ == 0) {
+                    self->tsfn_.Unref(env);
+                }
+            }
+        }
+        return;
+    }
     if (message->kind == ToJs::Kind::HostCall) {
         HostCallWait* wait = message->wait;
         auto fail = [&](std::string_view error) {
@@ -348,6 +493,40 @@ void ServiceThread::run_job(Job& job)
         message->slot = job.slot;
         break;
     }
+    case Job::Kind::LoadAsync: {
+        auto ctx = std::make_unique<AsyncCtx>(AsyncCtx{ .thread = this, .slot = job.slot });
+        void* handle =
+            job.loaded->create_async(ctx.get(), &ServiceThread::on_async_respond, &ServiceThread::on_async_call);
+        if (handle == nullptr) {
+            message->failed = true;
+            message->error = "the service failed to create an instance";
+            break;
+        }
+        slots_.emplace(job.slot, Slot{ .loaded = job.loaded, .handle = handle, .async = std::move(ctx) });
+        message->value = ToJs::Value::Slot;
+        message->slot = job.slot;
+        break;
+    }
+    case Job::Kind::Submit:
+    case Job::Kind::Deliver: {
+        auto slot = slots_.find(job.slot);
+        if (slot == slots_.end() || !slot->second.async) {
+            if (job.kind == Job::Kind::Submit) {
+                static constexpr std::string_view error = "no asynchronous instance is loaded in this slot";
+                AsyncCtx ctx{ .thread = this, .slot = job.slot };
+                // The service's own error frame is not available here; a status-free error string
+                // is what reaches the caller (as the response bytes).
+                on_async_respond(&ctx, job.id, reinterpret_cast<const uint8_t*>(error.data()), error.size());
+            }
+            break;
+        }
+        if (job.kind == Job::Kind::Submit) {
+            slot->second.loaded->submit(slot->second.handle, job.id, job.input.data(), job.input.size());
+        } else {
+            slot->second.loaded->deliver(slot->second.handle, job.id, job.status, job.input.data(), job.input.size());
+        }
+        break;
+    }
     case Job::Kind::Call: {
         if (!slots_.contains(job.slot)) {
             message->failed = true;
@@ -367,7 +546,8 @@ void ServiceThread::run_job(Job& job)
     case Job::Kind::Unload: {
         auto slot = slots_.find(job.slot);
         if (slot != slots_.end()) {
-            slot->second.loaded->destroy(slot->second.handle);
+            (slot->second.async ? slot->second.loaded->destroy_async
+                                : slot->second.loaded->destroy)(slot->second.handle);
             slots_.erase(slot);
         }
         break;
@@ -375,7 +555,8 @@ void ServiceThread::run_job(Job& job)
     case Job::Kind::Stop:
         // In reverse load order: an instance may hold a sibling loaded before it.
         for (auto slot = slots_.rbegin(); slot != slots_.rend(); ++slot) {
-            slot->second.loaded->destroy(slot->second.handle);
+            (slot->second.async ? slot->second.loaded->destroy_async
+                                : slot->second.loaded->destroy)(slot->second.handle);
         }
         slots_.clear();
         message->stopped = job.deferred != nullptr;
@@ -454,6 +635,9 @@ Napi::Function ServiceThread::get_class(Napi::Env env)
                            InstanceMethod("unload", &ServiceThread::unload),
                            InstanceMethod("answer", &ServiceThread::answer),
                            InstanceMethod("destroy", &ServiceThread::destroy),
+                           InstanceMethod("loadAsync", &ServiceThread::load_async),
+                           InstanceMethod("submit", &ServiceThread::submit),
+                           InstanceMethod("deliver", &ServiceThread::deliver),
                        });
 }
 
