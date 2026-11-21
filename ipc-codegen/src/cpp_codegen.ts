@@ -135,58 +135,11 @@ export class CppCodegen {
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace ${ns} {
 ${wireUsing}${hashConstant}
-/** The service's wire envelope, for its clients: commands as requests, responses as their types. */
-struct ${prefix}Codec {
-    /** A command as a request: [[CommandName, {payload}]]. */
-    template <typename Cmd> static std::vector<uint8_t> encode(Cmd&& cmd)
-    {
-    msgpack::sbuffer request;
-    msgpack::packer<msgpack::sbuffer> pk(request);
-    pk.pack_array(1);
-    pk.pack_array(2);
-    pk.pack(std::string(std::decay_t<Cmd>::MSGPACK_SCHEMA_NAME));
-    pk.pack(std::forward<Cmd>(cmd));
-    return std::vector<uint8_t>(request.data(), request.data() + request.size());
-}
-
-    /** A response, [ResponseName, {payload}], as a Resp; an error response is thrown. */
-    template <typename Resp> static Resp decode(std::span<const uint8_t> response)
-    {
-    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(response.data()), response.size());
-    auto obj = unpacked.get();
-    if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2 ||
-        obj.via.array.ptr[0].type != msgpack::type::STR) {
-        THROW std::runtime_error("Invalid response format from server");
-    }
-    std::string name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
-    auto& payload = obj.via.array.ptr[1];
-    if (name == "${schema.errorTypeName}") {
-        std::string message;
-        for (uint32_t i = 0; payload.type == msgpack::type::MAP && i < payload.via.map.size; ++i) {
-            auto& kv = payload.via.map.ptr[i];
-            if (kv.key.type == msgpack::type::STR && kv.val.type == msgpack::type::STR &&
-                std::string_view(kv.key.via.str.ptr, kv.key.via.str.size) == "message") {
-                message.assign(kv.val.via.str.ptr, kv.val.via.str.size);
-            }
-        }
-        THROW std::runtime_error("Server error: " + message);
-    }
-    if (name != Resp::MSGPACK_SCHEMA_NAME) {
-        THROW std::runtime_error("Expected response '" + std::string(Resp::MSGPACK_SCHEMA_NAME) + "' but got '" +
-                                 name + "'");
-    }
-    Resp result;
-    payload.convert(result);
-    return result;
-    }
-};
-
 /**
  * @brief Typed client for ${prefix || "the service"} over a byte backend.
  *
@@ -207,72 +160,45 @@ ${methods}
   private:
     template <typename Resp, typename Cmd> Resp execute(Cmd&& cmd)
     {
-        auto request = ${prefix}Codec::encode(std::forward<Cmd>(cmd));
-        auto response = backend_.call(std::span<const uint8_t>(request));
-        return ${prefix}Codec::decode<Resp>(response);
+        // [[CommandName, {payload}]]
+        msgpack::sbuffer request;
+        msgpack::packer<msgpack::sbuffer> pk(request);
+        pk.pack_array(1);
+        pk.pack_array(2);
+        pk.pack(std::string(Cmd::MSGPACK_SCHEMA_NAME));
+        pk.pack(std::forward<Cmd>(cmd));
+        auto response = backend_.call(
+            std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(request.data()), request.size()));
+
+        // [ResponseName, {payload}]
+        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(response.data()), response.size());
+        auto obj = unpacked.get();
+        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2 ||
+            obj.via.array.ptr[0].type != msgpack::type::STR) {
+            THROW std::runtime_error("Invalid response format from server");
+        }
+        std::string name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
+        auto& payload = obj.via.array.ptr[1];
+        if (name == "${schema.errorTypeName}") {
+            std::string message;
+            for (uint32_t i = 0; payload.type == msgpack::type::MAP && i < payload.via.map.size; ++i) {
+                auto& kv = payload.via.map.ptr[i];
+                if (kv.key.type == msgpack::type::STR && kv.val.type == msgpack::type::STR &&
+                    std::string_view(kv.key.via.str.ptr, kv.key.via.str.size) == "message") {
+                    message.assign(kv.val.via.str.ptr, kv.val.via.str.size);
+                }
+            }
+            THROW std::runtime_error("Server error: " + message);
+        }
+        if (name != Resp::MSGPACK_SCHEMA_NAME) {
+            THROW std::runtime_error("Expected response '" + std::string(Resp::MSGPACK_SCHEMA_NAME) + "' but got '" +
+                                     name + "'");
+        }
+        Resp result;
+        payload.convert(result);
+        return result;
     }
 
-    B backend_;
-};
-
-} // namespace ${ns}
-`;
-  }
-
-  /**
-   * The asynchronous typed client: \`<Prefix>AsyncApi<Backend>\`, whose methods are coroutines
-   * (ipc_codegen::Async) over a backend whose call() is co_awaited, such as
-   * ipc_codegen::AsyncHostCall, for a handler that calls out to another service.
-   */
-  generateAsyncApi(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const apiName = `${prefix}AsyncApi`;
-    const methods = schema.commands
-      .map((command) => {
-        const ret = this.responseType(command, schema);
-        const resp = this.opts.wireNamespace
-          ? command.responseType
-          : `${command.name}::Response`;
-        const params = command.fields.length > 0 ? `${command.name} cmd` : "";
-        const arg =
-          command.fields.length > 0 ? "std::move(cmd)" : `${command.name}{}`;
-        const body = `auto response = co_await backend_.call(${prefix}Codec::encode(${arg})); ${
-          ret === "void"
-            ? `${prefix}Codec::decode<${resp}>(response);`
-            : `co_return ${prefix}Codec::decode<${resp}>(response);`
-        }`;
-        return `    ipc_codegen::Async<${ret}> ${this.methodName(command.name)}(${params}) { ${body} }`;
-      })
-      .join("\n");
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-#pragma once
-
-#include "${this.generatedInclude(`${toSnakeCase(prefix)}_client.hpp`)}"
-#include "ipc_codegen/async.hpp"
-
-#include <utility>
-
-namespace ${ns} {
-
-/**
- * @brief Typed client for ${prefix || "the service"} whose calls are co_awaited.
- *
- * Each method is a coroutine: it packs its command, co_awaits the backend's
- * call(), and returns the typed response; an error response is thrown as
- * std::runtime_error. Over ipc_codegen::AsyncHostCall, it reaches whatever the
- * host binds to a target, suspending the caller on an asynchronous instance
- * (ipc_codegen/async.hpp) until the host answers. The Api must outlive the
- * calls made on it.
- */
-template <typename B> class ${apiName} {
-  public:
-    explicit ${apiName}(B backend)
-        : backend_(std::move(backend))
-    {}
-
-${methods}
-
-  private:
     B backend_;
 };
 
@@ -822,7 +748,6 @@ std::unique_ptr<Service> make_service();
 #pragma once
 
 #include "${dispatchHeader}"
-#include "ipc_codegen/async_server.hpp"
 #include "ipc_codegen/process_host_calls.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
@@ -839,12 +764,6 @@ struct ServeOptions {
     ::ipc::ServerOptions server{};
     /** Where the service's host calls go: each target name and the .sock/.shm path of the service it reaches. */
     std::vector<std::pair<std::string, std::string>> host_calls;
-    /**
-     * Serve the service as an asynchronous instance (ipc_codegen/async.hpp), for handlers that
-     * co_await their host calls: re-entrantly, on one thread, taking requests while their calls are
-     * out. Needs a socket: shared memory is not re-entrant, and is refused.
-     */
-    bool asynchronous = false;
 };
 
 /**
@@ -862,14 +781,6 @@ inline void serve(const std::string& input_path, const ServeOptions& options = {
     // backlog meanwhile, and their first requests wait until the reactor starts.
     if (!server->listen()) {
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
-    }
-    if (options.asynchronous) {
-        auto error = ::ipc_codegen::serve_async(*server, make_service(), options.host_calls);
-        server->close();
-        if (!error.empty()) {
-            throw std::runtime_error(input_path + ": " + error);
-        }
-        return;
     }
     ::ipc_codegen::route_host_calls(options.host_calls);
     auto service = make_service();
@@ -953,145 +864,6 @@ IPC_FFI_EXPORT void ${setHostCall}(int32_t (*host_call)(const uint8_t* target,
                                                          uint8_t** response,
                                                          size_t* response_len));
 #endif
-`;
-  }
-
-  /**
-   * The asynchronous FFI exports (`<ffi>_ipc_ffi_create_async`, `_submit`, `_deliver`,
-   * `_destroy_async`), in a source of their own: a service whose handlers co_await their host
-   * calls compiles it into its library, and every other service leaves it out. Native only.
-   */
-  generateFfiAsyncSource(): string {
-    const { namespace: ns, prefix } = this.opts;
-    const ffiHeader = `${toSnakeCase(prefix)}_ffi.hpp`;
-    const createAsync = this.ffiSymbol("ipc_ffi_create_async");
-    const submit = this.ffiSymbol("ipc_ffi_submit");
-    const deliver = this.ffiSymbol("ipc_ffi_deliver");
-    const destroyAsync = this.ffiSymbol("ipc_ffi_destroy_async");
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-// Asynchronous instances of ${prefix} over the FFI: requests go in with ${submit}(), the answers to
-// the instance's host calls with ${deliver}(), and its responses and host calls come out through the
-// host's two callbacks, which take borrowed bytes and may be called on any thread. A host never
-// calls into the instance from inside a callback, and drives it from one thread at a time.
-// Natively the callbacks are passed to ${createAsync}(); a wasm module imports them as
-// ipc_runtime.async_respond and ipc_runtime.async_call, and ${createAsync}() takes the host's handle.
-#include "${ffiHeader}"
-#include "ipc_codegen/async.hpp"
-
-#include <cstddef>
-#include <cstdint>
-#include <exception>
-#include <memory>
-#include <span>
-#include <string_view>
-
-#if defined(__wasm__)
-extern "C" {
-__attribute__((import_module("ipc_runtime"), import_name("async_respond"))) void ipc_runtime_async_respond(
-    uint32_t host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
-__attribute__((import_module("ipc_runtime"), import_name("async_call"))) void ipc_runtime_async_call(
-    uint32_t host_ctx, uint64_t call_id, const uint8_t* target, size_t target_len, const uint8_t* request,
-    size_t request_len);
-}
-#else
-using IpcAsyncRespondFn = void (*)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
-using IpcAsyncCallFn = void (*)(void* host_ctx, uint64_t call_id, const uint8_t* target, size_t target_len,
-                                const uint8_t* request, size_t request_len);
-#endif
-
-namespace {
-
-class FfiAsyncHost final : public ipc_codegen::AsyncHost {
-  public:
-#if defined(__wasm__)
-    explicit FfiAsyncHost(uint32_t ctx)
-        : ctx_(ctx)
-    {}
-    void respond(uint64_t request_id, std::span<const uint8_t> response) override
-    {
-        ipc_runtime_async_respond(ctx_, request_id, response.data(), response.size());
-    }
-    void call(uint64_t call_id, std::string_view target, std::span<const uint8_t> request) override
-    {
-        ipc_runtime_async_call(ctx_, call_id, reinterpret_cast<const uint8_t*>(target.data()), target.size(),
-                               request.data(), request.size());
-    }
-
-  private:
-    uint32_t ctx_;
-#else
-    FfiAsyncHost(void* ctx, IpcAsyncRespondFn respond, IpcAsyncCallFn call)
-        : ctx_(ctx)
-        , respond_(respond)
-        , call_(call)
-    {}
-    void respond(uint64_t request_id, std::span<const uint8_t> response) override
-    {
-        respond_(ctx_, request_id, response.data(), response.size());
-    }
-    void call(uint64_t call_id, std::string_view target, std::span<const uint8_t> request) override
-    {
-        call_(ctx_, call_id, reinterpret_cast<const uint8_t*>(target.data()), target.size(), request.data(),
-              request.size());
-    }
-
-  private:
-    void* ctx_;
-    IpcAsyncRespondFn respond_;
-    IpcAsyncCallFn call_;
-#endif
-};
-
-struct FfiAsyncInstance {
-    template <typename... HostArgs>
-    explicit FfiAsyncInstance(HostArgs... host_args)
-        : host(host_args...)
-        , instance(${ns}::make_service(), host)
-    {}
-    FfiAsyncHost host;
-    ipc_codegen::AsyncInstance<${ns}::Service> instance;
-};
-
-} // namespace
-
-#if defined(__wasm__)
-IPC_FFI_EXPORT void* ${createAsync}(uint32_t host_ctx)
-{
-    return new FfiAsyncInstance(host_ctx);
-}
-#else
-IPC_FFI_EXPORT void* ${createAsync}(void* host_ctx, IpcAsyncRespondFn respond, IpcAsyncCallFn call)
-{
-    try {
-        return new FfiAsyncInstance(host_ctx, respond, call);
-    } catch (...) {
-        return nullptr;
-    }
-}
-#endif
-
-IPC_FFI_EXPORT void ${submit}(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len)
-{
-    auto* async = static_cast<FfiAsyncInstance*>(instance);
-    try {
-        async->instance.submit(request_id, std::span<const uint8_t>(input, input_len));
-    } catch (const std::exception& e) {
-        auto error = ${ns}::detail::make_error(e.what());
-        async->host.respond(request_id, error);
-    }
-}
-
-IPC_FFI_EXPORT void ${deliver}(void* instance, uint64_t call_id, int32_t status, const uint8_t* response,
-                                size_t response_len)
-{
-    static_cast<FfiAsyncInstance*>(instance)->instance.deliver(call_id, status,
-                                                               std::span<const uint8_t>(response, response_len));
-}
-
-IPC_FFI_EXPORT void ${destroyAsync}(void* instance)
-{
-    delete static_cast<FfiAsyncInstance*>(instance);
-}
 `;
   }
 

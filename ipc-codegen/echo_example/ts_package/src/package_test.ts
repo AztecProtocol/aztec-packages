@@ -2,7 +2,6 @@ import {
   type HostCallTargets,
   SERVICE_BACKEND,
 } from "@aztec-foundation/ipc-runtime";
-import { readFileSync } from "node:fs";
 import { EchoService, EchoServiceSync } from "./index.js";
 
 const args = process.argv.slice(2);
@@ -121,12 +120,6 @@ if (transportArg === "wasm") {
     await wasmService.destroy();
   }
   await checkRelay("wasm", (hostCall) => EchoService.wasm({ hostCall }));
-  // The C++ implementation's wasm reactor (built by ../cpp/bootstrap.sh) through the same host: its
-  // relay co_awaits the host call where the Rust one awaits it.
-  const cppModule = readFileSync(new URL("../../cpp/build-wasm/echo_cpp.wasm", import.meta.url));
-  await checkRelay("wasm (C++)", (hostCall) =>
-    EchoService.wasm({ hostCall, module: cppModule }),
-  );
 
   const sync = await EchoServiceSync.create({ backend: "wasm" });
   try {
@@ -231,6 +224,5 @@ try {
 } finally {
   await service.destroy();
 }
-await checkRelay("uds", (hostCall) => EchoService.process({ hostCall }));
 
 console.error("echo ts package: uds OK");

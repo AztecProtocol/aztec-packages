@@ -13,8 +13,6 @@ pub mod generated {
     #[cfg(feature = "ffi")]
     pub mod ffi_backend;
     pub mod host_call_backend;
-    #[cfg(feature = "ipc-runtime")]
-    pub mod process_host_calls;
 }
 
 pub mod handler;

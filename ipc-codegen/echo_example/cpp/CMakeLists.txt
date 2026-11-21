@@ -55,12 +55,8 @@ add_library(echo_ffi STATIC
     src/echo_service.cpp
     src/echo_handlers.cpp
     src/generated/echo_ffi.cpp
-    src/generated/echo_ffi_async.cpp
 )
 target_link_libraries(echo_ffi PUBLIC echo_common)
 
 add_executable(ffi_test src/ffi_test.cpp)
 target_link_libraries(ffi_test PRIVATE echo_ffi)
-
-add_executable(async_relay_test src/async_relay_test.cpp)
-target_link_libraries(async_relay_test PRIVATE echo_ffi)
