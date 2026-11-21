@@ -1,3 +1,7 @@
+import type {
+  AsyncInstanceEvents,
+  AsyncInstancePort,
+} from "../async_instance.js";
 import type { IpcClientAsync, IpcClientSync } from "../types.js";
 import {
   HOST_CALL_NAMESPACE,
@@ -53,6 +57,13 @@ export interface WasmEngineOptions extends Omit<WasmFfiOptions, "hostCall"> {
 }
 
 /** Whether a module imports `ipc_runtime.host_call`, and so may need to wait on its host. */
+/** Whether the module exports asynchronous instances (`<ffi>_ipc_ffi_create_async`). */
+export function exportsAsync(module: WebAssembly.Module): boolean {
+  return WebAssembly.Module.exports(module).some((e) =>
+    e.name.endsWith("ipc_ffi_create_async"),
+  );
+}
+
 export function importsHostCall(module: WebAssembly.Module): boolean {
   return WebAssembly.Module.imports(module).some(
     (i) => i.module === HOST_CALL_NAMESPACE && i.name === "host_call",
@@ -328,7 +339,9 @@ export class WasmFfiEngine {
       threads,
       spawnThread: (startArg) => threadWorkers?.spawn(startArg) ?? -1,
       hostCall: opts.hostCall,
-      suspending: opts.suspending && importsHostCall(module),
+      // An asynchronous instance never waits in a host call, so needs no JSPI.
+      suspending:
+        opts.suspending && importsHostCall(module) && !exportsAsync(module),
     }).catch((e) => {
       if (e instanceof WebAssembly.LinkError && opts.moduleMemory) {
         throw new Error(
@@ -355,6 +368,16 @@ export class WasmFfiEngine {
   /** Whether calls must go through `callAsync`, the module suspending on its host calls. */
   get suspends(): boolean {
     return this.host.suspends;
+  }
+
+  /** Whether the module has asynchronous instances, which this engine's calls then run on. */
+  get asynchronous(): boolean {
+    return this.host.asynchronous;
+  }
+
+  /** An asynchronous instance of the module's service (see `WasmInstanceHost.openAsync`). */
+  openAsync(events: AsyncInstanceEvents): AsyncInstancePort {
+    return this.host.openAsync(events);
   }
 
   call(input: Uint8Array): Uint8Array {
