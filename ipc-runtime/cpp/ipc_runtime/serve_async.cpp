@@ -113,7 +113,12 @@ class AsyncServeLoop {
     /** Sends the queued calls and delivers the answers that have arrived, until neither is left. */
     void pump()
     {
-        while (send_calls() | read_answers()) {
+        for (;;) {
+            const bool sent = send_calls();
+            const bool delivered = read_answers();
+            if (!sent && !delivered) {
+                return;
+            }
         }
     }
 
