@@ -7,7 +7,7 @@ use acir::native_types::Witness;
 use acir::{FieldElement, SerializationFormat};
 use acvm::pwg::ForeignCallWaitInfo;
 use acvm::AcirField;
-use aztec_acvm::{execute, Execution, Solved};
+use aztec_acvm::{Execution, Solved};
 use common::*;
 
 fn no_oracles(

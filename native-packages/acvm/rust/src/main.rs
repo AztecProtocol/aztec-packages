@@ -36,7 +36,7 @@ fn main() {
             std::process::exit(2);
         }
     }
-    let mut handler = AcvmHandler::default();
+    let mut handler = AcvmHandler;
 
     let mut server = match IpcServer::from_path(&input) {
         Ok(server) => server,

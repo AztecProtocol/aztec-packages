@@ -4,7 +4,9 @@
 //! One handler serves every build, and reaches the Oracle service through its host's `oracle`
 //! host-call target: a wasm module through its import, the native library through the function
 //! its host passes to `acvm_ipc_ffi_set_host_call`, and `aztec-acvm` at the path its
-//! `--host-call oracle=<path>` argument names.
+//! `--host-call oracle=<path>` argument names. Each execution awaits its foreign calls: the wasm
+//! module and the native library export asynchronous instances, on which an execution waiting on
+//! its oracle lets the instance take other requests; the binary blocks on each call.
 
 /// ipc-codegen's output for both schemas (bootstrap.sh generates it).
 #[allow(dead_code, unreachable_patterns)]
@@ -45,5 +47,6 @@ pub use handler::{AcvmHandler, HostOracle, ORACLE_HOST_CALL_TARGET};
 #[cfg(feature = "ffi")]
 crate::export_acvm_ffi!(
     crate::generated::acvm::acvm_ffi,
-    crate::handler::AcvmHandler
+    crate::handler::AcvmHandler,
+    asynchronous
 );
