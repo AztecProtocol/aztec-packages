@@ -4,9 +4,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(cache_content_hash .rebuild_patterns)
 hermes_hash=$(hash_str $(cache_content_hash ^native-packages/react-native/scripts/build_hermes.sh) $(arch)-$(os))
-# The tests run bb.js, bb, the ACVM and kv-sqlite from this tree.
+# The tests run bb.js, bb, the ACVM, kv-sqlite and ipc-codegen's echo example from this tree.
 test_hash=$(hash_str $hash $(../../barretenberg/cpp/bootstrap.sh hash) $(../../barretenberg/ts/bootstrap.sh hash) \
-  $(../acvm/bootstrap.sh hash) $(../kv-sqlite/bootstrap.sh hash))
+  $(../acvm/bootstrap.sh hash) $(../kv-sqlite/bootstrap.sh hash) $(../../ipc-codegen/bootstrap.sh hash))
 
 # The package's sources (third_party), and the test host: Hermes and the native module, built for this machine.
 function build {
@@ -25,6 +25,7 @@ function test_cmds {
   echo "$test_hash:CPUS=2:TIMEOUT=300s $run test/native.test.js"
   echo "$test_hash:CPUS=2:TIMEOUT=300s $run test/bb.test.js"
   echo "$test_hash:CPUS=2:TIMEOUT=300s $run test/noir.test.js"
+  echo "$test_hash:CPUS=2:TIMEOUT=300s $run test/echo.test.js"
 }
 
 function test {

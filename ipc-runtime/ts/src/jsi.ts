@@ -1,3 +1,4 @@
+import { AsyncInstanceBackend } from "./async_instance.js";
 import type { IpcClientAsync, IpcClientSync } from "./types.js";
 import {
   type HostCallTargets,
@@ -29,9 +30,28 @@ interface JsiInstanceSync {
   destroy(): void;
 }
 
+/** An asynchronous instance: it reports its responses and host calls through onEvent. */
+interface JsiAsyncInstance {
+  submit(requestId: number, request: Uint8Array): void;
+  deliver(callId: number, status: number, response: Uint8Array): void;
+  destroy(): void;
+}
+
 interface JsiBinding {
   createInstance(ffiName: string, library?: string): JsiInstance;
   createInstanceSync(ffiName: string, library?: string): JsiInstanceSync;
+  /** Absent from a binding built before asynchronous instances. */
+  hasAsyncInstances?(ffiName: string, library?: string): boolean;
+  createAsyncInstance?(
+    ffiName: string,
+    library: string | undefined,
+    onEvent: (
+      kind: number,
+      id: number,
+      target: string,
+      bytes: Uint8Array,
+    ) => void,
+  ): JsiAsyncInstance;
 }
 
 function binding(): JsiBinding | undefined {
@@ -74,14 +94,35 @@ function syncCallerOf(
 
 /**
  * An instance of the library's service on a native thread of its own; calls return promises. Its
- * host calls are answered on the JavaScript thread, asynchronously if need be, while its thread
- * waits.
+ * host calls are answered on the JavaScript thread, asynchronously if need be. When the library has
+ * asynchronous instances it runs on one, which keeps taking calls while its host calls are out (so
+ * a host call may lead back into it); otherwise its thread waits on each answer.
  */
-export function createJsiFfiBackend(options: JsiFfiOptions): JsiFfiBackend {
-  const instance = requireBinding(options.ffiName).createInstance(
-    options.ffiName,
-    options.library,
-  );
+export function createJsiFfiBackend(
+  options: JsiFfiOptions,
+): JsiFfiBackend | AsyncInstanceBackend {
+  const jsi = requireBinding(options.ffiName);
+  if (
+    jsi.createAsyncInstance &&
+    jsi.hasAsyncInstances?.(options.ffiName, options.library)
+  ) {
+    const createAsync = jsi.createAsyncInstance.bind(jsi);
+    return AsyncInstanceBackend.createNow((events) => {
+      const instance = createAsync(
+        options.ffiName,
+        options.library,
+        (kind, id, target, bytes) =>
+          kind === 0 ? events.respond(id, bytes) : events.call(id, target, bytes),
+      );
+      return {
+        submit: (requestId, request) => instance.submit(requestId, request),
+        deliver: (callId, status, response) =>
+          instance.deliver(callId, status, response),
+        destroy: () => instance.destroy(),
+      };
+    }, options.hostCall);
+  }
+  const instance = jsi.createInstance(options.ffiName, options.library);
   return new JsiFfiBackend(
     options.ffiName,
     instance,

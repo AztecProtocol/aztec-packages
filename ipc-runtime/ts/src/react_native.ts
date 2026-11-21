@@ -4,6 +4,11 @@
  * backend a native package registers takes precedence.
  */
 export * from "./jsi.js";
+export {
+  AsyncInstanceBackend,
+  type AsyncInstanceEvents,
+  type AsyncInstancePort,
+} from "./async_instance.js";
 export * from "./backend_registry.js";
 export {
   SERVICE_BACKEND,

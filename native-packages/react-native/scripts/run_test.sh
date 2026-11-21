@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs one of the package's Hermes tests: bundles it as Metro would resolve it for an app (the react-native
 # export condition and package field), transforms it with React Native's Babel preset as Metro does, and runs it in build/hermes_host with a
-# fresh data directory. bb's and the ACVM's native libraries are loaded from this tree's builds; kv-sqlite is compiled
-# into the host, as into an app.
+# fresh data directory. bb's, the ACVM's and the echo example's native libraries are loaded from this tree's builds;
+# kv-sqlite is compiled into the host, as into an app.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -19,5 +19,5 @@ node_modules/.bin/babel --no-babelrc --config-file "$PWD/test/babel.config.json"
   -o "$work/test.js"
 
 AZTEC_RN_DATA_DIR=$work/data \
-  LD_LIBRARY_PATH="$root/barretenberg/cpp/build/lib:$root/native-packages/acvm/rust/target/release${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  LD_LIBRARY_PATH="$root/barretenberg/cpp/build/lib:$root/native-packages/acvm/rust/target/release:$root/ipc-codegen/echo_example/rust/target/debug${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
   build/hermes_host "$work/test.js"
