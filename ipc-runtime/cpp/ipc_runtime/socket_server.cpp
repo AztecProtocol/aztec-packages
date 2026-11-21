@@ -130,43 +130,6 @@ void SocketServer::drain_wake_pipe()
     }
 }
 
-bool SocketServer::watch_fd(int fd)
-{
-    if (fd_ < 0 || fd < 0) {
-        return false;
-    }
-#ifdef __APPLE__
-    struct kevent kev;
-    EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, nullptr);
-    if (kevent(fd_, &kev, 1, nullptr, 0, nullptr) < 0) {
-        return false;
-    }
-#else
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.fd = fd;
-    if (epoll_ctl(fd_, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        return false;
-    }
-#endif
-    watched_fds_.insert(fd);
-    return true;
-}
-
-void SocketServer::unwatch_fd(int fd)
-{
-    if (watched_fds_.erase(fd) == 0) {
-        return;
-    }
-#ifdef __APPLE__
-    struct kevent kev;
-    EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-    kevent(fd_, &kev, 1, nullptr, 0, nullptr);
-#else
-    epoll_ctl(fd_, EPOLL_CTL_DEL, fd, nullptr);
-#endif
-}
-
 void SocketServer::notify()
 {
     if (wake_write_fd_ < 0) {
@@ -500,10 +463,6 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
         drain_wake_pipe();
         return -1;
     }
-    // A watched fd is read by whoever watches it, from run_reactor's on_wake.
-    if (watched_fds_.contains(ready_fd)) {
-        return -1;
-    }
 
     // Check if it's listen socket (new connection) or client data
     if (ready_fd == listen_fd_) {
@@ -708,10 +667,6 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
     // request". The caller drains its completion queue on every wake.
     if (ev.data.fd == wake_read_fd_) {
         drain_wake_pipe();
-        return -1;
-    }
-    // A watched fd is read by whoever watches it, from run_reactor's on_wake.
-    if (watched_fds_.contains(ev.data.fd)) {
         return -1;
     }
 

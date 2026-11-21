@@ -1,6 +1,5 @@
 //! Echo IPC client — uses GENERATED typed client (EchoApi) over ipc-runtime.
-//! Usage: echo_client --socket /tmp/echo.sock [--relay-hops N]
-//! (N > 0 needs a server whose "peer" host-call target leads back to a server.)
+//! Usage: echo_client --socket /tmp/echo.sock
 //! Exits 0 on success, 1 on failure.
 
 use echo_wire_compat::generated::echo_client::EchoApi;
@@ -14,12 +13,7 @@ fn main() -> Result<()> {
         .iter()
         .position(|a| a == "--socket")
         .and_then(|i| args.get(i + 1))
-        .expect("Usage: echo_client --socket <path> [--relay-hops N]");
-    let relay_hops: u32 = args
-        .iter()
-        .position(|a| a == "--relay-hops")
-        .and_then(|i| args.get(i + 1))
-        .map_or(0, |n| n.parse().expect("--relay-hops takes a number"));
+        .expect("Usage: echo_client --socket <path>");
 
     let backend =
         IpcClient::from_path(socket_path).map_err(|e| IpcError::Backend(e.to_string()))?;
@@ -95,13 +89,10 @@ fn main() -> Result<()> {
     }
     eprintln!("echo_client(rust): EchoFail OK");
 
-    // Test 9: EchoRelay — each hop appends its count on the way out
-    let resp = client.relay(&[9], relay_hops)?;
-    let expected: Vec<u8> = std::iter::once(9)
-        .chain((1..=relay_hops as u8).rev())
-        .collect();
-    assert_eq!(resp.data, expected, "EchoRelay data mismatch");
-    eprintln!("echo_client(rust): EchoRelay ({relay_hops} hops) OK");
+    // Test 9: EchoRelay — with no hops, no host call
+    let resp = client.relay(&[9], 0)?;
+    assert_eq!(resp.data, vec![9], "EchoRelay data mismatch");
+    eprintln!("echo_client(rust): EchoRelay OK");
 
     eprintln!("echo_client(rust): all tests passed");
     Ok(())
