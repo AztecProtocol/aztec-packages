@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where a service runs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+<style>
+/* Layout: one reading column of prose, with figures allowed wider; every diagram uses one shared visual vocabulary. */
+:root {
+  --bg: #f6f7f9; --fg: #18202b; --muted: #5a6574; --rule: #d5dbe3;
+  --c-fill: #e6eef7; --c-stroke: #6d8db0;
+  --i-fill: #ffffff; --i-stroke: #2f4a68;
+  --k-fill: #f6f7f9; --k-stroke: #9aa6b4;
+  --t-fill: #f1f5fa;
+  --msg: #0b6e86; --host: #b4560a; --init: #fff4e0; --init-stroke: #d9a24a;
+  --chip-done: #dff3e6; --chip-done-fg: #1d6b3a; --chip-next: #e3eefb; --chip-next-fg: #1f4f8a; --chip-later: #eee9f5; --chip-later-fg: #5b4387;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171e; --fg: #e3e8ef; --muted: #98a3b2; --rule: #2a3340;
+  --c-fill: #1a2633; --c-stroke: #5c7fa6; --i-fill: #0f141a; --i-stroke: #9cb8d8;
+  --k-fill: #12171e; --k-stroke: #566273; --t-fill: #17212c;
+  --msg: #4fc3dd; --host: #f0a050; --init: #2e2516; --init-stroke: #b88a3e;
+  --chip-done: #173323; --chip-done-fg: #7fd6a0; --chip-next: #182a40; --chip-next-fg: #8fbdf0; --chip-later: #261f36; --chip-later-fg: #c2a8ec;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12171e; --fg: #e3e8ef; --muted: #98a3b2; --rule: #2a3340;
+  --c-fill: #1a2633; --c-stroke: #5c7fa6; --i-fill: #0f141a; --i-stroke: #9cb8d8;
+  --k-fill: #12171e; --k-stroke: #566273; --t-fill: #17212c;
+  --msg: #4fc3dd; --host: #f0a050; --init: #2e2516; --init-stroke: #b88a3e;
+  --chip-done: #173323; --chip-done-fg: #7fd6a0; --chip-next: #182a40; --chip-next-fg: #8fbdf0; --chip-later: #261f36; --chip-later-fg: #c2a8ec;
+  color-scheme: dark; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font-body); }
+main { max-width: 860px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--font-head); font-weight: 600; text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.1rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.1rem; margin-top: 14px; }
+p, li { max-width: 68ch; margin: 0; }
+ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+.lede { font-size: 1.08rem; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.88em; background: var(--t-fill); padding: 1px 5px; border-radius: 4px; }
+.eyebrow-top { font: 500 12px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--msg); }
+figure { margin: 6px 0 0; display: flex; flex-direction: column; gap: 8px; }
+figcaption { font-size: 0.9rem; color: var(--muted); max-width: 68ch; }
+.scroll { overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--font-body); font-size: 12.5px; fill: var(--fg); }
+svg .sub { fill: var(--muted); font-size: 11.5px; }
+svg .eyebrow { font: 600 10.5px var(--font-mono); letter-spacing: 0.06em; fill: var(--muted); }
+svg .eb-c { fill: var(--c-stroke); }
+svg .eb-i { fill: var(--i-stroke); }
+svg .tlabel { font: 11px var(--font-mono); fill: var(--muted); }
+svg .mono { font-family: var(--font-mono); font-size: 12px; }
+svg .small { font-size: 10.5px; fill: var(--muted); }
+svg .note { font-size: 11.5px; fill: var(--muted); }
+svg .note.host { fill: var(--host); }
+svg .itxt { font-weight: 600; }
+svg .ktxt { font-weight: 500; }
+svg .rowlbl { font: 600 12px var(--font-mono); fill: var(--muted); }
+svg .box-p { fill: none; stroke: var(--k-stroke); stroke-width: 1.2; }
+svg .box-c { fill: var(--c-fill); stroke: var(--c-stroke); stroke-width: 1.6; }
+svg .box-t { fill: var(--t-fill); stroke: var(--muted); stroke-width: 1; stroke-dasharray: 5 4; fill-opacity: 0.7; }
+svg .box-i { fill: var(--i-fill); stroke: var(--i-stroke); stroke-width: 1.6; }
+svg .box-k { fill: var(--k-fill); stroke: var(--k-stroke); stroke-width: 1.2; }
+svg .box-init { fill: var(--init); stroke: var(--init-stroke); stroke-width: 1.2; }
+svg .ln { fill: none; stroke-width: 1.8; }
+svg .ln-msg { stroke: var(--msg); }
+svg .ln-host { stroke: var(--host); stroke-dasharray: 6 3; }
+svg .ln-plain { stroke: var(--muted); }
+svg .mk-msg { fill: var(--msg); } svg .mk-host { fill: var(--host); } svg .mk-plain { fill: var(--muted); }
+svg .albl { font-size: 11.5px; font-weight: 500; paint-order: stroke; stroke-width: 4px; stroke-linejoin: round; }
+svg .albl-msg { fill: var(--msg); } svg .albl-host { fill: var(--host); } svg .albl-plain { fill: var(--muted); }
+svg .halo-bg { stroke: var(--bg); } svg .halo-c { stroke: var(--c-fill); } svg .halo-t { stroke: var(--t-fill); }
+svg .bd { stroke-width: 2.4; }
+svg .bd-addr { stroke: var(--msg); }
+svg .bd-thread { stroke: var(--msg); stroke-dasharray: 2 5; stroke-linecap: round; }
+svg .blbl { font: 500 11px var(--font-mono); fill: var(--msg); }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 20px; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 10px; font-size: 0.88rem; }
+.legend div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.legend svg { width: 44px; min-width: 44px; height: 22px; flex: none; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 0.78rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+td:first-child { font-weight: 500; white-space: nowrap; }
+.layer { font: 600 0.75rem var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; }
+.layer.c { color: var(--c-stroke); } .layer.i { color: var(--i-stroke); } .layer.n { color: var(--init-stroke); }
+.chip { display: inline-block; font: 600 0.72rem var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-right: 8px; }
+.chip.done { background: var(--chip-done); color: var(--chip-done-fg); }
+.chip.next { background: var(--chip-next); color: var(--chip-next-fg); }
+.chip.later { background: var(--chip-later); color: var(--chip-later-fg); }
+.status li { list-style: none; } .status { padding-left: 0; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.rules div { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rules strong { font-family: var(--font-head); font-size: 1rem; }
+</style>
+<style>
+svg .panel { font: 600 14px var(--font-head); }
+</style>
+<main>
+<div class="eyebrow-top">ipc-codegen · ipc-runtime</div>
+<h1>Where a service runs</h1>
+<p class="lede">An instance is the in-process version of a server process. Out of process you get one by spawning a process; in process you get one with the library's <code>_create()</code>. Everything else follows from that.</p>
+
+<h2>Instance = process</h2>
+<p>An instance has its own state, takes one Init, and answers any number of callers. A server process is exactly that, so a service can be moved between the two without its callers seeing a difference beyond how they reach it.</p>
+<figure><div class="scroll"><svg viewBox="0 0 760 372" role="img" aria-label="An AVM pool and its world state: N processes out of process, N instances in process" style="min-width:640px"><defs><marker id="pool-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="pool-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="pool-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><text x="20" y="24" class="panel" text-anchor="start">Out of process</text><text x="400" y="24" class="panel" text-anchor="start">In process</text><rect x="20" y="40" width="340" height="66" rx="10" class="box-c"/><text x="32" y="58" class="eyebrow eb-c" text-anchor="start">PROCESS · aztec-node</text><rect x="36" y="64" width="308" height="32" rx="6" class="box-k"/><text x="190.0" y="84.0" class="ktxt" text-anchor="middle">TS world state client · AVM pool</text><rect x="20" y="150" width="100" height="76" rx="10" class="box-c"/><text x="32" y="168" class="eyebrow eb-c" text-anchor="start">PROCESS</text><rect x="30" y="178" width="80" height="36" rx="6" class="box-i"/><text x="70.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="70,96 70,150" class="ln ln-msg" marker-end="url(#pool-msg)"/><rect x="140" y="150" width="100" height="76" rx="10" class="box-c"/><text x="152" y="168" class="eyebrow eb-c" text-anchor="start">PROCESS</text><rect x="150" y="178" width="80" height="36" rx="6" class="box-i"/><text x="190.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="190,96 190,150" class="ln ln-msg" marker-end="url(#pool-msg)"/><rect x="260" y="150" width="100" height="76" rx="10" class="box-c"/><text x="272" y="168" class="eyebrow eb-c" text-anchor="start">PROCESS</text><rect x="270" y="178" width="80" height="36" rx="6" class="box-i"/><text x="310.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="310,96 310,150" class="ln ln-msg" marker-end="url(#pool-msg)"/><text x="78" y="132" class="albl albl-msg halo-bg" text-anchor="start">requests</text><rect x="100" y="272" width="180" height="76" rx="10" class="box-c"/><text x="112" y="290" class="eyebrow eb-c" text-anchor="start">PROCESS</text><rect x="110" y="300" width="160" height="36" rx="6" class="box-i"/><text x="190.0" y="322.0" class="itxt" text-anchor="middle">wsdb</text><polyline points="70,226 70,318 110,318" class="ln ln-host" marker-end="url(#pool-host)"/><polyline points="190,226 190,300" class="ln ln-host" marker-end="url(#pool-host)"/><polyline points="310,226 310,318 270,318" class="ln ln-host" marker-end="url(#pool-host)"/><text x="198" y="256" class="albl albl-host halo-bg" text-anchor="start">a connection each</text><rect x="400" y="40" width="340" height="312" rx="10" class="box-c"/><text x="412" y="58" class="eyebrow eb-c" text-anchor="start">PROCESS · aztec-node</text><rect x="416" y="64" width="308" height="32" rx="6" class="box-k"/><text x="570.0" y="84.0" class="ktxt" text-anchor="middle">TS world state client · AVM pool</text><rect x="410" y="178" width="80" height="36" rx="6" class="box-i"/><text x="450.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="450,96 450,178" class="ln ln-msg" marker-end="url(#pool-msg)"/><rect x="530" y="178" width="80" height="36" rx="6" class="box-i"/><text x="570.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="570,96 570,178" class="ln ln-msg" marker-end="url(#pool-msg)"/><rect x="650" y="178" width="80" height="36" rx="6" class="box-i"/><text x="690.0" y="200.0" class="itxt" text-anchor="middle">avm</text><polyline points="690,96 690,178" class="ln ln-msg" marker-end="url(#pool-msg)"/><text x="458" y="140" class="albl albl-msg halo-c" text-anchor="start">calls</text><rect x="490" y="300" width="160" height="36" rx="6" class="box-i"/><text x="570.0" y="322.0" class="itxt" text-anchor="middle">wsdb</text><polyline points="450,214 450,318 490,318" class="ln ln-host" marker-end="url(#pool-host)"/><polyline points="570,214 570,300" class="ln ln-host" marker-end="url(#pool-host)"/><polyline points="690,214 690,318 650,318" class="ln ln-host" marker-end="url(#pool-host)"/><text x="578" y="256" class="albl albl-host halo-c" text-anchor="start">host_call(&#x27;wsdb&#x27;)</text></svg></div><figcaption>The same AVM pool both ways. Out of process, aztec-node spawns N bb-avm-sim processes and one aztec-wsdb process, and each simulator is given the world state as its <code>hostCall</code> target, which it connects to itself. In process, aztec-node creates N avm instances and one wsdb instance, and each avm instance is given the wsdb instance as its <code>hostCall</code> target. The TS world state client is a caller of the same wsdb in both.</figcaption></figure>
+<div class="table-wrap"><table>
+<tr><th></th><th>Out of process</th><th>In process</th></tr>
+<tr><td>Make one</td><td><code>Service.process()</code> spawns one</td><td><code>Service.napi()</code> or <code>.wasm()</code> calls <code>_create()</code></td></tr>
+<tr><td>Configure it</td><td><code>{ init }</code>, sent first</td><td><code>{ init }</code>, the same bytes</td></tr>
+<tr><td>Call it</td><td>a connection</td><td>a backend over the instance</td></tr>
+<tr><td>Let another service use it</td><td><code>hostCall</code>: passed as <code>--host-call name=path</code>, and the process connects</td><td><code>hostCall</code>: the host answers the call</td></tr>
+<tr><td>End it</td><td>the process exits</td><td><code>_destroy()</code></td></tr>
+</table></div>
+<p>Several callers can share one instance either way: the TS world state client and every simulator use the one wsdb. Whether an instance takes overlapping calls is the service's choice. bb and wsdb-ref take one at a time; aztec-wsdb takes calls from many threads at once and orders them per fork.</p>
+
+<h3>The one difference</h3>
+<p>A process gets its own threads, memory and environment. Instances in one process share the host's. A setting read from the environment is therefore per process: the <code>threads</code> option is exported to a spawned process as <code>HARDWARE_CONCURRENCY</code> and <code>RAYON_NUM_THREADS</code>, and in process it is the host's, or the wasm module's own thread count. Everything else a service needs is in its Init, as all of aztec-wsdb's configuration is.</p>
+
+<h3>One factory</h3>
+<p>A C++ service defines one function, <code>make_service()</code>, which returns its instance. The generated <code>serve()</code> calls it once for the process, and the generated <code>_create()</code> calls it once per instance, so both placements run the same code. In a process, <code>serve()</code> also routes the instance's host calls to the paths its <code>--host-call</code> arguments name.</p>
+
+<h2>What carries a call</h2>
+<p>Every call is the same msgpack request in and response out. Only the crossing differs.</p>
+<figure><div class="scroll"><svg viewBox="0 0 760 280" role="img" aria-label="Every placement carries the same msgpack bytes; only the crossing differs" style="min-width:640px"><defs><marker id="msg-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="msg-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="msg-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><text x="20" y="62" class="rowlbl" text-anchor="start">process</text><rect x="150" y="30" width="170" height="56" rx="6" class="box-k"/><text x="235.0" y="54.5" class="ktxt" text-anchor="middle">caller</text><text x="235.0" y="69.5" class="ktxt sub" text-anchor="middle">msgpack request</text><rect x="560" y="30" width="180" height="56" rx="6" class="box-i"/><text x="650.0" y="54.5" class="itxt" text-anchor="middle">instance</text><text x="650.0" y="69.5" class="itxt sub" text-anchor="middle">dispatches the command</text><line x1="440" y1="22" x2="440" y2="94" class="bd bd-addr"/><text x="440" y="18" class="blbl blbl-addr" text-anchor="start">socket or shared memory</text><polyline points="320,50 560,50" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="44" class="albl albl-msg halo-bg" text-anchor="middle">framed request</text><polyline points="560,70 320,70" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="84" class="albl albl-msg halo-bg" text-anchor="middle">framed response</text><text x="20" y="152" class="rowlbl" text-anchor="start">native library</text><rect x="150" y="120" width="170" height="56" rx="6" class="box-k"/><text x="235.0" y="144.5" class="ktxt" text-anchor="middle">caller</text><text x="235.0" y="159.5" class="ktxt sub" text-anchor="middle">msgpack request</text><rect x="560" y="120" width="180" height="56" rx="6" class="box-i"/><text x="650.0" y="144.5" class="itxt" text-anchor="middle">instance</text><text x="650.0" y="159.5" class="itxt sub" text-anchor="middle">dispatches the command</text><polyline points="320,140 560,140" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="134" class="albl albl-msg halo-bg" text-anchor="middle">_call(instance, bytes)</text><polyline points="560,160 320,160" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="174" class="albl albl-msg halo-bg" text-anchor="middle">bytes from _alloc; caller _free()s</text><text x="20" y="242" class="rowlbl" text-anchor="start">wasm module</text><rect x="150" y="210" width="170" height="56" rx="6" class="box-k"/><text x="235.0" y="234.5" class="ktxt" text-anchor="middle">caller</text><text x="235.0" y="249.5" class="ktxt sub" text-anchor="middle">msgpack request</text><rect x="560" y="210" width="180" height="56" rx="6" class="box-i"/><text x="650.0" y="234.5" class="itxt" text-anchor="middle">instance</text><text x="650.0" y="249.5" class="itxt sub" text-anchor="middle">dispatches the command</text><line x1="440" y1="202" x2="440" y2="274" class="bd bd-addr"/><text x="440" y="198" class="blbl blbl-addr" text-anchor="start">linear memory</text><polyline points="320,230 560,230" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="224" class="albl albl-msg halo-bg" text-anchor="middle">copied in, then _call</text><polyline points="560,250 320,250" class="ln ln-msg" marker-end="url(#msg-msg)"/><text x="400" y="264" class="albl albl-msg halo-bg" text-anchor="middle">copied out, then _free</text></svg></div><figcaption>A process needs framing (length and id) because a transport is shared. An in-process call needs none. A wasm module cannot read the caller's memory, so the host copies the request in and the response out.</figcaption></figure>
+<p>In process, each service exports <code>&lt;svc&gt;_ipc_ffi_create</code>, <code>_call</code>, <code>_destroy</code>, <code>_alloc</code>, <code>_free</code> and, natively, <code>_set_host_call</code>. A <code>.so</code>, a static archive and a wasm module all export the same functions.</p>
+
+<h2>Appendix: which thread runs it</h2>
+<p>A sync backend blocks its caller until the response; an async one returns a promise. Where the instance runs follows from that.</p>
+<div class="legend">
+  <div><svg viewBox="0 0 44 22"><rect x="2" y="3" width="40" height="16" rx="4" fill="var(--c-fill)" stroke="var(--c-stroke)" stroke-width="1.6"/></svg>Process</div>
+  <div><svg viewBox="0 0 44 22"><rect x="2" y="3" width="40" height="16" rx="4" fill="none" stroke="var(--k-stroke)" stroke-width="1.2"/></svg>wasm module instance</div>
+  <div><svg viewBox="0 0 44 22"><rect x="2" y="3" width="40" height="16" rx="4" fill="var(--t-fill)" stroke="var(--muted)" stroke-dasharray="5 4"/></svg>Thread</div>
+  <div><svg viewBox="0 0 44 22"><rect x="2" y="3" width="40" height="16" rx="4" fill="var(--i-fill)" stroke="var(--i-stroke)" stroke-width="1.6"/></svg>Service instance</div>
+  <div><svg viewBox="0 0 44 22"><line x1="22" y1="1" x2="22" y2="21" stroke="var(--msg)" stroke-width="2.4" stroke-dasharray="2 5" stroke-linecap="round"/></svg>Thread hop, same memory</div>
+  <div><svg viewBox="0 0 44 22"><line x1="2" y1="11" x2="40" y2="11" stroke="var(--msg)" stroke-width="1.8"/></svg>Request or response</div>
+  <div><svg viewBox="0 0 44 22"><line x1="2" y1="11" x2="40" y2="11" stroke="var(--host)" stroke-width="1.8" stroke-dasharray="6 3"/></svg>Call to another service</div>
+</div>
+<div class="table-wrap"><table>
+<tr><th>Backend</th><th>Instance runs on</th><th>Caller waits</th></tr>
+<tr><td>Process, UDS</td><td>the process's threads</td><td>no</td></tr>
+<tr><td>Process, SHM</td><td>the process's threads</td><td>yes</td></tr>
+<tr><td>napi async</td><td>a native service thread</td><td>no</td></tr>
+<tr><td>napi sync</td><td>the calling thread</td><td>yes</td></tr>
+<tr><td>wasm async</td><td>a worker, plus a worker per wasi thread</td><td>no</td></tr>
+<tr><td>wasm sync</td><td>the calling thread</td><td>yes</td></tr>
+<tr><td>C++ / Rust / Zig FFI</td><td>the calling thread</td><td>yes</td></tr>
+</table></div>
+
+<h3>napi, asynchronous</h3>
+<figure><div class="scroll"><svg viewBox="0 0 760 250" role="img" aria-label="napi async: the instance lives on a native thread of the host process" style="min-width:640px"><defs><marker id="g2-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="g2-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="g2-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><rect x="20" y="20" width="720" height="210" rx="10" class="box-c"/><text x="32" y="38" class="eyebrow eb-c" text-anchor="start">PROCESS · node</text><rect x="36" y="50" width="300" height="160" rx="8" class="box-t"/><text x="46" y="66" class="tlabel" text-anchor="start">thread · main (event loop)</text><rect x="56" y="100" width="260" height="56" rx="6" class="box-k"/><text x="186.0" y="124.5" class="ktxt" text-anchor="middle">Barretenberg</text><text x="186.0" y="139.5" class="ktxt sub" text-anchor="middle">NapiFfiBackend</text><line x1="378" y1="50" x2="378" y2="210" class="bd bd-thread"/><text x="378" y="224" class="blbl blbl-thread" text-anchor="middle">thread hop · same memory · no framing</text><rect x="420" y="50" width="304" height="160" rx="8" class="box-t"/><text x="430" y="66" class="tlabel" text-anchor="start">thread · NapiServiceThread (native)</text><rect x="440" y="100" width="264" height="56" rx="6" class="box-i"/><text x="572.0" y="124.5" class="itxt" text-anchor="middle">bb instance</text><text x="572.0" y="139.5" class="itxt sub" text-anchor="middle">_create() when loaded</text><polyline points="316,118 440,118" class="ln ln-msg" marker-end="url(#g2-msg)"/><text x="378" y="110" class="albl albl-msg halo-c" text-anchor="middle">post call</text><polyline points="440,140 316,140" class="ln ln-msg" marker-end="url(#g2-msg)"/><text x="378" y="160" class="albl albl-msg halo-c" text-anchor="middle">settle</text></svg></div><figcaption>The library is loaded once per process; the backend's instance is made on a native thread. A call costs one wake of that thread and one of the event loop.</figcaption></figure>
+<h3>On the calling thread</h3>
+<figure><div class="scroll"><svg viewBox="0 0 760 200" role="img" aria-label="Sync napi and native FFI backends: the instance runs on the calling thread" style="min-width:640px"><defs><marker id="g3-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="g3-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="g3-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><rect x="20" y="20" width="720" height="164" rx="10" class="box-c"/><text x="32" y="38" class="eyebrow eb-c" text-anchor="start">PROCESS · node, or a C++ / Rust / Zig binary</text><rect x="36" y="48" width="688" height="120" rx="8" class="box-t"/><text x="46" y="64" class="tlabel" text-anchor="start">thread · the caller&#x27;s</text><rect x="60" y="84" width="280" height="60" rx="6" class="box-k"/><text x="200.0" y="110.5" class="ktxt" text-anchor="middle">BarretenbergSync (napi)</text><text x="200.0" y="125.5" class="ktxt sub" text-anchor="middle">or a generated FfiBackend</text><rect x="440" y="84" width="260" height="60" rx="6" class="box-i"/><text x="570.0" y="110.5" class="itxt" text-anchor="middle">bb instance</text><text x="570.0" y="125.5" class="itxt sub" text-anchor="middle">_create() with the backend</text><polyline points="340,102 440,102" class="ln ln-msg" marker-end="url(#g3-msg)"/><text x="390" y="94" class="albl albl-msg halo-t" text-anchor="middle">_call(instance, bytes)</text><polyline points="440,126 340,126" class="ln ln-msg" marker-end="url(#g3-msg)"/><text x="390" y="142" class="albl albl-msg halo-t" text-anchor="middle">returns</text></svg></div><figcaption>A sync napi backend and the generated C++, Rust and Zig FFI backends: a function call on the caller's own stack.</figcaption></figure>
+<h3>wasm, asynchronous</h3>
+<figure><div class="scroll"><svg viewBox="0 0 760 330" role="img" aria-label="wasm async: a module instance on a worker, with a worker per wasi thread" style="min-width:640px"><defs><marker id="g4-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="g4-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="g4-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><rect x="20" y="20" width="720" height="290" rx="10" class="box-c"/><text x="32" y="38" class="eyebrow eb-c" text-anchor="start">PROCESS · browser tab or node</text><rect x="36" y="48" width="250" height="246" rx="8" class="box-t"/><text x="46" y="64" class="tlabel" text-anchor="start">thread · main</text><rect x="52" y="110" width="218" height="56" rx="6" class="box-k"/><text x="161.0" y="134.5" class="ktxt" text-anchor="middle">Barretenberg</text><text x="161.0" y="149.5" class="ktxt sub" text-anchor="middle">WasmFfiBackend</text><line x1="300" y1="48" x2="300" y2="294" class="bd bd-thread"/><rect x="316" y="40" width="410" height="258" rx="12" class="box-p"/><text x="330" y="58" class="eyebrow" text-anchor="start">WASM MODULE INSTANCE · shared linear memory</text><rect x="332" y="68" width="378" height="112" rx="8" class="box-t"/><text x="342" y="84" class="tlabel" text-anchor="start">thread · worker</text><rect x="352" y="98" width="338" height="62" rx="6" class="box-i"/><text x="521.0" y="125.5" class="itxt" text-anchor="middle">bb instance</text><text x="521.0" y="140.5" class="itxt sub" text-anchor="middle">_create() on the first call</text><rect x="332" y="196" width="182" height="86" rx="8" class="box-t"/><text x="342" y="212" class="tlabel" text-anchor="start">thread · wasi thread 1</text><text x="346" y="250" class="note" text-anchor="start">same memory, own stack</text><rect x="528" y="196" width="182" height="86" rx="8" class="box-t"/><text x="538" y="212" class="tlabel" text-anchor="start">thread · wasi thread n</text><text x="542" y="250" class="note" text-anchor="start">started by the harness</text><polyline points="270,124 352,124" class="ln ln-msg" marker-end="url(#g4-msg)"/><text x="308" y="116" class="albl albl-msg halo-c" text-anchor="middle">postMessage</text><polyline points="352,146 270,146" class="ln ln-msg" marker-end="url(#g4-msg)"/><text x="308" y="164" class="albl albl-msg halo-c" text-anchor="middle">reply</text><polyline points="420,160 420,196" class="ln ln-plain" marker-end="url(#g4-plain)"/><text x="428" y="184" class="albl albl-plain halo-c" text-anchor="start">thread-spawn</text></svg></div><figcaption>A wasm module instance is a small process of its own: its own memory, and a worker for each thread it starts. Its service instance is made on the first call.</figcaption></figure>
+<h3>wasm, synchronous</h3>
+<figure><div class="scroll"><svg viewBox="0 0 760 200" role="img" aria-label="wasm sync: a module instance on the calling thread" style="min-width:640px"><defs><marker id="g5-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="g5-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="g5-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><rect x="20" y="20" width="720" height="164" rx="10" class="box-c"/><text x="32" y="38" class="eyebrow eb-c" text-anchor="start">PROCESS · browser tab or node</text><rect x="36" y="46" width="688" height="124" rx="8" class="box-t"/><text x="46" y="62" class="tlabel" text-anchor="start">thread · the caller&#x27;s (main, in a browser)</text><rect x="56" y="88" width="240" height="56" rx="6" class="box-k"/><text x="176.0" y="112.5" class="ktxt" text-anchor="middle">BarretenbergSync</text><text x="176.0" y="127.5" class="ktxt sub" text-anchor="middle">WasmFfiBackendSync</text><rect x="392" y="62" width="316" height="96" rx="12" class="box-p"/><text x="406" y="80" class="eyebrow" text-anchor="start">WASM MODULE INSTANCE · single-threaded</text><rect x="412" y="92" width="276" height="52" rx="6" class="box-i"/><text x="550.0" y="122.0" class="itxt" text-anchor="middle">bb instance</text><polyline points="296,108 412,108" class="ln ln-msg" marker-end="url(#g5-msg)"/><text x="344" y="100" class="albl albl-msg halo-t" text-anchor="middle">copy in · _call</text><polyline points="412,128 296,128" class="ln ln-msg" marker-end="url(#g5-msg)"/><text x="344" y="146" class="albl albl-msg halo-t" text-anchor="middle">copy out</text></svg></div><figcaption>A single-threaded module instance on the calling thread, which never blocks, so it can run on a browser's main thread.</figcaption></figure>
+<h3>Calls between services</h3>
+<figure><div class="scroll"><svg viewBox="0 0 760 300" role="img" aria-label="Instances on one service thread call each other directly; other host calls go through JS" style="min-width:640px"><defs><marker id="g6-msg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-msg"/></marker><marker id="g6-host" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-host"/></marker><marker id="g6-plain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk mk-plain"/></marker></defs><rect x="20" y="20" width="720" height="264" rx="10" class="box-c"/><text x="32" y="38" class="eyebrow eb-c" text-anchor="start">PROCESS · node</text><rect x="36" y="48" width="262" height="220" rx="8" class="box-t"/><text x="46" y="64" class="tlabel" text-anchor="start">thread · main (event loop)</text><rect x="52" y="80" width="230" height="48" rx="6" class="box-k"/><text x="167.0" y="108.0" class="ktxt" text-anchor="middle">AvmSimulator (async)</text><rect x="52" y="196" width="230" height="48" rx="6" class="box-k"/><text x="167.0" y="224.0" class="ktxt" text-anchor="middle">cdb answered in JS</text><line x1="318" y1="48" x2="318" y2="268" class="bd bd-thread"/><rect x="338" y="48" width="386" height="220" rx="8" class="box-t"/><text x="348" y="64" class="tlabel" text-anchor="start">thread · NapiServiceThread, shared via worker</text><rect x="358" y="80" width="160" height="48" rx="6" class="box-i"/><text x="438.0" y="108.0" class="itxt" text-anchor="middle">avm instance</text><rect x="548" y="178" width="160" height="48" rx="6" class="box-i"/><text x="628.0" y="206.0" class="itxt" text-anchor="middle">wsdb-ref instance</text><polyline points="282,104 358,104" class="ln ln-msg" marker-end="url(#g6-msg)"/><text x="320" y="96" class="albl albl-msg halo-c" text-anchor="middle">call</text><polyline points="518,104 628,104 628,178" class="ln ln-host" marker-end="url(#g6-host)"/><text x="600" y="96" class="albl albl-host halo-t" text-anchor="middle">host_call(&#x27;wsdb&#x27;)</text><text x="638" y="150" class="note host" text-anchor="start">direct, no JS</text><polyline points="420,128 420,220 282,220" class="ln ln-host" marker-end="url(#g6-host)"/><text x="430" y="160" class="albl albl-host" text-anchor="start">host_call(&#x27;cdb&#x27;)</text><text x="430" y="176" class="note host" text-anchor="start">thread blocks until</text><text x="430" y="190" class="note host" text-anchor="start">the event loop answers</text></svg></div><figcaption>Instances on the same service thread reach each other directly. Any other target is answered on the event loop while the calling thread waits.</figcaption></figure>
+
+<h2>Status</h2>
+<ul class="status">
+<li><span class="chip done">Built</span>Libraries export instances; every backend owns one.</li>
+<li><span class="chip done">Built</span>aztec-wsdb takes its configuration in Init, in every placement.</li>
+<li><span class="chip done">Built</span>wasm backends call <code>_destroy</code> when they end.</li>
+<li><span class="chip done">Built</span>One factory per C++ service, <code>make_service()</code>, behind both the generated <code>serve()</code> and the FFI exports.</li>
+<li><span class="chip done">Built</span>Process backends take <code>hostCall</code> targets too, so "let another service use it" is spelled the same way in both columns.</li>
+<li><span class="chip done">Built</span>Every generated constructor takes <code>{ init }</code> when the schema has Init.</li>
+<li><span class="chip later">Later</span>Native placement for C++, Rust and Zig hosts; React Native.</li>
+</ul>
+</main>

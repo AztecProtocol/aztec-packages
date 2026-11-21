@@ -1,0 +1,396 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 20:51:51 +0000
+Subject: [PATCH] feat(txe): choose where bb, the world state and the AVM run
+ when the TXE starts
+
+The TXE's backends (wasm, process or napi) are now one choice made at setup, the
+bin's --backends flag (default wasm), passed to the dispatcher, every worker and
+each session, instead of TXE_WORLD_STATE for the world state and the AVM and wasm
+hard-wired for bb. Each thread seeds its bb.js singletons with the same choice:
+wasm modules; a bb process (BarretenbergSync over shared memory, Barretenberg over
+a unix socket); or instances of bb's shared library (on the calling thread, and on
+a worker thread of their own).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/txe/src/backends.ts b/yarn-project/txe/src/backends.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..3220d17fb965caf0cb3194c8c3ea3ef4e8ce5411
+--- /dev/null
++++ b/yarn-project/txe/src/backends.ts
+@@ -0,0 +1,45 @@
++import { BackendType, Barretenberg, BarretenbergSync } from '@aztec-foundation/bb.js';
++
++/**
++ * Where the TXE runs its native services: bb (hashing and the other crypto), the world state and the AVM. One choice
++ * for all of them, made when the TXE starts.
++ * - `wasm`: their wasm modules, in-process.
++ * - `process`: spawned processes. Synchronous calls go over shared memory and asynchronous ones over a unix socket.
++ * - `napi`: their shared libraries, in-process.
++ */
++export type TXEBackends = 'wasm' | 'process' | 'napi';
++
++export const TXE_BACKENDS: readonly TXEBackends[] = ['wasm', 'process', 'napi'];
++
++export function parseTXEBackends(value: string): TXEBackends {
++  if (!(TXE_BACKENDS as readonly string[]).includes(value)) {
++    throw new Error(`Unknown TXE backends '${value}' (expected ${TXE_BACKENDS.join(', ')})`);
++  }
++  return value as TXEBackends;
++}
++
++/**
++ * Seeds this thread's bb.js singletons with `backends`, before any crypto call: `initSingleton` binds a singleton to
++ * whichever backend is asked for first, so this pre-empts the implicit one in foundation's crypto. Each thread (the
++ * main thread and every worker) has singletons of its own. The TXE only hashes, so the SRS is never loaded and bb
++ * runs single-threaded.
++ */
++export function initBarretenbergSingletons(backends: TXEBackends): Promise<unknown> {
++  switch (backends) {
++    case 'wasm':
++      return Promise.all([
++        Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, threads: 1 }),
++        BarretenbergSync.initSingleton({ backend: BackendType.Wasm }),
++      ]);
++    case 'process':
++      return Promise.all([
++        Barretenberg.initSingleton({ backend: BackendType.NativeUnixSocket, threads: 1 }),
++        BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, threads: 1 }),
++      ]);
++    case 'napi':
++      return Promise.all([
++        Barretenberg.initSingleton({ backend: BackendType.Napi, skipSrsInit: true }),
++        BarretenbergSync.initSingleton({ backend: BackendType.Napi }),
++      ]);
++  }
++}
+diff --git a/yarn-project/txe/src/bin/index.ts b/yarn-project/txe/src/bin/index.ts
+index d29154c2af3752c7ccec33f6465376237dc1b025..8224b26b5458205f9a89ff4acc30badcd0a5931b 100644
+--- a/yarn-project/txe/src/bin/index.ts
++++ b/yarn-project/txe/src/bin/index.ts
+@@ -3,6 +3,7 @@ import { getEnv } from '@aztec-labs/foundation/config/env';
+ import { startHttpRpcServer } from '@aztec-labs/foundation/json-rpc/server';
+ import { createLogger } from '@aztec-labs/foundation/log';
+ 
++import { type TXEBackends, parseTXEBackends } from '../backends.js';
+ import { createTXERpcServer } from '../rpc_server.js';
+ 
+ // Cap the native world-state thread pool before any import touches @aztec-labs/world-state.
+@@ -15,10 +16,21 @@ import { createTXERpcServer } from '../rpc_server.js';
+ // eslint-disable-next-line no-restricted-properties -- sets a variable of the Node.js process
+ process.env.HARDWARE_CONCURRENCY ??= '2';
+ 
++/**
++ * Where the TXE runs bb, the world state and the AVM, unless `--backends <wasm|process|napi>` says otherwise.
++ */
++const DEFAULT_BACKENDS: TXEBackends = 'wasm';
++
++function backendsFromArgs(argv: string[]): TXEBackends {
++  const i = argv.indexOf('--backends');
++  return i === -1 ? DEFAULT_BACKENDS : parseTXEBackends(argv[i + 1] ?? '');
++}
++
+ /**
+  * Create and start a new TXE HTTP Server
+  */
+ async function main() {
++  const backends = backendsFromArgs(process.argv.slice(2));
+   const { TXE_PORT = 8080 } = getEnv();
+ 
+   process.on('SIGTERM', () => {
+@@ -32,9 +44,9 @@ async function main() {
+   });
+ 
+   const logger = createLogger('txe:rpc');
+-  logger.info(`Setting up TXE...`);
++  logger.info(`Setting up TXE (backends: ${backends})...`);
+ 
+-  const txeServer = await createTXERpcServer(logger);
++  const txeServer = await createTXERpcServer(logger, backends);
+   const { port } = await startHttpRpcServer(txeServer, {
+     host: '127.0.0.1',
+     port: TXE_PORT,
+diff --git a/yarn-project/txe/src/dispatcher_pool.ts b/yarn-project/txe/src/dispatcher_pool.ts
+index 7db9d4b726263950483013f664e0eec057baed08..c15ebd574bcc25a8bbd50199f1fda42e5b62be8f 100644
+--- a/yarn-project/txe/src/dispatcher_pool.ts
++++ b/yarn-project/txe/src/dispatcher_pool.ts
+@@ -1,5 +1,3 @@
+-import { BackendType, Barretenberg, BarretenbergSync } from '@aztec-foundation/bb.js';
+-
+ import { getSchnorrAccountContractArtifact } from '@aztec-labs/accounts/schnorr/lazy';
+ import type { Logger } from '@aztec-labs/foundation/log';
+ import { Timer } from '@aztec-labs/foundation/timer';
+@@ -14,13 +12,11 @@ import { cpus } from 'node:os';
+ import { fileURLToPath } from 'node:url';
+ import { Worker } from 'node:worker_threads';
+ 
++import type { TXEBackends } from './backends.js';
+ import { TXE_REQUIRED_PROTOCOL_CONTRACTS } from './index.js';
+ import type { TXEForeignCallInput } from './index.js';
+ import type { ForeignCallResult } from './utils/encoding.js';
+ 
+-void Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, threads: 1 });
+-void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
+-
+ /**
+  * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
+  * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the standard AuthRegistry, HandshakeRegistry, and the SchnorrAccount artifact,
+@@ -108,6 +104,8 @@ function deserializeError(payload: SerializedError | undefined): Error {
+ }
+ 
+ export interface TXEDispatcherPoolOptions {
++  /** Where every worker runs bb, the world state and the AVM. */
++  backends: TXEBackends;
+   /** Number of worker threads */
+   workers?: number;
+ }
+@@ -134,11 +132,13 @@ export class TXEDispatcherPool {
+   private contractStoreSourceDir?: string;
+   private schnorrClassId?: string;
+   private workerPath?: URL;
++  private readonly backends: TXEBackends;
+ 
+   constructor(
+     private readonly logger: Logger,
+-    opts: TXEDispatcherPoolOptions = {},
++    opts: TXEDispatcherPoolOptions,
+   ) {
++    this.backends = opts.backends;
+     // TXE still doesn't scale well beyond 16 workers due to contention
+     this.maxWorkers = Math.max(1, opts.workers ?? Math.min(cpus().length, 16));
+     this.readyPromise = this.init();
+@@ -170,7 +170,11 @@ export class TXEDispatcherPool {
+   private spawnWorker(): number {
+     const workerIdx = this.workers.length;
+     const w = new Worker(this.workerPath!, {
+-      workerData: { contractStoreSourceDir: this.contractStoreSourceDir, schnorrClassId: this.schnorrClassId },
++      workerData: {
++        contractStoreSourceDir: this.contractStoreSourceDir,
++        schnorrClassId: this.schnorrClassId,
++        backends: this.backends,
++      },
+     });
+     const slot: WorkerSlot = {
+       worker: w,
+diff --git a/yarn-project/txe/src/index.ts b/yarn-project/txe/src/index.ts
+index 5f61aff43e0dbec411523184de5725bfec730ea6..a13b325c833041a4169fea32fb3bcc28d14e3e95 100644
+--- a/yarn-project/txe/src/index.ts
++++ b/yarn-project/txe/src/index.ts
+@@ -9,6 +9,7 @@ import { zodFor } from '@aztec-labs/stdlib/schemas';
+ import { join } from 'path';
+ import { z } from 'zod';
+ 
++import type { TXEBackends } from './backends.js';
+ // Side-effect import: registers the msgpackr Fr extension for the bundled `Fr` class. Must
+ // be loaded before any `sendMessage` call. See msgpackr_fr_extension.ts for the why.
+ import './msgpackr_fr_extension.js';
+@@ -67,6 +68,8 @@ export interface TXEDispatcherOptions {
+    * instead of recomputing it via `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`.
+    */
+   schnorrClassId: string;
++  /** Where each session runs bb, the world state and the AVM. */
++  backends: TXEBackends;
+ }
+ 
+ export class TXEDispatcher {
+@@ -74,6 +77,7 @@ export class TXEDispatcher {
+   private artifactResolver!: TXEArtifactResolver;
+   private readonly contractStoreSourceDir: string;
+   private readonly schnorrClassId: Fr;
++  private readonly backends: TXEBackends;
+ 
+   constructor(
+     private logger: Logger,
+@@ -81,6 +85,7 @@ export class TXEDispatcher {
+   ) {
+     this.contractStoreSourceDir = opts.contractStoreSourceDir;
+     this.schnorrClassId = Fr.fromString(opts.schnorrClassId);
++    this.backends = opts.backends;
+   }
+ 
+   /**
+@@ -118,7 +123,10 @@ export class TXEDispatcher {
+     if (!sessions.has(sessionId)) {
+       this.logger.debug(`Creating new session ${sessionId}`);
+       await this.warmUp();
+-      sessions.set(sessionId, await TXESession.init(this.contractStore, this.artifactResolver, rootPath, packageName));
++      sessions.set(
++        sessionId,
++        await TXESession.init(this.contractStore, this.artifactResolver, rootPath, packageName, this.backends),
++      );
+     }
+ 
+     return await sessions.get(sessionId)!.processFunction(functionName, inputs);
+diff --git a/yarn-project/txe/src/rpc_server.ts b/yarn-project/txe/src/rpc_server.ts
+index d3945c02cbc278b784cc550c6bba771eb81b2a16..1fc3af2247be3e685a438cdee4b2f44b5687228c 100644
+--- a/yarn-project/txe/src/rpc_server.ts
++++ b/yarn-project/txe/src/rpc_server.ts
+@@ -3,6 +3,7 @@ import { createSafeJsonRpcServer } from '@aztec-labs/foundation/json-rpc/server'
+ import type { Logger } from '@aztec-labs/foundation/log';
+ import type { Socket } from 'node:net';
+ 
++import { type TXEBackends, initBarretenbergSingletons } from './backends.js';
+ import { TXEDispatcherPool, buildSharedContractStore } from './dispatcher_pool.js';
+ import { TXEDispatcher, TXEDispatcherApiSchema } from './index.js';
+ 
+@@ -23,16 +24,21 @@ type TaggedSocket = Socket & { [SESSION_SYMBOL]?: number };
+  * nargo uses one HTTP client per test, so the socket-to-session mapping is 1:1. When the socket
+  * closes (end of test), the dispatcher disposes the session and frees its world state + LMDB.
+  *
++ * `backends` is where bb, the world state and the AVM run, on the main thread and on every worker.
++ *
+  * Lives in its own module so the worker bundle does not pull in the HTTP server stack.
+  */
+-export async function createTXERpcServer(logger: Logger) {
++export async function createTXERpcServer(logger: Logger, backends: TXEBackends) {
++  // The main thread hashes too: building the shared contract store computes class ids.
++  void initBarretenbergSingletons(backends);
+   const workerCount = Number(getEnv().TXE_WORKERS);
+   let dispatcher: TXEDispatcher | TXEDispatcherPool;
+   if (workerCount === 1) {
+     const { dataDir, schnorrClassId } = await buildSharedContractStore();
+-    dispatcher = new TXEDispatcher(logger, { contractStoreSourceDir: dataDir, schnorrClassId });
++    dispatcher = new TXEDispatcher(logger, { contractStoreSourceDir: dataDir, schnorrClassId, backends });
+   } else {
+     dispatcher = new TXEDispatcherPool(logger, {
++      backends,
+       workers: Number.isFinite(workerCount) && workerCount > 1 ? workerCount : undefined,
+     });
+   }
+diff --git a/yarn-project/txe/src/state_machine/index.ts b/yarn-project/txe/src/state_machine/index.ts
+index ddacde4f4a934a2e727bde73e4d61b1a037f60d1..880069e34fcaad21772f190761c1fa8a9a9c6bfe 100644
+--- a/yarn-project/txe/src/state_machine/index.ts
++++ b/yarn-project/txe/src/state_machine/index.ts
+@@ -19,6 +19,7 @@ import { TestRollupFeeConfigProvider } from '@aztec-labs/stdlib/gas';
+ import type { AztecNode } from '@aztec-labs/stdlib/interfaces/client';
+ import { CheckpointHeader } from '@aztec-labs/stdlib/rollup';
+ 
++import type { TXEBackends } from '../backends.js';
+ import { TXEArchiver } from './archiver.js';
+ import { DummyP2P } from './dummy_p2p_client.js';
+ import { TXEFeeProvider, TXEGlobalVariablesBuilder } from './global_variable_builder.js';
+@@ -47,8 +48,9 @@ export class TXEStateMachine {
+     anchorBlockStore: AnchorBlockStore,
+     contractStore: ContractStore,
+     noteStore: NoteStore,
++    backends: TXEBackends,
+   ) {
+-    const synchronizer = await TXESynchronizer.create();
++    const synchronizer = await TXESynchronizer.create(backends);
+     const aztecNodeConfig = {} as AztecNodeConfig;
+ 
+     const log = createLogger('txe_node');
+diff --git a/yarn-project/txe/src/state_machine/synchronizer.ts b/yarn-project/txe/src/state_machine/synchronizer.ts
+index 425783f12587da411654c892e5b1f03092601f09..0dba24eb6fe2d192fbf4a1b09cbc881a4632be53 100644
+--- a/yarn-project/txe/src/state_machine/synchronizer.ts
++++ b/yarn-project/txe/src/state_machine/synchronizer.ts
+@@ -3,7 +3,6 @@ import { createServiceThread } from '@aztec-foundation/ipc-runtime/wasm';
+ import { WsdbService } from '@aztec-foundation/wsdb-ref';
+ 
+ import { BlockNumber } from '@aztec-labs/foundation/branded-types';
+-import { getEnv } from '@aztec-labs/foundation/config/env';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { AvmSimulatorPool } from '@aztec-labs/simulator/server';
+ import type { BlockHash, L2Block } from '@aztec-labs/stdlib/block';
+@@ -16,6 +15,8 @@ import type {
+ } from '@aztec-labs/stdlib/interfaces/server';
+ import { NativeWorldStateService } from '@aztec-labs/world-state/native';
+ 
++import type { TXEBackends } from '../backends.js';
++
+ export class TXESynchronizer implements WorldStateSynchronizer {
+   // This works when set to 1 as well.
+   private blockNumber = BlockNumber.ZERO;
+@@ -26,17 +27,16 @@ export class TXESynchronizer implements WorldStateSynchronizer {
+   constructor(public nativeWorldStateService: NativeWorldStateService) {}
+ 
+   /**
+-   * The world state is wsdb-ref and the AVM bb-avm-sim, both in memory on one worker of their own: the AVM reaches the
+-   * world state there as a synchronous call, and the contract DB on this thread through its host. By default both are
+-   * wasm modules; TXE_WORLD_STATE=napi runs them as instances of their shared libraries instead, and
+-   * TXE_WORLD_STATE=native as before, an aztec-wsdb process and a bb-avm-sim process.
++   * With `wasm` or `napi` backends, the world state is wsdb-ref and the AVM bb-avm-sim, both in memory on one worker of
++   * their own (as wasm modules, or as instances of their shared libraries): the AVM reaches the world state there as a
++   * synchronous call, and the contract DB on this thread through its host. With `process` backends they are an
++   * aztec-wsdb process and a bb-avm-sim process.
+    */
+-  static async create() {
+-    const mode = getEnv().TXE_WORLD_STATE;
+-    if (mode === 'native') {
++  static async create(backends: TXEBackends) {
++    if (backends === 'process') {
+       return this.createNative();
+     }
+-    const backend = mode === 'napi' ? 'napi' : 'wasm';
++    const backend = backends;
+     const worker = createServiceThread();
+     const wsdb = await WsdbService.create({ backend, [backend]: { worker } });
+     const nativeWorldStateService = await NativeWorldStateService.fromService(
+diff --git a/yarn-project/txe/src/txe_session.ts b/yarn-project/txe/src/txe_session.ts
+index 0e9cdf86ffc8e1854a24324bb239b44a0caefcfe..b56b615ddbd3193b71e49e245c539ead6111840a 100644
+--- a/yarn-project/txe/src/txe_session.ts
++++ b/yarn-project/txe/src/txe_session.ts
+@@ -56,6 +56,7 @@ import { makeGlobalVariables } from '@aztec-labs/stdlib/testing';
+ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } from '@aztec-labs/stdlib/tx';
+ import { z } from 'zod';
+ 
++import type { TXEBackends } from './backends.js';
+ import { DEFAULT_ADDRESS } from './constants.js';
+ import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+ import {
+@@ -340,6 +341,7 @@ export class TXESession implements TXESessionStateHandler {
+     artifactResolver: TXEArtifactResolver,
+     rootPath: string,
+     packageName: string,
++    backends: TXEBackends,
+   ) {
+     // Size LMDB's reader slots to the libuv pool (capped to 2 in bin/index.ts via
+     // HARDWARE_CONCURRENCY): each native LMDB read needs a libuv worker thread to run, so any
+@@ -360,7 +362,7 @@ export class TXESession implements TXESessionStateHandler {
+ 
+     const archiver = new TXEArchiver(store);
+     const anchorBlockStore = new AnchorBlockStore(store);
+-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
++    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore, backends);
+ 
+     const stagedWriteCoordinator = new StagedWriteCoordinator({
+       kvStore: store,
+diff --git a/yarn-project/txe/src/worker.ts b/yarn-project/txe/src/worker.ts
+index 47b1a20e570221658722b089ea077652c4857af5..321a76474033165fea0d666ddcb322c90e891e13 100644
+--- a/yarn-project/txe/src/worker.ts
++++ b/yarn-project/txe/src/worker.ts
+@@ -1,22 +1,13 @@
+-import { BackendType, Barretenberg, BarretenbergSync } from '@aztec-foundation/bb.js';
+-
+ import { getEnv } from '@aztec-labs/foundation/config/env';
+ import { type Logger, createLogger } from '@aztec-labs/foundation/log';
+ import { parentPort, workerData } from 'node:worker_threads';
+ 
++import { initBarretenbergSingletons } from './backends.js';
+ // Importing `./index.js` registers the msgpackr Fr extension transitively (via
+ // ./msgpackr_fr_extension.js); this must happen before any `sendMessage` call.
+ import { TXEDispatcher, type TXEDispatcherOptions, type TXEForeignCallInput, activeSessionCount } from './index.js';
+ 
+-// Seed both bb.js singletons with the WASM backend before any crypto call. `initSingleton`
+-// binds the singleton to whichever backend the first call requests, so this pre-empts the
+-// implicit `Barretenberg.initSingleton()` inside `poseidon2Hash` from `@aztec-labs/foundation/crypto`.
+-// TXE only needs hashing (no proving, no verification), so WASM is sufficient and
+-// `skipSrsInit: true` skips the CRS load. `threads: 1` keeps the WASM backend on a single
+-// thread — additional threads would each spawn a nested worker_thread, multiplying memory cost
+-// per pool worker.
+-void Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, threads: 1 });
+-void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
++void initBarretenbergSingletons(workerData.backends);
+ 
+ if (!parentPort) {
+   throw new Error('worker.ts must be loaded as a worker_thread');
+@@ -32,6 +23,7 @@ const logger: Logger = createLogger('txe:worker');
+ const dispatcherOpts: TXEDispatcherOptions = {
+   contractStoreSourceDir: workerData.contractStoreSourceDir,
+   schnorrClassId: workerData.schnorrClassId,
++  backends: workerData.backends,
+ };
+ const dispatcher = new TXEDispatcher(logger, dispatcherOpts);
+ 

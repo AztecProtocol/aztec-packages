@@ -2,14 +2,20 @@
  * Backend types for Barretenberg
  */
 export enum BackendType {
-  /** WASM direct execution (no worker) */
+  /**
+   * bb's wasm module in-process: on the calling thread (BarretenbergSync, single-threaded) or on a worker of its own
+   * (Barretenberg), with further workers for its threads.
+   */
   Wasm = 'Wasm',
-  /** WASM with worker threads */
-  WasmWorker = 'WasmWorker',
-  /** Native via Unix domain socket (async only) */
+  /** Native process over a Unix domain socket: the asynchronous transport (Barretenberg) */
   NativeUnixSocket = 'NativeUnixSocket',
-  /** Native via shared memory */
+  /** Native process over shared memory: the synchronous transport (BarretenbergSync) */
   NativeSharedMemory = 'NativeSharedMemory',
+  /**
+   * bb's shared library in-process, through napi (node only): an instance of bb of its own, on the calling thread
+   * (BarretenbergSync) or on a native thread of its own (Barretenberg). No process is spawned.
+   */
+  Napi = 'Napi',
 }
 
 export type BackendOptions = {
@@ -72,6 +78,9 @@ export type BackendOptions = {
    * next call quietly running against a process that has forgotten everything.
    */
   respawn?: boolean;
+
+  /** @description The bb shared library for the Napi backend, in place of the installed one (else BB_NAPI_PATH). */
+  napiLibraryPath?: string;
 
   /**
    * @description Specify exact backend to use

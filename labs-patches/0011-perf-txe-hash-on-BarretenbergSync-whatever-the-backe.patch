@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 05:58:37 +0000
+Subject: [PATCH] perf(txe): hash on BarretenbergSync, whatever the backends
+
+The TXE turns on setPoseidonSynchronous with its singletons on every thread: a
+hash then runs on the calling thread for wasm and napi, and is one shared-memory
+round trip for a bb process, each cheaper than an asynchronous call.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/txe/src/backends.ts b/yarn-project/txe/src/backends.ts
+index b56b2099d9126443f18285befa6b7a8481ba70bc..3c7652db3f4dfdb2881b6a90e298f56dea24c802 100644
+--- a/yarn-project/txe/src/backends.ts
++++ b/yarn-project/txe/src/backends.ts
+@@ -1,5 +1,7 @@
+ import { BackendType, Barretenberg, BarretenbergSync } from '@aztec-foundation/bb.js';
+ 
++import { setPoseidonSynchronous } from '@aztec-labs/foundation/crypto/poseidon';
++
+ /**
+  * Where the TXE runs its native services: bb (hashing and the other crypto), the world state and the AVM. One choice
+  * for all of them, made when the TXE starts.
+@@ -26,8 +28,12 @@ export function parseTXEBackends(value: string): TXEBackends {
+  * whichever backend is asked for first, so this pre-empts the implicit one in foundation's crypto. Each thread (the
+  * main thread and every worker) has singletons of its own. The TXE only hashes, so the SRS is never loaded and bb
+  * runs single-threaded.
++ *
++ * Hashing goes to the synchronous singleton whatever the backends: on the calling thread for wasm and napi, and one
++ * shared-memory round trip for a process, each cheaper than an asynchronous call's thread hop and event-loop wake.
+  */
+ export function initBarretenbergSingletons(backends: TXEBackends): Promise<unknown> {
++  setPoseidonSynchronous(true);
+   switch (backends) {
+     case 'wasm':
+       return Promise.all([

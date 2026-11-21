@@ -4,8 +4,8 @@
  * @brief The wsdb service without a transport: the world state, the dispatch pool, the per-fork scheduler and the
  * generated async handler over them.
  *
- * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service opens no stores until
- * Init, which carries the genesis; the data directory, map sizes and threads come from the config.
+ * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service has no stores, pool or
+ * scheduler until Init, which carries the genesis and, in its options, the data directory, map sizes and threads.
  */
 #include "common/thread_pool.hpp"
 #include "world_state/world_state.hpp"
@@ -15,51 +15,66 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
-
-namespace CLI {
-class App;
-}
 
 namespace azteclabs::wsdb {
 
 class WsdbScheduler;
 
-struct WsdbConfig {
+/** aztec-wsdb's own configuration, which Init carries in its `options`. */
+struct WsdbOptions {
     std::string data_dir;
-    // LMDB map sizes in KB, as "{treeId:value,...}".
-    std::string map_sizes_json;
+    // LMDB map sizes in KB, by tree; trees not named keep the default.
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> map_sizes;
     uint32_t threads = 16;
+
+    /**
+     * Reads Init's options: a msgpack map with `dataDir` (required), `mapSizes` (an array of { treeId, sizeKb }) and
+     * `threads`. Throws on anything else, so options meant for another implementation are refused.
+     */
+    static WsdbOptions decode(const std::optional<std::vector<uint8_t>>& options);
 };
 
-/** Registers the WsdbConfig options on a CLI (sub)command. */
-void add_wsdb_config_options(CLI::App& app, WsdbConfig& config);
-
-class WsdbService {
+/**
+ * One aztec-wsdb instance: the world state Init creates and the scheduler its requests run on. The server process
+ * serves one; libaztec_wsdb makes one per create(). One instance takes calls from many threads at once.
+ */
+class WsdbService final : public Service {
   public:
-    /**
-     * @param has_pending_request Whether another request is already waiting; reads run inline on the submitting
-     *        thread only when this is false (see WsdbScheduler).
-     */
-    WsdbService(const WsdbConfig& config, std::function<bool()> has_pending_request);
-    ~WsdbService();
+    WsdbService();
+    ~WsdbService() override;
 
     WsdbService(const WsdbService&) = delete;
     WsdbService& operator=(const WsdbService&) = delete;
     WsdbService(WsdbService&&) = delete;
     WsdbService& operator=(WsdbService&&) = delete;
 
-    /** Decodes one request, schedules its work and responds when done, possibly from a pool thread. Submissions
-     *  must come from one thread at a time. */
-    AsyncDispatchHandler& handler() { return handler_; }
+    /** Decodes one request, schedules its work and responds when done, possibly from a pool thread. Requests may
+     *  be submitted from several threads at once. */
+    AsyncDispatchHandler& dispatcher() override { return handler_; }
 
-    /** Runs one request in-process and waits for its response. Calls must come from one thread at a time. */
+    /**
+     * Whether another request is already waiting to be read; reads run inline on the submitting thread only when
+     * this is false (see WsdbScheduler). Without a transport nothing ever waits, so an idle read always runs on its
+     * caller. Set before Init.
+     */
+    void set_has_pending_request(std::function<bool()> has_pending_request) override
+    {
+        has_pending_request_ = std::move(has_pending_request);
+    }
+
+    /** Runs one request in-process and waits for its response. Safe to call from several threads at once. */
     std::vector<uint8_t> call(std::span<const uint8_t> request);
 
   private:
-    WsdbConfig config_;
+    std::function<bool()> has_pending_request_ = [] { return false; };
+    std::mutex init_mutex_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching
     // them onto the same blocking, non-work-stealing pool could deadlock.

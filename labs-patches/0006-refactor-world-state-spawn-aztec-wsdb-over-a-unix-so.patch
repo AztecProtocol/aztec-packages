@@ -1,0 +1,381 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 20:51:51 +0000
+Subject: [PATCH] refactor(world-state): spawn aztec-wsdb over a unix socket
+ only, without WSDB_TRANSPORT
+
+Shared memory is the synchronous transport in ipc-runtime, which no longer has an
+asynchronous shared-memory client, so the TS world state (an asynchronous caller)
+always reaches aztec-wsdb over its socket. WSDB_TRANSPORT=shm goes, with the shm ring
+sizes passed only for it and the shm legs of the IPC correlation tests and the
+multi-connection read bench. The spawn options no longer take a transport.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/simulator/src/public/avm_simulator_pool.ts b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+index f7b5f0f8d23d7834e90dddaed3e69104b090aa78..11b60591c8d9d9414e012857bc154f0d39dba473 100644
+--- a/yarn-project/simulator/src/public/avm_simulator_pool.ts
++++ b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+@@ -324,7 +324,6 @@ class AvmSimulatorProcess implements AvmProcessHandle {
+     }
+     const service = await AvmService.spawn({
+       binaryPath: options.binaryPath,
+-      transport: 'uds',
+       logger: options.logger,
+       extraArgs: ['--wsdb', options.wsdbIpcPath, '--cdb', options.cdbIpcPath],
+       // Each simulation is self-contained (state comes from the WSDB/CDB servers, routed by fork id),
+diff --git a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+index 0cfb5a0b5e127cb5d2b3c0d15b6a49a3d64d7784..564e52a045e1b69d11fc5a4f7bef52d0ab5c35a6 100644
+--- a/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
++++ b/yarn-project/world-state/src/native/ipc_churn_correlation.test.ts
+@@ -1,4 +1,4 @@
+-import { type IpcClientAsync, UdsIpcClient, createNapiShmAsyncClient } from '@aztec-foundation/ipc-runtime';
++import { type IpcClientAsync, UdsIpcClient } from '@aztec-foundation/ipc-runtime';
+ 
+ import { times } from '@aztec-labs/foundation/collection';
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+@@ -37,7 +37,6 @@ import { NativeWorldStateService } from './native_world_state.js';
+ const SOAK_MS = Number(process.env.WSDB_SOAK_MS ?? 4_000);
+ jest.setTimeout(Math.max(300_000, SOAK_MS * 4));
+ 
+-const TRANSPORT = (process.env.WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds') as 'shm' | 'uds';
+ // Typed as plain number: the generated AsyncApi carries tree ids as numbers, so enum-typed
+ // comparisons against response fields trip no-unsafe-enum-comparison.
+ const TREE: number = MerkleTreeId.NOTE_HASH_TREE;
+@@ -81,7 +80,7 @@ const makeHeartbeat = (leg: string) => {
+   };
+ };
+ 
+-describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () => {
++describe('wsdb IPC churn/contention correlation', () => {
+   let ws: NativeWorldStateService;
+   let ipcPath: string | undefined;
+   let leaves: Fr[];
+@@ -92,11 +91,8 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+   let seedForkId: number;
+   let seedRevision: { forkId: number; blockNumber: number; includeUncommitted: boolean };
+ 
+-  const makeClient = async (clientId: number): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
+-    const backend: IpcClientAsync =
+-      TRANSPORT === 'shm'
+-        ? createNapiShmAsyncClient(ipcPath!.replace(/\.shm$/, ''), { clientId })
+-        : await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
++  const makeClient = async (): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
++    const backend: IpcClientAsync = await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
+     return { api: new AsyncApi(backend), backend };
+   };
+ 
+@@ -197,7 +193,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+ 
+     // Seed a shared fork (forks are shared world-state objects, not per-connection). Legs A/C use
+     // it; the multi-connection legs deliberately do NOT — see the detection-design note above.
+-    const seeder = await makeClient(1);
++    const seeder = await makeClient();
+     try {
+       seedForkId = (await seeder.api.createFork({ latest: true, blockNumber: 0 })).forkId;
+       seedRevision = { forkId: seedForkId, blockNumber: 0xffffffff, includeUncommitted: true };
+@@ -263,7 +259,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+     if (!ipcPath) {
+       return;
+     }
+-    const { api, backend } = await makeClient(1);
++    const { api, backend } = await makeClient();
+     try {
+       for (let iter = 0; iter < 40; iter++) {
+         const idx = iter % N;
+@@ -287,7 +283,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+     if (!ipcPath) {
+       return;
+     }
+-    const { api, backend } = await makeClient(1);
++    const { api, backend } = await makeClient();
+     try {
+       // Private scratch fork for writes: uncommitted reads on it queue behind each write, driving
+       // the per-fork scheduler out of arrival order on this single connection. Reads of the seed
+@@ -320,7 +316,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+     }
+     const READERS = 3;
+     const WRITERS = 3;
+-    const conns = await Promise.all(times(READERS + WRITERS, i => makeClient(i + 1)));
++    const conns = await Promise.all(times(READERS + WRITERS, () => makeClient()));
+     try {
+       // Distinct identity per connection; readers keep theirs immutable so roots stay checkable.
+       const ids = [];
+@@ -357,7 +353,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+       return;
+     }
+     const CONNS = 6;
+-    const clients = await Promise.all(times(CONNS, i => makeClient(i + 1)));
++    const clients = await Promise.all(times(CONNS, () => makeClient()));
+     const ids: ConnIdentity[] = [];
+     for (let c = 0; c < CONNS; c++) {
+       ids.push(await plantIdentity(clients[c].api, 200 + c));
+@@ -390,7 +386,7 @@ describe(`wsdb IPC churn/contention correlation (transport=${TRANSPORT})`, () =>
+         // server-side) and immediately replace it (reusing the freed server slot). The
+         // replacement gets a fresh identity — its old fork stays behind, like a killed AVM sim's.
+         await clients[victim].backend.destroy().catch(() => {});
+-        clients[victim] = await makeClient(victim + 1);
++        clients[victim] = await makeClient();
+ 
+         await Promise.all(perConn);
+         ids[victim] = await plantIdentity(clients[victim].api, 200 + CONNS + iter);
+diff --git a/yarn-project/world-state/src/native/ipc_pipelined_read_correlation.test.ts b/yarn-project/world-state/src/native/ipc_pipelined_read_correlation.test.ts
+index 9b642bff9e4614c7d1b83d48bbbc8461fab86314..88e21e44e0e97d220a03f5e858f8c1ca16284a5e 100644
+--- a/yarn-project/world-state/src/native/ipc_pipelined_read_correlation.test.ts
++++ b/yarn-project/world-state/src/native/ipc_pipelined_read_correlation.test.ts
+@@ -8,86 +8,67 @@ import { NativeWorldStateService } from './native_world_state.js';
+ 
+ jest.setTimeout(120_000);
+ 
+-const TRANSPORTS = ['uds', 'shm'] as const;
+ const N = 128;
+ const ITERATIONS = 40;
+ 
+ describe('IPC world-state pipelined read correlation', () => {
+-  for (const transport of TRANSPORTS) {
+-    describe(`transport=${transport}`, () => {
+-      let prevTransport: string | undefined;
+-      let ws: NativeWorldStateService;
+-      let fork: MerkleTreeWriteOperations;
+-      let leaves: Fr[];
++  let ws: NativeWorldStateService;
++  let fork: MerkleTreeWriteOperations;
++  let leaves: Fr[];
+ 
+-      beforeAll(async () => {
+-        prevTransport = process.env.WSDB_TRANSPORT;
+-        process.env.WSDB_TRANSPORT = transport;
+-        ws = await NativeWorldStateService.tmp();
++  beforeAll(async () => {
++    ws = await NativeWorldStateService.tmp();
+ 
+-        fork = await ws.fork();
+-        leaves = times(N, i => new Fr(BigInt(i) * 0x1_0000_0001n + 1n));
+-        await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
+-      });
++    fork = await ws.fork();
++    leaves = times(N, i => new Fr(BigInt(i) * 0x1_0000_0001n + 1n));
++    await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, leaves);
++  });
+ 
+-      afterAll(async () => {
+-        await fork?.close().catch(() => {});
+-        await ws?.close();
+-        if (prevTransport === undefined) {
+-          delete process.env.WSDB_TRANSPORT;
+-        } else {
+-          process.env.WSDB_TRANSPORT = prevTransport;
+-        }
+-      });
++  afterAll(async () => {
++    await fork?.close().catch(() => {});
++    await ws?.close();
++  });
+ 
+-      it('matches every response across concurrent same-type reads', async () => {
+-        for (let iter = 0; iter < ITERATIONS; iter++) {
+-          const got = await Promise.all(
+-            leaves.map((_, i) => fork.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, BigInt(i))),
++  it('matches every response across concurrent same-type reads', async () => {
++    for (let iter = 0; iter < ITERATIONS; iter++) {
++      const got = await Promise.all(leaves.map((_, i) => fork.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, BigInt(i))));
++      for (let i = 0; i < N; i++) {
++        const v = got[i];
++        if (v === undefined || !v.equals(leaves[i])) {
++          const belongsTo = v === undefined ? 'undefined' : String(leaves.findIndex(l => l.equals(v)));
++          throw new Error(
++            `iter ${iter}: getLeafValue(index=${i}) returned value for index ` +
++              `${belongsTo}; expected ${leaves[i].toString()}, got ${v?.toString() ?? 'undefined'}`,
+           );
+-          for (let i = 0; i < N; i++) {
+-            const v = got[i];
+-            if (v === undefined || !v.equals(leaves[i])) {
+-              const belongsTo = v === undefined ? 'undefined' : String(leaves.findIndex(l => l.equals(v)));
+-              throw new Error(
+-                `[${transport}] iter ${iter}: getLeafValue(index=${i}) returned value for index ` +
+-                  `${belongsTo}; expected ${leaves[i].toString()}, got ${v?.toString() ?? 'undefined'}`,
+-              );
+-            }
+-          }
+         }
+-      });
++      }
++    }
++  });
+ 
+-      it('matches every response across concurrent mixed-type reads', async () => {
+-        for (let iter = 0; iter < ITERATIONS; iter++) {
+-          const checks: Promise<void>[] = [];
+-          for (let i = 0; i < N; i++) {
+-            const idx = BigInt(i);
+-            checks.push(
+-              (async () => {
+-                const v = await fork.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, idx);
+-                if (v === undefined || !v.equals(leaves[i])) {
+-                  throw new Error(
+-                    `[${transport}] iter ${iter}: getLeafValue(${i}) wrong: ${v?.toString() ?? 'undefined'}`,
+-                  );
+-                }
+-              })(),
+-            );
+-            checks.push(
+-              (async () => {
+-                const idxs = await fork.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaves[i]]);
+-                if (idxs[0] !== idx) {
+-                  throw new Error(
+-                    `[${transport}] iter ${iter}: findLeafIndices(${i}) returned ${idxs[0]}, expected ${idx}`,
+-                  );
+-                }
+-              })(),
+-            );
+-            checks.push(fork.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, idx).then(() => undefined));
+-          }
+-          await Promise.all(checks);
+-        }
+-      });
+-    });
+-  }
++  it('matches every response across concurrent mixed-type reads', async () => {
++    for (let iter = 0; iter < ITERATIONS; iter++) {
++      const checks: Promise<void>[] = [];
++      for (let i = 0; i < N; i++) {
++        const idx = BigInt(i);
++        checks.push(
++          (async () => {
++            const v = await fork.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, idx);
++            if (v === undefined || !v.equals(leaves[i])) {
++              throw new Error(`iter ${iter}: getLeafValue(${i}) wrong: ${v?.toString() ?? 'undefined'}`);
++            }
++          })(),
++        );
++        checks.push(
++          (async () => {
++            const idxs = await fork.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaves[i]]);
++            if (idxs[0] !== idx) {
++              throw new Error(`iter ${iter}: findLeafIndices(${i}) returned ${idxs[0]}, expected ${idx}`);
++            }
++          })(),
++        );
++        checks.push(fork.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, idx).then(() => undefined));
++      }
++      await Promise.all(checks);
++    }
++  });
+ });
+diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+index 54573778a0ac2daaef782092ebb4a764d0627329..ecfacf3c71987e5a9b3709444ee9fcf7141c2ea5 100644
+--- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
++++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+@@ -2,7 +2,6 @@ import { IpcProcessExitedError } from '@aztec-foundation/ipc-runtime';
+ import { GENESIS } from '@aztec-foundation/protocol-genesis';
+ 
+ import type { BlockNumber } from '@aztec-labs/foundation/branded-types';
+-import { getEnv } from '@aztec-labs/foundation/config/env';
+ import type { Fr } from '@aztec-labs/foundation/curves/bn254';
+ import { type Logger, type LoggerBindings, createLogger } from '@aztec-labs/foundation/log';
+ import { Timer } from '@aztec-labs/foundation/timer';
+@@ -166,9 +165,6 @@ const WSDB_TREE_PREFILL: Record<number, number> = {
+   [MerkleTreeId.PUBLIC_DATA_TREE]: GENESIS.inputs.treePrefill.publicDataTree,
+ };
+ 
+-/** SHM request/response ring size for the spawned aztec-wsdb process (32 MiB). */
+-const WSDB_SHM_RING_SIZE = 32 * 1024 * 1024;
+-
+ function getWsdbThreadCount(): number {
+   return Math.min(16, cpus().length);
+ }
+@@ -176,14 +172,6 @@ function getWsdbThreadCount(): number {
+ function getWsdbExtraArgs(dataDir: string, wsTreeMapSizes: WorldStateTreeMapSizes, threads: number): string[] {
+   const args = ['--data-dir', dataDir, '--threads', threads.toString()];
+ 
+-  // Size the SHM rings generously. Responses such as batch-insertion witnesses
+-  // run to a few MB, and an SHM frame is capped at half the ring (the wrap
+-  // handling needs that headroom), so 32 MiB rings give ~16 MiB per message.
+-  // Ignored by the UDS transport. Pages are demand-faulted, so unused capacity
+-  // is cheap.
+-  args.push('--request-ring-size', WSDB_SHM_RING_SIZE.toString());
+-  args.push('--response-ring-size', WSDB_SHM_RING_SIZE.toString());
+-
+   const mapSizes = formatMap(getWsdbOptions(dataDir, wsTreeMapSizes).mapSizes);
+   if (mapSizes) {
+     args.push('--map-sizes', mapSizes);
+@@ -377,10 +365,8 @@ export class IpcWorldState implements NativeWorldStateInstance {
+     bindings?: LoggerBindings,
+     threads: number = getWsdbThreadCount(),
+   ): Promise<IpcWorldState> {
+-    const transport = getEnv().WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
+     const init = getWsdbInit(genesis);
+     const wsdb = await WsdbService.spawn({
+-      transport,
+       extraArgs: getWsdbExtraArgs(dataDir, wsTreeMapSizes, threads),
+       env: { HARDWARE_CONCURRENCY: threads.toString() },
+     });
+diff --git a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts b/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
+index 5d74f1b2532060651215fb1dc0886e51e9bc3456..48f5bc68a78c75f2eee333ac35665ab6abfa0808 100644
+--- a/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
++++ b/yarn-project/world-state/src/native/multi_connection_read.bench.test.ts
+@@ -1,4 +1,4 @@
+-import { type IpcClientAsync, UdsIpcClient, createNapiShmAsyncClient } from '@aztec-foundation/ipc-runtime';
++import { type IpcClientAsync, UdsIpcClient } from '@aztec-foundation/ipc-runtime';
+ 
+ import { times } from '@aztec-labs/foundation/collection';
+ import { createLogger } from '@aztec-labs/foundation/log';
+@@ -32,18 +32,13 @@ import { NativeWorldStateService } from './native_world_state.js';
+ describe('world-state multi-connection read throughput', () => {
+   const logger = createLogger('bench:ws-multi-conn-read');
+   const TOTAL_READS = 20_000;
+-  // Max 7 connections: this mirrors the production SHM ceiling. The server caps
+-  // SHM at max_shm_clients (8) ring-pairs; the TS world-state client holds one
+-  // (modeled here by NativeWorldStateService = client 0), leaving 7 for the AVM
+-  // simulator pool. (UDS has no such cap — it is backlog-bound — but we use the
+-  // same counts for a like-for-like transport comparison.)
++  // Up to 7 connections: the TS world-state client holds one (NativeWorldStateService), and the
++  // AVM simulator pool connects the rest.
+   const CONNECTION_COUNTS = [1, 2, 4, 7];
+   const TREE = MerkleTreeId.PUBLIC_DATA_TREE;
+   // Committed snapshot — mirrors WorldStateRevision.empty() / LATEST.
+   const COMMITTED = { forkId: 0, blockNumber: 0xffffffff, includeUncommitted: false };
+ 
+-  const transport = process.env.WSDB_TRANSPORT === 'shm' ? 'shm' : 'uds';
+-
+   let ws: NativeWorldStateService;
+   let ipcPath: string | undefined;
+ 
+@@ -60,13 +55,8 @@ describe('world-state multi-connection read throughput', () => {
+     await ws.close();
+   });
+ 
+-  const makeClient = async (clientId: number): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
+-    let backend: IpcClientAsync;
+-    if (transport === 'shm') {
+-      backend = createNapiShmAsyncClient(ipcPath!.replace(/\.shm$/, ''), { clientId });
+-    } else {
+-      backend = await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
+-    }
++  const makeClient = async (): Promise<{ api: AsyncApi; backend: IpcClientAsync }> => {
++    const backend = await UdsIpcClient.connect(ipcPath!, { connectTimeoutMs: 5_000 });
+     return { api: new AsyncApi(backend), backend };
+   };
+ 
+@@ -79,9 +69,8 @@ describe('world-state multi-connection read throughput', () => {
+     const results: { connections: number; reads: number; ms: number; throughput: number }[] = [];
+ 
+     for (const connections of CONNECTION_COUNTS) {
+-      // Bench connections use client ids 1..N (id 0 is the NativeWorldStateService's
+-      // own connection). Fresh connections each round so rings start empty.
+-      const clients = await Promise.all(times(connections, i => makeClient(i + 1)));
++      // Fresh connections each round.
++      const clients = await Promise.all(times(connections, () => makeClient()));
+ 
+       const perConn = Math.floor(TOTAL_READS / connections);
+       const reads = perConn * connections;
+@@ -105,7 +94,7 @@ describe('world-state multi-connection read throughput', () => {
+ 
+       results.push({ connections, reads, ms, throughput });
+       logger.info(
+-        `transport=${transport} connections=${connections} reads=${reads} ms=${ms.toFixed(1)} throughput=${throughput.toFixed(0)} reads/s`,
++        `connections=${connections} reads=${reads} ms=${ms.toFixed(1)} throughput=${throughput.toFixed(0)} reads/s`,
+       );
+ 
+       await Promise.all(clients.map(({ backend }) => backend.destroy()));

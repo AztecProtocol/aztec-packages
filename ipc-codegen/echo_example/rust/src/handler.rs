@@ -1,5 +1,5 @@
 //! The echo service's handler, shared by the socket server binary and the
-//! in-process FFI entry (`export_echo_ffi!` in lib.rs).
+//! in-process FFI (`export_echo_ffi!` in lib.rs).
 
 use crate::generated::echo_server::{Handler, Responder};
 use crate::generated::echo_types::*;

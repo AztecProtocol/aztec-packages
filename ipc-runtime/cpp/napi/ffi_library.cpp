@@ -61,12 +61,8 @@ class JsHostCalls : public HostCallRouter {
 };
 
 /** A host call's answer: the response bytes in a buffer the library frees, and the status. */
-int32_t answer(FfiLibrary::Alloc alloc,
-               const uint8_t* bytes,
-               size_t len,
-               int32_t status,
-               uint8_t** response,
-               size_t* response_len)
+int32_t answer(
+    FfiLibrary::Alloc alloc, const uint8_t* bytes, size_t len, int32_t status, uint8_t** response, size_t* response_len)
 {
     auto* out = static_cast<uint8_t*>(alloc(len));
     if (len > 0) {
@@ -95,13 +91,13 @@ int32_t host_call(const uint8_t* target,
         static constexpr char message[] =
             "host_call: nothing is bound for this call's host calls (pass hostCall to callInstance)";
         // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
-        return answer(std::malloc, reinterpret_cast<const uint8_t*>(message), sizeof(message) - 1, 1, response,
-                      response_len);
+        return answer(
+            std::malloc, reinterpret_cast<const uint8_t*>(message), sizeof(message) - 1, 1, response, response_len);
     }
     FfiLibrary::Alloc alloc = current_alloc;
     std::vector<uint8_t> bytes;
-    int32_t status = router->route(
-        std::string_view(reinterpret_cast<const char*>(target), target_len), request, request_len, bytes);
+    int32_t status =
+        router->route(std::string_view(reinterpret_cast<const char*>(target), target_len), request, request_len, bytes);
     return answer(alloc, bytes.data(), bytes.size(), status, response, response_len);
 }
 
@@ -144,20 +140,16 @@ std::shared_ptr<FfiLibrary::Loaded> load_library(const std::string& path, const 
     auto& loaded = registry[handle];
     if (!loaded) {
         auto fresh = std::make_shared<FfiLibrary::Loaded>();
-        const std::string entry_name = ffi_name + "_ipc_ffi_entry";
-        const std::string free_name = ffi_name + "_ipc_ffi_free";
-        fresh->entry = symbol<FfiLibrary::Entry>(handle, entry_name);
-        fresh->free = symbol<FfiLibrary::Free>(handle, free_name);
-        if (fresh->entry == nullptr || fresh->free == nullptr) {
-            registry.erase(handle);
-            throw std::runtime_error(path + ": does not export " + entry_name + " and " + free_name);
-        }
-        fresh->alloc = symbol<FfiLibrary::Alloc>(handle, ffi_name + "_ipc_ffi_alloc");
         fresh->create = symbol<FfiLibrary::Create>(handle, ffi_name + "_ipc_ffi_create");
         fresh->call_instance = symbol<FfiLibrary::CallInstance>(handle, ffi_name + "_ipc_ffi_call");
         fresh->destroy = symbol<FfiLibrary::Destroy>(handle, ffi_name + "_ipc_ffi_destroy");
-        if (fresh->alloc == nullptr || fresh->call_instance == nullptr || fresh->destroy == nullptr) {
-            fresh->create = nullptr;
+        fresh->alloc = symbol<FfiLibrary::Alloc>(handle, ffi_name + "_ipc_ffi_alloc");
+        fresh->free = symbol<FfiLibrary::Free>(handle, ffi_name + "_ipc_ffi_free");
+        if (fresh->create == nullptr || fresh->call_instance == nullptr || fresh->destroy == nullptr ||
+            fresh->alloc == nullptr || fresh->free == nullptr) {
+            registry.erase(handle);
+            throw std::runtime_error(path + ": does not export the FFI contract under " + ffi_name +
+                                     "_ipc_ffi_{create,call,destroy,alloc,free}");
         }
         if (auto set_host_call = symbol<SetHostCall>(handle, ffi_name + "_ipc_ffi_set_host_call")) {
             set_host_call(&host_call);
@@ -171,53 +163,6 @@ std::shared_ptr<FfiLibrary::Loaded> load_library(const std::string& path, const 
 }
 
 namespace {
-
-std::vector<uint8_t> run_entry(FfiLibrary::Loaded& loaded, const uint8_t* input, size_t input_len)
-{
-    uint8_t* output = nullptr;
-    size_t output_len = 0;
-    {
-        std::lock_guard<std::mutex> lock(loaded.mutex);
-        loaded.entry(input, input_len, &output, &output_len);
-    }
-    std::vector<uint8_t> response(output, output + output_len);
-    loaded.free(output);
-    return response;
-}
-
-Napi::Uint8Array input_arg(const Napi::CallbackInfo& info)
-{
-    if (info.Length() != 1 || !info[0].IsTypedArray() ||
-        info[0].As<Napi::TypedArray>().TypedArrayType() != napi_uint8_array) {
-        throw Napi::TypeError::New(info.Env(), "expected one Uint8Array argument");
-    }
-    return info[0].As<Napi::Uint8Array>();
-}
-
-class CallWorker : public Napi::AsyncWorker {
-  public:
-    CallWorker(Napi::Env env, std::shared_ptr<FfiLibrary::Loaded> loaded, const Napi::Uint8Array& input)
-        : Napi::AsyncWorker(env)
-        , deferred_(Napi::Promise::Deferred::New(env))
-        , loaded_(std::move(loaded))
-        , input_(input.Data(), input.Data() + input.ByteLength())
-    {}
-
-    Napi::Promise promise() const { return deferred_.Promise(); }
-
-    void Execute() override { response_ = run_entry(*loaded_, input_.data(), input_.size()); }
-
-    void OnOK() override { deferred_.Resolve(Napi::Buffer<uint8_t>::Copy(Env(), response_.data(), response_.size())); }
-
-    void OnError(const Napi::Error& error) override { deferred_.Reject(error.Value()); }
-
-  private:
-    Napi::Promise::Deferred deferred_;
-    std::shared_ptr<FfiLibrary::Loaded> loaded_;
-    // Copied: the caller's buffer may be reused or collected before the worker runs.
-    std::vector<uint8_t> input_;
-    std::vector<uint8_t> response_;
-};
 
 /** Holds an instance for JS; destroyInstance ends it, and collection ends it if that never ran. */
 struct Instance {
@@ -255,33 +200,9 @@ FfiLibrary::FfiLibrary(const Napi::CallbackInfo& info)
     }
 }
 
-Napi::Value FfiLibrary::call(const Napi::CallbackInfo& info)
-{
-    Napi::Uint8Array input = input_arg(info);
-    std::vector<uint8_t> response = run_entry(*loaded_, input.Data(), input.ByteLength());
-    return Napi::Buffer<uint8_t>::Copy(info.Env(), response.data(), response.size());
-}
-
-Napi::Value FfiLibrary::call_async(const Napi::CallbackInfo& info)
-{
-    Napi::Uint8Array input = input_arg(info);
-    auto* worker = new CallWorker(info.Env(), loaded_, input);
-    Napi::Promise promise = worker->promise();
-    worker->Queue(); // the worker deletes itself once it has settled the promise
-    return promise;
-}
-
-Napi::Value FfiLibrary::has_instances(const Napi::CallbackInfo& info)
-{
-    return Napi::Boolean::New(info.Env(), loaded_->create != nullptr);
-}
-
 Napi::Value FfiLibrary::create_instance(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
-    if (loaded_->create == nullptr) {
-        throw Napi::Error::New(env, name_ + ": the library does not export FFI instances");
-    }
     void* handle = loaded_->create();
     if (handle == nullptr) {
         throw Napi::Error::New(env, name_ + ": the service failed to create an instance");
@@ -341,9 +262,6 @@ Napi::Function FfiLibrary::get_class(Napi::Env env)
     return DefineClass(env,
                        "FfiLibrary",
                        {
-                           InstanceMethod("call", &FfiLibrary::call),
-                           InstanceMethod("callAsync", &FfiLibrary::call_async),
-                           InstanceMethod("hasInstances", &FfiLibrary::has_instances),
                            InstanceMethod("createInstance", &FfiLibrary::create_instance),
                            InstanceMethod("callInstance", &FfiLibrary::call_instance),
                            InstanceMethod("destroyInstance", &FfiLibrary::destroy_instance),

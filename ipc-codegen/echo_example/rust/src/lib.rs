@@ -22,7 +22,7 @@ pub use generated::backend;
 pub use generated::echo_types as types_gen;
 pub use generated::error;
 
-// The service as an in-process library: the generated FFI entry over the same
+// The service as an in-process library: the generated FFI exports over the same
 // handler the socket server uses. With `ffi_backend` in the same crate, the
 // generated client can call it without any process (see tests/ffi_roundtrip.rs).
 #[cfg(feature = "ffi")]

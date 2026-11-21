@@ -8,6 +8,7 @@ BB_AVM_SIM_LIBRARY=libbb_avm_sim.so
 BB_AVM_SIM_PACKAGE=@aztec-foundation/bb-avm-sim
 CDB_PACKAGE=@aztec-foundation/cdb
 BB_JS_API_PACKAGE=@aztec-foundation/bb.js-api
+BB_LIBRARY=libbb.so
 WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
 WSDB_REF_LIBRARY=libwsdb_ref.so
 WSDB_REF_BINARY=wsdb-ref
@@ -81,8 +82,10 @@ function generate_bb_js_api_package {
     --binary-env-var BB_BINARY_PATH \
     --strip-method-prefix \
     --strip-type-prefix \
-    --package-transports uds,shm,wasm \
+    --package-transports uds,shm,napi,wasm \
     --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    --package-napi-library "$BB_LIBRARY" \
+    --package-napi-library-env-var BB_NAPI_PATH \
     --package-wasm-module "barretenberg.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" \
     --package-wasm-threads-module "barretenberg-threads.wasm=$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" \
     "$@"
@@ -114,7 +117,7 @@ function generate_wsdb_ref_package {
 CROSS_BUILD_DIRS=(arm64-linux=build-arm64-linux amd64-macos=build-amd64-macos arm64-macos=build-arm64-macos)
 
 # Generates every package. The wasm modules are copied in from their builds, and the native packages' per-platform
-# binaries and libraries (bb, bb-avm-sim and libbb_avm_sim.so, wsdb-ref and libwsdb_ref.so) from the barretenberg/cpp
+# binaries and libraries (bb and libbb.so, bb-avm-sim and libbb_avm_sim.so, wsdb-ref and libwsdb_ref.so) from the barretenberg/cpp
 # build directories given as <platform>=<build dir> arguments; without any, the packages ship no native files (enough for type-checking and lint).
 # --every-platform makes a platform not given an error, as publishing requires.
 function generate_packages {
@@ -127,6 +130,7 @@ function generate_packages {
     platform=${arg%%=*}
     dir=$cpp/${arg#*=}
     bb_js_api+=(--package-native "$platform=$dir/bin/dist/bb")
+    bb_js_api+=(--package-native "$platform:$BB_LIBRARY=$dir/lib/$BB_LIBRARY")
     bb_avm_sim+=(--package-native "$platform=$dir/bin/$BB_AVM_SIM_BINARY")
     bb_avm_sim+=(--package-native "$platform:$BB_AVM_SIM_LIBRARY=$dir/lib/$BB_AVM_SIM_LIBRARY")
     wsdb_ref+=(--package-native "$platform=$dir/bin/$WSDB_REF_BINARY")
@@ -213,7 +217,7 @@ function test_cmds {
       ;;
     wsdb_ref)
       local backend
-      for backend in process-uds process-shm napi wasm; do
+      for backend in process napi wasm; do
         echo "$hash barretenberg/ts/scripts/wsdb_ref_test.sh $backend"
       done
       ;;

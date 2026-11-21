@@ -21,7 +21,7 @@ export function runThreadWorker(side: WorkerSide): void {
             module: msg.module,
             memory: msg.memory,
             env: msg.env,
-            entry: msg.entry,
+            ffiName: msg.ffiName,
             threads: 1,
             runInitialize: false,
             // Only the main instance spawns threads; a request from a thread is refused.

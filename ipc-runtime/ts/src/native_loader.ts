@@ -90,7 +90,7 @@ export interface NativeServiceThread {
 
 /**
  * Load `ipc_runtime_napi.node` and return its native exports
- * (`MsgpackClient`, `MsgpackClientAsync`, `FfiLibrary`, `ServiceThread`). Throws a descriptive
+ * (`MsgpackClient`, `FfiLibrary`, `ServiceThread`). Throws a descriptive
  * error when the addon cannot be located or fails to dlopen.
  */
 export function loadIpcRuntimeNapi(customPath?: string): {
@@ -99,14 +99,10 @@ export function loadIpcRuntimeNapi(customPath?: string): {
     clientId?: number,
     serverPid?: number,
   ) => any;
-  MsgpackClientAsync: new (shmName: string, clientId?: number) => any;
   FfiLibrary: new (
     libraryPath: string,
     ffiName: string,
   ) => {
-    call(input: Uint8Array): Uint8Array;
-    callAsync(input: Uint8Array): Promise<Uint8Array>;
-    hasInstances(): boolean;
     createInstance(): unknown;
     callInstance(
       instance: unknown,

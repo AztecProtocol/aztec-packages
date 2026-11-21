@@ -12,10 +12,10 @@ export interface InstanceOptions {
    */
   spawnThread?: (startArg: number) => number;
   /**
-   * Export taking `(input, input_len, output_out, output_len_out)`. Default: the module's one
-   * export named `<service>_ipc_ffi_entry` (or bare `ipc_ffi_entry`).
+   * The name the module's FFI exports carry (`<ffiName>_ipc_ffi_create`, `_call` and the rest).
+   * Default: the one name under which the module exports `*_ipc_ffi_call`.
    */
-  entry?: string;
+  ffiName?: string;
   /** Call the reactor's `_initialize` after instantiation (main instances only). Default true. */
   runInitialize?: boolean;
   /** Threads this instance may use, for the WASI environ the module reads. Default 1. */
@@ -67,52 +67,51 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 /** The import module a module reaches its host's services through (see `InstanceOptions.hostCall`). */
 export const HOST_CALL_NAMESPACE = "ipc_runtime";
 
-/** Every FFI entry export ends with this; the generated ones are prefixed by their service. */
-export const ENTRY_SUFFIX = "ipc_ffi_entry";
+/** Every FFI call export ends with this; the generated ones are prefixed by their service. */
+export const CALL_SUFFIX = "ipc_ffi_call";
 
-/** Allocator pairs tried after the entry's own `<service>_ipc_ffi_alloc`/`_free`. */
+/** Allocator pairs tried after the module's own `<service>_ipc_ffi_alloc`/`_free`. */
 export const FALLBACK_ALLOCATOR_EXPORTS: Array<[string, string]> = [["malloc", "free"]];
 
 type WasmFn = (...args: number[]) => number;
 
-/** The response pointer and length the entry writes back, ahead of the request in the scratch. */
+/** The response pointer and length the call writes back, ahead of the request in the scratch. */
 const SLOTS_BYTES = 8;
 /** Starting size of the request scratch; it grows to fit and never shrinks. */
 const MIN_SCRATCH_BYTES = 64 * 1024;
 
-/** The entry export to use and the service prefix it carries (`bb_` for `bb_ipc_ffi_entry`). */
-function findEntry(
+/** The prefix the module's FFI exports carry (`bb_` for `bb_ipc_ffi_call`). */
+function findFfiPrefix(
   exports: Record<string, WebAssembly.ExportValue>,
-  wanted?: string,
-): { entry: string; prefix: string } {
-  const prefixOf = (name: string) =>
-    name.endsWith(ENTRY_SUFFIX) ? name.slice(0, -ENTRY_SUFFIX.length) : "";
-  if (wanted) {
-    if (typeof exports[wanted] !== "function") {
-      throw new Error(`wasm module does not export ${wanted}`);
+  ffiName?: string,
+): string {
+  if (ffiName !== undefined) {
+    const prefix = ffiName ? `${ffiName}_` : "";
+    if (typeof exports[`${prefix}${CALL_SUFFIX}`] !== "function") {
+      throw new Error(`wasm module does not export ${prefix}${CALL_SUFFIX}`);
     }
-    return { entry: wanted, prefix: prefixOf(wanted) };
+    return prefix;
   }
   const candidates = Object.keys(exports).filter(
     (name) =>
       typeof exports[name] === "function" &&
-      (name === ENTRY_SUFFIX || name.endsWith(`_${ENTRY_SUFFIX}`)),
+      (name === CALL_SUFFIX || name.endsWith(`_${CALL_SUFFIX}`)),
   );
   if (candidates.length === 0) {
-    throw new Error(`wasm module exports no FFI entry (*_${ENTRY_SUFFIX})`);
+    throw new Error(`wasm module exports no FFI call (*_${CALL_SUFFIX})`);
   }
   if (candidates.length > 1) {
     throw new Error(
-      `wasm module exports several FFI entries (${candidates.join(", ")}); pass \`entry\``,
+      `wasm module exports several FFI services (${candidates.join(", ")}); pass \`ffiName\``,
     );
   }
-  return { entry: candidates[0], prefix: prefixOf(candidates[0]) };
+  return candidates[0].slice(0, -CALL_SUFFIX.length);
 }
 
 /**
  * One instance of an FFI-contract module: imports resolved (WASI shim, wasi-threads),
- * `_initialize` run, and the `<service>_ipc_ffi_entry` call protocol
- * implemented over the module's own allocator.
+ * `_initialize` run, and the `<service>_ipc_ffi_call` protocol on an instance of the service
+ * (made on the first call) implemented over the module's own allocator.
  */
 /**
  * The tail of what the module wrote to stderr during the current call. A module compiled without
@@ -144,9 +143,11 @@ export class WasmInstanceHost {
   private constructor(
     readonly instance: WebAssembly.Instance,
     readonly memory: WebAssembly.Memory,
-    private readonly entry: WasmFn,
-    /** The entry as JSPI's `promising` wraps it, when the instance suspends. */
-    private readonly suspendingEntry:
+    private readonly create: WasmFn | undefined,
+    private readonly ffiCall: WasmFn | undefined,
+    private readonly ffiDestroy: WasmFn | undefined,
+    /** The call as JSPI's `promising` wraps it, when the instance suspends. */
+    private readonly suspendingCall:
       | ((...args: number[]) => Promise<unknown>)
       | undefined,
     private readonly alloc: WasmFn,
@@ -232,7 +233,13 @@ export class WasmInstanceHost {
     ) {
       (exports._initialize as () => void)();
     }
-    const { entry, prefix } = findEntry(exports, opts.entry);
+    const prefix = findFfiPrefix(exports, opts.ffiName);
+    const ffiFn = (name: string) =>
+      typeof exports[`${prefix}${name}`] === "function"
+        ? (exports[`${prefix}${name}`] as WasmFn)
+        : undefined;
+    const create = ffiFn("ipc_ffi_create");
+    const ffiCall = ffiFn(CALL_SUFFIX);
     const allocatorExports: Array<[string, string]> = [
       [`${prefix}ipc_ffi_alloc`, `${prefix}ipc_ffi_free`],
       ...FALLBACK_ALLOCATOR_EXPORTS,
@@ -251,8 +258,10 @@ export class WasmInstanceHost {
     self = new WasmInstanceHost(
       instance,
       memory,
-      exports[entry] as WasmFn,
-      suspend?.promising(exports[entry] as WasmFn),
+      create,
+      ffiCall,
+      ffiFn("ipc_ffi_destroy"),
+      ffiCall && suspend?.promising(ffiCall),
       exports[pair[0]] as WasmFn,
       exports[pair[1]] as WasmFn,
       logger,
@@ -402,8 +411,51 @@ export class WasmInstanceHost {
 
   /** Whether this instance suspends on host calls, and so is called through `callAsync`. */
   get suspends(): boolean {
-    return this.suspendingEntry !== undefined;
+    return this.suspendingCall !== undefined;
   }
+
+  /** The service instance calls run on, made on the first: a thread's module instance never needs one. */
+  private handle = 0;
+
+  private serviceInstance(): number {
+    if (this.handle === 0) {
+      if (!this.create) {
+        throw new Error("wasm module exports no FFI create");
+      }
+      let handle: number;
+      try {
+        handle = this.create() >>> 0;
+      } catch (cause) {
+        throw this.explain(cause);
+      }
+      if (handle === 0) {
+        throw new Error(this.stderr.text() || "the wasm service failed to create an instance");
+      }
+      this.handle = handle;
+    }
+    return this.handle;
+  }
+
+  /**
+   * End the service instance, if a call made one, so its destructors run as a native instance's do.
+   * Skipped while a call is in progress (the instance is still in use) or after a trap, which can
+   * leave the module unable to run them; the module instance is dropped either way.
+   */
+  destroy(): void {
+    const handle = this.handle;
+    this.handle = 0;
+    if (handle === 0 || this.inCall || this.trapped || !this.ffiDestroy) {
+      return;
+    }
+    try {
+      this.ffiDestroy(handle);
+    } catch (cause) {
+      this.logger(`wasm service instance did not end cleanly: ${String(this.explain(cause))}`);
+    }
+  }
+
+  /** Whether a call has trapped: the module's state is then unknown. */
+  private trapped = false;
 
   /**
    * One FFI round trip: request bytes in, a copy of the response bytes out. The request is placed
@@ -411,16 +463,18 @@ export class WasmInstanceHost {
    * module's own free, as the FFI contract requires.
    */
   call(input: Uint8Array): Uint8Array {
-    if (this.suspendingEntry) {
+    if (this.suspendingCall) {
       throw new Error(
         "this wasm instance suspends on host calls; call it with callAsync",
       );
     }
+    const instance = this.serviceInstance();
     const slots = this.begin(input);
     try {
-      this.entry(slots + SLOTS_BYTES, input.length, slots, slots + 4);
+      this.ffiCall!(instance, slots + SLOTS_BYTES, input.length, slots, slots + 4);
     } catch (cause) {
       this.inCall = false;
+      this.trapped = true;
       throw this.explain(cause);
     }
     return this.finish(slots);
@@ -428,12 +482,14 @@ export class WasmInstanceHost {
 
   /** `call`, for an instance that suspends on host calls: it settles once the module returns. */
   async callAsync(input: Uint8Array): Promise<Uint8Array> {
-    if (!this.suspendingEntry) {
+    if (!this.suspendingCall) {
       return this.call(input);
     }
+    const instance = this.serviceInstance();
     const slots = this.begin(input);
     try {
-      await this.suspendingEntry(
+      await this.suspendingCall(
+        instance,
         slots + SLOTS_BYTES,
         input.length,
         slots,
@@ -441,6 +497,7 @@ export class WasmInstanceHost {
       );
     } catch (cause) {
       this.inCall = false;
+      this.trapped = true;
       throw this.explain(cause);
     }
     return this.finish(slots);

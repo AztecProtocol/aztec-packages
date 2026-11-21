@@ -55,7 +55,7 @@ function test_cmds {
 }
 
 function bench_cmds {
-  echo "$hash:CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
+  echo "$hash:CPUS=4 BENCH_OUTPUT=bench-out/poseidon2.bench.json barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
 }
 
 function test {

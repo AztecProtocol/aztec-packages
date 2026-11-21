@@ -4,14 +4,15 @@
 #include "wsdb/wsdb_handlers.hpp"
 #include "wsdb/wsdb_scheduler.hpp"
 
-#include <CLI/CLI.hpp>
+#include <msgpack.hpp>
+
 #include <algorithm>
 #include <condition_variable>
 #include <cstdint>
 #include <iostream>
 #include <mutex>
 #include <optional>
-#include <sstream>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -22,42 +23,94 @@ namespace azteclabs::wsdb {
 using namespace azteclabs::wsdb::world_state;
 using namespace azteclabs::wsdb::merkle_tree;
 
-/** Parses the map sizes option, "{0:1024,1:2048,...}". */
-static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
+namespace {
+
+uint64_t as_uint(const msgpack::object& value, const char* field)
 {
-    std::unordered_map<world_state::MerkleTreeId, uint64_t> result;
-    if (json.empty()) {
-        return result;
+    if (value.type != msgpack::type::POSITIVE_INTEGER) {
+        throw std::invalid_argument(std::string("aztec-wsdb Init options: ") + field +
+                                    " must be a non-negative integer");
     }
-    std::string cleaned;
-    for (char c : json) {
-        if (c != '{' && c != '}' && c != ' ') {
-            cleaned += c;
+    return value.via.u64;
+}
+
+} // namespace
+
+WsdbOptions WsdbOptions::decode(const std::optional<std::vector<uint8_t>>& options)
+{
+    if (!options.has_value() || options->empty()) {
+        throw std::invalid_argument("aztec-wsdb needs Init options with its dataDir");
+    }
+    msgpack::object_handle handle;
+    try {
+        handle = msgpack::unpack(reinterpret_cast<const char*>(options->data()), options->size());
+    } catch (const std::exception& e) {
+        throw std::invalid_argument(std::string("aztec-wsdb Init options are not msgpack: ") + e.what());
+    }
+    const msgpack::object& root = handle.get();
+    if (root.type != msgpack::type::MAP) {
+        throw std::invalid_argument("aztec-wsdb Init options must be a map");
+    }
+    WsdbOptions result;
+    bool has_data_dir = false;
+    for (const auto& entry : std::span(root.via.map.ptr, root.via.map.size)) {
+        if (entry.key.type != msgpack::type::STR) {
+            throw std::invalid_argument("aztec-wsdb Init options: keys must be strings");
+        }
+        std::string key(entry.key.via.str.ptr, entry.key.via.str.size);
+        const msgpack::object& value = entry.val;
+        if (key == "dataDir") {
+            if (value.type != msgpack::type::STR || value.via.str.size == 0) {
+                throw std::invalid_argument("aztec-wsdb Init options: dataDir must be a non-empty string");
+            }
+            result.data_dir.assign(value.via.str.ptr, value.via.str.size);
+            has_data_dir = true;
+        } else if (key == "threads") {
+            uint64_t threads = as_uint(value, "threads");
+            if (threads == 0 || threads > UINT32_MAX) {
+                throw std::invalid_argument("aztec-wsdb Init options: threads must be positive");
+            }
+            result.threads = static_cast<uint32_t>(threads);
+        } else if (key == "mapSizes") {
+            if (value.type != msgpack::type::ARRAY) {
+                throw std::invalid_argument("aztec-wsdb Init options: mapSizes must be an array");
+            }
+            for (const auto& item : std::span(value.via.array.ptr, value.via.array.size)) {
+                if (item.type != msgpack::type::MAP) {
+                    throw std::invalid_argument("aztec-wsdb Init options: mapSizes holds { treeId, sizeKb } maps");
+                }
+                std::optional<uint64_t> tree_id;
+                std::optional<uint64_t> size_kb;
+                for (const auto& field : std::span(item.via.map.ptr, item.via.map.size)) {
+                    std::string name = field.key.type == msgpack::type::STR
+                                           ? std::string(field.key.via.str.ptr, field.key.via.str.size)
+                                           : std::string();
+                    if (name == "treeId") {
+                        tree_id = as_uint(field.val, "mapSizes.treeId");
+                    } else if (name == "sizeKb") {
+                        size_kb = as_uint(field.val, "mapSizes.sizeKb");
+                    } else {
+                        throw std::invalid_argument("aztec-wsdb Init options: mapSizes holds { treeId, sizeKb } maps");
+                    }
+                }
+                if (!tree_id.has_value() || !size_kb.has_value()) {
+                    throw std::invalid_argument("aztec-wsdb Init options: mapSizes holds { treeId, sizeKb } maps");
+                }
+                result.map_sizes[from_wire<MerkleTreeId>(static_cast<uint32_t>(*tree_id))] = *size_kb;
+            }
+        } else {
+            throw std::invalid_argument("aztec-wsdb Init options: unknown option " + key);
         }
     }
-    std::istringstream ss(cleaned);
-    std::string pair;
-    while (std::getline(ss, pair, ',')) {
-        auto colon_pos = pair.find(':');
-        if (colon_pos != std::string::npos) {
-            auto key = static_cast<world_state::MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
-            auto value = static_cast<uint64_t>(std::stoull(pair.substr(colon_pos + 1)));
-            result[key] = value;
-        }
+    if (!has_data_dir) {
+        throw std::invalid_argument("aztec-wsdb Init options: dataDir is required");
     }
     return result;
 }
 
-void add_wsdb_config_options(CLI::App& app, WsdbConfig& config)
-{
-    app.add_option("-d,--data-dir", config.data_dir, "Data directory for LMDB stores")->required();
-    app.add_option("--map-sizes", config.map_sizes_json, "LMDB map sizes in KB as JSON: {0:1024,...}");
-    app.add_option("-t,--threads", config.threads, "Thread pool size (default: 16)")->check(CLI::PositiveNumber);
-}
-
 namespace {
 
-std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const wire::WsdbInit& init)
+std::unique_ptr<WorldState> make_world_state(const WsdbOptions& options, const wire::WsdbInit& init)
 {
     const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
     std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
@@ -67,8 +120,8 @@ std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const wir
         { world_state::MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
         { world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
     };
-    for (const auto& [k, v] : parse_tree_uint64_map(config.map_sizes_json)) {
-        map_size[k] = v;
+    for (const auto& [tree, size] : options.map_sizes) {
+        map_size[tree] = size;
     }
     std::unordered_map<MerkleTreeId, uint32_t> tree_heights;
     for (const auto& height : init.treeHeights) {
@@ -78,9 +131,9 @@ std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const wir
     for (const auto& prefill : init.treePrefill) {
         tree_prefill[from_wire<MerkleTreeId>(prefill.treeId)] = static_cast<index_t>(prefill.size);
     }
-    std::cerr << "Creating WorldState at " << config.data_dir << " with " << config.threads << " threads" << '\n';
-    return std::make_unique<WorldState>(config.threads,
-                                        config.data_dir,
+    std::cerr << "Creating WorldState at " << options.data_dir << " with " << options.threads << " threads" << '\n';
+    return std::make_unique<WorldState>(options.threads,
+                                        options.data_dir,
                                         map_size,
                                         tree_heights,
                                         tree_prefill,
@@ -92,23 +145,26 @@ std::unique_ptr<WorldState> make_world_state(const WsdbConfig& config, const wir
 
 } // namespace
 
-WsdbService::WsdbService(const WsdbConfig& config, std::function<bool()> has_pending_request)
-    : config_(config)
-    // Sized from the caller-provided `threads` budget, NOT std::thread::hardware_concurrency(): the latter ignores
-    // cgroup CPU limits and reports the host core count (e.g. 192 in a 2-CPU CI container), which would spawn a huge
-    // pool per wsdb process and exhaust the per-UID thread limit (pthread_create EAGAIN).
-    , dispatch_pool_(std::make_unique<ThreadPool>(std::max<uint32_t>(2, config.threads)))
-    // Server-side ordering: the database, not the client, guarantees per-fork read/write consistency. Each handler
-    // hands its work to the scheduler via schedule_read / schedule_write, which run reads concurrently and serialize
-    // writes per fork.
-    , scheduler_(std::make_shared<WsdbScheduler>(*dispatch_pool_, std::move(has_pending_request)))
+WsdbService::WsdbService()
 {
-    request_.scheduler = scheduler_.get();
     request_.init = [this](wire::WsdbInit&& init) {
+        // Init may race another Init from a second caller thread; only one may create the world state.
+        std::lock_guard<std::mutex> lock(init_mutex_);
         if (world_state_) {
             throw std::runtime_error("aztec-wsdb already has a world state: Init is sent once");
         }
-        world_state_ = make_world_state(config_, init);
+        auto options = WsdbOptions::decode(init.options);
+        auto world_state = make_world_state(options, init);
+        // Sized from the caller-provided `threads` budget, NOT std::thread::hardware_concurrency(): the latter
+        // ignores cgroup CPU limits and reports the host core count (e.g. 192 in a 2-CPU CI container), which would
+        // spawn a huge pool per wsdb and exhaust the per-UID thread limit (pthread_create EAGAIN).
+        dispatch_pool_ = std::make_unique<ThreadPool>(std::max<uint32_t>(2, options.threads));
+        // Server-side ordering: the database, not the client, guarantees per-fork read/write consistency. Each
+        // handler hands its work to the scheduler via schedule_read / schedule_write, which run reads concurrently
+        // and serialize writes per fork.
+        scheduler_ = std::make_shared<WsdbScheduler>(*dispatch_pool_, has_pending_request_);
+        world_state_ = std::move(world_state);
+        request_.scheduler_.store(scheduler_.get(), std::memory_order_release);
         request_.world_state_.store(world_state_.get(), std::memory_order_release);
     };
     handler_ = make_wsdb_handler(request_);
@@ -134,6 +190,11 @@ std::vector<uint8_t> WsdbService::call(std::span<const uint8_t> request)
     std::unique_lock<std::mutex> lock(mutex);
     cv.wait(lock, [&] { return response.has_value(); });
     return std::move(*response);
+}
+
+std::unique_ptr<Service> make_service()
+{
+    return std::make_unique<WsdbService>();
 }
 
 } // namespace azteclabs::wsdb

@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
-# wsdb-ref (the reference world state behind its FFI entry, wsdb_ref_ipc_ffi_entry) and barretenberg's
+# wsdb-ref (the reference world state behind its FFI, wsdb_ref_ipc_ffi_*) and barretenberg's
 # poseidon2 C bindings, as a static library a downstream project builds from source with its own
 # toolchain: add it with FetchContent (or add_subdirectory) and link `wsdb_ref`. It compiles only the
 # barretenberg sources those need, and none of barretenberg's own CMake.
 #
-# Its interface is C: wsdb_ref_ipc_ffi_entry/_alloc/_free and bb_poseidon2_hash{,_pair_with_separator}.
+# Its interface is C: wsdb_ref_ipc_ffi_create/_call/_destroy/_alloc/_free and bb_poseidon2_hash{,_pair_with_separator}.
 # The C++ behind it is linked with the consumer's, so both must use the same msgpack-c: this declares
 # it under FetchContent's name `msgpack`, and the first declaration in a build wins.
 project(wsdb_ref CXX)
@@ -48,7 +48,7 @@ add_custom_command(
             --schema ${schema} --lang cpp --out ${gen_dir} --server --ffi --ffi-name wsdb_ref
             --cpp-namespace bb::wsdb_ref --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${schema} ${ipc_codegen_inputs}
-    COMMENT "Generating the wsdb-ref dispatch and FFI entry from wsdb_schema.jsonc"
+    COMMENT "Generating the wsdb-ref dispatch and FFI from wsdb_schema.jsonc"
     VERBATIM)
 
 add_library(wsdb_ref STATIC

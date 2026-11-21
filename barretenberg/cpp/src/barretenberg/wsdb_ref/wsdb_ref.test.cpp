@@ -56,13 +56,20 @@ wire::Fr bytes_of_fr(const fr& value)
     return w;
 }
 
-/** Call a service through the generated in-process FFI entry: the path the napi and wasm transports take. */
+/** The FFI instance the tests share. */
+void* ffi_instance()
+{
+    static void* instance = wsdb_ref_ipc_ffi_create();
+    return instance;
+}
+
+/** Call a service through the generated in-process FFI: the path the napi and wasm transports take. */
 template <typename Resp> Result<Resp> call_ffi(const char* name, const auto& cmd, const char* expected)
 {
     auto request = encode_request(name, cmd);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ref_ipc_ffi_entry(request.data(), request.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_call(ffi_instance(), request.data(), request.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
     wsdb_ref_ipc_ffi_free(output);
     return decode_response<Resp>(frame, expected);
@@ -93,13 +100,13 @@ wire::WsdbInit test_genesis_init()
     return init;
 }
 
-/** A fresh service instance at the test genesis, called through the generated dispatch, independent of the
- * FFI's shared state. */
-struct Service {
-    WsdbRefContext ctx;
-    AsyncDispatchHandler handler = make_wsdb_handler(ctx);
+/** A fresh service instance at the test genesis, made by the service's factory and called through its dispatch,
+ * independent of the FFI's shared state. */
+struct TestService {
+    std::unique_ptr<Service> service = make_service();
+    AsyncDispatchHandler& handler = service->dispatcher();
 
-    Service()
+    TestService()
     {
         auto init = call<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse");
         EXPECT_TRUE(std::holds_alternative<wire::WsdbInitResponse>(init));
@@ -142,7 +149,7 @@ fr fr_of(const auto& w)
     return fr::serialize_from_buffer(w.data());
 }
 
-/** Init the FFI entry's shared world state at the test genesis (a later Init restarts it). */
+/** Init the FFI instance's world state at the test genesis (a later Init restarts it). */
 void init_ffi()
 {
     ok(call_ffi<wire::WsdbInitResponse>("WsdbInit", test_genesis_init(), "WsdbInitResponse"));
@@ -193,7 +200,8 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
     pk.pack_map(0);
     uint8_t* output = nullptr;
     size_t output_len = 0;
-    wsdb_ref_ipc_ffi_entry(reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
+    wsdb_ref_ipc_ffi_call(
+        ffi_instance(), reinterpret_cast<const uint8_t*>(buf.data()), buf.size(), &output, &output_len);
     std::vector<uint8_t> frame(output, output + output_len);
     wsdb_ref_ipc_ffi_free(output);
     EXPECT_EQ(error_of(decode_response<wire::WsdbGetTreeInfoResponse>(frame, "")),
@@ -208,7 +216,7 @@ TEST(WsdbRef, FfiEntryAnswersBadRequestsWithErrors)
 
 TEST(WsdbRef, ForksAndHistoryOverTheWire)
 {
-    Service service;
+    TestService service;
     auto fork = ok(service.call<wire::WsdbCreateForkResponse>(
         "WsdbCreateFork", wire::WsdbCreateFork{ .latest = true, .blockNumber = 0 }, "WsdbCreateForkResponse"));
     EXPECT_EQ(fork.forkId, 1);
@@ -260,7 +268,7 @@ TEST(WsdbRef, ForksAndHistoryOverTheWire)
 
 TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
 {
-    Service service;
+    TestService service;
     auto heights = protocol_tree_heights();
     heights[1].height = 3;
     ok(service.call<wire::WsdbInitResponse>(
@@ -312,9 +320,25 @@ TEST(WsdbRef, InitSetsTreeHeightsAndInitialSizes)
               std::string::npos);
 }
 
+TEST(WsdbRef, InitRefusesOptions)
+{
+    TestService service;
+    auto error = error_of(service.call<wire::WsdbInitResponse>(
+        "WsdbInit",
+        wire::WsdbInit{ .treeHeights = protocol_tree_heights(),
+                        .treePrefill = { { .treeId = 0, .size = 128 }, { .treeId = 2, .size = 128 } },
+                        .prefilledPublicData = {},
+                        .prefilledNullifiers = {},
+                        .genesisTimestamp = 0,
+                        .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH),
+                        .options = std::vector<uint8_t>{ 0x80 } },
+        "WsdbInitResponse"));
+    EXPECT_NE(error.find("takes no Init options"), std::string::npos) << error;
+}
+
 TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 {
-    Service service;
+    TestService service;
     auto nullifier_root = [&]() {
         auto info = ok(service.call<wire::WsdbGetTreeInfoResponse>(
             "WsdbGetTreeInfo",
@@ -346,7 +370,7 @@ TEST(WsdbRef, ASecondInitRestartsAtTheGivenGenesis)
 
 TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
 {
-    Service service;
+    TestService service;
     const fr nullifier(0xabcdef);
     auto inserted = ok(service.call<wire::WsdbSequentialInsertNullifierResponse>(
         "WsdbSequentialInsertNullifier",
@@ -384,7 +408,7 @@ TEST(WsdbRef, InsertsNullifiersWithWitnessesAndRejectsDuplicates)
 
 TEST(WsdbRef, UpdateArchiveChecksTheBlockState)
 {
-    Service service;
+    TestService service;
     ok(service.call<wire::WsdbAppendLeavesResponse>(
         "WsdbAppendLeaves",
         wire::WsdbAppendLeaves{ .treeId = 1, .leaves = { bytes_of<wire::Fr>(fr(42)) }, .forkId = 0 },

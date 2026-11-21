@@ -43,14 +43,14 @@ template <typename Resp, typename Fn> std::function<void()> wrap(Responder<Resp>
 template <typename Resp, typename Fn>
 void schedule_read(WsdbRequest& ctx, uint64_t fork, bool committed, Responder<Resp> respond, Fn&& logic)
 {
-    ctx.scheduler->submit_read(fork, committed, detail::wrap(std::move(respond), std::forward<Fn>(logic)));
+    ctx.scheduler().submit_read(fork, committed, detail::wrap(std::move(respond), std::forward<Fn>(logic)));
 }
 
 /** @brief Run a write on `fork` (exclusive on that fork) and respond. */
 template <typename Resp, typename Fn>
 void schedule_write(WsdbRequest& ctx, uint64_t fork, Responder<Resp> respond, Fn&& logic)
 {
-    ctx.scheduler->submit_write(fork, detail::wrap(std::move(respond), std::forward<Fn>(logic)));
+    ctx.scheduler().submit_write(fork, detail::wrap(std::move(respond), std::forward<Fn>(logic)));
 }
 
 } // namespace azteclabs::wsdb

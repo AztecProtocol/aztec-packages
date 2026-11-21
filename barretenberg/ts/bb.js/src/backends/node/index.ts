@@ -37,39 +37,31 @@ export async function createAsyncBackend(
         // If threads not set use num cpu cores, max 16.
         threads: options.threads ?? Math.min(16, os.cpus().length),
         logger: options.logger,
-        process: { binaryPath: options.bbPath, transport: 'uds', respawn: options.respawn, ...BB_PROCESS_LIFETIME },
+        process: { binaryPath: options.bbPath, respawn: options.respawn, ...BB_PROCESS_LIFETIME },
       });
 
     case BackendType.NativeSharedMemory:
-      logger('Using native shared memory async backend');
+      throw new Error(
+        'NativeSharedMemory is the synchronous transport: use it with BarretenbergSync, or NativeUnixSocket with Barretenberg',
+      );
+
+    case BackendType.Napi:
+      logger('Using napi backend (an instance of the bb library on a native thread)');
       return await createBackend({
-        backend: 'process',
-        threads: options.threads ?? 16,
+        backend: 'napi',
         logger: options.logger,
-        process: {
-          binaryPath: options.bbPath,
-          transport: 'shm',
-          clientId: 0,
-          napiPath: options.napiPath,
-          extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`, '--response-ring-size', `${SHM_RING_SIZE}`],
-          ...BB_PROCESS_LIFETIME,
-        },
+        napi: { libraryPath: options.napiLibraryPath },
       });
 
     case BackendType.Wasm:
-    case BackendType.WasmWorker: {
-      // WasmWorker hosts the module in a worker thread; Wasm runs it on the calling thread, where
-      // every call blocks until bb returns.
-      const worker = type === BackendType.WasmWorker;
-      logger(`Using WASM backend (worker: ${worker})`);
+      logger('Using WASM backend (on a worker)');
       return await createBackend({
         backend: 'wasm',
         threads: options.threads,
         logger: options.logger,
         unref: options.unref,
-        wasm: { module: wasmPath, memory: options.memory, worker },
+        wasm: { module: wasmPath, memory: options.memory },
       });
-    }
 
     default:
       throw new Error(`Unknown backend type: ${type}`);
@@ -96,11 +88,18 @@ export async function createSyncBackend(
         logger: options.logger,
         process: {
           binaryPath: options.bbPath,
-          transport: 'shm',
           napiPath: options.napiPath,
           extraArgs: ['--request-ring-size', `${SHM_RING_SIZE}`],
           ...BB_PROCESS_LIFETIME,
         },
+      });
+
+    case BackendType.Napi:
+      logger('Using napi backend (an instance of the bb library on the calling thread)');
+      return await createBackendSync({
+        backend: 'napi',
+        logger: options.logger,
+        napi: { libraryPath: options.napiLibraryPath },
       });
 
     case BackendType.Wasm:

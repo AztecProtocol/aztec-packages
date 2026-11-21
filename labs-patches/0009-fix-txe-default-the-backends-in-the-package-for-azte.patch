@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 21:24:56 +0000
+Subject: [PATCH] fix(txe): default the backends in the package, for aztec
+ start --txe
+
+createTXERpcServer takes the backends as an optional argument defaulting to
+DEFAULT_TXE_BACKENDS, so the aztec CLI's TXE starts as before and the bin's
+--backends flag falls back to the same default.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/txe/src/backends.ts b/yarn-project/txe/src/backends.ts
+index 3220d17fb965caf0cb3194c8c3ea3ef4e8ce5411..b56b2099d9126443f18285befa6b7a8481ba70bc 100644
+--- a/yarn-project/txe/src/backends.ts
++++ b/yarn-project/txe/src/backends.ts
+@@ -11,6 +11,9 @@ export type TXEBackends = 'wasm' | 'process' | 'napi';
+ 
+ export const TXE_BACKENDS: readonly TXEBackends[] = ['wasm', 'process', 'napi'];
+ 
++/** Where the TXE runs its services when its entry point does not choose. */
++export const DEFAULT_TXE_BACKENDS: TXEBackends = 'wasm';
++
+ export function parseTXEBackends(value: string): TXEBackends {
+   if (!(TXE_BACKENDS as readonly string[]).includes(value)) {
+     throw new Error(`Unknown TXE backends '${value}' (expected ${TXE_BACKENDS.join(', ')})`);
+diff --git a/yarn-project/txe/src/bin/index.ts b/yarn-project/txe/src/bin/index.ts
+index 8224b26b5458205f9a89ff4acc30badcd0a5931b..70618a406735707f0ff8b2424bfde2a37595e1e6 100644
+--- a/yarn-project/txe/src/bin/index.ts
++++ b/yarn-project/txe/src/bin/index.ts
+@@ -3,7 +3,7 @@ import { getEnv } from '@aztec-labs/foundation/config/env';
+ import { startHttpRpcServer } from '@aztec-labs/foundation/json-rpc/server';
+ import { createLogger } from '@aztec-labs/foundation/log';
+ 
+-import { type TXEBackends, parseTXEBackends } from '../backends.js';
++import { DEFAULT_TXE_BACKENDS, type TXEBackends, parseTXEBackends } from '../backends.js';
+ import { createTXERpcServer } from '../rpc_server.js';
+ 
+ // Cap the native world-state thread pool before any import touches @aztec-labs/world-state.
+@@ -16,14 +16,10 @@ import { createTXERpcServer } from '../rpc_server.js';
+ // eslint-disable-next-line no-restricted-properties -- sets a variable of the Node.js process
+ process.env.HARDWARE_CONCURRENCY ??= '2';
+ 
+-/**
+- * Where the TXE runs bb, the world state and the AVM, unless `--backends <wasm|process|napi>` says otherwise.
+- */
+-const DEFAULT_BACKENDS: TXEBackends = 'wasm';
+-
++/** Where the TXE runs bb, the world state and the AVM: `--backends <wasm|process|napi>`, else the default. */
+ function backendsFromArgs(argv: string[]): TXEBackends {
+   const i = argv.indexOf('--backends');
+-  return i === -1 ? DEFAULT_BACKENDS : parseTXEBackends(argv[i + 1] ?? '');
++  return i === -1 ? DEFAULT_TXE_BACKENDS : parseTXEBackends(argv[i + 1] ?? '');
+ }
+ 
+ /**
+diff --git a/yarn-project/txe/src/rpc_server.ts b/yarn-project/txe/src/rpc_server.ts
+index 1fc3af2247be3e685a438cdee4b2f44b5687228c..fe3c2208e4f7dc5bcb071dee23b590ad21ed8745 100644
+--- a/yarn-project/txe/src/rpc_server.ts
++++ b/yarn-project/txe/src/rpc_server.ts
+@@ -3,7 +3,7 @@ import { createSafeJsonRpcServer } from '@aztec-labs/foundation/json-rpc/server'
+ import type { Logger } from '@aztec-labs/foundation/log';
+ import type { Socket } from 'node:net';
+ 
+-import { type TXEBackends, initBarretenbergSingletons } from './backends.js';
++import { DEFAULT_TXE_BACKENDS, type TXEBackends, initBarretenbergSingletons } from './backends.js';
+ import { TXEDispatcherPool, buildSharedContractStore } from './dispatcher_pool.js';
+ import { TXEDispatcher, TXEDispatcherApiSchema } from './index.js';
+ 
+@@ -28,7 +28,7 @@ type TaggedSocket = Socket & { [SESSION_SYMBOL]?: number };
+  *
+  * Lives in its own module so the worker bundle does not pull in the HTTP server stack.
+  */
+-export async function createTXERpcServer(logger: Logger, backends: TXEBackends) {
++export async function createTXERpcServer(logger: Logger, backends: TXEBackends = DEFAULT_TXE_BACKENDS) {
+   // The main thread hashes too: building the shared contract store computes class ids.
+   void initBarretenbergSingletons(backends);
+   const workerCount = Number(getEnv().TXE_WORKERS);

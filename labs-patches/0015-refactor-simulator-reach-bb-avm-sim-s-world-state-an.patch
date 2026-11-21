@@ -1,0 +1,183 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 19:03:07 +0000
+Subject: [PATCH] refactor(simulator): reach bb-avm-sim's world state and
+ contract DB through hostCall
+
+The pool binds the AVM's wsdb and cdb host-call targets for a process
+as it does in-process: the WSDB server by its socket path, and the CDB
+dispatch, which ipc-runtime serves to the process over a socket of its
+own. CdbIpcServer no longer opens a socket. The world state sends Init
+when it creates the aztec-wsdb process (WsdbService.process({ init })).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/simulator/src/public/avm_simulator_pool.ts b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+index 11b60591c8d9d9414e012857bc154f0d39dba473..1dbbc3e005ba9c99b2ff4a97b93fa0b1fb4b113d 100644
+--- a/yarn-project/simulator/src/public/avm_simulator_pool.ts
++++ b/yarn-project/simulator/src/public/avm_simulator_pool.ts
+@@ -32,9 +32,10 @@ export interface AvmSimulatorPoolOptions {
+ export interface AvmProcessSpawnOptions {
+   binaryPath?: string;
+   wsdbIpcPath?: string;
+-  /** The CDB server's socket, for an AVM in another process. Reading it opens the socket. */
+-  readonly cdbIpcPath: string;
+-  /** The CDB server's dispatch, encoded request to encoded response, for an AVM in this process. */
++  /**
++   * The CDB dispatch, encoded request to encoded response: the AVM's `cdb` host-call target, answered here
++   * whether the AVM runs in this process or in a bb-avm-sim process.
++   */
+   cdb: (request: Uint8Array) => Promise<Uint8Array>;
+   logger?: (msg: string) => void;
+ }
+@@ -158,7 +159,6 @@ export class AvmSimulatorPool implements AvmSimulator {
+     this.slots = [];
+     this.available = [];
+     this.createdCount = 0;
+-    await this.cdbServer.close();
+     this.log.info('AVM simulator pool destroyed');
+   }
+ 
+@@ -295,9 +295,6 @@ export class AvmSimulatorPool implements AvmSimulator {
+         return await this.spawnProcess({
+           binaryPath: this.options.avmBinaryPath,
+           wsdbIpcPath: this.options.wsdbIpcPath,
+-          get cdbIpcPath() {
+-            return cdbServer.ipcPath;
+-          },
+           cdb: request => cdbServer.handle(request),
+           logger: this.options.logger,
+         });
+@@ -322,10 +319,11 @@ class AvmSimulatorProcess implements AvmProcessHandle {
+     if (options.wsdbIpcPath === undefined) {
+       throw new Error("A bb-avm-sim process needs the WSDB server's IPC path (wsdbIpcPath)");
+     }
+-    const service = await AvmService.spawn({
++    const service = await AvmService.process({
+       binaryPath: options.binaryPath,
+       logger: options.logger,
+-      extraArgs: ['--wsdb', options.wsdbIpcPath, '--cdb', options.cdbIpcPath],
++      // The process reaches the WSDB server at its own socket, and the CDB through a socket this process serves.
++      hostCall: { wsdb: options.wsdbIpcPath, cdb: options.cdb },
+       // Each simulation is self-contained (state comes from the WSDB/CDB servers, routed by fork id),
+       // so a fresh process can safely serve the next call after a death.
+       respawn: true,
+diff --git a/yarn-project/simulator/src/public/cdb_ipc_server.ts b/yarn-project/simulator/src/public/cdb_ipc_server.ts
+index f3cd3a0117ee7bf350b1c34c6abe56dfe8993bb1..84174339fa54e45e05c8e9a6830c598f6bb6f272 100644
+--- a/yarn-project/simulator/src/public/cdb_ipc_server.ts
++++ b/yarn-project/simulator/src/public/cdb_ipc_server.ts
+@@ -1,11 +1,10 @@
+ /**
+- * Server for AVM CDB requests.
++ * Server for AVM CDB requests: the AVM's `cdb` host-call target.
+  *
+- * Transport (socket, framing, per-connection response ordering) is handled by the shared
+- * `UdsIpcServer` from `@aztec-foundation/ipc-runtime`; message dispatch comes from the generated CDB
+- * server. This class only implements the generated handler interface and routes requests to
+- * PublicContractsDB instances by fork ID. The socket is only opened once something asks for its path
+- * (a bb-avm-sim process); an AVM in this process reaches the same dispatch through `handle`.
++ * Message dispatch comes from the generated CDB server; this class only implements the generated handler
++ * interface and routes requests to PublicContractsDB instances by fork ID. It has no transport of its own: the AVM
++ * reaches `handle` through its host, in this process or, for a bb-avm-sim process, over the socket ipc-runtime
++ * serves for the target.
+  */
+ import {
+   type CdbAddContracts,
+@@ -27,26 +26,19 @@ import {
+   type CdbRevertCheckpointResponse,
+   handleRequest,
+ } from '@aztec-foundation/cdb';
+-import { UdsIpcServer } from '@aztec-foundation/ipc-runtime';
+ 
+ import { Fr } from '@aztec-labs/foundation/curves/bn254';
+-import { type Logger, createLogger } from '@aztec-labs/foundation/log';
+ import { FunctionSelector } from '@aztec-labs/stdlib/abi';
+ import { AztecAddress } from '@aztec-labs/stdlib/aztec-address';
+ import { ContractDeploymentData, type ContractInstanceWithAddress } from '@aztec-labs/stdlib/contract';
+ import { Buffer } from 'buffer';
+ import { Decoder, Encoder } from 'msgpackr';
+-import * as os from 'node:os';
+-import * as path from 'node:path';
+-import { threadId } from 'node:worker_threads';
+ 
+ import type { PublicContractsDB } from './public_db_sources.js';
+ 
+ const encoder = new Encoder({ useRecords: false });
+ const decoder = new Decoder({ useRecords: false });
+ 
+-let instanceCounter = 0;
+-
+ function toFieldBuffer(field: Fr | AztecAddress): Buffer {
+   return field.toBuffer();
+ }
+@@ -91,32 +83,10 @@ function serializeContractClass(contractClass: {
+ 
+ /** Routes AVM CDB IPC requests to registered PublicContractsDB forks. */
+ export class CdbIpcServer implements CdbHandler {
+-  private path: string | undefined;
+-  private server: Promise<UdsIpcServer> | undefined;
+-  private log: Logger;
+   /** Maps WSDB fork IDs to contracts DB/timestamp pairs for concurrent simulations. */
+   private forks = new Map<number, { db: PublicContractsDB; timestamp: bigint }>();
+ 
+-  constructor() {
+-    this.log = createLogger('cdb-ipc-server');
+-  }
+-
+-  /** The socket a bb-avm-sim process connects to, listening from the first time it is asked for. */
+-  get ipcPath(): string {
+-    if (this.path === undefined) {
+-      const ipcPath = path.join(os.tmpdir(), `cdb-ts-${process.pid}-${threadId}-${instanceCounter++}.sock`);
+-      this.path = ipcPath;
+-      // Listen asynchronously; the C++ AVM retries connecting until the socket is up.
+-      this.server = UdsIpcServer.listen(ipcPath, (_clientId, request) => this.handle(request));
+-      this.server.then(
+-        () => this.log.debug(`CDB IPC server listening on ${ipcPath}`),
+-        err => this.log.error(`CDB IPC server failed to listen on ${ipcPath}`, { err }),
+-      );
+-    }
+-    return this.path;
+-  }
+-
+-  /** One encoded CDB request to its encoded response: what the socket serves, for an AVM in this process. */
++  /** One encoded CDB request to its encoded response. */
+   handle(request: Uint8Array): Promise<Uint8Array> {
+     // As a Buffer, as the socket hands it over: msgpackr decodes nested bytes as Buffers only from a Buffer, and
+     // the contract deployment data parsed from them (Fr and the rest) takes Buffers alone.
+@@ -133,16 +103,6 @@ export class CdbIpcServer implements CdbHandler {
+     this.forks.delete(forkId);
+   }
+ 
+-  /** Close the server and all active connections. */
+-  async close(): Promise<void> {
+-    const server = await this.server?.catch(() => undefined);
+-    await server?.close();
+-  }
+-
+-  async [Symbol.asyncDispose](): Promise<void> {
+-    await this.close();
+-  }
+-
+   /** Look up the contracts DB for a given fork ID, throwing if not registered. */
+   private getFork(forkId: number): { db: PublicContractsDB; timestamp: bigint } {
+     const fork = this.forks.get(forkId);
+diff --git a/yarn-project/world-state/src/native/ipc_world_state_instance.ts b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+index c85b374911591bc57b32ae8725bd013e550756b5..26b152bb5a232c16eae0044d2794f8d0719646ea 100644
+--- a/yarn-project/world-state/src/native/ipc_world_state_instance.ts
++++ b/yarn-project/world-state/src/native/ipc_world_state_instance.ts
+@@ -364,13 +364,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
+     threads: number = getWsdbThreadCount(),
+   ): Promise<IpcWorldState> {
+     const init = getWsdbInit(genesis, encodeAztecWsdbOptions(dataDir, wsTreeMapSizes, threads));
+-    const wsdb = await WsdbService.spawn({ env: { HARDWARE_CONCURRENCY: threads.toString() } });
+-    try {
+-      await wsdb.init(init);
+-    } catch (err) {
+-      await wsdb.destroy();
+-      throw err;
+-    }
++    const wsdb = await WsdbService.process({ env: { HARDWARE_CONCURRENCY: threads.toString() }, init });
+     return new IpcWorldState(wsdb, instrumentation, bindings);
+   }
+ 

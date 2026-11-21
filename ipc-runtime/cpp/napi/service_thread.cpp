@@ -158,10 +158,6 @@ Napi::Value ServiceThread::load(const Napi::CallbackInfo& info)
     } catch (const std::exception& e) {
         throw Napi::Error::New(env, e.what());
     }
-    if (job.loaded->create == nullptr) {
-        throw Napi::Error::New(env,
-                               std::string(info[1].As<Napi::String>()) + ": the library does not export FFI instances");
-    }
     Napi::Object siblings = info[2].As<Napi::Object>();
     Napi::Array names = siblings.GetPropertyNames();
     for (uint32_t i = 0; i < names.Length(); i++) {

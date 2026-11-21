@@ -2,7 +2,7 @@
  * The slice of WASI preview1 an in-process service needs: clocks, randomness, environ/args,
  * stdout/stderr, exit. Every other WASI function the module imports is answered with `ENOSYS`,
  * so linking never fails on a syscall the module carries but never calls (file I/O in a module
- * that gets its inputs over the FFI entry, for instance).
+ * that gets its inputs over the FFI, for instance).
  */
 export const WASI_NAMESPACE = "wasi_snapshot_preview1";
 

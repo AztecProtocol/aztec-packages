@@ -1,7 +1,7 @@
 # wsdb-ref: the in-memory reference world state (world_state_reference) as a service over the node
 # world state's contract, wsdb_schema.jsonc here. wsdb-ref owns the schema: the AVM's wsdb client in
 # vm2_wsdb and native-packages/wsdb's aztec-wsdb are generated from it too. The generated dispatch
-# runs the handlers here; the generated FFI entry (wsdb_ref_ipc_ffi_entry) runs the dispatch in-process.
+# runs the handlers here; the generated FFI (wsdb_ref_ipc_ffi_call) runs the dispatch in-process.
 # The FFI symbols carry this implementation's name, not the schema's service (which names the wire
 # protocol aztec-wsdb serves too), so the two can be linked into one binary.
 # Three artifacts carry it to @aztec-foundation/wsdb-ref (barretenberg/ts/wsdb-ref), one per transport:
@@ -39,12 +39,12 @@ add_custom_command(
             --cpp-namespace bb::wsdb_ref
             --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${WSDB_REF_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating the wsdb-ref dispatch and FFI entry from wsdb_schema.jsonc"
+    COMMENT "Generating the wsdb-ref dispatch and FFI from wsdb_schema.jsonc"
     VERBATIM
 )
 add_custom_target(wsdb_ref_generated DEPENDS ${WSDB_REF_GEN_OUTPUTS})
 
-# Explicit sources: the generated FFI entry is in the build tree, which the module's source glob does
+# Explicit sources: the generated FFI is in the build tree, which the module's source glob does
 # not cover.
 file(GLOB WSDB_REF_TESTS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*.test.cpp)
 barretenberg_module_with_sources(
@@ -61,7 +61,7 @@ endif()
 set_target_properties(wsdb_ref_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if(WASM)
-    # A standard WASI reactor exporting the FFI entry, like barretenberg.wasm: wasi-sdk's reactor
+    # A standard WASI reactor exporting the FFI, like barretenberg.wasm: wasi-sdk's reactor
     # startup provides _initialize, and the module imports nothing but WASI.
     add_executable(
         wsdb-ref-debug.wasm
@@ -81,7 +81,7 @@ else()
     add_dependencies(wsdb-ref wsdb_ref_generated)
     target_link_libraries(wsdb-ref PRIVATE wsdb_ref world_state_reference ipc_runtime)
 
-    # The FFI entry as a plain shared library, for the napi transport: ipc-runtime's Node-API addon
+    # The FFI as a plain shared library, for the napi transport: ipc-runtime's Node-API addon
     # loads it, so it carries no Node-API code. It exports only the entry, so the barretenberg it
     # links stays private to it. Named .so on every platform: dlopen does not care, and the package
     # ships one file name.

@@ -20,7 +20,7 @@
 //! bytes are the host's message saying why.
 //!
 //! Outside wasm there is no host, and every call fails. On wasm32 this needs the `libc` crate, as
-//! the generated FFI entry does.
+//! the generated FFI exports does.
 
 use super::backend::Backend;
 use super::error::{IpcError, Result};

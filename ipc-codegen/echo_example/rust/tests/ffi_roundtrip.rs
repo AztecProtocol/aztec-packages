@@ -1,5 +1,5 @@
 //! In-process round trip: the generated FFI client backend calling this crate's
-//! own generated FFI entry (`export_echo_ffi!` in lib.rs), no process involved,
+//! own generated FFI exports (`export_echo_ffi!` in lib.rs), no process involved,
 //! and instances of it called on several threads at once.
 #![cfg(feature = "ffi")]
 
@@ -41,7 +41,7 @@ extern "C" {
     fn echo_ipc_ffi_free(ptr: *mut u8);
 }
 
-/// A backend over one instance of the crate's own FFI entry (echo_ipc_ffi_create).
+/// A backend over one instance of the crate's own FFI exports (echo_ipc_ffi_create).
 struct InstanceBackend(*mut std::ffi::c_void);
 
 impl echo_wire_compat::backend::Backend for InstanceBackend {

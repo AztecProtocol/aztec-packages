@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 06:33:11 +0000
+Subject: [PATCH] fix(foundation): import Buffer in the poseidon test
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/foundation/src/crypto/poseidon/index.test.ts b/yarn-project/foundation/src/crypto/poseidon/index.test.ts
+index 5fe64694a58f94ab463449e4ca9b8ba462e48d6a..96e11729dfe89a9fad6a1cb56ee318a654e1c4de 100644
+--- a/yarn-project/foundation/src/crypto/poseidon/index.test.ts
++++ b/yarn-project/foundation/src/crypto/poseidon/index.test.ts
+@@ -1,5 +1,7 @@
+ import { BarretenbergSync } from '@aztec-foundation/bb.js';
+ 
++import { Buffer } from 'buffer';
++
+ import { Fr } from '../../curves/bn254/field.js';
+ import {
+   poseidon2AbsorbChain,

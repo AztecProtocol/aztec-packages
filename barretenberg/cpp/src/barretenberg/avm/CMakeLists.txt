@@ -2,10 +2,10 @@
 # @aztec-foundation/bb-avm-sim (barretenberg/ts/bb-avm-sim):
 #   - the bb-avm-sim binary (native builds), served over IPC, reaching world state and contract
 #     data through its wsdb and cdb IPC clients;
-#   - bb-avm-sim.wasm, a WASI reactor (wasm builds) exporting the generated FFI entry
-#     (avm_ipc_ffi_entry), reaching world state and contract data through the same clients over
+#   - bb-avm-sim.wasm, a WASI reactor (wasm builds) exporting the generated FFI
+#     (avm_ipc_ffi_create/_call/...), reaching world state and contract data through the same clients over
 #     its host's ipc_runtime.host_call import (targets "wsdb" and "cdb");
-#   - libbb_avm_sim.so (native builds), the same FFI entry as a plain shared library for the
+#   - libbb_avm_sim.so (native builds), the same FFI as a plain shared library for the
 #     package's napi transport, whose host calls go to the function its loader sets
 #     (avm_ipc_ffi_set_host_call; ipc-runtime's addon answers them in JS).
 set(AVM_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/avm_schema.json)
@@ -42,17 +42,17 @@ add_custom_command(
             --prefix Avm
             --strip-method-prefix
     DEPENDS ${AVM_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating the AVM IPC server and FFI entry from avm_schema.json"
+    COMMENT "Generating the AVM IPC server and FFI from avm_schema.json"
     VERBATIM
 )
 add_custom_target(avm_ipc_generated DEPENDS ${AVM_GEN_OUTPUTS})
 
-# The service as a library over the generated FFI entry, which the wasm reactor exports and the
+# The service as a library over the generated FFI, which the wasm reactor exports and the
 # tests call. The entry is generated into the build tree, which the module's source glob does not cover.
 barretenberg_module_with_sources(
     avm_ffi
     SOURCE_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/avm_ffi_dispatcher.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/avm_service.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/avm_simulate_with_hints.cpp
         ${AVM_GEN_DIR}/avm_ffi.cpp
@@ -72,7 +72,7 @@ if(TARGET avm_ffi_test_objects)
 endif()
 
 if(WASM)
-    # A standard WASI reactor exporting the FFI entry, like barretenberg.wasm: wasi-sdk's reactor
+    # A standard WASI reactor exporting the FFI, like barretenberg.wasm: wasi-sdk's reactor
     # startup provides _initialize, and the module imports nothing but WASI.
     add_executable(
         bb-avm-sim-debug.wasm
@@ -94,7 +94,6 @@ add_executable(
     bb-avm-sim
     main.cpp
     cli.cpp
-    avm_execute.cpp
     avm_ipc_server.cpp
 )
 add_dependencies(bb-avm-sim avm_ipc_generated)
@@ -126,7 +125,7 @@ if(ENABLE_STACKTRACES)
     )
 endif()
 
-# The FFI entry as a plain shared library, for the napi transport, built like wsdb-ref's (see
+# The FFI as a plain shared library, for the napi transport, built like wsdb-ref's (see
 # wsdb_ref/CMakeLists.txt): ipc-runtime's Node-API addon loads it, and it exports only the FFI symbols.
 add_library(bb_avm_sim_ffi SHARED $<TARGET_OBJECTS:avm_ffi_objects>)
 target_link_libraries(bb_avm_sim_ffi PRIVATE vm2_sim wsdb_ipc_merkle_db cdb_ipc_client)
