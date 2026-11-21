@@ -29,9 +29,11 @@ binds it from `hostCall: { oracle }`, the same option for all three:
 
 - process: ipc-runtime serves the target on a socket and starts the binary with
   `--host-call oracle=<path>`. Without it, a program making a foreign call fails with a service error.
-- napi: ipc-runtime passes the library its host-call function (`acvm_ipc_ffi_set_host_call`); the
-  instance's thread waits while the host answers.
-- wasm: the module's `ipc_runtime.host_call` import. JSPI suspends the module while the host answers.
+  The binary serves one request at a time, each foreign call blocking until answered.
+- napi, wasm (and JSI in React Native): the library exports asynchronous instances
+  (`acvm_ipc_ffi_create_async` and the rest), which the host drives. An execution awaits each
+  foreign call; while it waits, the instance takes other requests, so executions overlap on one
+  instance and an oracle may itself execute on the ACVM that called it.
 
 The host may answer asynchronously in all three.
 

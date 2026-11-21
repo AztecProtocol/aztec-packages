@@ -6,7 +6,7 @@ use acir::native_types::Witness;
 use acir::FieldElement;
 use aztec_acvm::{
     abi_decode, abi_decode_error, abi_encode, compress_witness_stack, decompress_witness_stack,
-    execute, Execution,
+    Execution,
 };
 use common::*;
 use serde_json::{json, Value};

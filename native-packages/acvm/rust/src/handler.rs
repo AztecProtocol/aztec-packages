@@ -4,114 +4,96 @@ use acir::brillig::{ForeignCallParam, ForeignCallResult};
 use acir::FieldElement;
 use acvm::pwg::ForeignCallWaitInfo;
 use acvm::AcirField;
+use std::future::Future;
 
 use crate::abi::{self, be32, witness_entries, witness_map};
-use crate::executor::{execute, Execution};
+use crate::executor::{execute, Execution, ForeignCallResolver};
 use crate::generated::acvm::acvm_server::{Handler, Responder};
 use crate::generated::acvm::acvm_types::{
-    AcvmAbiDecode, AcvmDecodeAssertionPayload, AcvmDecodeAssertionPayloadResponse, AcvmAbiDecodeResponse,
-    AcvmAbiEncode, AcvmAbiEncodeResponse, AcvmCompressWitnessStack,
-    AcvmCompressWitnessStackResponse, AcvmDecompressWitnessStack,
+    AcvmAbiDecode, AcvmAbiDecodeResponse, AcvmAbiEncode, AcvmAbiEncodeResponse,
+    AcvmCompressWitnessStack, AcvmCompressWitnessStackResponse, AcvmDecodeAssertionPayload,
+    AcvmDecodeAssertionPayloadResponse, AcvmDecompressWitnessStack,
     AcvmDecompressWitnessStackResponse, AcvmExecuteProgram, AcvmExecuteProgramResponse,
 };
-use crate::generated::acvm::host_call_backend::HostCallBackend;
-use crate::generated::oracle::backend::Backend;
+use crate::generated::acvm::async_host::{spawn, AsyncHostCall};
+use crate::generated::oracle::backend::AsyncBackend;
 use crate::generated::oracle::error::{IpcError, Result as OracleResult};
-use crate::generated::oracle::oracle_client::OracleApi;
+use crate::generated::oracle::oracle_client::OracleAsyncApi;
 use crate::generated::oracle::oracle_types::{Bin32 as OracleBin32, ForeignCallValue};
 
 /// The host-call target the ACVM reaches the Oracle service by.
 pub const ORACLE_HOST_CALL_TARGET: &str = "oracle";
 
-/// The Oracle service at the host's `oracle` target. The acvm module's `HostCallBackend` is the
-/// one whose host-call function the FFI exports and the process routing set.
-pub struct HostOracle(HostCallBackend);
+/// The Oracle service at the host's `oracle` target. On an asynchronous instance (the napi, wasm
+/// and JSI hosts) an execution awaiting it suspends, and the instance takes other requests
+/// meanwhile, one the oracle itself makes back into the ACVM included. Anywhere else (the server
+/// process, the synchronous backends) the call blocks until answered.
+pub struct HostOracle(AsyncHostCall);
 
 impl Default for HostOracle {
     fn default() -> Self {
-        Self(HostCallBackend::new(ORACLE_HOST_CALL_TARGET))
+        Self(AsyncHostCall::new(ORACLE_HOST_CALL_TARGET))
     }
 }
 
-impl Backend for HostOracle {
-    fn call(&mut self, input: &[u8]) -> OracleResult<Vec<u8>> {
-        use crate::generated::acvm::backend::Backend as _;
-        self.0
-            .call(input)
-            .map_err(|e| IpcError::Backend(e.to_string()))
-    }
-
-    fn destroy(&mut self) -> OracleResult<()> {
-        Ok(())
+impl AsyncBackend for HostOracle {
+    fn call(&self, input: Vec<u8>) -> impl Future<Output = OracleResult<Vec<u8>>> {
+        use crate::generated::acvm::backend::AsyncBackend as _;
+        let answer = self.0.call(input);
+        async move { answer.await.map_err(|e| IpcError::Backend(e.to_string())) }
     }
 }
 
-pub struct AcvmHandler<B: Backend = HostOracle> {
-    oracle: OracleApi<B>,
+/// An execution's foreign calls, sent to the Oracle service with the execution's id.
+struct OracleResolver {
+    oracle: OracleAsyncApi<HostOracle>,
+    execution_id: u64,
 }
 
-impl<B: Backend> AcvmHandler<B> {
-    /// A handler whose foreign calls go to `oracle`.
-    pub fn new(oracle: B) -> Self {
-        Self {
-            oracle: OracleApi::new(oracle),
+impl ForeignCallResolver for OracleResolver {
+    fn resolve(
+        &mut self,
+        call: &ForeignCallWaitInfo<FieldElement>,
+    ) -> impl Future<Output = Result<ForeignCallResult<FieldElement>, String>> {
+        let name = call.function.clone();
+        let inputs: Vec<ForeignCallValue> = call.inputs.iter().map(to_wire).collect();
+        async move {
+            let response = self
+                .oracle
+                .foreign_call(self.execution_id, name.clone(), inputs)
+                .await
+                .map_err(|e| format!("oracle {name}: {e}"))?;
+            Ok(ForeignCallResult {
+                values: response.outputs.iter().map(from_wire).collect(),
+            })
         }
     }
 }
 
-impl Default for AcvmHandler {
-    fn default() -> Self {
-        Self::new(HostOracle::default())
-    }
-}
+#[derive(Default)]
+pub struct AcvmHandler;
 
-impl<B: Backend> Handler for AcvmHandler<B> {
+impl Handler for AcvmHandler {
     fn execute_program(
         &mut self,
         cmd: AcvmExecuteProgram,
         respond: Responder<AcvmExecuteProgramResponse>,
     ) {
-        let initial_witness = witness_map(&cmd.initial_witness);
-        let execution_id = cmd.execution_id;
-        let oracle = &mut self.oracle;
-        let mut resolver = |call: &ForeignCallWaitInfo<FieldElement>| {
-            let inputs = call.inputs.iter().map(to_wire).collect();
-            let response = oracle
-                .foreign_call(execution_id, call.function.clone(), inputs)
-                .map_err(|e| format!("oracle {}: {e}", call.function))?;
-            Ok(ForeignCallResult {
-                values: response.outputs.iter().map(from_wire).collect(),
-            })
-        };
-        let solved = match execute(&cmd.bytecode, initial_witness, &mut resolver) {
-            Err(message) => return respond.error(message),
-            Ok(Execution::Failed(failure)) => {
-                return respond.ok(AcvmExecuteProgramResponse {
-                    return_witness: Vec::new(),
-                    witness: Vec::new(),
-                    witness_stack: None,
-                    failure: Some(failure),
-                })
+        spawn(async move {
+            let mut resolver = OracleResolver {
+                oracle: OracleAsyncApi::new(HostOracle::default()),
+                execution_id: cmd.execution_id,
+            };
+            let execution = execute(
+                &cmd.bytecode,
+                witness_map(&cmd.initial_witness),
+                &mut resolver,
+            )
+            .await;
+            match response(&cmd, execution) {
+                Ok(response) => respond.ok(response),
+                Err(message) => respond.error(message),
             }
-            Ok(Execution::Solved(solved)) => solved,
-        };
-        let witness_stack = if cmd.return_witness_stack {
-            match solved.witness_stack_bytes() {
-                Ok(bytes) => Some(bytes),
-                Err(message) => return respond.error(message),
-            }
-        } else {
-            None
-        };
-        respond.ok(AcvmExecuteProgramResponse {
-            return_witness: witness_entries(&solved.return_witness),
-            witness: if cmd.return_witness_map {
-                witness_entries(solved.main_witness())
-            } else {
-                Vec::new()
-            },
-            witness_stack,
-            failure: None,
         });
     }
 
@@ -167,6 +149,39 @@ impl<B: Backend> Handler for AcvmHandler<B> {
             Err(message) => respond.error(message),
         }
     }
+}
+
+/// What ExecuteProgram answers with, given how the execution ended.
+fn response(
+    cmd: &AcvmExecuteProgram,
+    execution: Result<Execution, String>,
+) -> Result<AcvmExecuteProgramResponse, String> {
+    let solved = match execution? {
+        Execution::Failed(failure) => {
+            return Ok(AcvmExecuteProgramResponse {
+                return_witness: Vec::new(),
+                witness: Vec::new(),
+                witness_stack: None,
+                failure: Some(failure),
+            })
+        }
+        Execution::Solved(solved) => solved,
+    };
+    let witness_stack = if cmd.return_witness_stack {
+        Some(solved.witness_stack_bytes()?)
+    } else {
+        None
+    };
+    Ok(AcvmExecuteProgramResponse {
+        return_witness: witness_entries(&solved.return_witness),
+        witness: if cmd.return_witness_map {
+            witness_entries(solved.main_witness())
+        } else {
+            Vec::new()
+        },
+        witness_stack,
+        failure: None,
+    })
 }
 
 fn to_wire(param: &ForeignCallParam<FieldElement>) -> ForeignCallValue {

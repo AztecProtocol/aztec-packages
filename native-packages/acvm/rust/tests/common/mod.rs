@@ -1,12 +1,14 @@
 //! The fixture programs in tests/fixtures (compiled from tests/programs by regenerate.sh), and how
 //! to run them.
 
+use std::future::Future;
 use std::io::Read;
 use std::path::PathBuf;
 
 use acir::native_types::{Witness, WitnessMap, WitnessStack};
 use acir::FieldElement;
 use acvm::AcirField;
+use aztec_acvm::{Execution, ForeignCallResolver};
 use base64::Engine;
 
 fn fixture(name: &str) -> PathBuf {
@@ -51,4 +53,19 @@ pub fn gunzip(bytes: &[u8]) -> Vec<u8> {
         .read_to_end(&mut out)
         .unwrap();
     out
+}
+
+/// Runs [`aztec_acvm::execute`] with a resolver that answers at once, so it finishes on its first
+/// poll.
+#[allow(dead_code)]
+pub fn execute(
+    bytecode: &[u8],
+    initial_witness: WitnessMap<FieldElement>,
+    resolver: &mut impl ForeignCallResolver,
+) -> Result<Execution, String> {
+    let future = std::pin::pin!(aztec_acvm::execute(bytecode, initial_witness, resolver));
+    match future.poll(&mut std::task::Context::from_waker(std::task::Waker::noop())) {
+        std::task::Poll::Ready(execution) => execution,
+        std::task::Poll::Pending => panic!("the resolver answers at once"),
+    }
 }
