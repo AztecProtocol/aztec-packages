@@ -1146,18 +1146,24 @@ impl Default for FfiBackend {
 //! - \`${alloc}\` and \`${free}\`: the malloc-compatible buffers.
 //! - \`${setHostCall}\`: the host's host-call function, which every \`HostCallBackend\` of
 //!   the library calls (null clears it).
-//! - \`${createAsync}\`, \`${submit}\`, \`${deliver}\` and \`${destroyAsync}\`: asynchronous
-//!   instances (see \`async_host\`), for a host that drives the service without blocking: requests
+//! - with \`asynchronous\` (see below), \`${createAsync}\`, \`${submit}\`, \`${deliver}\` and
+//!   \`${destroyAsync}\`: asynchronous instances (see \`async_host\`), for a host that drives the
+//!   service without blocking: requests
 //!   go in with an id and come back through the host's respond callback, and a handler's host calls
 //!   go out through the host's call callback, their answers coming back through \`${deliver}\`.
 //!   The host makes every call into one instance from one thread at a time, and never from inside
 //!   its callbacks. Natively the callbacks are passed to \`${createAsync}\`; a wasm module imports
 //!   them as \`ipc_runtime.async_respond\` and \`ipc_runtime.async_call\`.
 //!
-//! Invoke it once at the crate root of a \`cdylib\`/\`staticlib\`, or of a wasm reactor:
+//! Invoke it once at the crate root of a \`cdylib\`/\`staticlib\`, or of a wasm reactor. A host
+//! runs the service on an asynchronous instance whenever the library exports one, so pass
+//! \`asynchronous\` only once the handlers that make host calls call out through
+//! \`AsyncHostCall\` (a handler blocking on \`HostCallBackend\` there has no host to answer it):
 //!
 //! \`\`\`ignore
 //! ${macroName}!(crate::generated::${snake}_ffi, MyHandler);
+//! // or, for handlers that call out asynchronously:
+//! ${macroName}!(crate::generated::${snake}_ffi, MyHandler, asynchronous);
 //! \`\`\`
 //!
 //! Needs the \`libc\` crate for the malloc-compatible buffers.
@@ -1285,6 +1291,9 @@ macro_rules! ${macroName} {
             use $ffi as ffi;
             ffi::set_native_host_call(host_call);
         }
+    };
+    ($ffi:path, $handler:ty, asynchronous) => {
+        $crate::${macroName}!($ffi, $handler);
 
         #[cfg(not(target_arch = "wasm32"))]
         #[unsafe(no_mangle)]

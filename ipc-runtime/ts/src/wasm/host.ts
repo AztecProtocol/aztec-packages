@@ -332,7 +332,7 @@ export class WasmInstanceHost {
     return self;
   }
 
-  /** Whether the module has asynchronous instances (\`<ffi>_ipc_ffi_create_async\` and the rest). */
+  /** Whether the module has asynchronous instances (`<ffi>_ipc_ffi_create_async` and the rest). */
   get asynchronous(): boolean {
     return this.asyncFns !== undefined;
   }
@@ -341,7 +341,7 @@ export class WasmInstanceHost {
   private nextAsyncCtx = 1;
 
   /**
-   * An asynchronous instance of the service in this module, reporting to \`events\` from inside
+   * An asynchronous instance of the service in this module, reporting to `events` from inside
    * its submit and deliver. The caller must not call into it from inside an event.
    */
   openAsync(events: AsyncInstanceEvents): AsyncInstancePort {
@@ -376,7 +376,7 @@ export class WasmInstanceHost {
     };
   }
 
-  /** An import's event for instance \`ctx\`, with a reader copying bytes out of module memory. */
+  /** An import's event for instance `ctx`, with a reader copying bytes out of module memory. */
   private asyncEvent(
     ctx: number,
     report: (
@@ -394,7 +394,7 @@ export class WasmInstanceHost {
     );
   }
 
-  /** Runs \`fn\` with \`bytes\` placed in module memory for the duration. */
+  /** Runs `fn` with `bytes` placed in module memory for the duration. */
   private withBytes(bytes: Uint8Array, fn: (ptr: number) => unknown): void {
     const ptr = this.alloc(Math.max(1, bytes.length)) >>> 0;
     if (ptr === 0) {

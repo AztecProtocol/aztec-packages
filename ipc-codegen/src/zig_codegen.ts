@@ -118,8 +118,9 @@ pub const FfiBackend = struct {
 //!   separate instances share nothing. Calls on one instance must not overlap; calls on different
 //!   instances may run concurrently, on any threads.
 //! - \`${sym}ipc_ffi_alloc\` and \`${sym}ipc_ffi_free\`: the malloc-compatible buffers.
-//! - \`${sym}ipc_ffi_create_async\`, \`${sym}ipc_ffi_submit\`, \`${sym}ipc_ffi_deliver\` and
-//!   \`${sym}ipc_ffi_destroy_async\` (native only): asynchronous instances (async_host.zig), for
+//! - from exportAsyncFfi, \`${sym}ipc_ffi_create_async\`, \`${sym}ipc_ffi_submit\`,
+//!   \`${sym}ipc_ffi_deliver\` and \`${sym}ipc_ffi_destroy_async\` (native only): asynchronous
+//!   instances (async_host.zig), for
 //!   handlers that call out and answer once the call comes back. Requests go in with submit, the
 //!   answers to the instance's host calls with deliver, and its responses and calls come out through
 //!   the host's two callbacks, which take borrowed bytes. A host never calls into the instance from
@@ -128,6 +129,10 @@ pub const FfiBackend = struct {
 //! Call it from a comptime block at the root of the library (or wasm reactor), and link libc:
 //!
 //!     comptime { ${toSnakeCase(prefix || "service")}_ffi.exportFfi(MyHandler); }
+//!
+//! A host runs the service on an asynchronous instance whenever the library exports one, so add
+//! \`exportAsyncFfi(MyHandler)\` only for handlers that call out through async_host.hostCall (or an
+//! AsyncClient).
 const std = @import("std");
 const builtin = @import("builtin");
 const server = @import("${serverFile}");
@@ -172,7 +177,18 @@ pub fn exportFfi(comptime HandlerType: type) void {
         fn free(ptr: [*]u8) callconv(.c) void {
             std.c.free(ptr);
         }
+    };
+    @export(&S.create, .{ .name = "${sym}ipc_ffi_create" });
+    @export(&S.call, .{ .name = "${sym}ipc_ffi_call" });
+    @export(&S.destroy, .{ .name = "${sym}ipc_ffi_destroy" });
+    @export(&S.alloc, .{ .name = "${sym}ipc_ffi_alloc" });
+    @export(&S.free, .{ .name = "${sym}ipc_ffi_free" });
+}
 
+/// The asynchronous instances' exports, beside exportFfi's (native only).
+pub fn exportAsyncFfi(comptime HandlerType: type) void {
+    if (builtin.target.cpu.arch.isWasm()) return;
+    const S = struct {
         const AsyncInstance = async_host.AsyncInstance(HandlerType, server.Dispatcher(HandlerType));
 
         fn createAsync(host_ctx: ?*anyopaque, respond: async_host.RespondFn, call_out: async_host.CallFn) callconv(.c) ?*anyopaque {
@@ -194,17 +210,10 @@ pub fn exportFfi(comptime HandlerType: type) void {
             instance.destroy();
         }
     };
-    @export(&S.create, .{ .name = "${sym}ipc_ffi_create" });
-    @export(&S.call, .{ .name = "${sym}ipc_ffi_call" });
-    @export(&S.destroy, .{ .name = "${sym}ipc_ffi_destroy" });
-    @export(&S.alloc, .{ .name = "${sym}ipc_ffi_alloc" });
-    @export(&S.free, .{ .name = "${sym}ipc_ffi_free" });
-    if (!builtin.target.cpu.arch.isWasm()) {
-        @export(&S.createAsync, .{ .name = "${sym}ipc_ffi_create_async" });
-        @export(&S.submit, .{ .name = "${sym}ipc_ffi_submit" });
-        @export(&S.deliver, .{ .name = "${sym}ipc_ffi_deliver" });
-        @export(&S.destroyAsync, .{ .name = "${sym}ipc_ffi_destroy_async" });
-    }
+    @export(&S.createAsync, .{ .name = "${sym}ipc_ffi_create_async" });
+    @export(&S.submit, .{ .name = "${sym}ipc_ffi_submit" });
+    @export(&S.deliver, .{ .name = "${sym}ipc_ffi_deliver" });
+    @export(&S.destroyAsync, .{ .name = "${sym}ipc_ffi_destroy_async" });
 }
 `;
   }

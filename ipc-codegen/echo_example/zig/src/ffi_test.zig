@@ -14,6 +14,7 @@ const types = @import("generated/echo_types.zig");
 
 comptime {
     echo_ffi.exportFfi(@import("handler.zig").EchoHandler);
+    echo_ffi.exportAsyncFfi(@import("handler.zig").EchoHandler);
 }
 
 extern fn echo_ipc_ffi_create() ?*anyopaque;

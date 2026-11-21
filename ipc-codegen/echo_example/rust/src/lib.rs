@@ -29,4 +29,8 @@ pub use generated::error;
 // handler the socket server uses. With `ffi_backend` in the same crate, the
 // generated client can call it without any process (see tests/ffi_roundtrip.rs).
 #[cfg(feature = "ffi")]
-crate::export_echo_ffi!(crate::generated::echo_ffi, crate::handler::EchoHandler);
+crate::export_echo_ffi!(
+    crate::generated::echo_ffi,
+    crate::handler::EchoHandler,
+    asynchronous
+);

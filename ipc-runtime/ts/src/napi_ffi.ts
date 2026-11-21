@@ -31,7 +31,7 @@ export interface NapiFfiLibrary {
   /** The library file, resolved. */
   libraryPath: string;
   /**
-   * Whether it exports asynchronous instances (\`<ffiName>_ipc_ffi_create_async\` and the rest):
+   * Whether it exports asynchronous instances (`<ffiName>_ipc_ffi_create_async` and the rest):
    * an asynchronous backend then runs on one, which keeps taking calls while its host calls are out.
    */
   asynchronous: boolean;
@@ -126,7 +126,7 @@ export class NapiServiceThread {
 
   /**
    * @internal A new asynchronous instance of the library's service, in a slot of its own: its
-   * requests and the answers to its host calls queue to the thread, and it reports to \`events\`.
+   * requests and the answers to its host calls queue to the thread, and it reports to `events`.
    */
   async openAsync(
     library: NapiFfiLibrary,
@@ -281,7 +281,7 @@ export class NapiFfiBackend implements IpcClientAsync {
   ) {}
 
   /**
-   * @internal This instance's slot when it runs on \`thread\`, for host-call targets beside it. An
+   * @internal This instance's slot when it runs on `thread`, for host-call targets beside it. An
    * asynchronous instance is reached through JS instead.
    */
   slotOnThread(thread: NapiServiceThread): number | undefined {
