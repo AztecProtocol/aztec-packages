@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Sat, 21 Nov 2026 15:22:49 +0000
+Subject: [PATCH] chore(playground): raise the main entrypoint's size limit to
+ 1990 KB
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/playground/vite.config.ts b/playground/vite.config.ts
+index 20b3c668bbce3cda59e83df9c2acd24785b1eb36..d9eef98e4a62098eec17098eaf01c7911a6c9f07 100644
+--- a/playground/vite.config.ts
++++ b/playground/vite.config.ts
+@@ -208,9 +208,10 @@ export default defineConfig(({ mode }) => {
+         // - 2026-05-12: bumped from 1800 => 1850 after merge-train/barretenberg brought in further bb-side changes (multi-app kernel circuits #23076 etc.) that pushed the main entrypoint to 1801.31 KB, just over the limit raised four days earlier.
+         // - 2026-06-08: bumped from 1850 => 1925 after aztec RPC namespace / client surface changes pushed the main entrypoint to 1872.57 KB on CI (playground cold build).
+         // - 2026-07-17: bumped from 1925 => 1960 after the fast-inbox per-block L1-to-L2 message bundle changes to the rollup circuit artifacts pushed the main entrypoint to 1936.60 KB on CI.
++        // - 2026-11-21: bumped from 1960 => 1990 after the browser kv-store on @aztec-labs/kv-sqlite (1964.07 KB on CI) and ipc-runtime's asynchronous instances (1965.87 KB) pushed the main entrypoint over.
+         {
+           pattern: /assets\/index-.*\.js$/,
+-          maxSizeKB: 1960,
++          maxSizeKB: 1990,
+           description: 'Main entrypoint, hard limit',
+         },
+         // Bump log:
