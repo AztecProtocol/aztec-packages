@@ -1,0 +1,10 @@
+^native-packages/kv-sqlite/bootstrap\.sh$
+^native-packages/kv-sqlite/package\.json$
+^native-packages/kv-sqlite/\.rebuild_patterns$
+^native-packages/kv-sqlite/[a-z_]+_schema\.jsonc$
+^native-packages/kv-sqlite/cpp/
+^native-packages/kv-sqlite/scripts/
+^ipc-codegen/src/
+^ipc-codegen/templates/
+^ipc-runtime/cpp/
+^barretenberg/cpp/cmake/toolchains/wasm32-wasi\.cmake$
