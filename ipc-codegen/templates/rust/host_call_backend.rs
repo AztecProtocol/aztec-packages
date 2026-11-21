@@ -1,4 +1,5 @@
-//! A service the host reaches for a wasm module, as a backend for any generated `<Service>Api`.
+//! A service the host reaches for a wasm module or a native library, as a backend for any
+//! generated `<Service>Api`.
 //!
 //! A wasm module has no sockets, so a service it calls is one its host provides: the module
 //! imports `ipc_runtime.host_call` and names the service by a target string the host binds when
@@ -19,15 +20,19 @@
 //! error response included); anything else means the call never reached the service, and the
 //! bytes are the host's message saying why.
 //!
-//! Outside wasm there is no host, and every call fails. On wasm32 this needs the `libc` crate, as
-//! the generated FFI exports does.
+//! Outside wasm, a library's host passes the same function to the library's
+//! `<service>_ipc_ffi_set_host_call` export (ipc-runtime's Node-API and JSI bindings do), which
+//! stores it with [`set_native_host_call`]; until then every call fails. On wasm32 this needs the
+//! `libc` crate, as the generated FFI exports does.
 
 use super::backend::Backend;
 use super::error::{IpcError, Result};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "ipc_runtime")]
-extern "C" {
+unsafe extern "C" {
     #[link_name = "host_call"]
     fn ipc_runtime_host_call(
         target: *const u8,
@@ -37,6 +42,34 @@ extern "C" {
         response: *mut *mut u8,
         response_len: *mut usize,
     ) -> i32;
+}
+
+/// The host-call function a native host provides; see the module docs for its contract.
+pub type NativeHostCall = unsafe extern "C" fn(
+    target: *const u8,
+    target_len: usize,
+    request: *const u8,
+    request_len: usize,
+    response: *mut *mut u8,
+    response_len: *mut usize,
+) -> i32;
+
+#[cfg(not(target_arch = "wasm32"))]
+static NATIVE_HOST_CALL: AtomicUsize = AtomicUsize::new(0);
+
+/// Stores the host's host-call function for every [`HostCallBackend`] of this library; `None`
+/// clears it.
+pub fn set_native_host_call(host_call: Option<NativeHostCall>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    NATIVE_HOST_CALL.store(host_call.map_or(0, |f| f as usize), Ordering::Release);
+    #[cfg(target_arch = "wasm32")]
+    let _ = host_call;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe extern "C" {
+    // The response buffer comes from the library's `<service>_ipc_ffi_alloc`, which is malloc.
+    fn free(ptr: *mut std::ffi::c_void);
 }
 
 /// A backend over the `ipc_runtime.host_call` import, reaching whatever the host binds to `target`.
@@ -54,14 +87,26 @@ impl HostCallBackend {
 }
 
 impl Backend for HostCallBackend {
-    #[cfg(target_arch = "wasm32")]
     fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
         let mut response: *mut u8 = std::ptr::null_mut();
         let mut response_len: usize = 0;
         // SAFETY: the host reads the target and request within their lengths, and writes a buffer
-        // from this module's allocator and its length to the two out-pointers.
+        // from this library's allocator and its length to the two out-pointers.
         let status = unsafe {
-            ipc_runtime_host_call(
+            #[cfg(target_arch = "wasm32")]
+            let host_call: NativeHostCall = ipc_runtime_host_call;
+            #[cfg(not(target_arch = "wasm32"))]
+            let host_call: NativeHostCall = match NATIVE_HOST_CALL.load(Ordering::Acquire) {
+                0 => {
+                    return Err(IpcError::Backend(format!(
+                        "host_call {}: no host has bound host calls for this library",
+                        self.target
+                    )))
+                }
+                // SAFETY: only set_native_host_call stores here, from a NativeHostCall.
+                f => std::mem::transmute::<usize, NativeHostCall>(f),
+            };
+            host_call(
                 self.target.as_ptr(),
                 self.target.len(),
                 input.as_ptr(),
@@ -74,10 +119,13 @@ impl Backend for HostCallBackend {
             Vec::new()
         } else {
             // SAFETY: the host wrote `response_len` bytes at `response`, a malloc-compatible
-            // buffer this module now owns.
+            // buffer this library now owns.
             unsafe {
                 let bytes = std::slice::from_raw_parts(response, response_len).to_vec();
+                #[cfg(target_arch = "wasm32")]
                 libc::free(response as *mut libc::c_void);
+                #[cfg(not(target_arch = "wasm32"))]
+                free(response as *mut std::ffi::c_void);
                 bytes
             }
         };
@@ -89,14 +137,6 @@ impl Backend for HostCallBackend {
             )));
         }
         Ok(bytes)
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    fn call(&mut self, _input: &[u8]) -> Result<Vec<u8>> {
-        Err(IpcError::Backend(format!(
-            "host_call {}: no host here; a HostCallBackend only reaches a service from a wasm module",
-            self.target
-        )))
     }
 
     fn destroy(&mut self) -> Result<()> {
