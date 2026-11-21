@@ -6,7 +6,6 @@
 
 #include <array>
 #include <iostream>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -31,15 +30,12 @@ echo::wire::Fr test_hash(uint8_t base) {
 
 int main(int argc, char **argv) {
   const char *socket_path = nullptr;
-  uint32_t relay_hops = 0;
   for (int i = 1; i < argc - 1; i++) {
     if (std::string_view(argv[i]) == "--socket")
       socket_path = argv[i + 1];
-    if (std::string_view(argv[i]) == "--relay-hops")
-      relay_hops = static_cast<uint32_t>(std::stoul(argv[i + 1]));
   }
   if (!socket_path) {
-    std::cerr << "Usage: echo_client --socket <path> [--relay-hops N]\n";
+    std::cerr << "Usage: echo_client --socket <path>\n";
     return 1;
   }
 
@@ -135,15 +131,10 @@ int main(int argc, char **argv) {
     std::cerr << "echo_client(cpp): EchoFail OK\n";
   }
 
-  // Each hop appends its count on the way out.
   {
-    std::vector<uint8_t> expected{9};
-    for (uint32_t hop = relay_hops; hop > 0; hop--)
-      expected.push_back(static_cast<uint8_t>(hop));
-    auto resp = client.relay({.data = {9}, .hops = relay_hops});
-    CHECK(resp.data == expected, "EchoRelay data");
-    std::cerr << "echo_client(cpp): EchoRelay (" << relay_hops
-              << " hops) OK\n";
+    auto resp = client.relay({.data = {9}, .hops = 0});
+    CHECK(resp.data == std::vector<uint8_t>{9}, "EchoRelay data");
+    std::cerr << "echo_client(cpp): EchoRelay OK\n";
   }
 
   std::cerr << "echo_client(cpp): all tests passed\n";

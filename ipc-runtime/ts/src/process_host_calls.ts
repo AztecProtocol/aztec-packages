@@ -55,12 +55,8 @@ export async function bindProcessHostCalls(
           typeof unwrapped === "function"
             ? unwrapped
             : (request: Uint8Array) => unwrapped.call(request);
-        // Concurrent: a server that keeps taking requests while its host calls are out may send
-        // a call that leads back to it before an earlier one on the same connection is answered.
-        const relay = await UdsIpcServer.listen(
-          path,
-          (_clientId, request) => answer(request),
-          { concurrent: true },
+        const relay = await UdsIpcServer.listen(path, (_clientId, request) =>
+          answer(request),
         );
         relays.push(relay);
         if (unref) {
