@@ -151,6 +151,14 @@ std::shared_ptr<FfiLibrary::Loaded> load_library(const std::string& path, const 
             throw std::runtime_error(path + ": does not export the FFI contract under " + ffi_name +
                                      "_ipc_ffi_{create,call,destroy,alloc,free}");
         }
+        fresh->create_async = symbol<FfiLibrary::CreateAsync>(handle, ffi_name + "_ipc_ffi_create_async");
+        fresh->submit = symbol<FfiLibrary::Submit>(handle, ffi_name + "_ipc_ffi_submit");
+        fresh->deliver = symbol<FfiLibrary::Deliver>(handle, ffi_name + "_ipc_ffi_deliver");
+        fresh->destroy_async = symbol<FfiLibrary::Destroy>(handle, ffi_name + "_ipc_ffi_destroy_async");
+        if (fresh->create_async == nullptr || fresh->submit == nullptr || fresh->deliver == nullptr ||
+            fresh->destroy_async == nullptr) {
+            fresh->create_async = nullptr;
+        }
         if (auto set_host_call = symbol<SetHostCall>(handle, ffi_name + "_ipc_ffi_set_host_call")) {
             set_host_call(&host_call);
         }
@@ -257,11 +265,17 @@ Napi::Value FfiLibrary::destroy_instance(const Napi::CallbackInfo& info)
     return info.Env().Undefined();
 }
 
+Napi::Value FfiLibrary::has_async_instances(const Napi::CallbackInfo& info)
+{
+    return Napi::Boolean::New(info.Env(), loaded_->create_async != nullptr);
+}
+
 Napi::Function FfiLibrary::get_class(Napi::Env env)
 {
     return DefineClass(env,
                        "FfiLibrary",
                        {
+                           InstanceMethod("hasAsyncInstances", &FfiLibrary::has_async_instances),
                            InstanceMethod("createInstance", &FfiLibrary::create_instance),
                            InstanceMethod("callInstance", &FfiLibrary::call_instance),
                            InstanceMethod("destroyInstance", &FfiLibrary::destroy_instance),

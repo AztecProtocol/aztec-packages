@@ -6,12 +6,13 @@ CODEGEN="$(cd "$DIR/../.." && pwd)"
 REPO_ROOT="$(cd "$CODEGEN/.." && pwd)"
 NODE="node --experimental-strip-types --no-warnings"
 
-# Both the spawned binary and the wasm reactor come from the Rust crate, so the package
-# offers one implementation over three transports.
+# The spawned binary, the shared library and the wasm reactor all come from the Rust crate, so
+# the package offers one implementation over four transports.
 (cd "$DIR/../rust" && ./bootstrap.sh)
 
 # This machine's per-platform package, in the form process.platform-process.arch already spells.
 platform="$(node -p 'process.platform + "-" + process.arch')"
+library="libecho_wire_compat.$([ "$(uname)" = Darwin ] && echo dylib || echo so)"
 
 $NODE "$CODEGEN/src/generate.ts" \
   --schema "$DIR/../schema/schema.jsonc" \
@@ -19,9 +20,11 @@ $NODE "$CODEGEN/src/generate.ts" \
   --package "$DIR" \
   --package-name "@aztec/echo-ipc" \
   --binary-name echo_server \
-  --package-transports uds,shm,wasm \
+  --package-transports uds,shm,napi,wasm \
+  --package-napi-library "$library" \
   --package-wasm-module "echo.wasm=$DIR/../rust/target/wasm32-wasip1/release/echo_wire_compat.wasm" \
   --package-native "$platform=$DIR/../rust/target/debug/echo_server" \
+  --package-native "$platform:$library=$DIR/../rust/target/debug/$library" \
   --ipc-runtime-dependency "file:../../../ipc-runtime/ts"
 
 # ipc-runtime is built by the Makefile (ipc-codegen depends on it) so its ts/dest
