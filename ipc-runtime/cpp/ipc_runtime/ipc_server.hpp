@@ -91,6 +91,21 @@ class IpcServer {
     virtual void notify() {}
 
     /**
+     * @brief Wake run_reactor's wait when `fd` is readable too, for fds the
+     * caller reads itself (from run_reactor's on_wake); false where the
+     * transport cannot (shared memory, whose wait is a futex, not an fd set).
+     * Reactor thread only.
+     */
+    virtual bool can_watch_fds() const { return false; }
+    virtual bool watch_fd(int fd)
+    {
+        (void)fd;
+        return false;
+    }
+    /** @brief Stops watching `fd` (watch_fd). */
+    virtual void unwatch_fd(int fd) { (void)fd; }
+
+    /**
      * @brief Non-blocking check for whether another request is already waiting.
      *
      * Used by run_reactor()'s inline fast path to distinguish "idle / sequential"
@@ -299,8 +314,12 @@ class IpcServer {
      * All scheduling policy — concurrency, ordering, and any inline-vs-deferred
      * fast path — lives in the handler, not here. A handler that responds inline
      * on the reactor thread degrades this to a serial loop.
+     *
+     * `on_wake`, when set, runs on the reactor thread after every wake (a
+     * request, a completion, a readable watch_fd() fd, or the timeout), for a
+     * caller that drives other I/O from the same loop.
      */
-    void run_reactor(const AsyncHandler& handler)
+    void run_reactor(const AsyncHandler& handler, const std::function<void()>& on_wake = {})
     {
         struct Completion {
             int client_id;
@@ -338,6 +357,9 @@ class IpcServer {
             accept();
 
             int client_id = wait_for_data_or_ready(100000000, have_ready); // 100ms shutdown backstop
+            if (on_wake) {
+                on_wake();
+            }
             drain_and_send();
             if (client_id < 0) {
                 continue;
@@ -384,6 +406,9 @@ class IpcServer {
         while (inflight.load(std::memory_order_acquire) > 0) {
             drain_and_send();
             wait_for_data_or_ready(10000000, have_ready);
+            if (on_wake) {
+                on_wake();
+            }
         }
         drain_and_send();
     }

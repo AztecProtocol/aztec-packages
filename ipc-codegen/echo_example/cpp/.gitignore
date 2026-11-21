@@ -1,2 +1,3 @@
 build/
 src/generated/
+build-wasm/

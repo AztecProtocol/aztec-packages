@@ -66,36 +66,27 @@ function test_cmds {
   # The generated FFI exports, driven in-process through the generated client
   # over its FFI backend (the Rust equivalent runs as a cargo test during build()).
   echo "$prefix ipc-codegen/echo_example/cpp/build/bin/ffi_test"
+  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/async_relay_test"
   echo "$prefix ipc-codegen/echo_example/zig/zig-out/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh napi"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh wasm"
 
-  # Matrix: one command per (server, client) pair over UDS.
-  for server in "${matrix_langs[@]}"; do
-    for client in "${matrix_langs[@]}"; do
-      echo "$prefix $script matrix $server $client uds"
-    done
+  # Matrix. The goldens pin the wire format per language, so the matrix only has to show every
+  # server answering every client language: over UDS each language serves its own client and the
+  # next language's (the relay's nested hops run in every pair whose server makes host calls),
+  # and over SHM each native server serves one other language, TS (through the generated SyncApi
+  # and the NAPI addon) included. TS has no SHM server.
+  local n=${#matrix_langs[@]}
+  for ((i = 0; i < n; i++)); do
+    echo "$prefix $script matrix ${matrix_langs[i]} ${matrix_langs[i]} uds"
+    echo "$prefix $script matrix ${matrix_langs[i]} ${matrix_langs[(i + 1) % n]} uds"
   done
-
-  # SHM matrix. Argument order is server then client. TS is only covered as a
-  # client because ipc-runtime/ts has no SHM server.
-  local shm_server_langs=(rust zig cpp)
-  local native_shm_client_langs=(rust zig cpp)
-  for server in "${shm_server_langs[@]}"; do
-    for client in "${native_shm_client_langs[@]}"; do
-      echo "$prefix $script matrix $server $client shm"
-    done
-  done
-
-  # TS SHM client coverage, through the generated SyncApi (shared memory is the
-  # synchronous transport). The NAPI addon is built by ipc-runtime/bootstrap.sh
-  # during build(); a missing addon should fail these tests loudly rather than
-  # silently dropping coverage.
-  for server in "${shm_server_langs[@]}"; do
-    echo "$prefix $script matrix $server ts shm"
-  done
+  echo "$prefix $script matrix rust cpp shm"
+  echo "$prefix $script matrix cpp zig shm"
+  echo "$prefix $script matrix zig rust shm"
+  echo "$prefix $script matrix cpp ts shm"
 }
 
 function test {

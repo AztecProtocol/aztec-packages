@@ -8,14 +8,16 @@
 //!
 //! [`serve_async`] serves an [`AsyncInstance`] instead, for handlers that await their host calls:
 //! the server keeps taking requests while calls are out, so a target that calls back into this
-//! server (directly or through other services) is answered rather than deadlocking it.
+//! server (directly or through other services) is answered rather than deadlocking it, all on the
+//! server's one thread.
 
-use super::async_host::{AsyncHost, AsyncInstance, RawRespond};
+use super::async_host::{ffi_host, AsyncInstance, RawRespond};
 use super::host_call_backend::set_native_host_call;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::ffi::c_void;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 /// Reads a `--host-call` value: `name=path`.
@@ -137,104 +139,94 @@ pub fn route_host_calls(targets: Vec<(String, String)>) {
     set_native_host_call(Some(route_host_call));
 }
 
-enum Job {
-    Submit(u64, Vec<u8>, ipc_runtime::Respond),
-    Deliver(u64, i32, Vec<u8>),
+thread_local! {
+    /// The handler serve_async hands to `create`, which the runtime calls on the same thread.
+    static PENDING: RefCell<Option<Box<dyn Any>>> = const { RefCell::new(None) };
 }
 
-/// The server process as an asynchronous instance's host: responses go to the requests' clients,
-/// and each call out is made on a thread of its own, over a connection to its target that no other
-/// call is using, its answer queued back to the instance.
-struct ProcessHost {
-    paths: HashMap<String, String>,
-    responders: Mutex<HashMap<u64, ipc_runtime::Respond>>,
-    idle: Mutex<HashMap<String, Vec<ipc_runtime::IpcClient>>>,
-    jobs: Mutex<mpsc::Sender<Job>>,
+type Dispatch<H> = fn(&mut H, &[u8], RawRespond);
+
+unsafe extern "C" fn create<H: 'static>(
+    host_ctx: *mut c_void,
+    respond: ffi_host::RespondFn,
+    call: ffi_host::CallFn,
+) -> *mut c_void {
+    let Some(pending) = PENDING.with(|p| p.borrow_mut().take()) else {
+        return std::ptr::null_mut();
+    };
+    let Ok(pending) = pending.downcast::<(H, Dispatch<H>)>() else {
+        return std::ptr::null_mut();
+    };
+    let (handler, dispatch) = *pending;
+    let host = ffi_host::FfiHost {
+        ctx: host_ctx,
+        respond,
+        call,
+    };
+    Box::into_raw(Box::new(AsyncInstance::new(
+        handler,
+        Arc::new(host),
+        dispatch,
+    ))) as *mut c_void
 }
 
-impl ProcessHost {
-    fn call_target(&self, target: &str, request: &[u8]) -> Result<Vec<u8>, String> {
-        let Some(path) = self.paths.get(target) else {
-            return Err(format!(
-                "no host-call target \"{target}\" (start the server with --host-call {target}=<path>)"
-            ));
-        };
-        let idle = self.idle.lock().unwrap().get_mut(target).and_then(Vec::pop);
-        let mut client = match idle {
-            Some(client) => client,
-            None => connect(path).map_err(|e| format!("{path}: {e}"))?,
-        };
-        let answer = client.call(request).map_err(|e| format!("{path}: {e}"))?;
-        self.idle
-            .lock()
-            .unwrap()
-            .entry(target.to_string())
-            .or_default()
-            .push(client);
-        Ok(answer)
+/// # Safety
+/// `bytes` points to `len` readable bytes (or `len` is 0).
+unsafe fn borrowed<'a>(bytes: *const u8, len: usize) -> &'a [u8] {
+    if len == 0 {
+        &[]
+    } else {
+        unsafe { std::slice::from_raw_parts(bytes, len) }
     }
 }
 
-impl AsyncHost for Arc<ProcessHost> {
-    fn respond(&self, request_id: u64, response: &[u8]) {
-        if let Some(respond) = self.responders.lock().unwrap().remove(&request_id) {
-            respond.send(response);
-        }
-    }
-
-    fn call(&self, call_id: u64, target: &str, request: &[u8]) {
-        let host = self.clone();
-        let (target, request) = (target.to_string(), request.to_vec());
-        std::thread::spawn(move || {
-            let job = match host.call_target(&target, &request) {
-                Ok(answer) => Job::Deliver(call_id, 0, answer),
-                Err(message) => Job::Deliver(call_id, 1, message.into_bytes()),
-            };
-            let _ = host.jobs.lock().unwrap().send(job);
-        });
-    }
+unsafe extern "C" fn submit<H: 'static>(
+    instance: *mut c_void,
+    id: u64,
+    input: *const u8,
+    len: usize,
+) {
+    // SAFETY: instance came from create::<H>; the runtime makes one call into it at a time.
+    let instance = unsafe { &mut *(instance as *mut AsyncInstance<H>) };
+    instance.submit(id, unsafe { borrowed(input, len) });
 }
 
-/// Serves `handler` as an [`AsyncInstance`] until shutdown, its host calls going to the services at
-/// `targets`' paths. `dispatch` is the generated `<service>_server::submit_request`. The instance
-/// runs on a thread of its own; the server's loop only queues requests to it.
-pub fn serve_async<H: Send + 'static>(
+unsafe extern "C" fn deliver<H: 'static>(
+    instance: *mut c_void,
+    call_id: u64,
+    status: i32,
+    response: *const u8,
+    len: usize,
+) {
+    // SAFETY: as for submit.
+    let instance = unsafe { &mut *(instance as *mut AsyncInstance<H>) };
+    instance.deliver(call_id, status, unsafe { borrowed(response, len) });
+}
+
+unsafe extern "C" fn destroy<H: 'static>(instance: *mut c_void) {
+    // SAFETY: instance came from create::<H> and is destroyed once.
+    drop(unsafe { Box::from_raw(instance as *mut AsyncInstance<H>) });
+}
+
+/// Serves `handler` as an [`AsyncInstance`] until shutdown, through ipc-runtime's re-entrant loop
+/// (`IpcServer::serve_async`): everything runs on this thread, requests are taken while host calls
+/// are out, and each host call goes to its target in `targets` (name, socket path) over one
+/// connection per target. `dispatch` is the generated `<service>_server::submit_request`. Shared
+/// memory is not re-entrant, so a `.shm` server or target is refused.
+pub fn serve_async<H: 'static>(
     server: &mut ipc_runtime::IpcServer,
     handler: H,
-    dispatch: fn(&mut H, &[u8], RawRespond),
+    dispatch: Dispatch<H>,
     targets: Vec<(String, String)>,
-) {
-    let (jobs, queue) = mpsc::channel::<Job>();
-    let host = Arc::new(ProcessHost {
-        paths: targets.into_iter().collect(),
-        responders: Mutex::new(HashMap::new()),
-        idle: Mutex::new(HashMap::new()),
-        jobs: Mutex::new(jobs.clone()),
-    });
-    let driver_host = host.clone();
-    let driver = std::thread::spawn(move || {
-        let mut instance = AsyncInstance::new(handler, Arc::new(driver_host.clone()), dispatch);
-        for job in queue {
-            match job {
-                Job::Submit(request_id, request, respond) => {
-                    driver_host
-                        .responders
-                        .lock()
-                        .unwrap()
-                        .insert(request_id, respond);
-                    instance.submit(request_id, &request);
-                }
-                Job::Deliver(call_id, status, answer) => instance.deliver(call_id, status, &answer),
-            }
-        }
-    });
-    let mut next_request = 0u64;
-    server.run_reactor(|_client_id, request, respond| {
-        next_request += 1;
-        let _ = jobs.send(Job::Submit(next_request, request.to_vec(), respond));
-    });
-    // The loop has answered every request; the calls still out (none, then) end with their threads.
-    drop(jobs);
-    *host.jobs.lock().unwrap() = mpsc::channel().0;
-    let _ = driver.join();
+) -> Result<(), String> {
+    PENDING.with(|p| *p.borrow_mut() = Some(Box::new((handler, dispatch))));
+    let service = ipc_runtime::AsyncService {
+        create: create::<H>,
+        submit: submit::<H>,
+        deliver: deliver::<H>,
+        destroy: destroy::<H>,
+    };
+    let result = server.serve_async(&service, &targets);
+    PENDING.with(|p| p.borrow_mut().take());
+    result
 }

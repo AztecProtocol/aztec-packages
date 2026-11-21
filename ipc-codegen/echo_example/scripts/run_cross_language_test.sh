@@ -89,10 +89,11 @@ run_matrix() {
   # the runtime needs graceful shutdown, so waiting lets transport close paths
   # unlink their own resources.
   # Over a socket, the server's "peer" is the server itself, so a Relay of
-  # several hops nests back into it, each hop waiting on the next. (Over shared
-  # memory every caller takes one of a few client slots, so it relays no hops.)
+  # several hops nests back into it, each hop waiting on the next. Shared memory
+  # is not re-entrant, and the Zig bindings make no host calls, so those relay
+  # no hops.
   local server_args=() relay_hops=0
-  if [ "$transport" = "uds" ]; then
+  if [ "$transport" = "uds" ] && [ "$server_lang" != "zig" ]; then
     server_args=(--host-call "peer=$path")
     relay_hops=3
   fi

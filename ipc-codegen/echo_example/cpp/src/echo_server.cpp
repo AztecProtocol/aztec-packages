@@ -2,8 +2,10 @@
 // ipc-runtime's socket/shared-memory server.
 // Usage: echo_server --socket /tmp/echo.sock [--host-call peer=<path>]...
 //
-// Served as an asynchronous instance, so a Relay whose "peer" calls back into
-// this server is answered while the hops before it wait.
+// On a socket it is served as an asynchronous instance, re-entrantly on one
+// thread, so a Relay whose "peer" calls back into this server is answered while
+// the hops before it wait. Shared memory is not re-entrant: there it serves one
+// request at a time, its host calls blocking.
 
 #include "generated/echo_ipc_server.hpp"
 
@@ -12,7 +14,7 @@
 
 int main(int argc, char **argv) {
   const char *socket_path = nullptr;
-  echo::ServeOptions options{.asynchronous = true};
+  echo::ServeOptions options;
   for (int i = 1; i < argc - 1; i++) {
     if (std::string_view(argv[i]) == "--socket")
       socket_path = argv[i + 1];
@@ -24,6 +26,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  options.asynchronous = !std::string_view(socket_path).ends_with(".shm");
   echo::serve(socket_path, options);
   return 0;
 }

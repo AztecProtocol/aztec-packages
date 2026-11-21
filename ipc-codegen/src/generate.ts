@@ -917,12 +917,6 @@ function generate(args: Args) {
       if (args.uds || args.ffi) {
         copyTemplate("zig", "backend.zig", absOut);
       }
-      // The generated server and client both build on it (Responder sinks, AsyncClient).
-      copyTemplate("zig", "async_host.zig", absOut);
-      if (args.server) {
-        // Imported only by a server process that serves asynchronously; needs ipc_runtime.
-        copyTemplate("zig", "async_server.zig", absOut);
-      }
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.
         writeFile("ffi_backend.zig", gen.generateFfiBackend());

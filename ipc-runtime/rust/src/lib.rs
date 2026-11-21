@@ -37,15 +37,12 @@ mod sys {
 
     pub enum ipc_server {}
     pub enum ipc_client {}
-    pub enum ipc_respond {}
 
-    pub type ipc_server_async_handler_fn = unsafe extern "C" fn(
-        client_id: c_int,
-        req: *const u8,
-        req_len: usize,
-        respond: *mut ipc_respond,
-        ctx: *mut c_void,
-    );
+    #[repr(C)]
+    pub struct ipc_host_call_target {
+        pub name: *const c_char,
+        pub path: *const c_char,
+    }
 
     pub type ipc_server_handler_fn = unsafe extern "C" fn(
         client_id: c_int,
@@ -71,13 +68,14 @@ mod sys {
             handler: ipc_server_handler_fn,
             ctx: *mut c_void,
         );
-        pub fn ipc_server_run_reactor(
-            server: *mut ipc_server,
-            handler: ipc_server_async_handler_fn,
-            ctx: *mut c_void,
-        );
-        pub fn ipc_server_respond(respond: *mut ipc_respond, data: *const u8, len: usize);
         pub fn ipc_install_default_signal_handlers(server: *mut ipc_server);
+        pub fn ipc_server_serve_async(
+            server: *mut ipc_server,
+            service: *const super::AsyncService,
+            targets: *const ipc_host_call_target,
+            target_count: usize,
+        ) -> *mut c_char;
+        pub fn free(ptr: *mut c_void);
 
         pub fn ipc_make_client(path: *const c_char, shm_client_id: usize) -> *mut ipc_client;
         pub fn ipc_client_create_pipe(in_fd: c_int, out_fd: c_int) -> *mut ipc_client;
@@ -232,65 +230,70 @@ impl IpcServer {
     }
 }
 
+/// A service's asynchronous FFI (`<svc>_ipc_ffi_create_async`, `_submit`, `_deliver`,
+/// `_destroy_async`), which [`IpcServer::serve_async`] drives. Its callbacks may be called on any
+/// thread.
+#[repr(C)]
+pub struct AsyncService {
+    pub create: unsafe extern "C" fn(
+        host_ctx: *mut c_void,
+        respond: unsafe extern "C" fn(*mut c_void, u64, *const u8, usize),
+        call: unsafe extern "C" fn(*mut c_void, u64, *const u8, usize, *const u8, usize),
+    ) -> *mut c_void,
+    pub submit:
+        unsafe extern "C" fn(instance: *mut c_void, request_id: u64, input: *const u8, len: usize),
+    pub deliver: unsafe extern "C" fn(
+        instance: *mut c_void,
+        call_id: u64,
+        status: i32,
+        response: *const u8,
+        len: usize,
+    ),
+    pub destroy: unsafe extern "C" fn(instance: *mut c_void),
+}
+
 impl IpcServer {
-    /// Run the concurrent event loop: the handler gets each request and a [`Respond`] to answer
-    /// it with, now or later from any thread. It must not block, since it runs on the loop's own
-    /// thread; responses go out in completion order. Blocks until shutdown is requested and every
-    /// request has been answered.
-    pub fn run_reactor<F>(&mut self, mut handler: F)
-    where
-        F: FnMut(i32, &[u8], Respond),
-    {
-        let mut handler_obj: &mut dyn FnMut(i32, &[u8], Respond) = &mut handler;
-
-        unsafe extern "C" fn shim(
-            client_id: c_int,
-            req: *const u8,
-            req_len: usize,
-            respond: *mut sys::ipc_respond,
-            ctx_raw: *mut c_void,
-        ) {
-            let handler = &mut *(ctx_raw as *mut &mut dyn FnMut(i32, &[u8], Respond));
-            let req_slice = if req_len == 0 {
-                &[]
-            } else {
-                std::slice::from_raw_parts(req, req_len)
-            };
-            if let Some(respond) = NonNull::new(respond) {
-                handler(client_id, req_slice, Respond { inner: respond });
-            }
+    /// Serves `service` re-entrantly on this thread until shutdown: each request is submitted as
+    /// it arrives, its host calls go to `targets` (name, socket path), one connection each, and
+    /// their answers are delivered as they come back, all from the server's own event loop. A
+    /// server or target on shared memory, which is not re-entrant, is refused.
+    pub fn serve_async(
+        &mut self,
+        service: &AsyncService,
+        targets: &[(String, String)],
+    ) -> std::result::Result<(), String> {
+        let owned: Vec<(CString, CString)> = targets
+            .iter()
+            .map(|(name, path)| {
+                Ok((
+                    CString::new(name.as_str())
+                        .map_err(|_| format!("host-call target {name:?} contains a NUL"))?,
+                    CString::new(path.as_str())
+                        .map_err(|_| format!("host-call path {path:?} contains a NUL"))?,
+                ))
+            })
+            .collect::<std::result::Result<_, String>>()?;
+        let list: Vec<sys::ipc_host_call_target> = owned
+            .iter()
+            .map(|(name, path)| sys::ipc_host_call_target {
+                name: name.as_ptr(),
+                path: path.as_ptr(),
+            })
+            .collect();
+        // SAFETY: the server is listening and owned; `service`'s functions follow the async FFI's
+        // contract; `list` and the strings it points to outlive the call.
+        let error = unsafe {
+            sys::ipc_server_serve_async(self.inner.as_ptr(), service, list.as_ptr(), list.len())
+        };
+        if error.is_null() {
+            return Ok(());
         }
-
-        unsafe {
-            sys::ipc_server_run_reactor(
-                self.inner.as_ptr(),
-                shim,
-                &mut handler_obj as *mut &mut dyn FnMut(i32, &[u8], Respond) as *mut c_void,
-            );
-        }
-    }
-}
-
-/// The answer owed to one request of [`IpcServer::run_reactor`]. Dropped unanswered, it sends a
-/// zero-length response, so the client is never left waiting.
-pub struct Respond {
-    inner: NonNull<sys::ipc_respond>,
-}
-
-unsafe impl Send for Respond {}
-
-impl Respond {
-    /// Sends the response (copied) to the request this came with.
-    pub fn send(self, response: &[u8]) {
-        let inner = self.inner;
-        std::mem::forget(self);
-        unsafe { sys::ipc_server_respond(inner.as_ptr(), response.as_ptr(), response.len()) };
-    }
-}
-
-impl Drop for Respond {
-    fn drop(&mut self) {
-        unsafe { sys::ipc_server_respond(self.inner.as_ptr(), std::ptr::null(), 0) };
+        // SAFETY: a NUL-terminated message the runtime malloc'd for us to free.
+        let message = unsafe { std::ffi::CStr::from_ptr(error) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { sys::free(error as *mut c_void) };
+        Err(message)
     }
 }
 

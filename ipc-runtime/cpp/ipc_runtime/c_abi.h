@@ -21,8 +21,7 @@
  *    NOT free it. Either return a buffer the runtime can memcpy from and
  *    forget, or manage with a static buffer.
  *
- * Threading: all functions are blocking; one caller per handle, except
- * ipc_server_respond and ipc_server_request_shutdown, callable from any thread.
+ * Threading: all functions are blocking; one caller per handle.
  * ipc_client_connect retries on the calling thread (no internal threads);
  * the only thread the runtime spawns is the macOS parent-death watcher
  * installed by ipc_install_default_signal_handlers.
@@ -102,23 +101,37 @@ typedef void (*ipc_server_handler_fn)(
 
 void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* ctx);
 
-/* The concurrent event loop (C++ IpcServer::run_reactor). The handler is
- * called on the loop's thread for each incoming message and must not block:
- * it answers later, from any thread, by passing `respond` to
- * ipc_server_respond exactly once. The request bytes are valid only during the
- * handler call (copy them to keep them). Responses go out in completion order,
- * each matched to its request by id, so a request still waiting never holds up
- * another. The loop returns after ipc_server_request_shutdown, once every
- * request has been answered. */
-typedef struct ipc_respond ipc_respond_t;
-typedef void (*ipc_server_async_handler_fn)(
-    int client_id, const uint8_t* req, size_t req_len, ipc_respond_t* respond, void* ctx);
+/* A service's asynchronous FFI (<svc>_ipc_ffi_create_async, _submit,
+ * _deliver, _destroy_async). Its callbacks may be called on any thread. */
+typedef void (*ipc_async_respond_fn)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
+typedef void (*ipc_async_call_fn)(void* host_ctx,
+                                  uint64_t call_id,
+                                  const uint8_t* target,
+                                  size_t target_len,
+                                  const uint8_t* request,
+                                  size_t request_len);
+typedef struct {
+    void* (*create)(void* host_ctx, ipc_async_respond_fn respond, ipc_async_call_fn call);
+    void (*submit)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len);
+    void (*deliver)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t response_len);
+    void (*destroy)(void* instance);
+} ipc_async_service_t;
 
-void ipc_server_run_reactor(ipc_server_t* server, ipc_server_async_handler_fn handler, void* ctx);
+/* A host-call target: the name a handler calls and the socket it reaches. */
+typedef struct {
+    const char* name;
+    const char* path;
+} ipc_host_call_target_t;
 
-/* Sends the response to the request `respond` came with, and frees `respond`.
- * The bytes are copied. Callable from any thread. */
-void ipc_server_respond(ipc_respond_t* respond, const uint8_t* data, size_t len);
+/* Serves `service` on `server` (listening already) re-entrantly, on this
+ * thread, until shutdown (C++ ipc::serve_async): its host calls go to
+ * `targets`, and requests are taken while they are out. Returns NULL once
+ * shut down, or a malloc'd message (free it) saying why it could not serve;
+ * shared memory, which is not re-entrant, is refused. */
+char* ipc_server_serve_async(ipc_server_t* server,
+                             const ipc_async_service_t* service,
+                             const ipc_host_call_target_t* targets,
+                             size_t target_count);
 
 /* Install SIGTERM/SIGINT graceful-shutdown + SIGBUS/SIGSEGV close +
  * parent-death monitoring (prctl on linux, kqueue NOTE_EXIT on macOS) wired to

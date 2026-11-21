@@ -841,7 +841,8 @@ struct ServeOptions {
     std::vector<std::pair<std::string, std::string>> host_calls;
     /**
      * Serve the service as an asynchronous instance (ipc_codegen/async.hpp), for handlers that
-     * co_await their host calls: it keeps taking requests while their calls are out.
+     * co_await their host calls: re-entrantly, on one thread, taking requests while their calls are
+     * out. Needs a socket: shared memory is not re-entrant, and is refused.
      */
     bool asynchronous = false;
 };
@@ -862,12 +863,15 @@ inline void serve(const std::string& input_path, const ServeOptions& options = {
     if (!server->listen()) {
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
     }
-    ::ipc_codegen::route_host_calls(options.host_calls);
     if (options.asynchronous) {
-        ::ipc_codegen::serve_async(*server, make_service());
+        auto error = ::ipc_codegen::serve_async(*server, make_service(), options.host_calls);
         server->close();
+        if (!error.empty()) {
+            throw std::runtime_error(input_path + ": " + error);
+        }
         return;
     }
+    ::ipc_codegen::route_host_calls(options.host_calls);
     auto service = make_service();
     auto* listening = server.get();
     service->set_has_pending_request([listening] { return listening->has_pending_request(); });
@@ -969,6 +973,8 @@ IPC_FFI_EXPORT void ${setHostCall}(int32_t (*host_call)(const uint8_t* target,
 // the instance's host calls with ${deliver}(), and its responses and host calls come out through the
 // host's two callbacks, which take borrowed bytes and may be called on any thread. A host never
 // calls into the instance from inside a callback, and drives it from one thread at a time.
+// Natively the callbacks are passed to ${createAsync}(); a wasm module imports them as
+// ipc_runtime.async_respond and ipc_runtime.async_call, and ${createAsync}() takes the host's handle.
 #include "${ffiHeader}"
 #include "ipc_codegen/async.hpp"
 
@@ -979,14 +985,41 @@ IPC_FFI_EXPORT void ${setHostCall}(int32_t (*host_call)(const uint8_t* target,
 #include <span>
 #include <string_view>
 
+#if defined(__wasm__)
+extern "C" {
+__attribute__((import_module("ipc_runtime"), import_name("async_respond"))) void ipc_runtime_async_respond(
+    uint32_t host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
+__attribute__((import_module("ipc_runtime"), import_name("async_call"))) void ipc_runtime_async_call(
+    uint32_t host_ctx, uint64_t call_id, const uint8_t* target, size_t target_len, const uint8_t* request,
+    size_t request_len);
+}
+#else
 using IpcAsyncRespondFn = void (*)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
 using IpcAsyncCallFn = void (*)(void* host_ctx, uint64_t call_id, const uint8_t* target, size_t target_len,
                                 const uint8_t* request, size_t request_len);
+#endif
 
 namespace {
 
 class FfiAsyncHost final : public ipc_codegen::AsyncHost {
   public:
+#if defined(__wasm__)
+    explicit FfiAsyncHost(uint32_t ctx)
+        : ctx_(ctx)
+    {}
+    void respond(uint64_t request_id, std::span<const uint8_t> response) override
+    {
+        ipc_runtime_async_respond(ctx_, request_id, response.data(), response.size());
+    }
+    void call(uint64_t call_id, std::string_view target, std::span<const uint8_t> request) override
+    {
+        ipc_runtime_async_call(ctx_, call_id, reinterpret_cast<const uint8_t*>(target.data()), target.size(),
+                               request.data(), request.size());
+    }
+
+  private:
+    uint32_t ctx_;
+#else
     FfiAsyncHost(void* ctx, IpcAsyncRespondFn respond, IpcAsyncCallFn call)
         : ctx_(ctx)
         , respond_(respond)
@@ -1006,11 +1039,13 @@ class FfiAsyncHost final : public ipc_codegen::AsyncHost {
     void* ctx_;
     IpcAsyncRespondFn respond_;
     IpcAsyncCallFn call_;
+#endif
 };
 
 struct FfiAsyncInstance {
-    FfiAsyncInstance(void* ctx, IpcAsyncRespondFn respond, IpcAsyncCallFn call)
-        : host(ctx, respond, call)
+    template <typename... HostArgs>
+    explicit FfiAsyncInstance(HostArgs... host_args)
+        : host(host_args...)
         , instance(${ns}::make_service(), host)
     {}
     FfiAsyncHost host;
@@ -1019,6 +1054,12 @@ struct FfiAsyncInstance {
 
 } // namespace
 
+#if defined(__wasm__)
+IPC_FFI_EXPORT void* ${createAsync}(uint32_t host_ctx)
+{
+    return new FfiAsyncInstance(host_ctx);
+}
+#else
 IPC_FFI_EXPORT void* ${createAsync}(void* host_ctx, IpcAsyncRespondFn respond, IpcAsyncCallFn call)
 {
     try {
@@ -1027,6 +1068,7 @@ IPC_FFI_EXPORT void* ${createAsync}(void* host_ctx, IpcAsyncRespondFn respond, I
         return nullptr;
     }
 }
+#endif
 
 IPC_FFI_EXPORT void ${submit}(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len)
 {

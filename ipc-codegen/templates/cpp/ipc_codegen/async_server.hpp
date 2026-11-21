@@ -3,12 +3,12 @@
  * @brief Serves an asynchronous instance (async.hpp) in a server process, for
  * handlers that co_await their host calls.
  *
- * The server's loop only queues requests; the instance runs on a thread of its
- * own, and each call out is made on a thread of its own through the process's
- * host-call routing (process_host_calls.hpp: route_host_calls), so every call
- * has its own connection to its target. The server keeps taking requests while
- * calls are out, so a target that calls back into this server (directly or
- * through other services) is answered rather than deadlocking it.
+ * The instance runs under ipc-runtime's re-entrant loop (ipc::serve_async):
+ * everything is on the server's one thread, requests are taken while host
+ * calls are out, and each host call goes to its target over one connection per
+ * target. A target that calls back into this server (directly or through other
+ * services) is answered rather than deadlocking it. Shared memory is not
+ * re-entrant, so a .shm server or target is refused.
  *
  * Guarded by a fixed macro rather than #pragma once, like async.hpp.
  */
@@ -16,20 +16,15 @@
 #define IPC_CODEGEN_ASYNC_SERVER_HPP
 
 #include "async.hpp"
-#include "host_call_backend.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_async.hpp"
 
-#include <condition_variable>
+#include <cstddef>
 #include <cstdint>
-#include <cstdlib>
-#include <deque>
 #include <memory>
-#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
-#include <thread>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -37,136 +32,93 @@ namespace ipc_codegen {
 
 namespace detail {
 
-class ProcessAsyncHost final : public AsyncHost {
+/** The runtime's two callbacks, as the AsyncHost an AsyncInstance answers to.
+ */
+class CallbackHost final : public AsyncHost {
 public:
-  struct Job {
-    bool deliver = false;
-    uint64_t id = 0;
-    int32_t status = 0;
-    std::vector<uint8_t> bytes;
-    ::ipc::IpcServer::Respond respond;
-  };
+  CallbackHost(void *ctx, ::ipc::AsyncService::Respond respond,
+               ::ipc::AsyncService::Call call)
+      : ctx_(ctx), respond_(respond), call_(call) {}
 
   void respond(uint64_t request_id,
                std::span<const uint8_t> response) override {
-    ::ipc::IpcServer::Respond respond;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      auto found = responders_.find(request_id);
-      if (found == responders_.end()) {
-        return;
-      }
-      respond = std::move(found->second);
-      responders_.erase(found);
-    }
-    respond(std::vector<uint8_t>(response.begin(), response.end()));
+    respond_(ctx_, request_id, response.data(), response.size());
   }
-
   void call(uint64_t call_id, std::string_view target,
             std::span<const uint8_t> request) override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    callers_.emplace_back(
-        [this, call_id, target = std::string(target),
-         request = std::vector<uint8_t>(request.begin(), request.end())] {
-          uint8_t *response = nullptr;
-          size_t response_len = 0;
-          int32_t status = ipc_runtime_host_call(
-              reinterpret_cast<const uint8_t *>(target.data()), target.size(),
-              request.data(), request.size(), &response, &response_len);
-          Job job{.deliver = true,
-                  .id = call_id,
-                  .status = status,
-                  .bytes = {response, response + response_len}};
-          // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
-          std::free(response);
-          post(std::move(job));
-        });
-  }
-
-  void post(Job job) {
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      if (!job.deliver) {
-        responders_.emplace(job.id, std::move(job.respond));
-      }
-      jobs_.push_back(std::move(job));
-    }
-    has_jobs_.notify_one();
-  }
-
-  /** The instance's thread: runs jobs until finish(). */
-  template <typename Service> void drive(AsyncInstance<Service> &instance) {
-    for (;;) {
-      Job job;
-      {
-        std::unique_lock<std::mutex> lock(mutex_);
-        has_jobs_.wait(lock, [this] { return finished_ || !jobs_.empty(); });
-        if (jobs_.empty()) {
-          return;
-        }
-        job = std::move(jobs_.front());
-        jobs_.pop_front();
-      }
-      if (job.deliver) {
-        instance.deliver(job.id, job.status, job.bytes);
-      } else {
-        instance.submit(job.id, job.bytes);
-      }
-    }
-  }
-
-  /** Ends drive() once the queue is empty. */
-  void finish() {
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      finished_ = true;
-    }
-    has_jobs_.notify_one();
-  }
-
-  void join_callers() {
-    std::vector<std::thread> callers;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      callers.swap(callers_);
-    }
-    for (auto &caller : callers) {
-      caller.join();
-    }
+    call_(ctx_, call_id, reinterpret_cast<const uint8_t *>(target.data()),
+          target.size(), request.data(), request.size());
   }
 
 private:
-  std::mutex mutex_;
-  std::condition_variable has_jobs_;
-  std::deque<Job> jobs_;
-  std::unordered_map<uint64_t, ::ipc::IpcServer::Respond> responders_;
-  std::vector<std::thread> callers_;
-  bool finished_ = false;
+  void *ctx_;
+  ::ipc::AsyncService::Respond respond_;
+  ::ipc::AsyncService::Call call_;
 };
+
+template <typename Service> struct ServedInstance {
+  ServedInstance(std::unique_ptr<Service> service, CallbackHost host)
+      : host(host), instance(std::move(service), this->host) {}
+  CallbackHost host;
+  AsyncInstance<Service> instance;
+};
+
+/** The service serve_async hands to create(), which the runtime calls on the
+ * same thread. */
+template <typename Service>
+inline thread_local std::unique_ptr<Service> pending_service;
+
+template <typename Service>
+void *create(void *ctx, ::ipc::AsyncService::Respond respond,
+             ::ipc::AsyncService::Call call) {
+  auto service = std::move(pending_service<Service>);
+  if (!service) {
+    return nullptr;
+  }
+  return new ServedInstance<Service>(std::move(service),
+                                     CallbackHost(ctx, respond, call));
+}
+
+template <typename Service>
+void submit(void *instance, uint64_t id, const uint8_t *input, size_t len) {
+  static_cast<ServedInstance<Service> *>(instance)->instance.submit(
+      id, std::span<const uint8_t>(input, len));
+}
+
+template <typename Service>
+void deliver(void *instance, uint64_t call_id, int32_t status,
+             const uint8_t *response, size_t len) {
+  static_cast<ServedInstance<Service> *>(instance)->instance.deliver(
+      call_id, status, std::span<const uint8_t>(response, len));
+}
+
+template <typename Service> void destroy(void *instance) {
+  delete static_cast<ServedInstance<Service> *>(instance);
+}
 
 } // namespace detail
 
 /**
  * Serves `service` as an AsyncInstance on `server` (listening already) until
- * shutdown; its host calls go wherever the process routes them
- * (route_host_calls).
+ * shutdown, its host calls going to `targets` (name, socket path). Returns an
+ * empty string once shut down, or why it could not serve.
  */
 template <typename Service>
-void serve_async(::ipc::IpcServer &server, std::unique_ptr<Service> service) {
-  detail::ProcessAsyncHost host;
-  AsyncInstance<Service> instance(std::move(service), host);
-  std::thread driver([&] { host.drive(instance); });
-  uint64_t next_request = 0;
-  server.run_reactor([&](int /*client_id*/, std::span<const uint8_t> request,
-                         ::ipc::IpcServer::Respond respond) {
-    host.post({.id = ++next_request,
-               .bytes = std::vector<uint8_t>(request.begin(), request.end()),
-               .respond = std::move(respond)});
-  });
-  // Every request has been answered, so every call has been delivered.
-  host.finish();
-  driver.join();
-  host.join_callers();
+std::string
+serve_async(::ipc::IpcServer &server, std::unique_ptr<Service> service,
+            const std::vector<std::pair<std::string, std::string>> &targets) {
+  detail::pending_service<Service> = std::move(service);
+  ::ipc::AsyncService abi{.create = &detail::create<Service>,
+                          .submit = &detail::submit<Service>,
+                          .deliver = &detail::deliver<Service>,
+                          .destroy = &detail::destroy<Service>};
+  std::vector<::ipc::HostCallTarget> list;
+  for (const auto &[name, path] : targets) {
+    list.push_back({.name = name, .path = path});
+  }
+  auto error = ::ipc::serve_async(server, abi, std::move(list));
+  detail::pending_service<Service>.reset();
+  return error;
 }
 
 } // namespace ipc_codegen
