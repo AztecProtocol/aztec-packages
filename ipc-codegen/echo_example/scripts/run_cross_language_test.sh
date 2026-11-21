@@ -88,16 +88,24 @@ run_matrix() {
   # Spawn first, then install cleanup. Servers install SIGTERM handlers where
   # the runtime needs graceful shutdown, so waiting lets transport close paths
   # unlink their own resources.
-  $server_cmd --socket "$path" &
+  # Over a socket, the server's "peer" is the server itself, so a Relay of
+  # several hops nests back into it, each hop waiting on the next. (Over shared
+  # memory every caller takes one of a few client slots, so it relays no hops.)
+  local server_args=() relay_hops=0
+  if [ "$transport" = "uds" ]; then
+    server_args=(--host-call "peer=$path")
+    relay_hops=3
+  fi
+  $server_cmd --socket "$path" "${server_args[@]}" &
   server_pid=$!
   trap "kill ${server_pid} 2>/dev/null || true; \
         wait ${server_pid} 2>/dev/null || true; \
         rm -f '$path'" EXIT
 
   if [ "$transport" = "shm" ] && [ "$client_lang" = "ts" ]; then
-    $client_cmd --socket "$path" --transport shm
+    $client_cmd --socket "$path" --transport shm --relay-hops "$relay_hops"
   else
-    $client_cmd --socket "$path"
+    $client_cmd --socket "$path" --relay-hops "$relay_hops"
   fi
 }
 

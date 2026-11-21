@@ -21,7 +21,8 @@
  *    NOT free it. Either return a buffer the runtime can memcpy from and
  *    forget, or manage with a static buffer.
  *
- * Threading: all functions are blocking; one caller per handle.
+ * Threading: all functions are blocking; one caller per handle, except
+ * ipc_server_respond and ipc_server_request_shutdown, callable from any thread.
  * ipc_client_connect retries on the calling thread (no internal threads);
  * the only thread the runtime spawns is the macOS parent-death watcher
  * installed by ipc_install_default_signal_handlers.
@@ -100,6 +101,24 @@ typedef void (*ipc_server_handler_fn)(
     int client_id, const uint8_t* req, size_t req_len, uint8_t** resp_out, size_t* resp_len_out, void* ctx);
 
 void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* ctx);
+
+/* The concurrent event loop (C++ IpcServer::run_reactor). The handler is
+ * called on the loop's thread for each incoming message and must not block:
+ * it answers later, from any thread, by passing `respond` to
+ * ipc_server_respond exactly once. The request bytes are valid only during the
+ * handler call (copy them to keep them). Responses go out in completion order,
+ * each matched to its request by id, so a request still waiting never holds up
+ * another. The loop returns after ipc_server_request_shutdown, once every
+ * request has been answered. */
+typedef struct ipc_respond ipc_respond_t;
+typedef void (*ipc_server_async_handler_fn)(
+    int client_id, const uint8_t* req, size_t req_len, ipc_respond_t* respond, void* ctx);
+
+void ipc_server_run_reactor(ipc_server_t* server, ipc_server_async_handler_fn handler, void* ctx);
+
+/* Sends the response to the request `respond` came with, and frees `respond`.
+ * The bytes are copied. Callable from any thread. */
+void ipc_server_respond(ipc_respond_t* respond, const uint8_t* data, size_t len);
 
 /* Install SIGTERM/SIGINT graceful-shutdown + SIGBUS/SIGSEGV close +
  * parent-death monitoring (prctl on linux, kqueue NOTE_EXIT on macOS) wired to

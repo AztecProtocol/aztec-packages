@@ -1,5 +1,10 @@
 export type { IpcClientAsync, IpcClientSync } from "./types.js";
 export {
+  AsyncInstanceBackend,
+  type AsyncInstanceEvents,
+  type AsyncInstancePort,
+} from "./async_instance.js";
+export {
   MAX_FRAME_SIZE,
   CONNECT_RETRY_BUDGET_MS,
   DEFAULT_RING_SIZE,
@@ -18,7 +23,11 @@ export {
   type SpawnedProcessBackendOptions,
 } from "./spawned_backend.js";
 export { UdsIpcClient, type UdsIpcClientConnectOptions } from "./uds_client.js";
-export { UdsIpcServer, type IpcServerHandler } from "./uds_server.js";
+export {
+  UdsIpcServer,
+  type IpcServerHandler,
+  type UdsIpcServerOptions,
+} from "./uds_server.js";
 export type { ProcessHostCallTargets } from "./process_host_calls.js";
 export {
   NapiShmSyncClient,

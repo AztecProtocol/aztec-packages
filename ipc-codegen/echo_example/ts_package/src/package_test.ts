@@ -1,8 +1,12 @@
+import {
+  type HostCallTargets,
+  SERVICE_BACKEND,
+} from "@aztec-foundation/ipc-runtime";
 import { EchoService, EchoServiceSync } from "./index.js";
 
 const args = process.argv.slice(2);
 const transportArg = args[args.indexOf("--transport") + 1] ?? "uds";
-if (transportArg !== "uds" && transportArg !== "shm" && transportArg !== "wasm") {
+if (!["uds", "shm", "napi", "wasm"].includes(transportArg)) {
   throw new Error(`Unknown --transport '${transportArg}'`);
 }
 
@@ -26,6 +30,75 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
   );
 }
 
+/**
+ * Relay calls out to the host's "peer" before it answers; binding "peer" back to the same service
+ * makes each hop another call into it while the hops before it wait on their answers. The service
+ * only gets through that if it keeps taking calls while its own host calls are out.
+ */
+async function checkRelay(
+  label: string,
+  make: (hostCall: HostCallTargets) => Promise<EchoService>,
+) {
+  let service: EchoService | undefined;
+  let waiting = 0;
+  let mostWaiting = 0;
+  service = await make({
+    peer: async (request: Uint8Array) => {
+      mostWaiting = Math.max(mostWaiting, ++waiting);
+      try {
+        return await service![SERVICE_BACKEND].call(request);
+      } finally {
+        waiting--;
+      }
+    },
+  });
+  try {
+    const answer = await service.relay({ data: Uint8Array.from([9]), hops: 5 });
+    assertBytes(answer.data, Uint8Array.from([9, 5, 4, 3, 2, 1]), `${label} relay`);
+    assertEqual(mostWaiting, 5, `${label} relay: hops waiting at once`);
+
+    // Two relays at once, their hops interleaving on the one service.
+    const [a, b] = await Promise.all([
+      service.relay({ data: Uint8Array.from([1]), hops: 3 }),
+      service.relay({ data: Uint8Array.from([2]), hops: 2 }),
+    ]);
+    assertBytes(a.data, Uint8Array.from([1, 3, 2, 1]), `${label} relay a`);
+    assertBytes(b.data, Uint8Array.from([2, 2, 1]), `${label} relay b`);
+  } finally {
+    await service.destroy();
+  }
+
+  // A host call the host cannot answer fails the relay with the host's message.
+  const unbound = await make({});
+  try {
+    await unbound
+      .relay({ data: Uint8Array.from([1]), hops: 1 })
+      .then(() => {
+        throw new Error(`${label}: a relay with no peer should fail`);
+      })
+      .catch((e: Error) => {
+        if (!e.message.includes('no host-call target "peer"')) throw e;
+      });
+  } finally {
+    await unbound.destroy();
+  }
+}
+
+// The napi transport loads the service's shared library in-process, its instance on a native
+// thread of its own.
+if (transportArg === "napi") {
+  const napiService = await EchoService.napi();
+  try {
+    const data = Uint8Array.from([0xde, 0xad, 0xbe, 0xef]);
+    assertBytes((await napiService.bytes({ data })).data, data, "napi.bytes");
+  } finally {
+    await napiService.destroy();
+  }
+  await checkRelay("napi", (hostCall) => EchoService.napi({ hostCall }));
+  console.error("echo ts package: napi OK");
+  process.exit(0);
+}
+
 // The wasm transport runs the service's own wasi reactor in-process, with no binary at all: the
 // asynchronous form on a worker of its own, and the synchronous one on the calling thread.
 if (transportArg === "wasm") {
@@ -46,6 +119,7 @@ if (transportArg === "wasm") {
   } finally {
     await wasmService.destroy();
   }
+  await checkRelay("wasm", (hostCall) => EchoService.wasm({ hostCall }));
 
   const sync = await EchoServiceSync.create({ backend: "wasm" });
   try {
@@ -150,5 +224,6 @@ try {
 } finally {
   await service.destroy();
 }
+await checkRelay("uds", (hostCall) => EchoService.process({ hostCall }));
 
 console.error("echo ts package: uds OK");

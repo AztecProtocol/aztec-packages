@@ -28,5 +28,8 @@ void handle_blobs(EchoCtx &ctx, wire::EchoBlobs &&cmd,
 template <>
 void handle_fail(EchoCtx &ctx, wire::EchoFail &&cmd,
                  Responder<wire::EchoFailResponse> respond);
+template <>
+void handle_relay(EchoCtx &ctx, wire::EchoRelay &&cmd,
+                  Responder<wire::EchoRelayResponse> respond);
 
 } // namespace echo

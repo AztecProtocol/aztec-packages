@@ -869,6 +869,8 @@ function generate(args: Args) {
         // service its host provides; the FFI exports and the process routing set its host-call
         // function.
         copyTemplate("rust", "host_call_backend.rs", absOut);
+        // Host calls awaited rather than blocked on, and the instances that drive them.
+        copyTemplate("rust", "async_host.rs", absOut);
       }
       if (args.server && args.uds) {
         // A server process is its own host: `--host-call name=path` routes each target.
@@ -914,6 +916,12 @@ function generate(args: Args) {
       // so UDS/SHM consumers don't need a separate backend file.
       if (args.uds || args.ffi) {
         copyTemplate("zig", "backend.zig", absOut);
+      }
+      // The generated server and client both build on it (Responder sinks, AsyncClient).
+      copyTemplate("zig", "async_host.zig", absOut);
+      if (args.server) {
+        // Imported only by a server process that serves asynchronously; needs ipc_runtime.
+        copyTemplate("zig", "async_server.zig", absOut);
       }
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.
@@ -966,6 +974,12 @@ function generate(args: Args) {
               gen.generateFfiSource(),
             ),
           );
+          cppFiles.push(
+            writeFile(
+              `${toSnakeCase(prefix)}_ffi_async.cpp`,
+              gen.generateFfiAsyncSource(),
+            ),
+          );
         }
       }
       if (args.client) {
@@ -973,6 +987,12 @@ function generate(args: Args) {
           writeFile(
             `${toSnakeCase(prefix)}_client.hpp`,
             gen.generateApi(compiled, schemaHash),
+          ),
+        );
+        cppFiles.push(
+          writeFile(
+            `${toSnakeCase(prefix)}_async_client.hpp`,
+            gen.generateAsyncApi(compiled),
           ),
         );
         if (args.ffi) {

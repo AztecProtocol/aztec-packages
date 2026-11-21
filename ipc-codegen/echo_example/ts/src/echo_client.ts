@@ -6,7 +6,7 @@
  * Path suffix follows the same convention as ipc::make_client on the C++
  * side: `.sock` for UDS, `.shm` for MPSC-SHM rings.
  *
- * Usage: npx tsx echo_client.ts --socket /tmp/echo.sock [--transport uds|shm]
+ * Usage: npx tsx echo_client.ts --socket /tmp/echo.sock [--transport uds|shm] [--relay-hops N]
  * Exits 0 on success, 1 on failure.
  */
 import {
@@ -27,6 +27,8 @@ if (!socketPath) {
 function testHash(base: number): Uint8Array {
   return Uint8Array.from({ length: 32 }, (_v, i) => base + i);
 }
+const relayIdx = args.indexOf("--relay-hops");
+const relayHops = relayIdx >= 0 ? Number(args[relayIdx + 1]) : 0;
 const transportIdx = args.indexOf("--transport");
 const transport = transportIdx >= 0 ? args[transportIdx + 1] : "uds";
 if (transport !== "uds" && transport !== "shm") {
@@ -160,6 +162,14 @@ async function run() {
     throw new Error(`EchoFail: expected error message, got '${failMessage}'`);
   }
   console.error("echo_client(ts): EchoFail OK");
+
+  // Test 9: EchoRelay — each hop appends its count on the way out
+  const relayed = await api.relay({ data: Uint8Array.from([9]), hops: relayHops });
+  const expected = [9, ...Array.from({ length: relayHops }, (_, i) => relayHops - i)];
+  if (relayed.data.length !== expected.length || expected.some((b, i) => relayed.data[i] !== b)) {
+    throw new Error(`EchoRelay: expected [${expected}], got [${[...relayed.data]}]`);
+  }
+  console.error(`echo_client(ts): EchoRelay (${relayHops} hops) OK`);
 
   await api.destroy();
   console.error("echo_client(ts): all tests passed");

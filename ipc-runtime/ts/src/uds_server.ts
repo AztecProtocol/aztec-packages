@@ -18,12 +18,22 @@ export type IpcServerHandler = (
  * ipc::IpcServer socket transport: 4-byte LE length prefix, 8-byte LE request
  * id (echoed on the response), then the payload; the length counts the id
  * plus the payload. Accepts multiple concurrent connections; handler
- * invocations are serialised per-connection.
+ * invocations are serialised per-connection, unless `concurrent` is set.
  *
  * Signal handling is the caller's responsibility (unlike the C++ server's
  * install_default_signal_handlers); the socket file is unlinked on close()
  * and best-effort on process exit.
  */
+export interface UdsIpcServerOptions {
+  /**
+   * Run a connection's requests at once rather than one after another, each response sent when
+   * its handler finishes, matched to its request by id. Needed when a handler waits on a call that
+   * leads back to this server over a connection already waiting on it (a service calling out to a
+   * target that calls back in).
+   */
+  concurrent?: boolean;
+}
+
 export class UdsIpcServer {
   private server: net.Server;
   private nextClientId = 0;
@@ -47,6 +57,7 @@ export class UdsIpcServer {
   static async listen(
     socketPath: string,
     handler: IpcServerHandler,
+    options: UdsIpcServerOptions = {},
   ): Promise<UdsIpcServer> {
     try {
       fs.unlinkSync(socketPath);
@@ -56,7 +67,9 @@ export class UdsIpcServer {
 
     const server = net.createServer();
     const instance = new UdsIpcServer(server, socketPath);
-    server.on("connection", (conn) => instance.handleConnection(conn, handler));
+    server.on("connection", (conn) =>
+      instance.handleConnection(conn, handler, options.concurrent ?? false),
+    );
 
     await new Promise<void>((resolve, reject) => {
       const onError = (err: Error) => {
@@ -107,7 +120,11 @@ export class UdsIpcServer {
     }
   }
 
-  private handleConnection(conn: net.Socket, handler: IpcServerHandler): void {
+  private handleConnection(
+    conn: net.Socket,
+    handler: IpcServerHandler,
+    concurrent: boolean,
+  ): void {
     const clientId = this.nextClientId++;
     this.connections.add(conn);
     if (this.unreffed) {
@@ -140,8 +157,8 @@ export class UdsIpcServer {
         // decode with msgpackr, which relies on Buffer semantics for correct string/binary decoding.
         const payload = Buffer.from(frame.subarray(12));
 
-        const prev = chain;
-        chain = (async () => {
+        const prev = concurrent ? undefined : chain;
+        const run = (async () => {
           await prev;
           try {
             const resp = await handler(clientId, payload);
@@ -154,7 +171,10 @@ export class UdsIpcServer {
             conn.destroy(err as Error);
           }
         })();
-        void chain.catch(() => {
+        if (!concurrent) {
+          chain = run;
+        }
+        void run.catch(() => {
           /* errors already handled by destroying the connection */
         });
       }

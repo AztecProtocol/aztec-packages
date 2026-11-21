@@ -180,6 +180,30 @@ void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* c
     });
 }
 
+struct ipc_respond {
+    ipc::IpcServer::Respond respond;
+};
+
+void ipc_server_run_reactor(ipc_server_t* server, ipc_server_async_handler_fn handler, void* ctx)
+{
+    if (!server || !server->impl || !handler) {
+        return;
+    }
+    server->impl->run_reactor(
+        [handler, ctx](int client_id, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
+            handler(client_id, raw.data(), raw.size(), new ipc_respond{ std::move(respond) }, ctx);
+        });
+}
+
+void ipc_server_respond(ipc_respond_t* respond, const uint8_t* data, size_t len)
+{
+    if (!respond) {
+        return;
+    }
+    std::unique_ptr<ipc_respond> owned(respond);
+    owned->respond(len == 0 ? std::vector<uint8_t>() : std::vector<uint8_t>(data, data + len));
+}
+
 void ipc_install_default_signal_handlers(ipc_server_t* server)
 {
     if (server && server->impl) {

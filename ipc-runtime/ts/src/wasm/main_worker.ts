@@ -1,4 +1,5 @@
 import { type WasmFfiBinding, WasmFfiEngine } from "./backend.js";
+import type { AsyncInstancePort } from "../async_instance.js";
 import type { HostCallAnswer } from "./host.js";
 import type { WasmPlatform, WorkerHandle, WorkerSide } from "./platform.js";
 
@@ -23,6 +24,67 @@ export function runMainWorker(
   opts: MainWorkerOptions,
 ): void {
   const engines = new Map<number, WasmFfiEngine>();
+  /**
+   * The slots whose module has asynchronous instances: their calls are submitted to the instance
+   * and answered by its respond events, and their host calls go out as events, answered by
+   * deliver, so the module keeps taking calls (nested ones included) while host calls are out.
+   */
+  const asyncSlots = new Map<
+    number,
+    { port: AsyncInstancePort; responses: Map<number, (bytes: Uint8Array) => void> }
+  >();
+  let nextAsyncRequest = 1;
+
+  /** A call into a slot's module, of whichever kind it is. */
+  function callSlot(slot: number, input: Uint8Array): Promise<Uint8Array> {
+    const asyncSlot = asyncSlots.get(slot);
+    if (asyncSlot) {
+      const requestId = nextAsyncRequest++;
+      return new Promise<Uint8Array>((resolve) => {
+        asyncSlot.responses.set(requestId, resolve);
+        asyncSlot.port.submit(requestId, input);
+      });
+    }
+    const engine = engines.get(slot);
+    if (!engine) {
+      return Promise.reject(new Error("wasm module is not loaded"));
+    }
+    return Promise.resolve(engine.callEither(input));
+  }
+
+  /** The asynchronous instance of a freshly loaded module whose calls go out by message. */
+  function openAsyncSlot(
+    slot: number,
+    engine: WasmFfiEngine,
+    hostCall: HostCallAnswer,
+  ): void {
+    const responses = new Map<number, (bytes: Uint8Array) => void>();
+    const port = engine.openAsync({
+      respond: (requestId, response) => {
+        const resolve = responses.get(requestId);
+        responses.delete(requestId);
+        resolve?.(response);
+      },
+      // Answered after the instance returns (a sibling's call, the parent's message), never
+      // from inside it.
+      call: (callId, target, request) => {
+        void Promise.resolve()
+          .then(() => hostCall(target, request))
+          .then(
+            (bytes) => port.deliver(callId, 0, bytes),
+            (e: unknown) =>
+              port.deliver(
+                callId,
+                1,
+                new TextEncoder().encode(
+                  e instanceof Error ? e.message : String(e),
+                ),
+              ),
+          );
+      },
+    });
+    asyncSlots.set(slot, { port, responses });
+  }
   const answers = new Map<
     number,
     { resolve: (bytes: Uint8Array) => void; reject: (err: Error) => void }
@@ -52,7 +114,7 @@ export function runMainWorker(
             `host-call target "${target}" is a module that is no longer loaded`,
           );
         }
-        return sibling.callEither(request);
+        return callSlot(bound.sibling, request);
       }
       const id = nextHostCall++;
       const answer = new Promise<Uint8Array>((resolve, reject) =>
@@ -67,11 +129,7 @@ export function runMainWorker(
 
   async function call(msg: { slot: number; id: number; input: ArrayBuffer }) {
     try {
-      const engine = engines.get(msg.slot);
-      if (!engine) {
-        throw new Error("wasm module is not loaded");
-      }
-      const output = await engine.callEither(new Uint8Array(msg.input));
+      const output = await callSlot(msg.slot, new Uint8Array(msg.input));
       side.postMessage({ type: "result", id: msg.id, output }, [
         output.buffer as ArrayBuffer,
       ]);
@@ -101,6 +159,7 @@ export function runMainWorker(
         try {
           const targets = msg.hostCall ?? {};
           const o = msg.options ?? {};
+          const hostCall = hostCallFor(slot, targets);
           const engine = await WasmFfiEngine.create(
               {
                 module: msg.module,
@@ -111,12 +170,15 @@ export function runMainWorker(
                 ffiName: o.ffiName,
                 logger: (message) =>
                   side.postMessage({ type: "log", slot, message }),
-                hostCall: hostCallFor(slot, targets),
+                hostCall,
                 suspending: true,
               },
               binding,
             );
           engines.set(slot, engine);
+          if (engine.asynchronous) {
+            openAsyncSlot(slot, engine, hostCall);
+          }
           side.postMessage({ type: "loaded", slot });
         } catch (e) {
           side.postMessage({
@@ -128,16 +190,26 @@ export function runMainWorker(
         break;
       }
       case "call":
-        queue = queue.then(() => call(msg));
+        if (asyncSlots.has(msg.slot)) {
+          void call(msg);
+        } else {
+          queue = queue.then(() => call(msg));
+        }
         break;
       case "unload": {
         const engine = engines.get(msg.slot);
         engines.delete(msg.slot);
+        asyncSlots.get(msg.slot)?.port.destroy();
+        asyncSlots.delete(msg.slot);
         await engine?.destroy();
         side.postMessage({ type: "unloaded", slot: msg.slot });
         break;
       }
       case "destroy": {
+        for (const { port } of asyncSlots.values()) {
+          port.destroy();
+        }
+        asyncSlots.clear();
         await Promise.all([...engines.values()].map((e) => e.destroy()));
         engines.clear();
         side.postMessage({ type: "destroyed" });

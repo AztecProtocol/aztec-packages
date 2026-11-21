@@ -83,6 +83,40 @@ pub const Server = struct {
         var bridge = Bridge{ .ctx = ctx, .handler = handler };
         c.ipc_server_run(self.handle, Bridge.shim, &bridge);
     }
+
+    /// Run the concurrent event loop: `handler` gets each request (valid only during the call) and
+    /// a Respond to answer it with, now or later from any thread. It must not block, since it runs
+    /// on the loop's own thread; responses go out in completion order. Returns after shutdown is
+    /// requested, once every request has been answered.
+    pub fn runReactor(
+        self: *Server,
+        comptime Ctx: type,
+        ctx: Ctx,
+        handler: *const fn (ctx: Ctx, client_id: i32, req: []const u8, respond: Respond) void,
+    ) void {
+        const Bridge = struct {
+            ctx: Ctx,
+            handler: *const fn (ctx: Ctx, client_id: i32, req: []const u8, respond: Respond) void,
+
+            fn shim(client_id: c_int, req: [*c]const u8, req_len: usize, respond: ?*c.ipc_respond, ctx_raw: ?*anyopaque) callconv(.c) void {
+                const bridge: *@This() = @ptrCast(@alignCast(ctx_raw.?));
+                const req_slice = if (req_len == 0) &[_]u8{} else req[0..req_len];
+                bridge.handler(bridge.ctx, @intCast(client_id), req_slice, .{ .handle = respond.? });
+            }
+        };
+        var bridge = Bridge{ .ctx = ctx, .handler = handler };
+        c.ipc_server_run_reactor(self.handle, Bridge.shim, &bridge);
+    }
+};
+
+/// The answer owed to one request of Server.runReactor: send() it exactly once, from any thread.
+pub const Respond = struct {
+    handle: *c.ipc_respond,
+
+    /// Sends the response (copied) to the request this came with.
+    pub fn send(self: Respond, response: []const u8) void {
+        c.ipc_server_respond(self.handle, response.ptr, response.len);
+    }
 };
 
 /// Client handle. `deinit` releases the underlying C++ object.
