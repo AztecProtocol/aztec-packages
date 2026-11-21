@@ -15,16 +15,17 @@ try {
 }
 ```
 
-`create` picks the process when the binary resolves, otherwise the wasm module. `options.backend` forces one, with no fallback:
+`create` picks the process when the binary resolves, otherwise the napi library when it resolves, otherwise the wasm module. `options.backend` forces one, with no fallback:
 
 - `'process'`: spawns the `echo_server` binary (node) and talks to it over a unix socket (the asynchronous form) and shared memory (the synchronous form). The binary is resolved from `ECHO_SERVER_PATH`, an explicit `process.binaryPath`, or the installed arch package (one of this package's optional dependencies).
+- `'napi'`: runs the service in-process (node) from its shared library, `libecho_wire_compat.so`, which exports the service's FFI; `@aztec-foundation/ipc-runtime`'s Node-API addon loads it and calls it. Each backend gets an instance of the service of its own: the asynchronous backend's runs on a native thread (its own, or that of the shared `napi.worker`, where it can reach the napi instances beside it as host-call targets), and the synchronous backend's on the calling thread. `napi.hostCall` names the services it reaches through its host. The library is resolved from `ECHO_WIRE_COMPAT_NAPI_PATH`, an explicit `napi.libraryPath`, or the installed arch package.
 - `'wasm'`: runs the service's wasm module in-process (node and browsers) through `@aztec-foundation/ipc-runtime/wasm`: the main instance in a worker, wasi threads on further workers where a shared memory is available (node, or a browser page served with COOP/COEP headers), otherwise the single-thread module. The worker scripts and the module are referenced with `new URL(..., import.meta.url)`, so bundlers emit them as chunks and assets of the application, and only the module actually chosen is ever fetched (Vite users: exclude the package from `optimizeDeps`). The module ships uncompressed, which is what lets the browser stream it into `WebAssembly.compileStreaming` and cache the compiled code between visits; serve it with your host's own compression. Where that is not possible, `wasm.module` takes a compressed copy — or bytes, a `Response`, or an already compiled `Module`.
 - an object: anything with `call(bytes)`/`destroy()`, for a transport of your own (a bridge to a natively linked library, for instance).
 
 `threads` sets the service's parallelism for any backend
 (a process reads it from `HARDWARE_CONCURRENCY`/`RAYON_NUM_THREADS`; wasm runs that many
 worker threads, and asking for more than one where no shared memory exists is an error rather than
-a silent downgrade). `EchoServiceSync.create` is the synchronous form (shared memory for a process, else the single-threaded wasm module on the calling thread).
+a silent downgrade). `EchoServiceSync.create` is the synchronous form (shared memory for a process, else the napi library on the calling thread, else the single-threaded wasm module on the calling thread).
 `createBackend`/`createBackendSync` expose the same policy for code that wraps
 the generated API itself.
 
@@ -47,10 +48,10 @@ The package shell (package.json, tsconfig, `src/*.ts`, `packages/`) is
 generated; build through the owning project's `./bootstrap.sh`, which
 regenerates and then runs `npm install --omit=optional && npm run build`.
 
-The per-architecture packages under `packages/` carry `echo_server`; the generator copies them in from their builds, one argument per platform and file:
+The per-architecture packages under `packages/` carry `echo_server` and `libecho_wire_compat.so`; the generator copies them in from their builds, one argument per platform and file:
 
 ```sh
---package-native linux-x64=/path/to/echo_server
+--package-native linux-x64=/path/to/echo_server --package-native linux-x64:libecho_wire_compat.so=/path/to/libecho_wire_compat.so
 ```
 
 With `--package-every-platform`, a platform or file not given is an error, as publishing every per-architecture package requires.

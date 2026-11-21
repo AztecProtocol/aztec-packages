@@ -43,6 +43,14 @@ pub trait Backend {
     fn destroy(&mut self) -> Result<()>;
 }
 
+/// A backend whose calls are awaited rather than blocked on: what a generated
+/// `<Service>AsyncApi` runs over. [`AsyncHostCall`](super::async_host::AsyncHostCall) is the one
+/// a handler calls out through.
+pub trait AsyncBackend {
+    /// Send a msgpack command; resolves to the msgpack response.
+    fn call(&self, input: Vec<u8>) -> impl std::future::Future<Output = Result<Vec<u8>>>;
+}
+
 // Bridge impl so ipc_runtime::IpcClient (UDS / MPSC-SHM transport) plugs
 // directly into any generated <Service>Api as the Backend. Gated behind the
 // consumer crate's `ipc-runtime` feature so FFI-only consumers don't need

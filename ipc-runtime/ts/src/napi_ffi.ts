@@ -3,6 +3,11 @@ import {
   type NativeServiceThread,
   loadIpcRuntimeNapi,
 } from "./native_loader.js";
+import {
+  AsyncInstanceBackend,
+  type AsyncInstanceEvents,
+  type AsyncInstancePort,
+} from "./async_instance.js";
 import type { IpcClientAsync, IpcClientSync } from "./types.js";
 import {
   type HostCallTargets,
@@ -25,6 +30,11 @@ export interface NapiFfiLibrary {
   ffiName: string;
   /** The library file, resolved. */
   libraryPath: string;
+  /**
+   * Whether it exports asynchronous instances (`<ffiName>_ipc_ffi_create_async` and the rest):
+   * an asynchronous backend then runs on one, which keeps taking calls while its host calls are out.
+   */
+  asynchronous: boolean;
   createInstance(): NapiInstance;
   callInstance(
     instance: NapiInstance,
@@ -67,6 +77,7 @@ export function loadNapiFfiLibrary(
   return {
     ffiName,
     libraryPath: resolved,
+    asynchronous: library.hasAsyncInstances(),
     createInstance: () => library.createInstance() as NapiInstance,
     callInstance: (instance, input, hostCall) =>
       library.callInstance(instance, input, hostCall),
@@ -94,13 +105,48 @@ export class NapiServiceThread {
     number,
     Map<string, (request: Uint8Array) => Uint8Array | Promise<Uint8Array>>
   >();
+  private readonly asyncEvents = new Map<number, AsyncInstanceEvents>();
   private destroyed = false;
 
   constructor(addonPath?: string) {
     const { ServiceThread } = loadIpcRuntimeNapi(addonPath);
-    this.native = new ServiceThread((slot, target, request, token) =>
-      this.onHostCall(slot, target, request, token),
+    this.native = new ServiceThread(
+      (slot, target, request, token) =>
+        this.onHostCall(slot, target, request, token),
+      (slot, kind, id, target, bytes) => {
+        const events = this.asyncEvents.get(slot);
+        if (kind === 0) {
+          events?.respond(id, bytes);
+        } else {
+          events?.call(id, target, bytes);
+        }
+      },
     );
+  }
+
+  /**
+   * @internal A new asynchronous instance of the library's service, in a slot of its own: its
+   * requests and the answers to its host calls queue to the thread, and it reports to `events`.
+   */
+  async openAsync(
+    library: NapiFfiLibrary,
+    events: AsyncInstanceEvents,
+  ): Promise<AsyncInstancePort> {
+    const slot = await this.native.loadAsync(
+      library.libraryPath,
+      library.ffiName,
+    );
+    this.asyncEvents.set(slot, events);
+    return {
+      submit: (requestId, request) =>
+        this.native.submit(slot, requestId, request),
+      deliver: (callId, status, response) =>
+        this.native.deliver(slot, callId, status, response),
+      destroy: async () => {
+        this.asyncEvents.delete(slot);
+        await this.unload(slot);
+      },
+    };
   }
 
   /** @internal A new instance of the library's service, in a slot of its own. */
@@ -206,6 +252,13 @@ export async function createNapiFfiBackend(
     ? options.worker.attachment(NAPI_THREAD, () => new NapiServiceThread())
     : new NapiServiceThread();
   try {
+    if (library.asynchronous) {
+      const backend = await AsyncInstanceBackend.create(
+        (events) => thread.openAsync(library, events),
+        options.hostCall,
+      );
+      return new NapiFfiBackend(thread, -1, ownsThread, backend);
+    }
     const slot = await thread.load(library, options.hostCall);
     return new NapiFfiBackend(thread, slot, ownsThread);
   } catch (e) {
@@ -223,21 +276,35 @@ export class NapiFfiBackend implements IpcClientAsync {
     private readonly thread: NapiServiceThread,
     private readonly slot: number,
     private readonly ownsThread: boolean,
+    /** Set when the instance is an asynchronous one. */
+    private readonly asyncBackend?: AsyncInstanceBackend,
   ) {}
 
-  /** @internal This instance's slot when it runs on `thread`, for host-call targets beside it. */
+  /**
+   * @internal This instance's slot when it runs on `thread`, for host-call targets beside it. An
+   * asynchronous instance is reached through JS instead.
+   */
   slotOnThread(thread: NapiServiceThread): number | undefined {
-    return this.thread === thread ? this.slot : undefined;
+    return this.thread === thread && !this.asyncBackend ? this.slot : undefined;
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
-    return this.thread.call(this.slot, input);
+    return this.asyncBackend
+      ? this.asyncBackend.call(input)
+      : this.thread.call(this.slot, input);
   }
 
   /** A no-op: the native thread holds the process only while a call to it is in flight. */
   unref(): void {}
 
   async destroy(): Promise<void> {
+    if (this.asyncBackend) {
+      await this.asyncBackend.destroy();
+      if (this.ownsThread) {
+        await this.thread.destroy();
+      }
+      return;
+    }
     if (this.ownsThread) {
       await this.thread.destroy();
     } else {

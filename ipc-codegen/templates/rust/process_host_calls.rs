@@ -5,11 +5,19 @@
 //! to another instance, or to JavaScript). A server process is its own host, so it connects to each
 //! target itself. Each calling thread has its own connection to a target, made on its first call,
 //! and remade after a call on it fails. Needs the `ipc-runtime` crate.
+//!
+//! [`serve_async`] serves an [`AsyncInstance`] instead, for handlers that await their host calls:
+//! the server keeps taking requests while calls are out, so a target that calls back into this
+//! server (directly or through other services) is answered rather than deadlocking it, all on the
+//! server's one thread.
 
+use super::async_host::{ffi_host, AsyncInstance, RawRespond};
 use super::host_call_backend::set_native_host_call;
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::ffi::c_void;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 /// Reads a `--host-call` value: `name=path`.
@@ -129,4 +137,96 @@ unsafe extern "C" fn route_host_call(
 pub fn route_host_calls(targets: Vec<(String, String)>) {
     let _ = PATHS.set(targets.into_iter().collect());
     set_native_host_call(Some(route_host_call));
+}
+
+thread_local! {
+    /// The handler serve_async hands to `create`, which the runtime calls on the same thread.
+    static PENDING: RefCell<Option<Box<dyn Any>>> = const { RefCell::new(None) };
+}
+
+type Dispatch<H> = fn(&mut H, &[u8], RawRespond);
+
+unsafe extern "C" fn create<H: 'static>(
+    host_ctx: *mut c_void,
+    respond: ffi_host::RespondFn,
+    call: ffi_host::CallFn,
+) -> *mut c_void {
+    let Some(pending) = PENDING.with(|p| p.borrow_mut().take()) else {
+        return std::ptr::null_mut();
+    };
+    let Ok(pending) = pending.downcast::<(H, Dispatch<H>)>() else {
+        return std::ptr::null_mut();
+    };
+    let (handler, dispatch) = *pending;
+    let host = ffi_host::FfiHost {
+        ctx: host_ctx,
+        respond,
+        call,
+    };
+    Box::into_raw(Box::new(AsyncInstance::new(
+        handler,
+        Arc::new(host),
+        dispatch,
+    ))) as *mut c_void
+}
+
+/// # Safety
+/// `bytes` points to `len` readable bytes (or `len` is 0).
+unsafe fn borrowed<'a>(bytes: *const u8, len: usize) -> &'a [u8] {
+    if len == 0 {
+        &[]
+    } else {
+        unsafe { std::slice::from_raw_parts(bytes, len) }
+    }
+}
+
+unsafe extern "C" fn submit<H: 'static>(
+    instance: *mut c_void,
+    id: u64,
+    input: *const u8,
+    len: usize,
+) {
+    // SAFETY: instance came from create::<H>; the runtime makes one call into it at a time.
+    let instance = unsafe { &mut *(instance as *mut AsyncInstance<H>) };
+    instance.submit(id, unsafe { borrowed(input, len) });
+}
+
+unsafe extern "C" fn deliver<H: 'static>(
+    instance: *mut c_void,
+    call_id: u64,
+    status: i32,
+    response: *const u8,
+    len: usize,
+) {
+    // SAFETY: as for submit.
+    let instance = unsafe { &mut *(instance as *mut AsyncInstance<H>) };
+    instance.deliver(call_id, status, unsafe { borrowed(response, len) });
+}
+
+unsafe extern "C" fn destroy<H: 'static>(instance: *mut c_void) {
+    // SAFETY: instance came from create::<H> and is destroyed once.
+    drop(unsafe { Box::from_raw(instance as *mut AsyncInstance<H>) });
+}
+
+/// Serves `handler` as an [`AsyncInstance`] until shutdown, through ipc-runtime's re-entrant loop
+/// (`IpcServer::serve_async`): everything runs on this thread, requests are taken while host calls
+/// are out, and each host call goes to its target in `targets` (name, socket path) over one
+/// connection per target. `dispatch` is the generated `<service>_server::submit_request`. Shared
+/// memory is not re-entrant, so a `.shm` server or target is refused.
+pub fn serve_async<H: 'static>(
+    server: &mut ipc_runtime::IpcServer,
+    handler: H,
+    dispatch: Dispatch<H>,
+    targets: Vec<(String, String)>,
+) -> Result<(), String> {
+    PENDING.with(|p| *p.borrow_mut() = Some(Box::new((handler, dispatch))));
+    let service = ipc_runtime::AsyncService {
+        create: create::<H>,
+        submit: submit::<H>,
+        deliver: deliver::<H>,
+        destroy: destroy::<H>,
+    };
+    let result = server.serve_async(&service, &targets);
+    PENDING.with(|p| p.borrow_mut().take());
+    result
 }

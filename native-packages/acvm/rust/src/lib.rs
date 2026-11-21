@@ -13,6 +13,7 @@ pub mod generated {
         pub mod acvm_client;
         pub mod acvm_server;
         pub mod acvm_types;
+        pub mod async_host;
         pub mod backend;
         pub mod error;
         pub mod host_call_backend;
