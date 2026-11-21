@@ -1,6 +1,6 @@
 /// Echo IPC client (Zig) — uses GENERATED typed client + the ipc-runtime
 /// Zig binding for transport. No per-service UDS code in the example.
-/// Usage: echo_client --socket /tmp/echo.sock
+/// Usage: echo_client --socket /tmp/echo.sock [--relay-hops N]
 const std = @import("std");
 const ipc_runtime = @import("ipc_runtime");
 const echo_client = @import("generated/echo_client.zig");
@@ -18,9 +18,12 @@ pub fn main() !void {
     var args = std.process.args();
     _ = args.next();
     var socket_path: ?[:0]const u8 = null;
+    var relay_hops: u32 = 0;
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--socket")) {
             socket_path = args.next();
+        } else if (std.mem.eql(u8, arg, "--relay-hops")) {
+            relay_hops = try std.fmt.parseInt(u32, args.next() orelse "0", 10);
         }
     }
     const path = socket_path orelse {
@@ -181,6 +184,24 @@ pub fn main() !void {
             }
         }
         std.debug.print("echo_client(zig): EchoFail OK\n", .{});
+    }
+
+    // Test 9: EchoRelay — each hop appends its count on the way out
+    {
+        var expected: [256]u8 = undefined;
+        expected[0] = 9;
+        var hop = relay_hops;
+        var len: usize = 1;
+        while (hop > 0) : (hop -= 1) {
+            expected[len] = @intCast(hop);
+            len += 1;
+        }
+        const resp = try client.relay(.{ .data = &[_]u8{9}, .hops = relay_hops });
+        if (!std.mem.eql(u8, resp.data, expected[0..len])) {
+            std.debug.print("echo_client(zig): EchoRelay FAIL: {any}\n", .{resp.data});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoRelay ({d} hops) OK\n", .{relay_hops});
     }
 
     std.debug.print("echo_client(zig): all tests passed\n", .{});

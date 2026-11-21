@@ -9,10 +9,19 @@
  *
  *   createInstance(ffiName, library?)      an instance on a thread of its own; call() returns a promise
  *   createInstanceSync(ffiName, library?)  an instance on the JavaScript thread; callSync() returns the bytes
+ *   hasAsyncInstances(ffiName, library?)   whether the library exports asynchronous instances
+ *   createAsyncInstance(ffiName, library, onEvent)
+ *                                          an asynchronous instance on a thread of its own (see below)
  *
  * Each instance has `call`/`callSync(request, hostCall?)` and `destroy()`. `hostCall(target,
  * request)` answers the instance's host calls: with a Uint8Array, or for an asynchronous instance
  * also with a promise of one, which its thread waits on while the JavaScript thread runs.
+ *
+ * An asynchronous instance (the library's <ffiName>_ipc_ffi_create_async and the rest) has
+ * `submit(requestId, request)`, `deliver(callId, status, response)` and `destroy()`, none of which
+ * blocks; it reports on the JavaScript thread through `onEvent(kind, id, target, bytes)`: kind 0 the
+ * response to request `id`, kind 1 a host call `id` to `target`, answered with deliver(). It keeps
+ * taking requests while its host calls are out, so a host call may lead back into it.
  *
  * A library is found by its FFI name: registered with register_ffi() (a static library, as on
  * iOS), else loaded from `library` when given, else as lib<ffiName>.so / lib<ffiName>.dylib, else
@@ -42,6 +51,18 @@ struct FfiSymbols {
                                                size_t request_len,
                                                uint8_t** response,
                                                size_t* response_len)) = nullptr;
+    /** The asynchronous instances, for a library that has them (all four, or none). */
+    void* (*create_async)(void* host_ctx,
+                          void (*respond)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len),
+                          void (*call)(void* host_ctx,
+                                       uint64_t call_id,
+                                       const uint8_t* target,
+                                       size_t target_len,
+                                       const uint8_t* request,
+                                       size_t request_len)) = nullptr;
+    void (*submit)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len) = nullptr;
+    void (*deliver)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t len) = nullptr;
+    void (*destroy_async)(void* instance) = nullptr;
 };
 
 /** Makes a library linked into the app reachable by its FFI name. */
@@ -65,7 +86,8 @@ void install(facebook::jsi::Runtime& runtime, RunOnJs run_on_js);
  *   IPC_RUNTIME_JSI_DECLARE_FFI(bb)
  *   ipc::jsi::register_ffi("bb", IPC_RUNTIME_JSI_SYMBOLS(bb));
  *
- * The _WITH_HOST_CALLS variants are for a library that makes host calls (exports set_host_call).
+ * The _WITH_HOST_CALLS variants are for a library that makes host calls (exports set_host_call), and
+ * the _ASYNC ones for a library that also has asynchronous instances (exports create_async and the rest).
  */
 #define IPC_RUNTIME_JSI_DECLARE_FFI(name)                                                                              \
     extern "C" void* name##_ipc_ffi_create();                                                                          \
@@ -91,4 +113,23 @@ void install(facebook::jsi::Runtime& runtime, RunOnJs run_on_js);
     {                                                                                                                  \
         .create = name##_ipc_ffi_create, .call = name##_ipc_ffi_call, .destroy = name##_ipc_ffi_destroy,               \
         .alloc = name##_ipc_ffi_alloc, .free = name##_ipc_ffi_free, .set_host_call = name##_ipc_ffi_set_host_call      \
+    }
+
+#define IPC_RUNTIME_JSI_DECLARE_FFI_ASYNC(name)                                                                        \
+    IPC_RUNTIME_JSI_DECLARE_FFI_WITH_HOST_CALLS(name)                                                                  \
+    extern "C" void* name##_ipc_ffi_create_async(                                                                      \
+        void*,                                                                                                         \
+        void (*)(void*, uint64_t, const uint8_t*, size_t),                                                             \
+        void (*)(void*, uint64_t, const uint8_t*, size_t, const uint8_t*, size_t));                                    \
+    extern "C" void name##_ipc_ffi_submit(void*, uint64_t, const uint8_t*, size_t);                                    \
+    extern "C" void name##_ipc_ffi_deliver(void*, uint64_t, int32_t, const uint8_t*, size_t);                          \
+    extern "C" void name##_ipc_ffi_destroy_async(void*);
+
+#define IPC_RUNTIME_JSI_SYMBOLS_ASYNC(name)                                                                            \
+    ::ipc::jsi::FfiSymbols                                                                                             \
+    {                                                                                                                  \
+        .create = name##_ipc_ffi_create, .call = name##_ipc_ffi_call, .destroy = name##_ipc_ffi_destroy,               \
+        .alloc = name##_ipc_ffi_alloc, .free = name##_ipc_ffi_free, .set_host_call = name##_ipc_ffi_set_host_call,     \
+        .create_async = name##_ipc_ffi_create_async, .submit = name##_ipc_ffi_submit,                                  \
+        .deliver = name##_ipc_ffi_deliver, .destroy_async = name##_ipc_ffi_destroy_async                               \
     }

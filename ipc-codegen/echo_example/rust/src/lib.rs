@@ -2,6 +2,7 @@
 // `ipc-runtime` crate; the per-language UDS template that used to live
 // here (ipc_server.rs / uds_backend.rs) is gone — the runtime is shared.
 pub mod generated {
+    pub mod async_host;
     pub mod backend;
     pub mod echo_client;
     #[cfg(feature = "ffi")]
@@ -12,6 +13,8 @@ pub mod generated {
     #[cfg(feature = "ffi")]
     pub mod ffi_backend;
     pub mod host_call_backend;
+    #[cfg(feature = "ipc-runtime")]
+    pub mod process_host_calls;
 }
 
 pub mod handler;

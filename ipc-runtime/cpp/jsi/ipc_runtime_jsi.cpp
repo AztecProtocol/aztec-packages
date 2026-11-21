@@ -126,6 +126,14 @@ std::optional<FfiSymbols> symbols_in(void* handle, const std::string& ffi_name)
     symbols.alloc = symbol<decltype(symbols.alloc)>(handle, ffi_name + "_ipc_ffi_alloc");
     symbols.free = symbol<decltype(symbols.free)>(handle, ffi_name + "_ipc_ffi_free");
     symbols.set_host_call = symbol<decltype(symbols.set_host_call)>(handle, ffi_name + "_ipc_ffi_set_host_call");
+    symbols.create_async = symbol<decltype(symbols.create_async)>(handle, ffi_name + "_ipc_ffi_create_async");
+    symbols.submit = symbol<decltype(symbols.submit)>(handle, ffi_name + "_ipc_ffi_submit");
+    symbols.deliver = symbol<decltype(symbols.deliver)>(handle, ffi_name + "_ipc_ffi_deliver");
+    symbols.destroy_async = symbol<decltype(symbols.destroy_async)>(handle, ffi_name + "_ipc_ffi_destroy_async");
+    if (symbols.create_async == nullptr || symbols.submit == nullptr || symbols.deliver == nullptr ||
+        symbols.destroy_async == nullptr) {
+        symbols.create_async = nullptr;
+    }
     if (symbols.create == nullptr || symbols.call == nullptr || symbols.destroy == nullptr ||
         symbols.alloc == nullptr || symbols.free == nullptr) {
         return std::nullopt;
@@ -626,6 +634,158 @@ class AsyncInstance final : public fj::HostObject, public std::enable_shared_fro
     bool ended_ = false;
 };
 
+/**
+ * An asynchronous instance on a service thread of its own: submit() and deliver() queue to the thread,
+ * and the instance's responses and host calls reach JavaScript as events, on its thread. The instance is
+ * made by the thread's first task and ended by its last.
+ */
+class EventInstance final : public fj::HostObject, public std::enable_shared_from_this<EventInstance> {
+  public:
+    EventInstance(std::shared_ptr<const FfiSymbols> library, RunOnJs run_on_js, std::shared_ptr<fj::Function> on_event)
+        : library_(std::move(library))
+        , events_(std::make_shared<Events>(std::move(run_on_js), std::move(on_event)))
+        , thread_(std::make_shared<ServiceThread>())
+    {
+        thread_->post([library = library_, events = events_, instance = instance_] {
+            *instance = library->create_async(events.get(), &EventInstance::on_respond, &EventInstance::on_call);
+        });
+    }
+    EventInstance(const EventInstance&) = delete;
+    EventInstance& operator=(const EventInstance&) = delete;
+    EventInstance(EventInstance&&) = delete;
+    EventInstance& operator=(EventInstance&&) = delete;
+    ~EventInstance() override { end(); }
+
+    fj::Value get(fj::Runtime& rt, const fj::PropNameID& name) override
+    {
+        auto property = name.utf8(rt);
+        if (property == "submit") {
+            return fj::Function::createFromHostFunction(
+                rt,
+                name,
+                2,
+                [self = shared_from_this()](fj::Runtime& rt, const fj::Value&, const fj::Value* args, size_t count) {
+                    if (count < 2 || !args[0].isNumber()) {
+                        throw fj::JSError(rt, "submit(requestId, request) expects a number and a Uint8Array");
+                    }
+                    self->post(static_cast<uint64_t>(args[0].asNumber()), 0, bytes_of(rt, args[1]), false);
+                    return fj::Value::undefined();
+                });
+        }
+        if (property == "deliver") {
+            return fj::Function::createFromHostFunction(
+                rt,
+                name,
+                3,
+                [self = shared_from_this()](fj::Runtime& rt, const fj::Value&, const fj::Value* args, size_t count) {
+                    if (count < 3 || !args[0].isNumber() || !args[1].isNumber()) {
+                        throw fj::JSError(rt, "deliver(callId, status, response) expects two numbers and a Uint8Array");
+                    }
+                    self->post(static_cast<uint64_t>(args[0].asNumber()),
+                               static_cast<int32_t>(args[1].asNumber()),
+                               bytes_of(rt, args[2]),
+                               true);
+                    return fj::Value::undefined();
+                });
+        }
+        if (property == "destroy") {
+            return fj::Function::createFromHostFunction(
+                rt, name, 0, [self = shared_from_this()](fj::Runtime&, const fj::Value&, const fj::Value*, size_t) {
+                    self->end();
+                    return fj::Value::undefined();
+                });
+        }
+        return fj::Value::undefined();
+    }
+
+  private:
+    /** What the instance's callbacks reach. on_event is only touched, and released, on the JavaScript thread. */
+    struct Events : std::enable_shared_from_this<Events> {
+        Events(RunOnJs run_on_js, std::shared_ptr<fj::Function> on_event)
+            : run_on_js(std::move(run_on_js))
+            , on_event(std::move(on_event))
+        {}
+        RunOnJs run_on_js;
+        std::shared_ptr<fj::Function> on_event;
+    };
+
+    static void report(void* ctx, int kind, uint64_t id, std::string target, std::vector<uint8_t> bytes)
+    {
+        auto events = static_cast<Events*>(ctx)->shared_from_this();
+        // An event still queued when the instance ends finds on_event gone, and is dropped.
+        events->run_on_js(
+            [events, kind, id, target = std::move(target), bytes = std::move(bytes)](fj::Runtime& rt) mutable {
+                if (!events->on_event) {
+                    return;
+                }
+                events->on_event->call(rt,
+                                       fj::Value(kind),
+                                       fj::Value(static_cast<double>(id)),
+                                       fj::String::createFromUtf8(rt, target),
+                                       uint8_array(rt, std::move(bytes)));
+            });
+    }
+
+    static void on_respond(void* ctx, uint64_t request_id, const uint8_t* response, size_t len)
+    {
+        report(ctx, 0, request_id, std::string(), std::vector<uint8_t>(response, response + len));
+    }
+
+    static void on_call(
+        void* ctx, uint64_t call_id, const uint8_t* target, size_t target_len, const uint8_t* request, size_t len)
+    {
+        report(ctx,
+               1,
+               call_id,
+               std::string(reinterpret_cast<const char*>(target), target_len),
+               std::vector<uint8_t>(request, request + len));
+    }
+
+    void post(uint64_t id, int32_t status, std::vector<uint8_t> bytes, bool deliver)
+    {
+        if (ended_) {
+            return;
+        }
+        thread_->post([library = library_, instance = instance_, id, status, bytes = std::move(bytes), deliver] {
+            if (*instance == nullptr) {
+                return;
+            }
+            if (deliver) {
+                library->deliver(*instance, id, status, bytes.data(), bytes.size());
+            } else {
+                library->submit(*instance, id, bytes.data(), bytes.size());
+            }
+        });
+    }
+
+    /**
+     * Lets go of onEvent now, on the JavaScript thread (destroy() and the destructor both run there, the
+     * destructor possibly as the runtime goes away), and ends the instance once the tasks already posted
+     * have run.
+     */
+    void end()
+    {
+        if (ended_) {
+            return;
+        }
+        ended_ = true;
+        events_->on_event.reset();
+        thread_->post([library = library_, instance = instance_, events = events_] {
+            if (*instance != nullptr) {
+                library->destroy_async(*instance);
+                *instance = nullptr;
+            }
+        });
+    }
+
+    std::shared_ptr<const FfiSymbols> library_;
+    std::shared_ptr<Events> events_;
+    /** Set and read only on the service thread. */
+    std::shared_ptr<void*> instance_ = std::make_shared<void*>(nullptr);
+    std::shared_ptr<ServiceThread> thread_;
+    bool ended_ = false;
+};
+
 } // namespace
 
 void register_ffi(const std::string& ffi_name, const FfiSymbols& symbols)
@@ -679,6 +839,55 @@ void install(fj::Runtime& runtime, RunOnJs run_on_js)
                         find_library(args[0].getString(rt).utf8(rt),
                                      count > 1 && args[1].isString() ? args[1].getString(rt).utf8(rt) : std::string());
                     return fj::Value(rt, fj::Object::createFromHostObject(rt, std::make_shared<SyncInstance>(library)));
+                } catch (const std::runtime_error& e) {
+                    throw fj::JSError(rt, e.what());
+                }
+            }));
+    api.setProperty(runtime,
+                    "hasAsyncInstances",
+                    fj::Function::createFromHostFunction(
+                        runtime,
+                        fj::PropNameID::forAscii(runtime, "hasAsyncInstances"),
+                        1,
+                        [](fj::Runtime& rt, const fj::Value&, const fj::Value* args, size_t count) {
+                            if (count < 1 || !args[0].isString()) {
+                                throw fj::JSError(rt, "hasAsyncInstances(ffiName) expects the library's FFI name");
+                            }
+                            try {
+                                auto library = find_library(
+                                    args[0].getString(rt).utf8(rt),
+                                    count > 1 && args[1].isString() ? args[1].getString(rt).utf8(rt) : std::string());
+                                return fj::Value(library->create_async != nullptr);
+                            } catch (const std::runtime_error& e) {
+                                throw fj::JSError(rt, e.what());
+                            }
+                        }));
+    api.setProperty(
+        runtime,
+        "createAsyncInstance",
+        fj::Function::createFromHostFunction(
+            runtime,
+            fj::PropNameID::forAscii(runtime, "createAsyncInstance"),
+            3,
+            [shared_run_on_js](fj::Runtime& rt, const fj::Value&, const fj::Value* args, size_t count) {
+                if (count < 3 || !args[0].isString() || !args[2].isObject() || !args[2].getObject(rt).isFunction(rt)) {
+                    throw fj::JSError(rt,
+                                      "createAsyncInstance(ffiName, library, onEvent) expects the library's FFI name "
+                                      "and an event function");
+                }
+                try {
+                    auto library = find_library(args[0].getString(rt).utf8(rt),
+                                                args[1].isString() ? args[1].getString(rt).utf8(rt) : std::string());
+                    if (library->create_async == nullptr) {
+                        throw std::runtime_error("ipc-runtime: \"" + args[0].getString(rt).utf8(rt) +
+                                                 "\" exports no asynchronous instances");
+                    }
+                    auto on_event = std::make_shared<fj::Function>(args[2].getObject(rt).getFunction(rt));
+                    return fj::Value(rt,
+                                     fj::Object::createFromHostObject(
+                                         rt,
+                                         std::make_shared<EventInstance>(
+                                             std::move(library), *shared_run_on_js, std::move(on_event))));
                 } catch (const std::runtime_error& e) {
                     throw fj::JSError(rt, e.what());
                 }

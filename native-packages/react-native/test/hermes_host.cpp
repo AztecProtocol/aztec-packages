@@ -270,7 +270,9 @@ int main(int argc, char** argv)
     auto runtime =
         facebook::hermes::makeHermesRuntime(::hermes::vm::RuntimeConfig::Builder().withMicrotaskQueue(true).build());
     jsi::Runtime& rt = *runtime;
-    EventLoop loop;
+    // Never destroyed: a service thread still working when the script exits (a test that failed with calls in
+    // flight) posts its result here after main returns.
+    EventLoop& loop = *new EventLoop;
 
     define(rt, "print", 1, [](jsi::Runtime& rt, const jsi::Value* args, size_t count) {
         std::string line;

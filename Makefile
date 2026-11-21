@@ -434,7 +434,7 @@ acvm-mobile: acvm
 	$(call build,$@,native-packages/acvm,build_mobile)
 
 # @aztec-foundation/react-native: the native module a React Native app links to run the client stack. Its tests run
-# bb.js, bb, the ACVM and kv-sqlite from this tree under Hermes, through the module (see
+# bb.js, bb, the ACVM, kv-sqlite and ipc-codegen's echo example from this tree under Hermes, through the module (see
 # native-packages/react-native/README.md).
 .PHONY: react-native react-native-tests react-native-mobile acvm-mobile
 # Its node_modules portal to @aztec-labs/acvm's and kv-sqlite's generated TS packages, so those build first.

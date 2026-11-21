@@ -1,3 +1,7 @@
+import type {
+  AsyncInstanceEvents,
+  AsyncInstancePort,
+} from "../async_instance.js";
 import { WASI_NAMESPACE, createWasiImports } from "./wasi_shim.js";
 
 export interface InstanceOptions {
@@ -139,6 +143,39 @@ class StderrTail {
   }
 }
 
+/** A module's asynchronous instance exports. */
+interface AsyncFns {
+  create(ctx: number): number;
+  submit(handle: number, requestId: bigint, ptr: number, len: number): void;
+  deliver(
+    handle: number,
+    callId: bigint,
+    status: number,
+    ptr: number,
+    len: number,
+  ): void;
+  destroy(handle: number): void;
+}
+
+function asyncFnsOf(
+  ffiFn: (name: string) => WasmFn | undefined,
+): AsyncFns | undefined {
+  const create = ffiFn("ipc_ffi_create_async");
+  const submit = ffiFn("ipc_ffi_submit");
+  const deliver = ffiFn("ipc_ffi_deliver");
+  const destroy = ffiFn("ipc_ffi_destroy_async");
+  if (!create || !submit || !deliver || !destroy) {
+    return undefined;
+  }
+  return {
+    create: (ctx) => create(ctx) as number,
+    submit: (...args) => (submit as (...a: unknown[]) => unknown)(...args) as void,
+    deliver: (...args) =>
+      (deliver as (...a: unknown[]) => unknown)(...args) as void,
+    destroy: (handle) => destroy(handle) as unknown as void,
+  };
+}
+
 export class WasmInstanceHost {
   private constructor(
     readonly instance: WebAssembly.Instance,
@@ -154,6 +191,8 @@ export class WasmInstanceHost {
     private readonly free: WasmFn,
     readonly logger: (msg: string) => void,
     private readonly stderr: StderrTail,
+    /** The asynchronous instance exports, when the module has them. */
+    private readonly asyncFns: AsyncFns | undefined,
   ) {}
 
   static async instantiate(opts: InstanceOptions): Promise<WasmInstanceHost> {
@@ -192,6 +231,28 @@ export class WasmInstanceHost {
     const imports: Record<string, Record<string, WebAssembly.ImportValue>> = {
       [HOST_CALL_NAMESPACE]: {
         host_call: suspend ? new suspend.Suspending(hostCall) : hostCall,
+        async_respond: (
+          ctx: number,
+          requestId: bigint,
+          ptr: number,
+          len: number,
+        ) => self!.asyncEvent(ctx, (events, read) =>
+          events.respond(Number(requestId), read(ptr, len)),
+        ),
+        async_call: (
+          ctx: number,
+          callId: bigint,
+          targetPtr: number,
+          targetLen: number,
+          ptr: number,
+          len: number,
+        ) => self!.asyncEvent(ctx, (events, read) =>
+          events.call(
+            Number(callId),
+            new TextDecoder().decode(read(targetPtr, targetLen)),
+            read(ptr, len),
+          ),
+        ),
       },
       env: { memory },
       [WASI_NAMESPACE]: createWasiImports(opts.module, () => memory, {
@@ -266,8 +327,104 @@ export class WasmInstanceHost {
       exports[pair[1]] as WasmFn,
       logger,
       stderr,
+      asyncFnsOf(ffiFn),
     );
     return self;
+  }
+
+  /** Whether the module has asynchronous instances (\`<ffi>_ipc_ffi_create_async\` and the rest). */
+  get asynchronous(): boolean {
+    return this.asyncFns !== undefined;
+  }
+
+  private readonly asyncEvents = new Map<number, AsyncInstanceEvents>();
+  private nextAsyncCtx = 1;
+
+  /**
+   * An asynchronous instance of the service in this module, reporting to \`events\` from inside
+   * its submit and deliver. The caller must not call into it from inside an event.
+   */
+  openAsync(events: AsyncInstanceEvents): AsyncInstancePort {
+    const fns = this.asyncFns;
+    if (!fns) {
+      throw new Error("wasm module exports no asynchronous instances");
+    }
+    const ctx = this.nextAsyncCtx++;
+    this.asyncEvents.set(ctx, events);
+    const handle = this.guard(() => fns.create(ctx)) >>> 0;
+    if (handle === 0) {
+      this.asyncEvents.delete(ctx);
+      throw new Error(
+        this.stderr.text() || "the wasm service failed to create an instance",
+      );
+    }
+    return {
+      submit: (requestId, request) =>
+        this.withBytes(request, (ptr) =>
+          fns.submit(handle, BigInt(requestId), ptr, request.length),
+        ),
+      deliver: (callId, status, response) =>
+        this.withBytes(response, (ptr) =>
+          fns.deliver(handle, BigInt(callId), status, ptr, response.length),
+        ),
+      destroy: () => {
+        this.asyncEvents.delete(ctx);
+        if (!this.trapped) {
+          this.guard(() => fns.destroy(handle));
+        }
+      },
+    };
+  }
+
+  /** An import's event for instance \`ctx\`, with a reader copying bytes out of module memory. */
+  private asyncEvent(
+    ctx: number,
+    report: (
+      events: AsyncInstanceEvents,
+      read: (ptr: number, len: number) => Uint8Array,
+    ) => void,
+  ): void {
+    const events = this.asyncEvents.get(ctx >>> 0);
+    if (!events) {
+      return;
+    }
+    this.refreshViews();
+    report(events, (ptr, len) =>
+      this.bytes.slice(ptr >>> 0, (ptr >>> 0) + (len >>> 0)),
+    );
+  }
+
+  /** Runs \`fn\` with \`bytes\` placed in module memory for the duration. */
+  private withBytes(bytes: Uint8Array, fn: (ptr: number) => unknown): void {
+    const ptr = this.alloc(Math.max(1, bytes.length)) >>> 0;
+    if (ptr === 0) {
+      throw new Error(
+        `wasm module could not allocate a ${bytes.length} byte buffer`,
+      );
+    }
+    try {
+      this.refreshViews();
+      this.bytes.set(bytes, ptr);
+      this.guard(() => fn(ptr));
+    } finally {
+      if (!this.trapped) {
+        this.free(ptr);
+      }
+    }
+  }
+
+  /** Runs a call into the module, a trap marking the module unusable. */
+  private guard<T>(fn: () => T): T {
+    if (this.trapped) {
+      throw new Error("wasm module trapped earlier; its state is unknown");
+    }
+    this.stderr.reset();
+    try {
+      return fn();
+    } catch (cause) {
+      this.trapped = true;
+      throw this.explain(cause);
+    }
   }
 
   /**

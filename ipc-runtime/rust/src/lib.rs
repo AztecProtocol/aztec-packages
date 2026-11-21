@@ -37,6 +37,15 @@ mod sys {
 
     pub enum ipc_server {}
     pub enum ipc_client {}
+    pub enum ipc_respond {}
+
+    pub type ipc_server_async_handler_fn = unsafe extern "C" fn(
+        client_id: c_int,
+        req: *const u8,
+        req_len: usize,
+        respond: *mut ipc_respond,
+        ctx: *mut c_void,
+    );
 
     pub type ipc_server_handler_fn = unsafe extern "C" fn(
         client_id: c_int,
@@ -62,6 +71,12 @@ mod sys {
             handler: ipc_server_handler_fn,
             ctx: *mut c_void,
         );
+        pub fn ipc_server_run_reactor(
+            server: *mut ipc_server,
+            handler: ipc_server_async_handler_fn,
+            ctx: *mut c_void,
+        );
+        pub fn ipc_server_respond(respond: *mut ipc_respond, data: *const u8, len: usize);
         pub fn ipc_install_default_signal_handlers(server: *mut ipc_server);
 
         pub fn ipc_make_client(path: *const c_char, shm_client_id: usize) -> *mut ipc_client;
@@ -214,6 +229,68 @@ impl IpcServer {
                 &mut ctx as *mut Ctx<'_> as *mut c_void,
             );
         }
+    }
+}
+
+impl IpcServer {
+    /// Run the concurrent event loop: the handler gets each request and a [`Respond`] to answer
+    /// it with, now or later from any thread. It must not block, since it runs on the loop's own
+    /// thread; responses go out in completion order. Blocks until shutdown is requested and every
+    /// request has been answered.
+    pub fn run_reactor<F>(&mut self, mut handler: F)
+    where
+        F: FnMut(i32, &[u8], Respond),
+    {
+        let mut handler_obj: &mut dyn FnMut(i32, &[u8], Respond) = &mut handler;
+
+        unsafe extern "C" fn shim(
+            client_id: c_int,
+            req: *const u8,
+            req_len: usize,
+            respond: *mut sys::ipc_respond,
+            ctx_raw: *mut c_void,
+        ) {
+            let handler = &mut *(ctx_raw as *mut &mut dyn FnMut(i32, &[u8], Respond));
+            let req_slice = if req_len == 0 {
+                &[]
+            } else {
+                std::slice::from_raw_parts(req, req_len)
+            };
+            if let Some(respond) = NonNull::new(respond) {
+                handler(client_id, req_slice, Respond { inner: respond });
+            }
+        }
+
+        unsafe {
+            sys::ipc_server_run_reactor(
+                self.inner.as_ptr(),
+                shim,
+                &mut handler_obj as *mut &mut dyn FnMut(i32, &[u8], Respond) as *mut c_void,
+            );
+        }
+    }
+}
+
+/// The answer owed to one request of [`IpcServer::run_reactor`]. Dropped unanswered, it sends a
+/// zero-length response, so the client is never left waiting.
+pub struct Respond {
+    inner: NonNull<sys::ipc_respond>,
+}
+
+unsafe impl Send for Respond {}
+
+impl Respond {
+    /// Sends the response (copied) to the request this came with.
+    pub fn send(self, response: &[u8]) {
+        let inner = self.inner;
+        std::mem::forget(self);
+        unsafe { sys::ipc_server_respond(inner.as_ptr(), response.as_ptr(), response.len()) };
+    }
+}
+
+impl Drop for Respond {
+    fn drop(&mut self) {
+        unsafe { sys::ipc_server_respond(self.inner.as_ptr(), std::ptr::null(), 0) };
     }
 }
 
