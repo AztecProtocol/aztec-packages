@@ -1,7 +1,8 @@
 // Tests of the generated @aztec-labs/acvm package, from its build: a program solves to the same result through
 // the spawned aztec-acvm binary, an instance of its library (napi) and the wasm module, with its oracles answered
 // asynchronously by this thread through each backend's `oracle` host-call target: over a socket the process
-// reaches, while the library's thread waits, and with the wasm module suspended (JSPI).
+// reaches, and with the library's and the wasm module's executions suspended on their asynchronous instances,
+// which take other requests meanwhile.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
@@ -163,6 +164,28 @@ test("overlapping executions each reach their own oracles", async () => {
       );
       assert.deepEqual(seen, ["double", "sum_and_reverse"], name);
     }
+  }
+});
+
+test("an oracle can execute on the same instance while the execution that called it waits", { timeout: 30_000 }, async () => {
+  // The process serves one request at a time, so only the in-process backends re-enter.
+  for (const name of ["napi", "wasm"]) {
+    const service = services[name];
+    const nested = [];
+    // double(x) answered by running `simple` (x * y + 1) with y = 2 on the same service.
+    const oracles = async ({ name: oracle, inputs: args }) => {
+      if (oracle !== "double") {
+        return programOracles()({ name: oracle, inputs: args });
+      }
+      const x = int(args[0].values[0]);
+      const inner = await execute(service, "simple", [x, 2]);
+      nested.push(x);
+      return [{ values: [fr(int(inner.returnWitness[0].value) - 1)], array: false }];
+    };
+    const result = await execute(service, "oracles", [4, 1, 2, 3], oracles);
+    assert.equal(result.failure, null, name);
+    assert.deepEqual(result.returnWitness.map((e) => int(e.value)), [14], name);
+    assert.deepEqual(nested, [4], name);
   }
 });
 

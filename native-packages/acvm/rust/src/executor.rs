@@ -1,8 +1,9 @@
 //! Solving a program: the main function, the ACIR functions it calls, and the foreign calls their
-//! Brillig code makes, as acvm_js's executor does.
+//! Brillig code makes, as acvm_js's executor does. Foreign calls are awaited, so an execution can
+//! wait on its oracles without blocking the instance running it.
 
 use acir::brillig::ForeignCallResult;
-use acir::circuit::{brillig::BrilligBytecode, Circuit, OpcodeLocation, Program};
+use acir::circuit::{Circuit, OpcodeLocation, Program};
 use acir::native_types::{WitnessMap, WitnessStack};
 use acir::FieldElement;
 use acvm::pwg::{
@@ -12,6 +13,7 @@ use acvm::pwg::{
 use acvm::AcirField;
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use serde::Serialize;
+use std::future::Future;
 
 use crate::generated::acvm::acvm_types::{ExecutionFailure, RawAssertionPayload};
 
@@ -21,9 +23,10 @@ pub trait ForeignCallResolver {
     fn resolve(
         &mut self,
         call: &ForeignCallWaitInfo<FieldElement>,
-    ) -> Result<ForeignCallResult<FieldElement>, String>;
+    ) -> impl Future<Output = Result<ForeignCallResult<FieldElement>, String>>;
 }
 
+/// A closure answers at once.
 impl<F> ForeignCallResolver for F
 where
     F: FnMut(&ForeignCallWaitInfo<FieldElement>) -> Result<ForeignCallResult<FieldElement>, String>,
@@ -31,8 +34,8 @@ where
     fn resolve(
         &mut self,
         call: &ForeignCallWaitInfo<FieldElement>,
-    ) -> Result<ForeignCallResult<FieldElement>, String> {
-        self(call)
+    ) -> impl Future<Output = Result<ForeignCallResult<FieldElement>, String>> {
+        std::future::ready(self(call))
     }
 }
 
@@ -76,7 +79,7 @@ pub enum Execution {
 /// Solve `bytecode` (as `Program::serialize_program` writes it) from its main function's initial
 /// witness. A service error (`Err`) is a program that can't be read or a foreign call that went
 /// unanswered; the program failing is `Ok(Execution::Failed)`.
-pub fn execute(
+pub async fn execute(
     bytecode: &[u8],
     initial_witness: WitnessMap<FieldElement>,
     resolver: &mut impl ForeignCallResolver,
@@ -84,18 +87,21 @@ pub fn execute(
     let program = Program::<FieldElement>::deserialize_program(bytecode)
         .map_err(|e| format!("could not read the program: {e}"))?;
     let solver = Bn254BlackBoxSolver::default();
-    let mut executor = Executor {
-        functions: &program.functions,
-        unconstrained_functions: &program.unconstrained_functions,
-        solver: &solver,
-        resolver,
-        stack: WitnessStack::default(),
-    };
-    let main = executor
+    let main = program
         .functions
         .first()
         .ok_or_else(|| "the program has no functions".to_string())?;
-    let witness = match executor.execute_circuit(main, 0, initial_witness)? {
+    let mut stack = WitnessStack::default();
+    let witness = match solve(
+        &program,
+        &solver,
+        resolver,
+        main,
+        initial_witness,
+        &mut stack,
+    )
+    .await?
+    {
         Ok(witness) => witness,
         Err(failure) => return Ok(Execution::Failed(failure)),
     };
@@ -106,7 +112,6 @@ pub fn execute(
             .ok_or_else(|| format!("return witness {index} is missing from the solved witness"))?;
         return_witness.insert(index.into(), *value);
     }
-    let mut stack = executor.stack;
     stack.push(0, witness);
     Ok(Execution::Solved(Solved {
         stack,
@@ -114,67 +119,80 @@ pub fn execute(
     }))
 }
 
-struct Executor<'a, R> {
-    functions: &'a [Circuit<FieldElement>],
-    unconstrained_functions: &'a [BrilligBytecode<FieldElement>],
-    solver: &'a Bn254BlackBoxSolver,
-    resolver: &'a mut R,
-    /// The witnesses of the ACIR calls solved so far, in the order they finished.
-    stack: WitnessStack<FieldElement>,
+/// A function being solved: the main function, or an ACIR function a frame below it called.
+struct Frame<'a> {
+    acvm: ACVM<'a, FieldElement, Bn254BlackBoxSolver>,
+    circuit: &'a Circuit<FieldElement>,
+    function_id: u32,
 }
 
-impl<R: ForeignCallResolver> Executor<'_, R> {
-    /// Solve one function. The outer `Result` is a service error, the inner one the program failing.
-    #[allow(clippy::type_complexity)]
-    fn execute_circuit(
-        &mut self,
-        circuit: &Circuit<FieldElement>,
-        function_id: u32,
-        initial_witness: WitnessMap<FieldElement>,
-    ) -> Result<Result<WitnessMap<FieldElement>, ExecutionFailure>, String> {
-        let mut acvm = ACVM::new(
-            self.solver,
+/// Solve `main` and every ACIR function it calls, each call a frame on an explicit stack (an async
+/// function can't recurse without boxing each level). The witnesses of the ACIR calls go on
+/// `stack` in the order they finish. The outer `Result` is a service error, the inner one the
+/// program failing.
+#[allow(clippy::type_complexity)]
+async fn solve<'a>(
+    program: &'a Program<FieldElement>,
+    solver: &'a Bn254BlackBoxSolver,
+    resolver: &mut impl ForeignCallResolver,
+    main: &'a Circuit<FieldElement>,
+    initial_witness: WitnessMap<FieldElement>,
+    stack: &mut WitnessStack<FieldElement>,
+) -> Result<Result<WitnessMap<FieldElement>, ExecutionFailure>, String> {
+    let frame = |circuit: &'a Circuit<FieldElement>, function_id, witness| Frame {
+        acvm: ACVM::new(
+            solver,
             &circuit.opcodes,
-            initial_witness,
-            self.unconstrained_functions,
+            witness,
+            &program.unconstrained_functions,
             &circuit.assert_messages,
-        );
-        loop {
-            match acvm.solve() {
-                ACVMStatus::Solved => break,
-                ACVMStatus::InProgress => {
-                    unreachable!("the ACVM never stops while in progress")
-                }
-                ACVMStatus::Failure(error) => return Ok(Err(failure(error, function_id))),
-                ACVMStatus::RequiresForeignCall(call) => {
-                    let result = self.resolver.resolve(&call)?;
-                    acvm.resolve_pending_foreign_call(result);
-                }
-                ACVMStatus::RequiresAcirCall(call) => {
-                    let id = call.id.as_u32();
-                    let callee = self.functions.get(call.id.as_usize()).ok_or_else(|| {
-                        format!("the program calls ACIR function {id}, which it lacks")
-                    })?;
-                    let witness = match self.execute_circuit(callee, id, call.initial_witness)? {
-                        Ok(witness) => witness,
-                        Err(failure) => return Ok(Err(failure)),
-                    };
-                    let outputs = callee
-                        .return_values
-                        .indices()
-                        .into_iter()
-                        .map(|index| {
-                            witness.get_index(index).copied().ok_or_else(|| {
-                                format!("return witness {index} of ACIR function {id} is missing from its solved witness")
-                            })
+        ),
+        circuit,
+        function_id,
+    };
+    let mut frames = vec![frame(main, 0, initial_witness)];
+    loop {
+        let top = frames
+            .last_mut()
+            .expect("a frame is solving until main returns");
+        match top.acvm.solve() {
+            ACVMStatus::Solved => {
+                let done = frames.pop().expect("the frame just solved");
+                let witness = done.acvm.finalize();
+                let Some(caller) = frames.last_mut() else {
+                    return Ok(Ok(witness));
+                };
+                let id = done.function_id;
+                let outputs = done
+                    .circuit
+                    .return_values
+                    .indices()
+                    .into_iter()
+                    .map(|index| {
+                        witness.get_index(index).copied().ok_or_else(|| {
+                            format!("return witness {index} of ACIR function {id} is missing from its solved witness")
                         })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    acvm.resolve_pending_acir_call(outputs);
-                    self.stack.push(id, witness);
-                }
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                caller.acvm.resolve_pending_acir_call(outputs);
+                stack.push(id, witness);
+            }
+            ACVMStatus::InProgress => {
+                unreachable!("the ACVM never stops while in progress")
+            }
+            ACVMStatus::Failure(error) => return Ok(Err(failure(error, top.function_id))),
+            ACVMStatus::RequiresForeignCall(call) => {
+                let result = resolver.resolve(&call).await?;
+                top.acvm.resolve_pending_foreign_call(result);
+            }
+            ACVMStatus::RequiresAcirCall(call) => {
+                let id = call.id.as_u32();
+                let callee = program.functions.get(call.id.as_usize()).ok_or_else(|| {
+                    format!("the program calls ACIR function {id}, which it lacks")
+                })?;
+                frames.push(frame(callee, id, call.initial_witness));
             }
         }
-        Ok(Ok(acvm.finalize()))
     }
 }
 
