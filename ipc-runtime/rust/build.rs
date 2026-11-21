@@ -16,8 +16,8 @@ use std::path::{Path, PathBuf};
 /// undefined reference at link time in whichever consumer links this archive,
 /// far from the change that caused it.
 fn collect_sources(dir: &Path, out: &mut Vec<PathBuf>) {
-    let entries =
-        std::fs::read_dir(dir).unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()));
+    let entries = std::fs::read_dir(dir)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()));
     for entry in entries {
         let path = entry.expect("cannot read dir entry").path();
         if path.is_dir() {
@@ -43,11 +43,7 @@ fn main() {
 
     let mut sources = Vec::new();
     collect_sources(&src_dir, &mut sources);
-    assert!(
-        !sources.is_empty(),
-        "no C++ sources found in {}",
-        src_dir.display()
-    );
+    assert!(!sources.is_empty(), "no C++ sources found in {}", src_dir.display());
     // Re-run when a source is added or removed, not just edited.
     println!("cargo:rerun-if-changed={}", src_dir.display());
 

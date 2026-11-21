@@ -6,7 +6,6 @@
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -43,9 +42,6 @@ class SocketServer : public IpcServer {
     // read end sits in the epoll/kqueue set. Used by run_reactor() to surface a
     // worker-thread completion promptly.
     void notify() override;
-    bool can_watch_fds() const override { return true; }
-    bool watch_fd(int fd) override;
-    void unwatch_fd(int fd) override;
 
     CleanupPaths cleanup_paths() const override
     {
@@ -74,7 +70,6 @@ class SocketServer : public IpcServer {
     int next_client_id_ = 0;
     std::unordered_map<int, int> client_fds_;                    // client_id -> fd
     std::unordered_map<int, int> fd_to_client_id_;               // fd -> client_id (for fast lookup)
-    std::unordered_set<int> watched_fds_;                        // watch_fd()
     std::unordered_map<int, std::vector<uint8_t>> recv_buffers_; // client_id -> recv buffer
     int num_clients_ = 0;
 };

@@ -972,12 +972,6 @@ function generate(args: Args) {
               gen.generateFfiSource(),
             ),
           );
-          cppFiles.push(
-            writeFile(
-              `${toSnakeCase(prefix)}_ffi_async.cpp`,
-              gen.generateFfiAsyncSource(),
-            ),
-          );
         }
       }
       if (args.client) {
@@ -985,12 +979,6 @@ function generate(args: Args) {
           writeFile(
             `${toSnakeCase(prefix)}_client.hpp`,
             gen.generateApi(compiled, schemaHash),
-          ),
-        );
-        cppFiles.push(
-          writeFile(
-            `${toSnakeCase(prefix)}_async_client.hpp`,
-            gen.generateAsyncApi(compiled),
           ),
         );
         if (args.ffi) {
