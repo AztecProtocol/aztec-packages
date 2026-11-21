@@ -1,10 +1,10 @@
 import { AsyncApi, SyncApi } from '@aztec-foundation/bb.js-api';
 import type { IpcClientAsync } from '@aztec-foundation/ipc-runtime';
-import { isIos } from '@aztec-foundation/ipc-runtime/wasm';
 
 import { BackendOptions, BackendType } from '../backends/index.js';
-import { createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
+import { IN_PROCESS_BACKEND, createAsyncBackend, createSyncBackend } from '../backends/node/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
+import { isIos } from '../platform/node/index.js';
 
 const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 const BN254_SRS_CHUNK_POINTS = 2 ** 17;
@@ -49,7 +49,7 @@ export class Barretenberg extends AsyncApi {
    * If options.backend is set: uses that specific backend (throws if unavailable)
    * If options.backend is unset: tries backends in order with fallback:
    *   1. NativeUnixSocket (node, if the bb binary is available)
-   *   2. Wasm
+   *   2. Wasm (Jsi in React Native, which has no WebAssembly)
    *
    * Every backend runs off the calling thread: a bb process, or bb in-process on a thread of its own (a worker for
    * Wasm, a native thread for Napi). For calls on the calling thread, use BarretenbergSync.
@@ -60,20 +60,24 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = new Barretenberg(await createAsyncBackend(options.backend, options, logger), options);
-      if (options.backend === BackendType.Wasm || options.backend === BackendType.Napi) {
+      if (
+        options.backend === BackendType.Wasm ||
+        options.backend === BackendType.Napi ||
+        options.backend === BackendType.Jsi
+      ) {
         await backend.initInProcess();
       }
       return backend;
     }
 
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' && IN_PROCESS_BACKEND !== BackendType.Jsi) {
       try {
         return new Barretenberg(await createAsyncBackend(BackendType.NativeUnixSocket, options, logger), options);
       } catch (err: any) {
-        logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
+        logger(`Unix socket unavailable (${err.message}), falling back to ${IN_PROCESS_BACKEND}`);
       }
     }
-    const backend = new Barretenberg(await createAsyncBackend(BackendType.Wasm, options, logger), options);
+    const backend = new Barretenberg(await createAsyncBackend(IN_PROCESS_BACKEND, options, logger), options);
     await backend.initInProcess();
     return backend;
   }
@@ -197,7 +201,7 @@ export class BarretenbergSync extends SyncApi {
    * If options.backend is unset: tries backends in order with fallback:
    *   1. Napi (node, if bb's library is installed): bb in-process, on the calling thread
    *   2. NativeSharedMem (node, if the bb binary and ipc-runtime's addon are available)
-   *   3. Wasm
+   *   3. Wasm (Jsi in React Native, which has no WebAssembly)
    *
    * Supported backends: Wasm, Napi, NativeSharedMem
    * Not supported: NativeUnixSocket (asynchronous only). Every backend runs on the calling thread.
@@ -209,7 +213,7 @@ export class BarretenbergSync extends SyncApi {
       return new BarretenbergSync(await createSyncBackend(options.backend, options, logger));
     }
 
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' && IN_PROCESS_BACKEND !== BackendType.Jsi) {
       for (const backend of [BackendType.Napi, BackendType.NativeSharedMemory]) {
         try {
           return new BarretenbergSync(await createSyncBackend(backend, options, logger));
@@ -219,7 +223,7 @@ export class BarretenbergSync extends SyncApi {
       }
     }
 
-    return new BarretenbergSync(await createSyncBackend(BackendType.Wasm, options, logger));
+    return new BarretenbergSync(await createSyncBackend(IN_PROCESS_BACKEND, options, logger));
   }
 
   /**

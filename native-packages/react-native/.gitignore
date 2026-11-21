@@ -1,0 +1,8 @@
+node_modules/
+prebuilt/
+third_party/
+build/
+android/build/
+android/.cxx/
+.yarn/
+*.tgz

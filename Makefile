@@ -73,6 +73,7 @@ fast-foundation: barretenberg bb-tests \
 		protocol-contracts protocol-contracts-tests \
 		fnd-release-tests fnd-genesis-tests \
 		ipc-runtime ipc-codegen-tests \
+		react-native-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
 		ci3-tests \
@@ -105,7 +106,7 @@ bench: bench-foundation bench-labs
 
 # Release: everything, plus the cross builds and release tarballs. Each project's release step packages every
 # platform's binaries from the cross build directories itself.
-release-foundation: fast-foundation bb-cpp-release-dir ipc-runtime-cross
+release-foundation: fast-foundation bb-cpp-release-dir ipc-runtime-cross react-native-mobile
 
 release-labs: fast-labs
 
@@ -427,6 +428,25 @@ acvm-tests: acvm
 
 kv-sqlite-tests: kv-sqlite
 	$(call test,$@,native-packages/kv-sqlite)
+
+# The ACVM's static library for Android and iOS (release only), which @aztec-foundation/react-native ships.
+acvm-mobile: acvm
+	$(call build,$@,native-packages/acvm,build_mobile)
+
+# @aztec-foundation/react-native: the native module a React Native app links to run the client stack. Its tests run
+# bb.js, bb, the ACVM, kv-sqlite and ipc-codegen's echo example from this tree under Hermes, through the module (see
+# native-packages/react-native/README.md).
+.PHONY: react-native react-native-tests react-native-mobile acvm-mobile
+# Its node_modules portal to @aztec-labs/acvm's and kv-sqlite's generated TS packages, so those build first.
+react-native: ipc-codegen acvm kv-sqlite
+	$(call build,$@,native-packages/react-native)
+
+react-native-tests: react-native bb-ts
+	$(call test,$@,native-packages/react-native)
+
+# The libraries the package ships (release only): bb and the ACVM for Android and iOS.
+react-native-mobile: bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android \
+		bb-cpp-cross-x86_64-android acvm-mobile
 
 #==============================================================================
 # .claude tooling
