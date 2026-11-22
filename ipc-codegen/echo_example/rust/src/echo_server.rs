@@ -6,7 +6,7 @@
 //! hops before it wait. Shared memory is not re-entrant: there it serves one request at a time, its
 //! host calls blocking.
 
-use echo_wire_compat::generated::echo_server::{handle_request, submit_request};
+use echo_wire_compat::generated::echo_server::{handle_request, oversized_response, submit_request};
 use echo_wire_compat::handler::EchoHandler;
 use ipc_runtime::process_host_calls::{host_call_args, route_host_calls, serve_async};
 use ipc_runtime::IpcServer;
@@ -28,6 +28,7 @@ fn main() {
 
     if socket_path.ends_with(".shm") {
         route_host_calls(targets);
+        server.set_oversized_response(oversized_response);
         let mut handler = EchoHandler;
         server.run(|_client_id, request| handle_request(&mut handler, request));
         return;

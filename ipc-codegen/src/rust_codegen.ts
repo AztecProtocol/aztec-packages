@@ -940,16 +940,25 @@ fn error_frame(message: String) -> Vec<u8> {
     rmp_serde::to_vec_named(&Response::${errorRespType}(${errorRespType} { message })).unwrap_or_default()
 }
 
+/// The error response a server sends in place of one too large for its transport (half a
+/// shared-memory ring): pass it to \`IpcServer::set_oversized_response\`.
+pub fn oversized_response(size: usize, limit: usize) -> Vec<u8> {
+    error_frame(format!("response of {size} bytes exceeds the transport's {limit}-byte limit"))
+}
+
 /// Decode a framed request and dispatch it; its response frame goes to \`raw\`, now or once the
-/// handler answers. What an asynchronous instance runs each submitted request through.
+/// handler answers. What an asynchronous instance runs each submitted request through. A handler
+/// that panics, or drops its responder, is answered with an error response saying so, and the
+/// panic goes no further.
 pub fn submit_request(handler: &mut dyn Handler, request_bytes: &[u8], raw: RawRespond) {
-    match rmp_serde::from_slice::<Vec<Command>>(request_bytes) {
+    let raw = ipc_runtime::guard::answer_once(raw, error_frame);
+    ipc_runtime::guard::catch(move || match rmp_serde::from_slice::<Vec<Command>>(request_bytes) {
         Err(e) => raw(error_frame(format!("malformed request: {e}"))),
         Ok(commands) => match commands.into_iter().next() {
             None => raw(error_frame("malformed request: empty command array".to_string())),
             Some(command) => dispatch(handler, command, raw),
         },
-    }
+    });
 }
 
 /// Decode a framed request, dispatch it, and return the encoded response frame. The handler must
@@ -1175,11 +1184,15 @@ use ipc_runtime::async_host::AsyncInstance;
 pub use ipc_runtime::host_call_backend::{set_native_host_call, NativeHostCall};
 
 /// An asynchronous instance over a fresh \`H\`, answering to \`host\`, as an opaque pointer.
+/// A handler whose construction panics makes no instance (null).
 pub fn create_async<H: Handler + Default>(host: ffi_host::FfiHost) -> *mut std::ffi::c_void {
-    let instance = AsyncInstance::new(H::default(), std::sync::Arc::new(host), |handler: &mut H, request, raw| {
-        submit_request(handler, request, raw)
-    });
-    Box::into_raw(Box::new(instance)) as *mut std::ffi::c_void
+    ipc_runtime::guard::catch(move || {
+        let instance = AsyncInstance::new(H::default(), std::sync::Arc::new(host), |handler: &mut H, request, raw| {
+            submit_request(handler, request, raw)
+        });
+        Box::into_raw(Box::new(instance)) as *mut std::ffi::c_void
+    })
+    .unwrap_or(std::ptr::null_mut())
 }
 
 /// # Safety
@@ -1245,8 +1258,12 @@ macro_rules! ${macroName} {
     ($ffi:path, $handler:ty) => {
         #[unsafe(no_mangle)]
         pub extern "C" fn ${create}() -> *mut ::std::ffi::c_void {
-            ::std::boxed::Box::into_raw(::std::boxed::Box::new(<$handler as ::std::default::Default>::default()))
-                as *mut ::std::ffi::c_void
+            // A handler whose construction panics makes no instance.
+            ::ipc_runtime::guard::catch(|| {
+                ::std::boxed::Box::into_raw(::std::boxed::Box::new(<$handler as ::std::default::Default>::default()))
+                    as *mut ::std::ffi::c_void
+            })
+            .unwrap_or(::std::ptr::null_mut())
         }
 
         #[unsafe(no_mangle)]

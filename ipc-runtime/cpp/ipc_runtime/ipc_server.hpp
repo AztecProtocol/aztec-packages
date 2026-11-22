@@ -155,6 +155,22 @@ class IpcServer {
     virtual bool send(int client_id, uint64_t request_id, const void* data, size_t len) = 0;
 
     /**
+     * @brief The largest response payload send() can deliver: half a shared-memory response ring
+     * (less the frame header), or the frame limit on a stream transport.
+     */
+    virtual size_t max_response_size() const { return MAX_FRAME_SIZE - FRAME_ID_SIZE; }
+
+    /** Makes the response sent in place of one larger than max_response_size(), from its size and the limit. */
+    using OversizedResponse = std::function<std::vector<uint8_t>(size_t size, size_t limit)>;
+
+    /**
+     * @brief What run() and run_reactor() answer with when a response will not fit: a service passes
+     * a function making its error response, so the caller is told why rather than left waiting.
+     * Without one, an oversized response is a fatal error for run() and is dropped by run_reactor().
+     */
+    void set_oversized_response(OversizedResponse oversized) { oversized_ = std::move(oversized); }
+
+    /**
      * @brief Close the server and all client connections
      */
     virtual void close() = 0;
@@ -272,7 +288,7 @@ class IpcServer {
             // response, and skipping it would deadlock the waiting client.
             try {
                 auto response = handler(client_id, request);
-                send(client_id, request_id, response.data(), response.size());
+                send_response(client_id, request_id, response);
             } catch (const std::exception& e) {
                 // A handler or send failure here is unrecoverable for this
                 // request — e.g. a response larger than the ring can never be
@@ -349,7 +365,13 @@ class IpcServer {
                 ready.swap(completed);
             }
             for (auto& c : ready) {
-                send(c.client_id, c.request_id, c.response.data(), c.response.size());
+                try {
+                    send_response(c.client_id, c.request_id, c.response);
+                } catch (const std::exception& e) {
+                    // One undeliverable response must not take down the loop serving every other.
+                    fprintf(stderr, "ipc: dropped the response to client %d: %s\n", c.client_id, e.what());
+                    fflush(stderr);
+                }
             }
         };
 
@@ -434,6 +456,16 @@ class IpcServer {
   protected:
     std::atomic<bool> shutdown_requested_{ false };
 
+    /** send(), with a response too large for the transport replaced as set_oversized_response() says. */
+    bool send_response(int client_id, uint64_t request_id, const std::vector<uint8_t>& response)
+    {
+        if (oversized_ && response.size() > max_response_size()) {
+            auto replacement = oversized_(response.size(), max_response_size());
+            return send(client_id, request_id, replacement.data(), replacement.size());
+        }
+        return send(client_id, request_id, response.data(), response.size());
+    }
+
     /**
      * @brief Wake all blocked threads (for graceful shutdown)
      *
@@ -442,6 +474,9 @@ class IpcServer {
      * timeouts.
      */
     virtual void wakeup_all() {};
+
+  private:
+    OversizedResponse oversized_;
 };
 
 } // namespace ipc

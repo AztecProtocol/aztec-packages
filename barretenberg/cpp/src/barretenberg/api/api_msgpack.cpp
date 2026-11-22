@@ -94,6 +94,12 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         // SIGBUS/SIGSEGV → close+exit, parent-death watch, SIGPIPE → EPIPE)
         // before listen(): SIGBUS can occur during init when SHM is exhausted.
         ipc::install_default_signal_handlers(*server);
+        // A response too large for the shared-memory ring is answered with an error, not the end of the loop.
+        server->set_oversized_response([](size_t size, size_t limit) {
+            return bb::bbapi::detail::make_error("response of " + std::to_string(size) +
+                                                 " bytes exceeds the transport's " + std::to_string(limit) +
+                                                 "-byte limit");
+        });
         if (!server->listen()) {
             std::cerr << "Error: Could not start IPC server at " << input_path << '\n';
             return 1;

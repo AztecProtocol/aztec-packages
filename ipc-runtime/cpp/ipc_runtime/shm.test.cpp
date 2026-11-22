@@ -1419,3 +1419,70 @@ TEST(BlockingCallTest, RejectsARequestTooLargeForTheRing)
 }
 
 } // namespace
+
+namespace {
+
+/**
+ * A response too large for the shared-memory ring is replaced by what set_oversized_response()
+ * makes of its size, so the caller gets an answer and the server keeps serving; under both run()
+ * and run_reactor().
+ */
+void oversized_response_is_answered(bool reactor)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string base_name = std::string("shm_big_") + (reactor ? "r" : "s") + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, 1, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen());
+    EXPECT_LT(server->max_response_size(), RING_SIZE / 2);
+    std::vector<size_t> refused;
+    server->set_oversized_response([&refused](size_t size, size_t limit) {
+        refused.push_back(size);
+        return std::vector<uint8_t>{ 0xEE, static_cast<uint8_t>(limit > 0) };
+    });
+
+    auto answer = [](std::span<const uint8_t> request) {
+        return request[0] == 1 ? std::vector<uint8_t>(3000, 0xAB) : std::vector<uint8_t>{ 7 };
+    };
+    std::thread server_thread([&] {
+        if (reactor) {
+            server->run_reactor([&](int, std::span<const uint8_t> request, IpcServer::Respond respond) {
+                respond(answer(request));
+            });
+        } else {
+            server->run([&](int, std::span<const uint8_t> request) { return answer(request); });
+        }
+    });
+
+    auto client = IpcClient::create_mpsc_shm(base_name);
+    ASSERT_TRUE(client->connect());
+    auto call = [&](uint8_t byte) {
+        EXPECT_TRUE(client->send(&byte, 1, 1'000'000'000ULL));
+        std::span<const uint8_t> resp;
+        for (int i = 0; i < 50 && resp.data() == nullptr; i++) {
+            resp = client->receive(100'000'000ULL);
+        }
+        std::vector<uint8_t> out(resp.begin(), resp.end());
+        client->release(resp.size());
+        return out;
+    };
+    EXPECT_EQ(call(1), (std::vector<uint8_t>{ 0xEE, 1 }));
+    EXPECT_EQ(call(2), (std::vector<uint8_t>{ 7 }));
+
+    client->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+    EXPECT_EQ(refused, (std::vector<size_t>{ 3000 }));
+}
+
+TEST(ShmTest, OversizedResponseIsAnsweredUnderRun)
+{
+    oversized_response_is_answered(false);
+}
+
+TEST(ShmTest, OversizedResponseIsAnsweredUnderRunReactor)
+{
+    oversized_response_is_answered(true);
+}
+
+} // namespace

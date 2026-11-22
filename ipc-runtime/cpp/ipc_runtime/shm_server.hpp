@@ -97,6 +97,8 @@ class ShmServer : public IpcServer {
         request_ring_->release(sizeof(uint32_t) + FRAME_ID_SIZE + message_size);
     }
 
+    size_t max_response_size() const override { return shm_max_payload(response_ring_size_); }
+
     bool send([[maybe_unused]] int client_id, uint64_t request_id, const void* data, size_t len) override
     {
         if (!response_ring_.has_value()) {

@@ -11,7 +11,7 @@
 //! oracle itself starts on this server. Shared memory is not re-entrant: there one request is
 //! served at a time, and an oracle call blocks until answered.
 
-use aztec_acvm::generated::acvm::acvm_server::{handle_request, submit_request};
+use aztec_acvm::generated::acvm::acvm_server::{handle_request, oversized_response, submit_request};
 use aztec_acvm::AcvmHandler;
 use ipc_runtime::process_host_calls::{host_call_args, route_host_calls, serve_async};
 use ipc_runtime::IpcServer;
@@ -56,6 +56,7 @@ fn main() {
     }
     if input.ends_with(".shm") {
         route_host_calls(targets);
+        server.set_oversized_response(oversized_response);
         let mut handler = AcvmHandler;
         server.run(|_client_id, request| handle_request(&mut handler, request));
         return;

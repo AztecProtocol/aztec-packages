@@ -777,6 +777,11 @@ inline void serve(const std::string& input_path, const ServeOptions& options = {
         throw std::runtime_error("ipc::make_server: unrecognised path suffix (expected .sock or .shm): " + input_path);
     }
     ::ipc::install_default_signal_handlers(*server);
+    // A response too large for the transport (half a shared-memory ring) is answered with an error.
+    server->set_oversized_response([](size_t size, size_t limit) {
+        return detail::make_error("response of " + std::to_string(size) + " bytes exceeds the transport's " +
+                                  std::to_string(limit) + "-byte limit");
+    });
     // Listen before making the service, whose construction may be slow: clients connect into the
     // backlog meanwhile, and their first requests wait until the reactor starts.
     if (!server->listen()) {

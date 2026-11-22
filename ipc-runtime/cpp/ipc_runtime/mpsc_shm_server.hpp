@@ -146,6 +146,8 @@ class MpscShmServer : public IpcServer {
         request_consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + FRAME_ID_SIZE + message_size);
     }
 
+    size_t max_response_size() const override { return shm_max_payload(response_ring_size_); }
+
     bool send(int client_id, uint64_t request_id, const void* data, size_t len) override
     {
         if (client_id < 0 || static_cast<size_t>(client_id) >= response_rings_.size()) {

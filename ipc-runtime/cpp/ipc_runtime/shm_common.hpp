@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bit>
 #include "ipc_runtime/constants.hpp"
 #include "ipc_runtime/shm/spsc_shm.hpp"
 #include <cassert>
@@ -16,6 +17,15 @@ namespace ipc {
  * requests and echoed by the server on responses; receivers use it to correlate,
  * so there is no ordering contract between frames.
  */
+/**
+ * The largest payload a frame on a ring created with `ring_size` carries: half its capacity (the
+ * ring rounds the size up to a power of two) less the length prefix and request id.
+ */
+inline size_t shm_max_payload(size_t ring_size)
+{
+    return std::bit_ceil(ring_size) / 2 - sizeof(uint32_t) - FRAME_ID_SIZE;
+}
+
 inline bool ring_send_msg(SpscShm& ring, uint64_t request_id, const void* data, size_t len, uint64_t timeout_ns)
 {
     // Prevent sending messages larger than half the ring buffer capacity.

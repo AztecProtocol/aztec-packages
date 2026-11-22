@@ -182,6 +182,26 @@ void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* c
     });
 }
 
+void ipc_server_set_oversized_response(ipc_server_t* server, ipc_oversized_response_fn make, void* ctx)
+{
+    if (!server || !server->impl) {
+        return;
+    }
+    if (!make) {
+        server->impl->set_oversized_response({});
+        return;
+    }
+    server->impl->set_oversized_response([make, ctx](size_t size, size_t limit) -> std::vector<uint8_t> {
+        uint8_t* resp_ptr = nullptr;
+        size_t resp_len = 0;
+        make(size, limit, &resp_ptr, &resp_len, ctx);
+        if (!resp_ptr || resp_len == 0) {
+            return {};
+        }
+        return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
+    });
+}
+
 char* ipc_server_serve_async(ipc_server_t* server,
                              const ipc_async_service_t* service,
                              const ipc_host_call_target_t* targets,
