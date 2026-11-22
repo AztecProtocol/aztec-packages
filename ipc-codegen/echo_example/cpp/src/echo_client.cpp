@@ -2,7 +2,7 @@
 // Usage: echo_client --socket /tmp/echo.sock
 
 #include "generated/echo_client.hpp"
-#include "generated/ipc_codegen/ipc_backend.hpp"
+#include "ipc_codegen/ipc_backend.hpp"
 
 #include <array>
 #include <iostream>

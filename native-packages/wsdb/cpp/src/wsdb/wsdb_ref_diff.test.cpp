@@ -15,7 +15,7 @@
 #include "field/field_element.hpp"
 #include "merkle_tree/merkle_tree_id.hpp"
 #include "world_state/test_genesis.hpp"
-#include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
 #include "wsdb/wsdb_test_options.hpp"

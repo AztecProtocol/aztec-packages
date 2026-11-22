@@ -18,7 +18,7 @@
 #include "merkle_tree/indexed_leaf.hpp"
 #include "merkle_tree/merkle_tree_id.hpp"
 #include "merkle_tree/response.hpp"
-#include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
 #include <msgpack.hpp>
 #include <optional>

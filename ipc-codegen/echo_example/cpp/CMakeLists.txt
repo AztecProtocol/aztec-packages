@@ -32,6 +32,7 @@ add_library(echo_common INTERFACE)
 target_include_directories(echo_common INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/generated"
+    "${REPO_ROOT}/ipc-runtime/cpp"
     "${msgpack_c_SOURCE_DIR}/include"
 )
 target_compile_definitions(echo_common INTERFACE

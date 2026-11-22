@@ -39,8 +39,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${repo}/noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants.nr")
 
 set(schema "${bb_src}/barretenberg/wsdb_ref/wsdb_schema.jsonc")
-file(GLOB_RECURSE ipc_codegen_inputs CONFIGURE_DEPENDS ${repo}/ipc-codegen/src/*.ts
-     ${repo}/ipc-codegen/templates/cpp/*)
+file(GLOB_RECURSE ipc_codegen_inputs CONFIGURE_DEPENDS ${repo}/ipc-codegen/src/*.ts)
 add_custom_command(
     OUTPUT ${gen_dir}/wsdb_ffi.cpp ${gen_dir}/wsdb_ffi.hpp ${gen_dir}/wsdb_dispatch.hpp
            ${gen_dir}/wsdb_ipc_server.hpp ${gen_dir}/wsdb_types.hpp

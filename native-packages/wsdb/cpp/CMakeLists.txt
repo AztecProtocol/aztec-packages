@@ -72,7 +72,7 @@ execute_process(
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${wsdb_schema} ${pkg}/foundation.pin ${pkg}/scripts/constants-codegen/cpp.json)
 file(GLOB_RECURSE ipc_codegen_sources CONFIGURE_DEPENDS ${foundation}/ipc-codegen/src/*.ts
-     ${foundation}/ipc-codegen/templates/cpp/*)
+    )
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ipc_codegen_sources})
 
 set(CLI11_BUILD_TESTS OFF CACHE INTERNAL "")

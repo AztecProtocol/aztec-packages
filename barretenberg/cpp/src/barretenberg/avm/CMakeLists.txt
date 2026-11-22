@@ -19,14 +19,10 @@ set(AVM_GEN_OUTPUTS
     ${AVM_GEN_DIR}/avm_ffi.hpp
     ${AVM_GEN_DIR}/avm_ipc_server.hpp
     ${AVM_GEN_DIR}/avm_types.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/throw.hpp
 )
 set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
 file(GLOB_RECURSE IPC_CODEGEN_SRC
     ${IPC_CODEGEN_DIR}/src/*.ts
-    ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
 )
 add_custom_command(
     OUTPUT ${AVM_GEN_OUTPUTS}

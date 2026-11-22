@@ -24,13 +24,11 @@ import {
   writeFileSync,
   renameSync,
   mkdirSync,
-  cpSync,
   rmSync,
   rmdirSync,
 } from "fs";
 import { execSync } from "child_process";
 import { basename, dirname, join, relative, resolve } from "path";
-import { fileURLToPath } from "url";
 import {
   SchemaVisitor,
   friendlyToPositional,
@@ -52,9 +50,6 @@ import { CppCodegen } from "./cpp_codegen.ts";
 import { toSnakeCase } from "./naming.ts";
 import { readMemoryImport } from "./wasm_memory.ts";
 import type { PackageWasmModule } from "./typescript_package_codegen.ts";
-
-// @ts-ignore
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Records what the last run produced, so this one can remove what it no longer emits. */
 const MANIFEST = ".ipc-codegen-manifest";
@@ -408,15 +403,6 @@ function pruneStale(root: string) {
     }
   }
   writeFileSync(manifestPath, current.join("\n") + "\n");
-}
-
-function copyTemplateDir(lang: string, dirname: string, outDir: string) {
-  const templatePath = join(__dirname, "..", "templates", lang, dirname);
-  const destPath = join(outDir, dirname);
-  rmSync(destPath, { recursive: true, force: true });
-  cpSync(templatePath, destPath, { recursive: true });
-  written.push(destPath);
-  console.log(`  ${destPath} (template)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -861,7 +847,6 @@ function generate(args: Args) {
           gen.generateStandaloneTypes(compiled),
         ),
       );
-      copyTemplateDir("cpp", "ipc_codegen", absOut);
       if (args.server) {
         cppFiles.push(
           writeFile(

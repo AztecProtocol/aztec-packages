@@ -15,14 +15,10 @@ set(BB_GEN_OUTPUTS
     ${BB_GEN_DIR}/bb_ffi.hpp
     ${BB_GEN_DIR}/bb_ipc_server.hpp
     ${BB_GEN_DIR}/bb_types.hpp
-    ${BB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${BB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-    ${BB_GEN_DIR}/ipc_codegen/throw.hpp
 )
 set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
 file(GLOB_RECURSE IPC_CODEGEN_SRC
     ${IPC_CODEGEN_DIR}/src/*.ts
-    ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
 )
 # --ffi emits the in-process FFI (bb_ipc_ffi_create/_call/...) bb.js's wasm backend and barretenberg-rs call.
 add_custom_command(

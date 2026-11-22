@@ -35,8 +35,8 @@ option(IPC_RUNTIME_BUILD_NAPI "Build the Node native addon (ipc_runtime_napi.nod
 
 # Under WASM (emscripten / no-POSIX targets) the transport sources don't
 # compile, but downstream no-POSIX consumers still need the headers (the
-# IpcServer/IpcClient declarations referenced from generated server code;
-# the codegen template helpers themselves now live in ipc-codegen).
+# IpcServer/IpcClient declarations referenced from generated server code, and
+# the ipc_codegen/ support headers every generated file includes).
 # Expose an INTERFACE target with just the include path in that case.
 if(WASM)
     add_library(ipc_runtime INTERFACE)

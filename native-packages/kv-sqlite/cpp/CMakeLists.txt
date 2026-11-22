@@ -62,7 +62,7 @@ execute_process(
             --schema ${pkg}/files_schema.jsonc --lang cpp --out ${gen}/files/generated
             --client --cpp-namespace aztec::kv::files_service --cpp-include-dir files/generated
     COMMAND_ERROR_IS_FATAL ANY OUTPUT_QUIET)
-file(GLOB_RECURSE ipc_codegen_sources ${foundation}/ipc-codegen/src/*.ts ${foundation}/ipc-codegen/templates/cpp/*)
+file(GLOB_RECURSE ipc_codegen_sources ${foundation}/ipc-codegen/src/*.ts)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${pkg}/kv_schema.jsonc ${pkg}/files_schema.jsonc ${ipc_codegen_sources})
 

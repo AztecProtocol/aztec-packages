@@ -29,10 +29,6 @@
  * HostCallBackend they never use still link. A test can define the symbol to stand in for the
  * host; the file defining it defines IPC_CODEGEN_HOST_CALL_DEFINED first, which leaves only the
  * declaration here.
- *
- * Every service's generated directory carries its own copy of this header, so
- * it is guarded by a fixed macro rather than #pragma once: two services in one
- * binary see one definition.
  */
 #ifndef IPC_CODEGEN_HOST_CALL_BACKEND_HPP
 #define IPC_CODEGEN_HOST_CALL_BACKEND_HPP

@@ -8,10 +8,6 @@
  * <Service>Api<AnyBackend> can be built over an IpcBackend in a native binary
  * and over a HostCallBackend in a wasm module, and the code using it compiles
  * once for both. The cost is one indirect call per request.
- *
- * Every service's generated directory carries its own copy of this header, so
- * it is guarded by a fixed macro rather than #pragma once: two services in one
- * binary see one definition.
  */
 #ifndef IPC_CODEGEN_ANY_BACKEND_HPP
 #define IPC_CODEGEN_ANY_BACKEND_HPP

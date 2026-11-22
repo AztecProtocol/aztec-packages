@@ -74,8 +74,6 @@ ipc-codegen/
     rust_codegen.ts        # IR -> Rust output
     zig_codegen.ts         # IR -> Zig output
     naming.ts              # snake_case / PascalCase helpers
-  templates/             # static templates copied alongside generated code
-    cpp/ipc_codegen/*.hpp   # C++ support headers copied into generated output
   echo_example/          # 4-language echo service (cross-lang test harness)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference
 ```
@@ -102,7 +100,7 @@ ipc-codegen --schema <file> --lang <ts|cpp|rust|zig> --out <dir> [flags]
 |---|---|
 | `--schema <file>` | Path to the schema (JSON or JSONC, declaring its `service` — see `SCHEMA_SPEC.md`; `scripts/convert_schema.ts` converts one in the older positional form). |
 | `--lang <ts\|cpp\|rust\|zig>` | Target language. |
-| `--out <dir>` | Output directory. Generated files are (re)written every run; static templates are copied alongside and re-copied only if missing (so handwritten edits to templated scaffolding are preserved). Implied by `--package` (`<package>/src/generated`, where the package shell imports the bindings from). |
+| `--out <dir>` | Output directory. Generated files are (re)written every run, and files an earlier run generated here that this one does not are removed. Implied by `--package` (`<package>/src/generated`, where the package shell imports the bindings from). |
 
 ### Role flags
 
@@ -215,9 +213,9 @@ api(ipc_codegen::HostCallBackend("myservice"))` (`ipc_codegen/host_call_backend.
 whatever the host binds to `myservice` through the `ipc_runtime.host_call` import (see
 ipc-runtime's `hostCall` option). `ipc_codegen::AnyBackend` (`ipc_codegen/any_backend.hpp`)
 holds any of these behind one type, for code built once for native and wasm binaries.
-Generated C++ includes support headers as `ipc_codegen/...`; the generator
-copies those headers from `templates/cpp/ipc_codegen/` into the output
-directory.
+Generated C++ includes support headers as `ipc_codegen/...`, which ship with ipc-runtime in
+`ipc-runtime/cpp/ipc_codegen/`: put `ipc-runtime/cpp` on the include path (linking the
+`ipc_runtime` CMake target does), even for code that uses only the wire types.
 
 ### Rust client + FFI backend
 

@@ -72,6 +72,8 @@ cp "$kv"/cpp/src/kv/{store.cpp,store.hpp,kv_service.cpp,files_native.cpp,sha256.
 "$root/ipc-codegen/bin/ipc-codegen.mjs" \
   --schema "$kv/kv_schema.jsonc" --lang cpp --out third_party/kv-sqlite/generated \
   --server --cpp-namespace aztec::kv --cpp-include-dir generated --ffi=kv_sqlite >/dev/null
+# The generated code's support headers, where its `#include "ipc_codegen/..."` finds them.
+cp -R "$root/ipc-runtime/cpp/ipc_codegen" third_party/kv-sqlite/generated/
 
 mkdir -p third_party/ipc-runtime-jsi
 cp "$root/ipc-runtime/cpp/jsi/ipc_runtime_jsi.hpp" "$root/ipc-runtime/cpp/jsi/ipc_runtime_jsi.cpp" third_party/ipc-runtime-jsi/

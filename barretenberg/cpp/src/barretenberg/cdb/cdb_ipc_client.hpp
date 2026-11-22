@@ -8,7 +8,7 @@
  */
 
 #include "barretenberg/cdb/generated/cdb_client.hpp"
-#include "barretenberg/cdb/generated/ipc_codegen/any_backend.hpp"
+#include "ipc_codegen/any_backend.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <memory>
