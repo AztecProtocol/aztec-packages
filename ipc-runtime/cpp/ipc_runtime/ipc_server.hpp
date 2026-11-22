@@ -11,9 +11,11 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <sys/types.h>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -315,11 +317,18 @@ class IpcServer {
      *
      * The reactor thread owns ALL ring/socket I/O: it reads each request and is
      * the sole caller of send(). It never blocks on the handler. For each request
-     * it copies the bytes into a runtime-owned buffer, release()s the ring slot
-     * immediately, and invokes the handler with a `respond` callback. The handler
+     * it invokes the handler with the request bytes, zero-copy where the transport
+     * allows (a span into the SHM ring), and a `respond` callback. The span is
+     * valid only until the handler returns: a handler that defers its work copies
+     * what it needs (the generated dispatch decodes before it returns). The handler
      * does decode/dispatch, any classification/ordering, and chooses its own
      * thread; it calls `respond` exactly once when the result is ready (inline or
      * later, from any thread).
+     *
+     * A response given inline — on the reactor thread, before the handler returns —
+     * is sent straight away, with no completion queue, lock or wakeup, so a service
+     * whose handlers answer inline pays what run() does. Only a deferred response
+     * goes through the queue and notify().
      *
      * Responses are sent in COMPLETION order, each carrying its request's echoed
      * id — clients correlate by id, so a slow request never delays a fast one's
@@ -327,9 +336,9 @@ class IpcServer {
      * its single-producer/lock-free property and writes are serial for free; the
      * only lock is over the in-process completion queue, never over a ring.
      *
-     * All scheduling policy — concurrency, ordering, and any inline-vs-deferred
-     * fast path — lives in the handler, not here. A handler that responds inline
-     * on the reactor thread degrades this to a serial loop.
+     * All scheduling policy — concurrency, ordering, inline or deferred — lives in
+     * the handler, not here. A handler that responds inline on the reactor thread
+     * makes this a serial loop.
      *
      * `on_wake`, when set, runs on the reactor thread after every wake (a
      * request, a completion, a readable watch_fd() fd, or the timeout), for a
@@ -345,24 +354,37 @@ class IpcServer {
 
         std::mutex mtx; // guards `completed` only (never a ring)
         std::deque<Completion> completed;
-        std::atomic<int> inflight{ 0 }; // requests whose respond() has not fired
+        // completed.size(), readable without the lock: the loop takes it only when there is something to send.
+        std::atomic<size_t> completed_count{ 0 };
+        std::atomic<int> deferred{ 0 }; // requests answered after their handler returned, not yet answered
 
-        // Called (under mtx) inside the SHM wait's seq-latched window, so a
+        // The request whose handler is running on the reactor thread, and its response if the handler
+        // gives it inline. Touched only on the reactor thread.
+        struct Inline {
+            uint64_t request_id = 0;
+            int client_id = -1;
+            bool running = false;
+            std::optional<std::vector<uint8_t>> response;
+        } current;
+        const auto reactor_thread = std::this_thread::get_id();
+
+        // Called inside the SHM wait's seq-latched window, so a
         // completion posted just before the futex_wait is not slept through.
-        auto have_ready = [&]() -> bool {
-            std::lock_guard<std::mutex> lock(mtx);
-            return !completed.empty();
-        };
+        auto have_ready = [&]() -> bool { return completed_count.load(std::memory_order_acquire) > 0; };
 
         // Reactor-only: send every completed response. Collect under the lock,
         // then send() outside it — send() can block on ring backpressure and
         // must never hold the completion mutex. A send to a since-disconnected
         // client fails harmlessly (client ids are never reused).
         auto drain_and_send = [&]() {
+            if (completed_count.load(std::memory_order_acquire) == 0) {
+                return;
+            }
             std::deque<Completion> ready;
             {
                 std::lock_guard<std::mutex> lock(mtx);
                 ready.swap(completed);
+                completed_count.store(0, std::memory_order_relaxed);
             }
             for (auto& c : ready) {
                 try {
@@ -393,39 +415,52 @@ class IpcServer {
                 continue;
             }
 
-            // Own the request bytes until respond() fires: the handler may defer
-            // work to another thread and read the span there. release() the ring
-            // slot now so the client can keep producing.
-            auto buf = std::make_shared<std::vector<uint8_t>>(request.begin(), request.end());
+            // respond(): invoked exactly once. On the reactor thread while this request's handler is
+            // still running, it hands the response back for the loop to send below. Otherwise (from
+            // another thread, or after the handler returned) it queues the completion then notifies
+            // the reactor — push before notify so the reactor's have_ready predicate observes it and a
+            // SHM wake is never lost. Captures reactor locals by reference, valid because run_reactor
+            // does not return until every deferred response has been given (quiesce below).
+            Respond respond = [&, client_id, request_id](std::vector<uint8_t> response) {
+                if (current.running && current.request_id == request_id && current.client_id == client_id &&
+                    std::this_thread::get_id() == reactor_thread) {
+                    current.response = std::move(response);
+                    return;
+                }
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    completed.push_back({ client_id, request_id, std::move(response) });
+                    completed_count.store(completed.size(), std::memory_order_release);
+                }
+                deferred.fetch_sub(1, std::memory_order_release);
+                notify();
+            };
+
+            current = Inline{ request_id, client_id, true, std::nullopt };
+            // Counted before the handler runs: a handler that defers may be answered from another
+            // thread before it even returns.
+            deferred.fetch_add(1, std::memory_order_relaxed);
+            handler(client_id, request, std::move(respond));
+            current.running = false;
+            // The span is the handler's only until it returns; the slot goes back to the client now.
             release(client_id, request.size());
-
-            inflight.fetch_add(1, std::memory_order_relaxed);
-
-            // respond(): invoked exactly once, possibly on another thread. Queue
-            // the completion (push) then notify the reactor to send it — push
-            // before notify so the reactor's have_ready predicate observes it and
-            // a SHM wake is never lost. Holds `buf` alive until invoked. Captures
-            // reactor locals by reference, valid because run_reactor does not
-            // return until inflight hits 0 (quiesce) and the final respond drives
-            // it there.
-            Respond respond =
-                [this, client_id, request_id, buf, &mtx, &completed, &inflight](std::vector<uint8_t> response) {
-                    {
-                        std::lock_guard<std::mutex> lock(mtx);
-                        completed.push_back({ client_id, request_id, std::move(response) });
-                    }
-                    inflight.fetch_sub(1, std::memory_order_release);
-                    notify();
-                };
-
-            handler(client_id, std::span<const uint8_t>(*buf), std::move(respond));
-            drain_and_send(); // emit immediately if the handler responded inline
+            if (current.response) {
+                deferred.fetch_sub(1, std::memory_order_relaxed);
+                try {
+                    send_response(client_id, request_id, *current.response);
+                } catch (const std::exception& e) {
+                    fprintf(stderr, "ipc: dropped the response to client %d: %s\n", client_id, e.what());
+                    fflush(stderr);
+                }
+                current.response.reset();
+            }
+            drain_and_send(); // anything another thread answered meanwhile
         }
 
         // Quiesce before returning: in-flight handlers capture this frame's state
-        // (mtx, completed, inflight), so we must not unwind until every respond()
+        // (mtx, completed, deferred), so we must not unwind until every respond()
         // has fired.
-        while (inflight.load(std::memory_order_acquire) > 0) {
+        while (deferred.load(std::memory_order_acquire) > 0) {
             drain_and_send();
             wait_for_data_or_ready(10000000, have_ready);
             if (on_wake) {
