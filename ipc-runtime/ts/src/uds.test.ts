@@ -25,7 +25,7 @@ test("echo round-trip", async () => {
     const resp = await client.call(payload);
     assert.deepEqual(resp, payload);
 
-    // Pipelined calls resolve FIFO.
+    // Pipelined calls each resolve with their own response.
     const [a, b] = await Promise.all([
       client.call(new Uint8Array([7])),
       client.call(new Uint8Array([8, 9])),
@@ -37,6 +37,51 @@ test("echo round-trip", async () => {
     await server.close();
   }
   assert.equal(fs.existsSync(socketPath), false, "socket unlinked on close");
+});
+
+test("a connection's requests run concurrently, answered by id as each finishes", async () => {
+  const socketPath = tmpSocketPath("concurrent");
+  // The first request waits for the second, as a host call does when the target's answer needs a
+  // nested call that comes back over the same connection.
+  let releaseFirst!: () => void;
+  const secondArrived = new Promise<void>(
+    (resolve) => (releaseFirst = resolve),
+  );
+  const server = await UdsIpcServer.listen(socketPath, async (_id, req) => {
+    if (req[0] === 1) {
+      await secondArrived;
+    } else {
+      releaseFirst();
+    }
+    return req;
+  });
+  const client = await UdsIpcClient.connect(socketPath);
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const order: number[] = [];
+    const call = (byte: number) =>
+      client.call(new Uint8Array([byte])).then((resp) => {
+        order.push(resp[0]);
+        return resp;
+      });
+    const deadlock = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error("the first request blocked the second")),
+        5000,
+      );
+    });
+    const [first, second] = await Promise.race([
+      Promise.all([call(1), call(2)]),
+      deadlock,
+    ]);
+    assert.deepEqual(first, new Uint8Array([1]));
+    assert.deepEqual(second, new Uint8Array([2]));
+    assert.deepEqual(order, [2, 1]);
+  } finally {
+    clearTimeout(timer);
+    await client.destroy();
+    await server.close();
+  }
 });
 
 test("socket file is chmod 0600", async () => {
