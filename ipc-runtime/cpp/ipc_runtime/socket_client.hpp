@@ -34,6 +34,9 @@ class SocketClient : public IpcClient {
     void release(size_t message_size) override;
     void close() override;
 
+    /** The connected socket, for a caller polling it (-1 when closed). */
+    int fd() const { return fd_; }
+
   private:
     void close_internal();
     bool apply_timeout(int option, uint64_t& applied_ns, uint64_t timeout_ns);

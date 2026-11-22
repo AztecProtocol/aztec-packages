@@ -18,9 +18,9 @@ export interface RustCodegenOptions {
   stripMethodPrefix?: boolean;
   /** API struct name, e.g. 'SvcApi'. Defaults to 'IpcApi' */
   apiStructName?: string;
-  /** Import path for Backend trait. Defaults to 'crate::backend::Backend' */
+  /** Import path for Backend trait. Defaults to 'ipc_runtime::backend::Backend' */
   backendImport?: string;
-  /** Import path for error types. Defaults to 'crate::error::{IpcError, Result}' */
+  /** Import path for error types. Defaults to 'ipc_runtime::error::{IpcError, Result}' */
   errorImport?: string;
   /** Strip the prefix from generated type and variant names (e.g. BbBlake2s -> Blake2s) */
   stripTypePrefix?: boolean;
@@ -64,8 +64,9 @@ export class RustCodegen {
       stripTypePrefix: options?.stripTypePrefix ?? false,
       ffiName: options?.ffiName ?? toSnakeCase(prefix),
       apiStructName: options?.apiStructName ?? `${name}Api`,
-      backendImport: options?.backendImport ?? "super::backend::Backend",
-      errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
+      backendImport: options?.backendImport ?? "ipc_runtime::backend::Backend",
+      errorImport:
+        options?.errorImport ?? `ipc_runtime::error::{IpcError, Result}`,
       typesImport:
         options?.typesImport ??
         `super::${toSnakeCase(prefix || "ipc")}_types::*`,
@@ -1002,8 +1003,8 @@ pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8
 //! let mut api = ${apiStructName}::new(FfiBackend::new()?);
 //! \`\`\`
 
-use super::backend::Backend;
-use super::error::{IpcError, Result};
+use ipc_runtime::backend::Backend;
+use ipc_runtime::error::{IpcError, Result};
 use std::ffi::c_void;
 use std::ptr;
 
@@ -1147,7 +1148,7 @@ impl Default for FfiBackend {
 //! - \`${setHostCall}\`: the host's host-call function, which every \`HostCallBackend\` of
 //!   the library calls (null clears it).
 //! - with \`asynchronous\` (see below), \`${createAsync}\`, \`${submit}\`, \`${deliver}\` and
-//!   \`${destroyAsync}\`: asynchronous instances (see \`async_host\`), for a host that drives the
+//!   \`${destroyAsync}\`: asynchronous instances (see \`ipc_runtime::async_host\`), for a host that drives the
 //!   service without blocking: requests
 //!   go in with an id and come back through the host's respond callback, and a handler's host calls
 //!   go out through the host's call callback, their answers coming back through \`${deliver}\`.
@@ -1169,9 +1170,9 @@ impl Default for FfiBackend {
 //! Needs the \`libc\` crate for the malloc-compatible buffers.
 
 use super::${snake}_server::{handle_request, submit_request, Handler};
-pub use super::async_host::ffi_host;
-use super::async_host::AsyncInstance;
-pub use super::host_call_backend::{set_native_host_call, NativeHostCall};
+pub use ipc_runtime::async_host::ffi_host;
+use ipc_runtime::async_host::AsyncInstance;
+pub use ipc_runtime::host_call_backend::{set_native_host_call, NativeHostCall};
 
 /// An asynchronous instance over a fresh \`H\`, answering to \`host\`, as an opaque pointer.
 pub fn create_async<H: Handler + Default>(host: ffi_host::FfiHost) -> *mut std::ffi::c_void {
