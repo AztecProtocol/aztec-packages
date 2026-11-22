@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -50,6 +51,30 @@ inline ipc_client* wrap_client(std::unique_ptr<ipc::IpcClient> c)
     return w;
 }
 
+/**
+ * Runs `f` and returns its result, or logs and returns `failed` if it throws: a C++ exception must
+ * not unwind into a Rust or Zig caller, which aborts on a foreign exception.
+ */
+template <typename R, typename F> R guarded(const char* entry, R failed, F&& f) noexcept
+{
+    try {
+        return f();
+    } catch (const std::exception& e) {
+        fprintf(stderr, "ipc: %s failed: %s\n", entry, e.what());
+    } catch (...) {
+        fprintf(stderr, "ipc: %s failed with a non-standard exception\n", entry);
+    }
+    return failed;
+}
+
+template <typename F> void guarded(const char* entry, F&& f) noexcept
+{
+    guarded(entry, 0, [&] {
+        f();
+        return 0;
+    });
+}
+
 } // namespace
 
 extern "C" {
@@ -72,25 +97,29 @@ void ipc_server_options_default(ipc_server_options_t* opts)
 
 ipc_server_t* ipc_make_server(const char* path, const ipc_server_options_t* opts)
 {
-    if (!path) {
-        return nullptr;
-    }
-    ipc::ServerOptions cpp_opts;
-    if (opts) {
-        cpp_opts.max_shm_clients = opts->max_shm_clients;
-        cpp_opts.shm_request_ring_size = opts->shm_request_ring_size;
-        cpp_opts.shm_response_ring_size = opts->shm_response_ring_size;
-        cpp_opts.socket_backlog = opts->socket_backlog;
-    }
-    return wrap_server(ipc::make_server(path, cpp_opts));
+    return guarded<ipc_server_t*>("ipc_make_server", nullptr, [&]() -> ipc_server_t* {
+        if (!path) {
+            return nullptr;
+        }
+        ipc::ServerOptions cpp_opts;
+        if (opts) {
+            cpp_opts.max_shm_clients = opts->max_shm_clients;
+            cpp_opts.shm_request_ring_size = opts->shm_request_ring_size;
+            cpp_opts.shm_response_ring_size = opts->shm_response_ring_size;
+            cpp_opts.socket_backlog = opts->socket_backlog;
+        }
+        return wrap_server(ipc::make_server(path, cpp_opts));
+    });
 }
 
 ipc_server_t* ipc_server_create_socket(const char* path, int max_clients)
 {
-    if (!path) {
-        return nullptr;
-    }
-    return wrap_server(ipc::IpcServer::create_socket(path, max_clients));
+    return guarded<ipc_server_t*>("ipc_server_create_socket", nullptr, [&]() -> ipc_server_t* {
+        if (!path) {
+            return nullptr;
+        }
+        return wrap_server(ipc::IpcServer::create_socket(path, max_clients));
+    });
 }
 
 ipc_server_t* ipc_server_create_mpsc_shm(const char* base_name,
@@ -98,10 +127,12 @@ ipc_server_t* ipc_server_create_mpsc_shm(const char* base_name,
                                          size_t request_ring_size,
                                          size_t response_ring_size)
 {
-    if (!base_name) {
-        return nullptr;
-    }
-    return wrap_server(ipc::IpcServer::create_mpsc_shm(base_name, max_clients, request_ring_size, response_ring_size));
+    return guarded<ipc_server_t*>("ipc_server_create_mpsc_shm", nullptr, [&]() -> ipc_server_t* {
+        if (!base_name) {
+            return nullptr;
+        }
+        return wrap_server(ipc::IpcServer::create_mpsc_shm(base_name, max_clients, request_ring_size, response_ring_size));
+    });
 }
 
 void ipc_server_destroy(ipc_server_t* server)
@@ -111,94 +142,112 @@ void ipc_server_destroy(ipc_server_t* server)
 
 bool ipc_server_listen(ipc_server_t* server)
 {
-    return server && server->impl ? server->impl->listen() : false;
+    return guarded<bool>("ipc_server_listen", false, [&]() -> bool {
+        return server && server->impl ? server->impl->listen() : false;
+    });
 }
 
 void ipc_server_close(ipc_server_t* server)
 {
-    if (server && server->impl) {
-        server->impl->close();
-    }
+    guarded("ipc_server_close", [&] {
+        if (server && server->impl) {
+            server->impl->close();
+        }
+    });
 }
 
 void ipc_server_request_shutdown(ipc_server_t* server)
 {
-    if (server && server->impl) {
-        server->impl->request_shutdown();
-    }
+    guarded("ipc_server_request_shutdown", [&] {
+        if (server && server->impl) {
+            server->impl->request_shutdown();
+        }
+    });
 }
 
 int ipc_server_wait_for_data(ipc_server_t* server, uint64_t timeout_ns)
 {
-    return server && server->impl ? server->impl->wait_for_data(timeout_ns) : -1;
+    return guarded<int>("ipc_server_wait_for_data", -1, [&]() -> int {
+        return server && server->impl ? server->impl->wait_for_data(timeout_ns) : -1;
+    });
 }
 
 ipc_status_t ipc_server_receive(
     ipc_server_t* server, int client_id, uint64_t* request_id_out, const uint8_t** out, size_t* out_len)
 {
-    if (!server || !server->impl || !request_id_out || !out || !out_len) {
-        return IPC_ERR_RECV;
-    }
-    uint64_t request_id = 0;
-    auto view = server->impl->receive(client_id, request_id);
-    // data() == nullptr is error/timeout; a non-null empty view is a valid
-    // zero-length message.
-    if (view.data() == nullptr) {
-        *out = nullptr;
-        *out_len = 0;
-        return IPC_ERR_RECV;
-    }
-    *request_id_out = request_id;
-    *out = view.data();
-    *out_len = view.size();
-    return IPC_OK;
+    return guarded<ipc_status_t>("ipc_server_receive", IPC_ERR_RECV, [&]() -> ipc_status_t {
+        if (!server || !server->impl || !request_id_out || !out || !out_len) {
+            return IPC_ERR_RECV;
+        }
+        uint64_t request_id = 0;
+        auto view = server->impl->receive(client_id, request_id);
+        // data() == nullptr is error/timeout; a non-null empty view is a valid
+        // zero-length message.
+        if (view.data() == nullptr) {
+            *out = nullptr;
+            *out_len = 0;
+            return IPC_ERR_RECV;
+        }
+        *request_id_out = request_id;
+        *out = view.data();
+        *out_len = view.size();
+        return IPC_OK;
+    });
 }
 
 void ipc_server_release(ipc_server_t* server, int client_id, size_t msg_size)
 {
-    if (server && server->impl) {
-        server->impl->release(client_id, msg_size);
-    }
+    guarded("ipc_server_release", [&] {
+        if (server && server->impl) {
+            server->impl->release(client_id, msg_size);
+        }
+    });
 }
 
 bool ipc_server_send(ipc_server_t* server, int client_id, uint64_t request_id, const uint8_t* data, size_t len)
 {
-    return server && server->impl ? server->impl->send(client_id, request_id, data, len) : false;
+    return guarded<bool>("ipc_server_send", false, [&]() -> bool {
+        return server && server->impl ? server->impl->send(client_id, request_id, data, len) : false;
+    });
 }
 
 void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* ctx)
 {
-    if (!server || !server->impl || !handler) {
-        return;
-    }
-    server->impl->run([handler, ctx](int client_id, std::span<const uint8_t> raw) -> std::vector<uint8_t> {
-        uint8_t* resp_ptr = nullptr;
-        size_t resp_len = 0;
-        handler(client_id, raw.data(), raw.size(), &resp_ptr, &resp_len, ctx);
-        if (!resp_ptr || resp_len == 0) {
-            return {};
+    guarded("ipc_server_run", [&] {
+        if (!server || !server->impl || !handler) {
+            return;
         }
-        return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
+        server->impl->run([handler, ctx](int client_id, std::span<const uint8_t> raw) -> std::vector<uint8_t> {
+            uint8_t* resp_ptr = nullptr;
+            size_t resp_len = 0;
+            handler(client_id, raw.data(), raw.size(), &resp_ptr, &resp_len, ctx);
+            if (!resp_ptr || resp_len == 0) {
+                return {};
+            }
+            return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
+        });
     });
 }
 
 void ipc_server_set_oversized_response(ipc_server_t* server, ipc_oversized_response_fn make, void* ctx)
 {
-    if (!server || !server->impl) {
-        return;
-    }
-    if (!make) {
-        server->impl->set_oversized_response({});
-        return;
-    }
-    server->impl->set_oversized_response([make, ctx](size_t size, size_t limit) -> std::vector<uint8_t> {
-        uint8_t* resp_ptr = nullptr;
-        size_t resp_len = 0;
-        make(size, limit, &resp_ptr, &resp_len, ctx);
-        if (!resp_ptr || resp_len == 0) {
-            return {};
+    guarded("ipc_server_set_oversized_response", [&] {
+        if (!server || !server->impl) {
+            return;
         }
-        return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
+        if (!make) {
+            server->impl->set_oversized_response({});
+            return;
+        }
+        server->impl->set_oversized_response([make, ctx](size_t size, size_t limit) -> std::vector<uint8_t> {
+            uint8_t* resp_ptr = nullptr;
+            size_t resp_len = 0;
+            make(size, limit, &resp_ptr, &resp_len, ctx);
+            if (!resp_ptr || resp_len == 0) {
+                return {};
+            }
+            return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
+        });
     });
 }
 
@@ -220,7 +269,13 @@ char* ipc_server_serve_async(ipc_server_t* server,
         for (size_t i = 0; i < target_count; i++) {
             list.push_back({ .name = targets[i].name, .path = targets[i].path });
         }
-        error = ipc::serve_async(*server->impl, cpp, std::move(list));
+        try {
+            error = ipc::serve_async(*server->impl, cpp, std::move(list));
+        } catch (const std::exception& e) {
+            error = std::string("ipc_server_serve_async: ") + e.what();
+        } catch (...) {
+            error = "ipc_server_serve_async: a non-standard exception";
+        }
     }
     if (error.empty()) {
         return nullptr;
@@ -233,59 +288,69 @@ char* ipc_server_serve_async(ipc_server_t* server,
 
 void ipc_install_default_signal_handlers(ipc_server_t* server)
 {
-    if (server && server->impl) {
-        ipc::install_default_signal_handlers(*server->impl);
-    }
+    guarded("ipc_install_default_signal_handlers", [&] {
+        if (server && server->impl) {
+            ipc::install_default_signal_handlers(*server->impl);
+        }
+    });
 }
 
 // -------- Client -----------------------------------------------------------
 
 ipc_client_t* ipc_make_client(const char* path, size_t shm_client_id)
 {
-    if (!path) {
-        return nullptr;
-    }
-    return wrap_client(ipc::make_client(path, shm_client_id));
+    return guarded<ipc_client_t*>("ipc_make_client", nullptr, [&]() -> ipc_client_t* {
+        if (!path) {
+            return nullptr;
+        }
+        return wrap_client(ipc::make_client(path, shm_client_id));
+    });
 }
 
 ipc_client_t* ipc_client_create_socket(const char* socket_path)
 {
-    if (!socket_path) {
-        return nullptr;
-    }
-    return wrap_client(ipc::IpcClient::create_socket(socket_path));
+    return guarded<ipc_client_t*>("ipc_client_create_socket", nullptr, [&]() -> ipc_client_t* {
+        if (!socket_path) {
+            return nullptr;
+        }
+        return wrap_client(ipc::IpcClient::create_socket(socket_path));
+    });
 }
 
 ipc_client_t* ipc_client_create_mpsc_shm(const char* base_name, size_t client_id)
 {
-    if (!base_name) {
-        return nullptr;
-    }
-    return wrap_client(ipc::IpcClient::create_mpsc_shm(base_name, client_id));
+    return guarded<ipc_client_t*>("ipc_client_create_mpsc_shm", nullptr, [&]() -> ipc_client_t* {
+        if (!base_name) {
+            return nullptr;
+        }
+        return wrap_client(ipc::IpcClient::create_mpsc_shm(base_name, client_id));
+    });
 }
 
 ipc_client_t* ipc_client_create_pipe(int in_fd, int out_fd)
 {
-    // PipeClient closes the descriptors it holds, but the caller (a spawning
-    // parent, typically) still owns the originals and will close them too.
-    // Duplicate so each side closes only its own: a double close frees an fd
-    // number the OS may already have reassigned, and the resulting EBADF
-    // surfaces far from here, in whatever unrelated code owns it by then.
-    int in_dup = ::dup(in_fd);
-    if (in_dup < 0) {
-        return nullptr;
-    }
-    int out_dup = ::dup(out_fd);
-    if (out_dup < 0) {
-        ::close(in_dup);
-        return nullptr;
-    }
-    auto* wrapped = wrap_client(ipc::IpcClient::create_pipe(in_dup, out_dup));
-    if (wrapped == nullptr) {
-        ::close(in_dup);
-        ::close(out_dup);
-    }
-    return wrapped;
+    return guarded<ipc_client_t*>("ipc_client_create_pipe", nullptr, [&]() -> ipc_client_t* {
+        // PipeClient closes the descriptors it holds, but the caller (a spawning
+        // parent, typically) still owns the originals and will close them too.
+        // Duplicate so each side closes only its own: a double close frees an fd
+        // number the OS may already have reassigned, and the resulting EBADF
+        // surfaces far from here, in whatever unrelated code owns it by then.
+        int in_dup = ::dup(in_fd);
+        if (in_dup < 0) {
+            return nullptr;
+        }
+        int out_dup = ::dup(out_fd);
+        if (out_dup < 0) {
+            ::close(in_dup);
+            return nullptr;
+        }
+        auto* wrapped = wrap_client(ipc::IpcClient::create_pipe(in_dup, out_dup));
+        if (wrapped == nullptr) {
+            ::close(in_dup);
+            ::close(out_dup);
+        }
+        return wrapped;
+    });
 }
 
 void ipc_client_destroy(ipc_client_t* client)
@@ -295,44 +360,54 @@ void ipc_client_destroy(ipc_client_t* client)
 
 bool ipc_client_connect(ipc_client_t* client)
 {
-    return client && client->impl ? client->impl->connect() : false;
+    return guarded<bool>("ipc_client_connect", false, [&]() -> bool {
+        return client && client->impl ? client->impl->connect() : false;
+    });
 }
 
 void ipc_client_close(ipc_client_t* client)
 {
-    if (client && client->impl) {
-        client->impl->close();
-    }
+    guarded("ipc_client_close", [&] {
+        if (client && client->impl) {
+            client->impl->close();
+        }
+    });
 }
 
 bool ipc_client_send(ipc_client_t* client, const uint8_t* data, size_t len, uint64_t timeout_ns)
 {
-    return client && client->impl ? client->impl->send(data, len, timeout_ns) : false;
+    return guarded<bool>("ipc_client_send", false, [&]() -> bool {
+        return client && client->impl ? client->impl->send(data, len, timeout_ns) : false;
+    });
 }
 
 ipc_status_t ipc_client_receive(ipc_client_t* client, uint64_t timeout_ns, const uint8_t** out, size_t* out_len)
 {
-    if (!client || !client->impl || !out || !out_len) {
-        return IPC_ERR_RECV;
-    }
-    auto view = client->impl->receive(timeout_ns);
-    // data() == nullptr is error/timeout; a non-null empty view is a valid
-    // zero-length response (IPC_OK with *out_len == 0).
-    if (view.data() == nullptr) {
-        *out = nullptr;
-        *out_len = 0;
-        return IPC_ERR_RECV;
-    }
-    *out = view.data();
-    *out_len = view.size();
-    return IPC_OK;
+    return guarded<ipc_status_t>("ipc_client_receive", IPC_ERR_RECV, [&]() -> ipc_status_t {
+        if (!client || !client->impl || !out || !out_len) {
+            return IPC_ERR_RECV;
+        }
+        auto view = client->impl->receive(timeout_ns);
+        // data() == nullptr is error/timeout; a non-null empty view is a valid
+        // zero-length response (IPC_OK with *out_len == 0).
+        if (view.data() == nullptr) {
+            *out = nullptr;
+            *out_len = 0;
+            return IPC_ERR_RECV;
+        }
+        *out = view.data();
+        *out_len = view.size();
+        return IPC_OK;
+    });
 }
 
 void ipc_client_release(ipc_client_t* client, size_t msg_size)
 {
-    if (client && client->impl) {
-        client->impl->release(msg_size);
-    }
+    guarded("ipc_client_release", [&] {
+        if (client && client->impl) {
+            client->impl->release(msg_size);
+        }
+    });
 }
 
 } // extern "C"

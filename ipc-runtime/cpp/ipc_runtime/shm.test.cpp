@@ -1,4 +1,5 @@
 #include "ipc_runtime/blocking_call.hpp"
+#include "ipc_runtime/c_abi.h"
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/shm/futex.hpp"
@@ -235,6 +236,33 @@ TEST(ShmTest, ConnectRefusesSizedButUninitialisedSegments)
     }
     shm_unlink((base + "_doorbell").c_str());
     SpscShm::unlink(base + "_ring_0");
+}
+
+// A C++ exception must not cross the C ABI: a Rust or Zig caller aborts on a foreign exception.
+TEST(ShmTest, CAbiReportsACorruptRequestInsteadOfThrowing)
+{
+    std::string name = "shm_cabi_corrupt_" + std::to_string(getpid());
+    ipc_server_t* server = ipc_server_create_mpsc_shm(name.c_str(), 1, 1 << 16, 1 << 16);
+    ASSERT_NE(server, nullptr);
+    ASSERT_TRUE(ipc_server_listen(server));
+    {
+        // A length prefix shorter than the request-id field, as the server sees from two clients
+        // writing into one slot.
+        MpscProducer producer = MpscProducer::connect(name + "_req", 0);
+        uint32_t frame[2] = { 4, 7 };
+        std::memcpy(producer.claim(sizeof(frame), 1'000'000'000ULL), frame, sizeof(frame));
+        producer.publish(sizeof(frame));
+
+        ASSERT_EQ(ipc_server_wait_for_data(server, 1'000'000'000ULL), 0);
+        uint64_t request_id = 0;
+        const uint8_t* data = nullptr;
+        size_t len = 0;
+        ipc_status_t status = IPC_OK;
+        EXPECT_NO_THROW(status = ipc_server_receive(server, 0, &request_id, &data, &len));
+        EXPECT_EQ(status, IPC_ERR_RECV);
+    }
+    ipc_server_close(server);
+    ipc_server_destroy(server);
 }
 
 TEST(ShmTest, ZeroLengthResponseRoundTrip)
