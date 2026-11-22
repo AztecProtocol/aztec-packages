@@ -57,7 +57,7 @@ export interface ServiceProcessOptions {
   unref?: boolean;
   /** The services the process's host calls reach, by target name (see SpawnedProcessBackendOptions.hostCall). */
   hostCall?: ProcessHostCallTargets;
-  /** Synchronous form only: the shared-memory client slot. */
+  /** Synchronous form only: the shared-memory client slot to pin; omitted, the client claims a free one. */
   clientId?: number;
   /** Synchronous form only: the Node-API addon the shared-memory client loads. */
   napiPath?: string;
@@ -178,7 +178,7 @@ export function spawnServiceBackendSync(
     extraArgs: options.extraArgs,
     hostCall: options.hostCall,
     unref: options.unref,
-    clientId: options.clientId ?? 0,
+    clientId: options.clientId,
     napiPath: options.napiPath,
   });
 }

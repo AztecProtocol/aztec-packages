@@ -365,11 +365,14 @@ pub struct IpcClient {
 
 unsafe impl Send for IpcClient {}
 
+/// The MPSC-SHM client id that claims a free slot (C++ `ipc::kAutoClientId`).
+pub const AUTO_CLIENT_ID: usize = usize::MAX;
+
 impl IpcClient {
-    /// Construct a client and connect. ".sock" → UDS, ".shm" → MPSC-SHM
-    /// (with `shm_client_id` slot).
+    /// Construct a client and connect. ".sock" → UDS, ".shm" → MPSC-SHM, claiming a free client
+    /// slot so that any number of clients can share one server.
     pub fn from_path(path: &str) -> Result<Self> {
-        Self::from_path_with_id(path, 0)
+        Self::from_path_with_id(path, AUTO_CLIENT_ID)
     }
 
     /// Construct a client over an already-open fd pair, for talking to a child
@@ -388,6 +391,9 @@ impl IpcClient {
         Ok(client)
     }
 
+    /// Like [`IpcClient::from_path`], but pins MPSC-SHM slot `shm_client_id` without claiming it,
+    /// or claims a free one for [`AUTO_CLIENT_ID`]. Two clients pinned to one slot corrupt each
+    /// other's requests. Ignored for UDS.
     pub fn from_path_with_id(path: &str, shm_client_id: usize) -> Result<Self> {
         let c_path = CString::new(path).map_err(|_| Error::InvalidPath(path.to_string()))?;
         let raw = unsafe { sys::ipc_make_client(c_path.as_ptr(), shm_client_id) };
@@ -542,6 +548,35 @@ mod tests {
         assert_eq!(client.call(b"small").expect("still serving"), b"small");
 
         drop(client);
+        shutdown_server(raw, handle);
+    }
+
+    #[test]
+    fn shm_clients_from_path_each_claim_their_own_slot() {
+        let path = format!("/ipc_rust_test_slots_{}.shm", std::process::id());
+        let mut server = IpcServer::from_path(&path).expect("make server");
+        server.listen().expect("listen");
+        let raw = server.inner.as_ptr() as usize;
+        let handle = std::thread::spawn(move || {
+            server.run(|_client_id, req| req.to_vec());
+        });
+
+        let clients: Vec<_> = (0..2u8)
+            .map(|t| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let mut client = IpcClient::from_path(&path).expect("connect");
+                    for i in 0..200u32 {
+                        let req = [&[t][..], &i.to_le_bytes()[..]].concat();
+                        assert_eq!(client.call(&req).expect("an answer"), req);
+                    }
+                })
+            })
+            .collect();
+        for client in clients {
+            client.join().expect("each client gets its own answers");
+        }
+
         shutdown_server(raw, handle);
     }
 }

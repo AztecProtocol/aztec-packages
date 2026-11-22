@@ -89,15 +89,22 @@ pub const Server = struct {
 };
 
 /// Client handle. `deinit` releases the underlying C++ object.
+/// The MPSC-SHM client id that claims a free slot (C++ `ipc::kAutoClientId`).
+pub const auto_client_id: usize = std.math.maxInt(usize);
+
 pub const Client = struct {
     handle: *c.ipc_client,
     allocator: std.mem.Allocator,
 
-    /// Open a client connection. `.sock` → UDS, `.shm` → MPSC-SHM (slot 0;
-    /// use `fromPathWithId` for a different slot).
+    /// Open a client connection. `.sock` → UDS, `.shm` → MPSC-SHM, claiming a
+    /// free client slot so that any number of clients can share one server.
     pub fn fromPath(allocator: std.mem.Allocator, path: [:0]const u8) Error!Client {
-        return fromPathWithId(allocator, path, 0);
+        return fromPathWithId(allocator, path, auto_client_id);
     }
+
+    /// Like `fromPath`, but pins MPSC-SHM slot `shm_client_id` without claiming
+    /// it, or claims a free one for `auto_client_id`. Two clients pinned to one
+    /// slot corrupt each other's requests. Ignored for UDS.
 
     pub fn fromPathWithId(allocator: std.mem.Allocator, path: [:0]const u8, shm_client_id: usize) Error!Client {
         const raw = c.ipc_make_client(path.ptr, shm_client_id);
