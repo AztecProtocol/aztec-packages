@@ -156,10 +156,10 @@ fn test_pipe_error_response() {
         },
         Err(e) => {
             println!("Got expected error for off-curve point: {:?}", e);
-            // Verify it's a backend error (ErrorResponse)
+            // bb's ErrorResponse, not a transport fault.
             assert!(
-                format!("{:?}", e).contains("Backend") || format!("{:?}", e).contains("error"),
-                "Expected a backend error, got: {:?}", e
+                matches!(e, barretenberg_rs::BarretenbergError::Service(_)),
+                "Expected a service error, got: {:?}", e
             );
         }
     }
