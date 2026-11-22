@@ -757,7 +757,7 @@ ${this.generateResponseEnum(schema)}
         let cmd = Command::${cmdRustName}(${cmdRustName}::new(${paramConversions}));
         match self.execute(cmd)${isAsync ? ".await" : ""}? {
             Response::${respRustName}(resp) => Ok(resp),
-            Response::${this.typeName(this.errorTypeName)}(err) => Err(${errorType}::Backend(
+            Response::${this.typeName(this.errorTypeName)}(err) => Err(${errorType}::Service(
                 err.message
             )),
             _ => Err(${errorType}::InvalidResponse(

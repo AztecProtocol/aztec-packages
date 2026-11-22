@@ -45,8 +45,8 @@ pub fn main() !void {
     const fields = try client.fields(.{ .a = 42, .b = 999999, .name = "hello ffi" });
     check(fields.a == 42 and fields.b == 999999 and std.mem.eql(u8, fields.name, "hello ffi"), "EchoFields round trip");
 
-    const failed = if (client.fail(.{ .message = "boom" })) |_| false else |err| err == error.ServerError;
-    const message = client.last_server_error orelse "";
+    const failed = if (client.fail(.{ .message = "boom" })) |_| false else |err| err == error.ServiceError;
+    const message = client.last_service_error orelse "";
     check(failed and std.mem.indexOf(u8, message, "boom") != null, "EchoFail surfaces the server's message");
 
     // [["NoSuchCommand", 0]]

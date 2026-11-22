@@ -188,7 +188,7 @@ ${methods}
                     message.assign(kv.val.via.str.ptr, kv.val.via.str.size);
                 }
             }
-            THROW std::runtime_error("Server error: " + message);
+            THROW ipc_codegen::ServiceError(message);
         }
         if (name != Resp::MSGPACK_SCHEMA_NAME) {
             THROW std::runtime_error("Expected response '" + std::string(Resp::MSGPACK_SCHEMA_NAME) + "' but got '" +

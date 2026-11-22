@@ -167,11 +167,11 @@ pub fn main() !void {
             std.debug.print("echo_client(zig): EchoFail FAIL (no error)\n", .{});
             std.process.exit(1);
         } else |err| {
-            if (err != error.ServerError) {
+            if (err != error.ServiceError) {
                 std.debug.print("echo_client(zig): EchoFail wrong error: {s}\n", .{@errorName(err)});
                 std.process.exit(1);
             }
-            const message = client.last_server_error orelse {
+            const message = client.last_service_error orelse {
                 std.debug.print("echo_client(zig): EchoFail missing message\n", .{});
                 std.process.exit(1);
             };

@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     std::string message;
     try {
       client.fail({.message = "deliberate failure"});
-    } catch (const std::exception &e) {
+    } catch (const ipc_codegen::ServiceError &e) {
       threw = true;
       message = e.what();
     }
