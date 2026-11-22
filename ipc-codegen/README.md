@@ -76,8 +76,6 @@ ipc-codegen/
     naming.ts              # snake_case / PascalCase helpers
   templates/             # static templates copied alongside generated code
     cpp/ipc_codegen/*.hpp   # C++ support headers copied into generated output
-    rust/{backend,error}.rs
-    zig/backend.zig
   echo_example/          # 4-language echo service (cross-lang test harness)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference
 ```
@@ -111,7 +109,6 @@ node --experimental-strip-types --no-warnings \
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
 | `--client` | Emit the typed client: one method per command over a byte backend, the same shape in every language — `<Service>Api<B: Backend>` (Rust), `<Service>Api<ipc_codegen::Backend B>` (C++), `Client(Backend)` (Zig), `AsyncApi`/`SyncApi` over `IpcClientAsync`/`IpcClientSync` (TS). A backend takes the msgpack request bytes and returns the response bytes: ipc-runtime's transport (C++: `ipc_codegen::IpcBackend`), the service in-process (`--ffi`), or your own. |
 | `--package <dir>` | TS only. Emit a complete client package: the generated API over every backend the package has (`--package-transports`), with a `<Service>Service.create(options)` that picks one by default (the first of the spawned process, the napi library and the wasm module that is available, falling back along that order), can be forced to one, or takes a backend object of the consumer's own; one entry per host (node, `browser`, `react-native`) so each host sees only the backends that exist there; the binary resolved from an override path, an environment variable, or the installed per-platform arch package (this package's optional dependencies). With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. |
-| `--uds` | Zig only. Copies the `Backend` trait template into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. Rust takes the `Backend` traits from the `ipc-runtime` crate. |
 | `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which makes an instance of a linked library's service (`<service>_ipc_ffi_create`) and calls it. With `--server` (Rust/Zig/C++): emits the exports themselves — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_create`/`_call`/`_destroy`/`_alloc`/`_free` over the generated dispatch (the service defines `make_service()`, the one factory the generated `serve()` also runs). Each example's FFI test runs the generated client over the FFI backend against its own exports, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process), `napi` (the service's shared library, run in-process in node through ipc-runtime's Node-API addon) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). A package without `uds`/`shm` has no binary and no `bin`. |
 | `--package-napi-library <file>`, `--package-napi-library-env-var <name>` | TS `napi` transport. File name of the shared library the owning project builds from the C++ `--ffi --server` output (it exports `<ffi-name>_ipc_ffi_create`, `_call`, `_destroy`, `_alloc` and `_free`, and needs no Node-API code) and ships in the arch packages (see `--package-native`), and the environment variable that overrides its path (default `<LIBRARY_STEM>_NAPI_PATH`). `@aztec-foundation/ipc-runtime`'s Node-API addon loads it with `dlopen`. A library is loaded once per process, and each napi backend makes an instance of the service of its own. |
@@ -261,13 +258,15 @@ src/generate.ts \
   --schema /path/to/myservice_schema.jsonc \
   --lang zig \
   --out /path/to/output/generated \
-  --server --client --uds --ffi
+  --server --client --ffi
 ```
 
 Produces `myservice_types.zig`, `myservice_client.zig`,
-`myservice_server.zig`, `myservice_ffi.zig`, plus `backend.zig` and `ffi_backend.zig`.
-Consumers `@import("ipc_runtime")` for transport (`ipc_runtime.Client` is a backend), or
-link a library exporting the service's FFI and use `Client(FfiBackend)` over `FfiBackend.init()`.
+`myservice_server.zig`, `myservice_ffi.zig` and `ffi_backend.zig`. The generated client imports
+the `Backend` interface from ipc-runtime/zig's pure-Zig `ipc_backend` module, so the consumer's
+build.zig adds that import. Consumers `@import("ipc_runtime")` for transport (`ipc_runtime.Client`
+is a backend), or link a library exporting the service's FFI and use `Client(FfiBackend)` over
+`FfiBackend.init()`, which needs only `ipc_backend`.
 
 ## Adding a new service
 
