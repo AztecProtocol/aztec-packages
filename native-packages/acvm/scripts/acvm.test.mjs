@@ -168,8 +168,7 @@ test("overlapping executions each reach their own oracles", async () => {
 });
 
 test("an oracle can execute on the same instance while the execution that called it waits", { timeout: 30_000 }, async () => {
-  // The process serves one request at a time, so only the in-process backends re-enter.
-  for (const name of ["napi", "wasm"]) {
+  for (const name of ["process", "napi", "wasm"]) {
     const service = services[name];
     const nested = [];
     // double(x) answered by running `simple` (x * y + 1) with y = 2 on the same service.

@@ -86,7 +86,7 @@ pub async fn execute(
 ) -> Result<Execution, String> {
     let program = Program::<FieldElement>::deserialize_program(bytecode)
         .map_err(|e| format!("could not read the program: {e}"))?;
-    let solver = Bn254BlackBoxSolver::default();
+    let solver = Bn254BlackBoxSolver;
     let main = program
         .functions
         .first()
