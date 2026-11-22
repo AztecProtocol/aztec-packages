@@ -33,6 +33,14 @@ pub fn build(b: *std.Build) void {
         .root_module = runtime_mod,
     });
 
+    // The Backend interface generated clients check against, with no C++: a module that only links
+    // a service's FFI imports this one alone.
+    const backend_mod = b.addModule("ipc_backend", .{
+        .root_source_file = b.path("src/backend.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     // Module others can @import("ipc_runtime") from their build.zig.
     const mod = b.addModule("ipc_runtime", .{
         .root_source_file = b.path("src/main.zig"),
@@ -43,6 +51,7 @@ pub fn build(b: *std.Build) void {
     });
     mod.addIncludePath(cpp_root);
     mod.linkLibrary(runtime);
+    mod.addImport("ipc_backend", backend_mod);
 
     // Smoke executable so `zig build` produces something verifiable.
     const smoke = b.addExecutable(.{
