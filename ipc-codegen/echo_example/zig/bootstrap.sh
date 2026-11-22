@@ -10,7 +10,6 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang zig \
   --server \
   --client \
-  --uds \
   --ffi \
   --out "$DIR/src/generated"
 

@@ -15,6 +15,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const ipc_runtime_mod = ipc_runtime_dep.module("ipc_runtime");
+    // The generated client's Backend interface, without the transport's C++.
+    const ipc_backend_mod = ipc_runtime_dep.module("ipc_backend");
 
     // Echo server
     const server_exe = b.addExecutable(.{
@@ -40,6 +42,7 @@ pub fn build(b: *std.Build) void {
     });
     client_exe.root_module.addImport("msgpack", msgpack_mod);
     client_exe.root_module.addImport("ipc_runtime", ipc_runtime_mod);
+    client_exe.root_module.addImport("ipc_backend", ipc_backend_mod);
     b.installArtifact(client_exe);
 
     // Golden wire-format conformance test (no transport, msgpack only)
@@ -66,5 +69,6 @@ pub fn build(b: *std.Build) void {
         }),
     });
     ffi_test_exe.root_module.addImport("msgpack", msgpack_mod);
+    ffi_test_exe.root_module.addImport("ipc_backend", ipc_backend_mod);
     b.installArtifact(ffi_test_exe);
 }
