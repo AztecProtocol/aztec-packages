@@ -397,22 +397,21 @@ class IpcServer {
             }
         };
 
-        while (!shutdown_requested_.load(std::memory_order_acquire)) {
-            accept();
-
-            int client_id = wait_for_data_or_ready(100000000, have_ready); // 100ms shutdown backstop
+        // One turn of the loop: wait, then send what is ready and dispatch one request.
+        auto turn = [&](uint64_t timeout_ns) {
+            int client_id = wait_for_data_or_ready(timeout_ns, have_ready);
             if (on_wake) {
                 on_wake();
             }
             drain_and_send();
             if (client_id < 0) {
-                continue;
+                return;
             }
 
             uint64_t request_id = 0;
             auto request = receive(client_id, request_id);
             if (request.data() == nullptr) {
-                continue;
+                return;
             }
 
             // respond(): invoked exactly once. On the reactor thread while this request's handler is
@@ -455,17 +454,20 @@ class IpcServer {
                 current.response.reset();
             }
             drain_and_send(); // anything another thread answered meanwhile
+        };
+
+        while (!shutdown_requested_.load(std::memory_order_acquire)) {
+            accept();
+            turn(100000000); // 100ms shutdown backstop
         }
 
         // Quiesce before returning: in-flight handlers capture this frame's state
         // (mtx, completed, deferred), so we must not unwind until every respond()
-        // has fired.
+        // has fired. Connected clients are still served meanwhile, without accepting
+        // new ones: a deferred request may be waiting on a later request (a nested
+        // call back into this server) that only reading it can complete.
         while (deferred.load(std::memory_order_acquire) > 0) {
-            drain_and_send();
-            wait_for_data_or_ready(10000000, have_ready);
-            if (on_wake) {
-                on_wake();
-            }
+            turn(10000000);
         }
         drain_and_send();
     }

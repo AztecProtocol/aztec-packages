@@ -18,11 +18,14 @@
 #include <cstring>
 #include <fcntl.h>
 #include <functional>
+#include <future>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <random>
+#include <set>
 #include <sstream>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -1086,6 +1089,58 @@ TEST(ShmTest, SerialClientSkipsStaleFrameFromPreviousOccupant)
     server_running.store(false);
     server->request_shutdown();
     server_thread.join();
+    server->close();
+}
+
+// A deferred request can wait on a later one (a nested call back into this server): after a shutdown
+// request the reactor must keep reading requests until every deferred response is given, rather than
+// waiting for responses that can only come from requests it no longer reads.
+TEST(ShmTest, MpscReactorKeepsServingAfterShutdownUntilDeferredResponsesAreGiven)
+{
+    std::string base_name = "shm_mpsc_quiesce_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, 1, 1 << 16, 1 << 16);
+    ASSERT_TRUE(server->listen());
+
+    std::optional<IpcServer::Respond> outer;
+    std::atomic<bool> outer_waiting{ false };
+    auto served = std::async(std::launch::async, [&] {
+        server->run_reactor([&](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            if (req[0] == 1) {
+                outer = std::move(respond);
+                outer_waiting.store(true);
+                return;
+            }
+            respond({ 2 });
+            (*outer)({ 1 });
+        });
+    });
+
+    auto client = IpcClient::create_mpsc_shm(base_name);
+    ASSERT_TRUE(client->connect());
+    uint8_t outer_req = 1;
+    ASSERT_TRUE(client->send(1, &outer_req, 1, 1'000'000'000ULL));
+    while (!outer_waiting.load()) {
+        std::this_thread::yield();
+    }
+    server->request_shutdown();
+    // Let the reactor leave its serving loop first, as when the signal lands before the nested call.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    uint8_t nested_req = 2;
+    ASSERT_TRUE(client->send(2, &nested_req, 1, 1'000'000'000ULL));
+
+    std::set<uint64_t> answered;
+    for (int i = 0; i < 2; i++) {
+        uint64_t rid = 0;
+        auto resp = client->receive(2'000'000'000ULL, rid);
+        ASSERT_EQ(resp.size(), 1U) << "response " << i << " never came";
+        EXPECT_EQ(resp[0], rid);
+        answered.insert(rid);
+        client->release(resp.size());
+    }
+    EXPECT_EQ(answered, (std::set<uint64_t>{ 1, 2 }));
+    ASSERT_EQ(served.wait_for(std::chrono::seconds(2)), std::future_status::ready)
+        << "run_reactor did not return once every deferred response was given";
+    client->close();
     server->close();
 }
 
