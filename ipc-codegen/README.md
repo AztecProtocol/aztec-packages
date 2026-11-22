@@ -68,7 +68,7 @@ ipc-codegen/
   bootstrap.sh           # build / test / update_goldens / hash
   src/                   # generator (TypeScript, runs under Node 22+)
     generate.ts            # CLI entry point
-    schema_visitor.ts      # friendly/positional schema -> CompiledSchema IR
+    schema_visitor.ts      # schema -> CompiledSchema IR
     cpp_codegen.ts         # IR -> C++ output
     typescript_codegen.ts  # IR -> TypeScript output
     rust_codegen.ts        # IR -> Rust output
@@ -82,23 +82,25 @@ ipc-codegen/
 
 The package contains no service schemas of its own. Each consumer owns and
 commits its hand-authored schema next to the C++ server that implements the
-service, and invokes `generate.ts` with that local path.
+service, and invokes `ipc-codegen` with that local path.
 
-## CLI: `src/generate.ts`
+## CLI: `ipc-codegen`
 
-Invoked once per (schema, language) pair. Run directly with
-`node --experimental-strip-types`, or via `bootstrap.sh`.
+Invoked once per (schema, language) pair. It has no dependencies. Installed from npm it is
+`npx @aztec-foundation/ipc-codegen`, which runs `dist/`, the sources with their types removed
+(`scripts/build_dist.mjs`, run on pack): Node will not strip types under `node_modules`. In this
+repository builds run `ipc-codegen/bin/ipc-codegen.mjs` by path, which runs `src/` directly under
+Node's type stripping (Node 22.18 or later).
 
 ```
-node --experimental-strip-types --no-warnings \
-  src/generate.ts --schema <file> --lang <ts|cpp|rust|zig> --out <dir> [flags]
+ipc-codegen --schema <file> --lang <ts|cpp|rust|zig> --out <dir> [flags]
 ```
 
 ### Required flags
 
 | Flag | Purpose |
 |---|---|
-| `--schema <file>` | Path to the schema (JSON or JSONC; friendly or legacy positional form — see `SCHEMA_SPEC.md`). |
+| `--schema <file>` | Path to the schema (JSON or JSONC, declaring its `service` — see `SCHEMA_SPEC.md`; `scripts/convert_schema.ts` converts one in the older positional form). |
 | `--lang <ts\|cpp\|rust\|zig>` | Target language. |
 | `--out <dir>` | Output directory. Generated files are (re)written every run; static templates are copied alongside and re-copied only if missing (so handwritten edits to templated scaffolding are preserved). Implied by `--package` (`<package>/src/generated`, where the package shell imports the bindings from). |
 
@@ -109,9 +111,9 @@ node --experimental-strip-types --no-warnings \
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
 | `--client` | Emit the typed client: one method per command over a byte backend, the same shape in every language — `<Service>Api<B: Backend>` (Rust), `<Service>Api<ipc_codegen::Backend B>` (C++), `Client(Backend)` (Zig), `AsyncApi`/`SyncApi` over `IpcClientAsync`/`IpcClientSync` (TS). A backend takes the msgpack request bytes and returns the response bytes: ipc-runtime's transport (C++: `ipc_codegen::IpcBackend`), the service in-process (`--ffi`), or your own. |
 | `--package <dir>` | TS only. Emit a complete client package: the generated API over every backend the package has (`--package-transports`), with a `<Service>Service.create(options)` that picks one by default (the first of the spawned process, the napi library and the wasm module that is available, falling back along that order), can be forced to one, or takes a backend object of the consumer's own; one entry per host (node, `browser`, `react-native`) so each host sees only the backends that exist there; the binary resolved from an override path, an environment variable, or the installed per-platform arch package (this package's optional dependencies). With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. |
-| `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which makes an instance of a linked library's service (`<service>_ipc_ffi_create`) and calls it. With `--server` (Rust/Zig/C++): emits the exports themselves — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_create`/`_call`/`_destroy`/`_alloc`/`_free` over the generated dispatch (the service defines `make_service()`, the one factory the generated `serve()` also runs). Each example's FFI test runs the generated client over the FFI backend against its own exports, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
+| `--ffi`, `--ffi=<name>` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which makes an instance of a linked library's service (`<service>_ipc_ffi_create`) and calls it. With `--server` (Rust/Zig/C++): emits the exports themselves — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_create`/`_call`/`_destroy`/`_alloc`/`_free` over the generated dispatch (the service defines `make_service()`, the one factory the generated `serve()` also runs). Each example's FFI test runs the generated client over the FFI backend against its own exports, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. `<name>` is the name the symbols carry (`<name>_ipc_ffi_call`), by default the schema's `service` in snake_case; give it when several implementations serve one schema, so each exports its own. A TS package takes `--ffi=<name>` only to name the symbols its napi and wasm transports call. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process), `napi` (the service's shared library, run in-process in node through ipc-runtime's Node-API addon) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). A package without `uds`/`shm` has no binary and no `bin`. |
-| `--package-napi-library <file>`, `--package-napi-library-env-var <name>` | TS `napi` transport. File name of the shared library the owning project builds from the C++ `--ffi --server` output (it exports `<ffi-name>_ipc_ffi_create`, `_call`, `_destroy`, `_alloc` and `_free`, and needs no Node-API code) and ships in the arch packages (see `--package-native`), and the environment variable that overrides its path (default `<LIBRARY_STEM>_NAPI_PATH`). `@aztec-foundation/ipc-runtime`'s Node-API addon loads it with `dlopen`. A library is loaded once per process, and each napi backend makes an instance of the service of its own. |
+| `--package-napi-library <file>`, `--package-napi-library-env-var <name>` | TS `napi` transport. File name of the shared library the owning project builds from the C++ `--ffi --server` output (it exports `<ffi-name>_ipc_ffi_create`, `_call`, `_destroy`, `_alloc` and `_free`, and needs no Node-API code) and ships in the arch packages (see `--package-native`), and the environment variable that overrides its path (default `<LIBRARY_STEM>_NAPI_PATH`, e.g. `BB_NAPI_PATH` for `libbb.so`). `@aztec-foundation/ipc-runtime`'s Node-API addon loads it with `dlopen`. A library is loaded once per process, and each napi backend makes an instance of the service of its own. |
 | `--package-wasm-module <name>=<path>`, `--package-wasm-threads-module <name>=<path>` | TS `wasm` transport. The single-thread and threads builds at `<path>`, installed into the package's `wasm/` directory as `<name>`; at least one is required. Generation reads each module's memory import and records it in the package, since a host must create an imported memory matching it and JS cannot read it from a compiled module. |
 | `--package-native <platform>=<path>`, `--package-native <platform>:<file>=<path>` | TS `--package` with a native transport. Copies a built native file into the per-platform package under `packages/<stem>-<platform>/`; repeat it for each platform and file. `<platform>` is `linux-x64`, `linux-arm64`, `darwin-x64` or `darwin-arm64`, or the build directory name (`amd64-linux`, `arm64-linux`, `amd64-macos`, `arm64-macos`). The bare form names the binary (the napi library in a package without one); `<file>` picks the library in a package with both. Every per-platform manifest is generated either way; a file not given is not shipped, and a copy an earlier run left is removed. |
 | `--package-every-platform` | With `--package-native`: fail unless every platform is given every native file, which is what publishing all the per-platform packages requires. |
@@ -119,32 +121,29 @@ node --experimental-strip-types --no-warnings \
 
 ### Naming flags
 
-Friendly-format schemas set naming via the schema's `service` field: generated
-types are `<Service><Command>` and client methods are the bare command name. The
-flags below are only for legacy positional schemas, which have no `service`.
+The schema's `service` sets naming: generated types are `<Service><Command>` and client methods are
+the bare command name. Wire tags always keep the full name.
 
 | Flag | Purpose |
 |---|---|
-| `--prefix <Str>` | Positional schemas only. Type prefix applied to generated type names (`<Prefix>CircuitProve`, etc.). Auto-detected from the command names if omitted. Ignored when the schema declares `service`. |
-| `--strip-method-prefix` | Positional schemas only. Drops the prefix from client *method* names: `bbCircuitProve()` → `circuitProve()`. Types keep the prefix. Implied when the schema declares `service`. |
+| `--strip-type-prefix` | Rust and TS. Drops the service from generated type and converter names too: `BbCircuitProve` → `CircuitProve`. |
 
 ### C++-specific flags
 
 | Flag | Purpose |
 |---|---|
-| `--cpp-namespace <ns>` | C++ namespace, e.g. `my::service`. Default: lowercased prefix. |
-| `--cpp-wire-namespace <ns>` | Inner namespace for wire types, default `wire`. |
+| `--cpp-namespace <ns>` | C++ namespace, e.g. `my::service`, with the wire types in its inner `wire` namespace. Default: the lowercased service. |
 | `--cpp-include-dir <path>` | Include-path prefix for cross-includes between generated files, e.g. `myservice/generated`. Leave unset when generated files are in the same directory as their consumer. |
 
 ### Other
 
 | Flag | Purpose |
 |---|---|
-| `--skeleton <dir>` | One-shot scaffolding: writes a `<service>_handlers.{ts,rs,zig,cpp}` stub, `main`, and a build file into `<dir>` if they don't already exist. Skipped on subsequent runs. |
 | `--package-name <name>` | TS package mode only. Package name to write into the generated `package.json`. |
 | `--binary-name <name>` | Client package shell only; ignored by the server shell. Native service binary name to launch. |
 | `--binary-env-var <name>` | Client package shell only; ignored by the server shell. Environment variable that can override the binary path. Defaults to `<BINARY_NAME>_PATH`. |
 | `--package-transports <uds,shm>` | Client package shell only; ignored by the server shell. Comma-separated transports supported by the generated wrapper. |
+| `--package-ipc-path-args <args>` | Client package shell only. Comma-separated arguments the spawned binary takes its IPC path in, with `{path}` standing for it. Default `msgpack,run,--input,{path}`. |
 | `--ipc-runtime-dependency <spec>` | Client package shell only; ignored by the server shell. Dependency spec for `@aztec-foundation/ipc-runtime`, e.g. a release version or local `file:` dependency in examples. |
 
 ## Worked examples
@@ -156,7 +155,7 @@ the command line.
 ### TypeScript client
 
 ```sh
-src/generate.ts \
+ipc-codegen \
   --schema /path/to/myservice_schema.jsonc \
   --lang ts \
   --out /path/to/output/generated \
@@ -170,7 +169,7 @@ transport — no template copy.
 ### TypeScript spawned-service package
 
 ```sh
-src/generate.ts \
+ipc-codegen \
   --schema /path/to/myservice_schema.jsonc \
   --lang ts \
   --client \
@@ -193,7 +192,7 @@ platform built) to copy the binaries into those per-platform packages.
 ### C++ server + client, under a project sub-include path
 
 ```sh
-src/generate.ts \
+ipc-codegen \
   --schema /path/to/myservice_schema.jsonc \
   --lang cpp \
   --out /path/to/myservice/generated \
@@ -223,12 +222,11 @@ directory.
 ### Rust client + FFI backend
 
 ```sh
-src/generate.ts \
+ipc-codegen \
   --schema /path/to/myservice_schema.jsonc \
   --lang rust \
   --out /path/to/crate/src/generated \
-  --client --ffi \
-  --skeleton /path/to/crate/src
+  --client --ffi
 ```
 
 Produces `myservice_types.rs`, `myservice_client.rs` and `ffi_backend.rs`. What they run on comes
@@ -247,14 +245,12 @@ handlers await their host calls (`AsyncHostCall`) is served with `process_host_c
 instead, which keeps taking requests while host calls are out, so a target that calls back into the
 server is answered rather than deadlocking it. UDS/SHM transport is provided by the
 `ipc-runtime` Rust crate; the consumer chooses which to use via the path
-suffix passed at runtime. The skeleton flag also writes a one-time
-`myservice_handlers.rs`, `main.rs`, `Cargo.toml`, and `generate.sh` into the
-skeleton dir so a new service crate is buildable on first run.
+suffix passed at runtime.
 
 ### Zig client + server
 
 ```sh
-src/generate.ts \
+ipc-codegen \
   --schema /path/to/myservice_schema.jsonc \
   --lang zig \
   --out /path/to/output/generated \
@@ -275,7 +271,7 @@ is a backend), or link a library exporting the service's FFI and use `Client(Ffi
    service. This file is the wire-format source of truth — see `SCHEMA_SPEC.md`
    for the format. The C++ wire structs (`MSGPACK_SCHEMA_NAME` +
    `SERIALIZATION_FIELDS`) are generated from it, not hand-written.
-2. **Wire your consumer's build to invoke `src/generate.ts`**, passing the
+2. **Wire your consumer's build to invoke `ipc-codegen`**, passing the
    absolute path to the committed schema and the desired output directory.
    Generated files go under a `generated/` directory which is gitignored by
    convention.

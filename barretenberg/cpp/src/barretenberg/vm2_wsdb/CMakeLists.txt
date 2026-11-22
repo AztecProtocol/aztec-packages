@@ -28,8 +28,7 @@ if(TARGET vm2_sim)
     )
     add_custom_command(
         OUTPUT ${WSDB_GEN_OUTPUTS}
-        COMMAND node --experimental-strip-types --no-warnings
-                ${IPC_CODEGEN_DIR}/src/generate.ts
+        COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
                 --schema ${WSDB_SCHEMA}
                 --lang cpp
                 --out ${WSDB_GEN_DIR}

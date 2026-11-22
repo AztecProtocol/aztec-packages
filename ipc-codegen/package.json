@@ -7,14 +7,18 @@
   "bin": {
     "ipc-codegen": "./bin/ipc-codegen.mjs"
   },
+  "scripts": {
+    "prepack": "node --no-warnings scripts/build_dist.mjs",
+    "postpack": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
   "files": [
     "bin",
-    "src",
+    "dist",
     "templates",
     "README.md",
     "SCHEMA_SPEC.md"
   ],
   "engines": {
-    "node": ">=22.6"
+    "node": ">=22.18"
   }
 }

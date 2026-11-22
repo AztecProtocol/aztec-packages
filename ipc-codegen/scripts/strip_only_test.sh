@@ -14,7 +14,7 @@ out=$(mktemp -d)
 trap "rm -rf $out" EXIT
 
 for lang in rust ts zig cpp; do
-  node --experimental-strip-types --no-warnings "$root/ipc-codegen/src/generate.ts" \
+  "$root/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$schema" --lang "$lang" --out "$out/$lang" --server --client >/dev/null
 done
 

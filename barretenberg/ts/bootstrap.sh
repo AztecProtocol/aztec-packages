@@ -28,19 +28,14 @@ hash=$(hash_str \
 IPC_RUNTIME_PKG="^ipc-runtime/ts/package\.json$"
 
 function generate_bb_avm_sim_package {
-  node --experimental-strip-types --no-warnings \
-    "$ROOT/ipc-codegen/src/generate.ts" \
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/avm/avm_schema.json" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/bb-avm-sim" \
     --package-name "$BB_AVM_SIM_PACKAGE" \
     --binary-name "$BB_AVM_SIM_BINARY" \
-    --prefix Avm \
-    --strip-method-prefix \
     --package-transports uds,napi,wasm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-napi-library "$BB_AVM_SIM_LIBRARY" \
-    --package-napi-library-env-var BB_AVM_SIM_NAPI_PATH \
     --package-wasm-module "bb-avm-sim.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/bb-avm-sim.wasm" \
     "$@"
 }
@@ -48,8 +43,7 @@ function generate_bb_avm_sim_package {
 # Server binding package for the AVM CDB protocol: generated wire types +
 # Handler/dispatch + the schema itself. Pure TS — no binary, no arch packages.
 function generate_cdb_package {
-  node --experimental-strip-types --no-warnings \
-    "$ROOT/ipc-codegen/src/generate.ts" \
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/cdb/cdb_schema.json" \
     --lang ts \
     --server \
@@ -72,20 +66,16 @@ function generate_bb_js_api_package {
   local bbapi="$ROOT/barretenberg/cpp/src/barretenberg/bbapi"
   # bb.js keeps its historical API surface (poseidon2Hash, Poseidon2Hash), so the Bb
   # service prefix is stripped from identifiers; wire tags keep it.
-  node --experimental-strip-types --no-warnings \
-    "$ROOT/ipc-codegen/src/generate.ts" \
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$bbapi/bb_schema.json" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/bb.js-api" \
     --package-name "$BB_JS_API_PACKAGE" \
     --binary-name bb \
     --binary-env-var BB_BINARY_PATH \
-    --strip-method-prefix \
     --strip-type-prefix \
     --package-transports uds,shm,napi,wasm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-napi-library "$BB_LIBRARY" \
-    --package-napi-library-env-var BB_NAPI_PATH \
     --package-wasm-module "barretenberg.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/barretenberg.wasm" \
     --package-wasm-threads-module "barretenberg-threads.wasm=$ROOT/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm" \
     "$@"
@@ -96,18 +86,15 @@ function generate_bb_js_api_package {
 # browsers), or in-process through its Node-API addon (node). All three run the dispatch the bb build
 # generates from the same schema (cpp/.../wsdb_ref).
 function generate_wsdb_ref_package {
-  node --experimental-strip-types --no-warnings \
-    "$ROOT/ipc-codegen/src/generate.ts" \
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc" \
     --lang ts \
     --package "$ROOT/barretenberg/ts/wsdb-ref" \
-    --ffi-name wsdb_ref \
+    --ffi=wsdb_ref \
     --package-name "$WSDB_REF_PACKAGE" \
     --package-transports uds,shm,napi,wasm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --binary-name "$WSDB_REF_BINARY" \
     --package-napi-library "$WSDB_REF_LIBRARY" \
-    --package-napi-library-env-var WSDB_REF_NAPI_PATH \
     --package-wasm-module "wsdb-ref.wasm=$ROOT/barretenberg/cpp/build-wasm/bin/wsdb-ref.wasm" \
     "$@"
 }

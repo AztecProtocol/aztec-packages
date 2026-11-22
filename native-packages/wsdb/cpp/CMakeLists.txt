@@ -60,11 +60,11 @@ set(wsdb_schema "${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_s
 # the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
 # regenerated whenever configure runs, which their inputs below trigger.
 execute_process(
-    COMMAND node --experimental-strip-types --no-warnings ${foundation}/ipc-codegen/src/generate.ts
+    COMMAND ${foundation}/ipc-codegen/bin/ipc-codegen.mjs
             --schema ${wsdb_schema} --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
             --server --client --cpp-namespace azteclabs::wsdb
             --cpp-include-dir wsdb/generated
-            --ffi --ffi-name aztec_wsdb
+            --ffi=aztec_wsdb
     COMMAND_ERROR_IS_FATAL ANY)
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env "WSDB_FOUNDATION_VERSION=${version}" "${pkg}/scripts/remake-constants.sh"

@@ -12,13 +12,11 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns))
 # the ipc-runtime crate, so the client never depends on hand-maintained copies.
 function generate {
   local root=$(git rev-parse --show-toplevel)
-  (cd barretenberg-rs && node --experimental-strip-types --no-warnings \
-    "$root/ipc-codegen/src/generate.ts" \
+  (cd barretenberg-rs && "$root/ipc-codegen/bin/ipc-codegen.mjs" \
     --schema "$root/barretenberg/cpp/src/barretenberg/bbapi/bb_schema.json" \
     --lang rust \
     --client \
     --ffi \
-    --strip-method-prefix \
     --strip-type-prefix \
     --out src/generated)
 }

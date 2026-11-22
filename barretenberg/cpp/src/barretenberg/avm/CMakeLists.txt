@@ -30,8 +30,7 @@ file(GLOB_RECURSE IPC_CODEGEN_SRC
 )
 add_custom_command(
     OUTPUT ${AVM_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${AVM_SCHEMA}
             --lang cpp
             --out ${AVM_GEN_DIR}
@@ -39,8 +38,6 @@ add_custom_command(
             --ffi
             --cpp-namespace bb::avm
             --cpp-include-dir barretenberg/avm/generated
-            --prefix Avm
-            --strip-method-prefix
     DEPENDS ${AVM_SCHEMA} ${IPC_CODEGEN_SRC}
     COMMENT "Generating the AVM IPC server and FFI from avm_schema.json"
     VERBATIM

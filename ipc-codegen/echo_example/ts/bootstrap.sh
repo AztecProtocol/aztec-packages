@@ -4,9 +4,8 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CODEGEN="$(cd "$DIR/../.." && pwd)"
 REPO_ROOT="$(cd "$CODEGEN/.." && pwd)"
-NODE="node --experimental-strip-types --no-warnings"
 
-$NODE "$CODEGEN/src/generate.ts" \
+"$CODEGEN/bin/ipc-codegen.mjs" \
   --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
   --server \

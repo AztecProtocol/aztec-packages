@@ -4,7 +4,6 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CODEGEN="$(cd "$DIR/../.." && pwd)"
 REPO_ROOT="$(cd "$CODEGEN/.." && pwd)"
-NODE="node --experimental-strip-types --no-warnings"
 
 # The spawned binary, the shared library and the wasm reactor all come from the Rust crate, so
 # the package offers one implementation over four transports.
@@ -14,12 +13,13 @@ NODE="node --experimental-strip-types --no-warnings"
 platform="$(node -p 'process.platform + "-" + process.arch')"
 library="libecho_wire_compat.$([ "$(uname)" = Darwin ] && echo dylib || echo so)"
 
-$NODE "$CODEGEN/src/generate.ts" \
+"$CODEGEN/bin/ipc-codegen.mjs" \
   --schema "$DIR/../schema/schema.jsonc" \
   --lang ts \
   --package "$DIR" \
   --package-name "@aztec/echo-ipc" \
   --binary-name echo_server \
+  --package-ipc-path-args '--socket,{path}' \
   --package-transports uds,shm,napi,wasm \
   --package-napi-library "$library" \
   --package-wasm-module "echo.wasm=$DIR/../rust/target/wasm32-wasip1/release/echo_wire_compat.wasm" \

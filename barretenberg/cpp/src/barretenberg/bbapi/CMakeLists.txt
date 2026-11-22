@@ -27,8 +27,7 @@ file(GLOB_RECURSE IPC_CODEGEN_SRC
 # --ffi emits the in-process FFI (bb_ipc_ffi_create/_call/...) bb.js's wasm backend and barretenberg-rs call.
 add_custom_command(
     OUTPUT ${BB_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${BB_SCHEMA}
             --lang cpp
             --out ${BB_GEN_DIR}
@@ -36,7 +35,6 @@ add_custom_command(
             --ffi
             --cpp-namespace bb::bbapi
             --cpp-include-dir barretenberg/bbapi/generated
-            --strip-method-prefix
     DEPENDS ${BB_SCHEMA} ${IPC_CODEGEN_SRC}
     COMMENT "Generating BB IPC wire types + server dispatch + FFI from bb_schema.json"
     VERBATIM

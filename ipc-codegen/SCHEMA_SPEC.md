@@ -232,11 +232,10 @@ void  <svc>_ipc_ffi_set_host_call(int32_t (*host_call)(
 ```
 
 `<svc>` is the implementation's FFI name: by default the schema's `service` in
-snake_case (`Bb` → `bb_ipc_ffi_call`; a positional schema uses the generator's
-type prefix, or the bare names when there is none). The prefix is what lets
+snake_case (`Bb` → `bb_ipc_ffi_call`). The prefix is what lets
 several services be linked into one binary. The schema's `service` names the wire
 protocol, so when several implementations serve one schema each passes its own
-`--ffi-name` (`wsdb_ref_ipc_ffi_call`, `aztec_wsdb_ipc_ffi_call`) and they can
+`--ffi=<name>` (`wsdb_ref_ipc_ffi_call`, `aztec_wsdb_ipc_ffi_call`) and they can
 be linked together. `input` is exactly the request payload above — no framing envelope,
 since an in-process call has no transport — and `*output` receives the response
 payload in a buffer from `<svc>_ipc_ffi_alloc()` that the caller releases with
@@ -301,5 +300,5 @@ service binary and client were generated from different schema versions.
 ## Source files
 
 - Schema front-end + IR compiler: `ipc-codegen/src/schema_visitor.ts`
-- CLI entry point: `ipc-codegen/src/generate.ts`
+- CLI entry point: `ipc-codegen/src/generate.ts` (run as `ipc-codegen`, `bin/ipc-codegen.mjs`)
 - Example schema: `ipc-codegen/echo_example/schema/schema.jsonc`

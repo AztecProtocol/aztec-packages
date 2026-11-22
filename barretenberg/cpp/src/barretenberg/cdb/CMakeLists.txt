@@ -21,16 +21,13 @@ file(GLOB_RECURSE IPC_CODEGEN_SRC
 )
 add_custom_command(
     OUTPUT ${CDB_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${CDB_SCHEMA}
             --lang cpp
             --out ${CDB_GEN_DIR}
             --client
             --cpp-namespace bb::cdb
             --cpp-include-dir barretenberg/cdb/generated
-            --prefix Cdb
-            --strip-method-prefix
     DEPENDS ${CDB_SCHEMA} ${IPC_CODEGEN_SRC}
     COMMENT "Generating CDB IPC client from cdb_schema.json"
     VERBATIM
