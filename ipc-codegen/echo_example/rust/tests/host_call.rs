@@ -3,7 +3,7 @@
 //! them to (here, an instance of the echo service's own FFI exports).
 
 use echo_wire_compat::generated::echo_client::EchoApi;
-use echo_wire_compat::generated::host_call_backend::{set_native_host_call, HostCallBackend};
+use ipc_runtime::host_call_backend::{set_native_host_call, HostCallBackend};
 
 #[test]
 fn host_calls_fail_until_a_host_binds_them() {

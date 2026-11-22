@@ -15,19 +15,11 @@ pub mod generated {
         pub mod acvm_client;
         pub mod acvm_server;
         pub mod acvm_types;
-        pub mod async_host;
-        pub mod backend;
-        pub mod error;
-        pub mod host_call_backend;
 
         #[cfg(feature = "ffi")]
         pub mod acvm_ffi;
-        #[cfg(feature = "ipc-runtime")]
-        pub mod process_host_calls;
     }
     pub mod oracle {
-        pub mod backend;
-        pub mod error;
         pub mod oracle_client;
         pub mod oracle_server;
         pub mod oracle_types;
@@ -42,7 +34,7 @@ pub use abi::{
     abi_decode, abi_decode_error, abi_encode, compress_witness_stack, decompress_witness_stack,
 };
 pub use executor::{execute, Execution, ForeignCallResolver, Solved};
-pub use handler::{AcvmHandler, HostOracle, ORACLE_HOST_CALL_TARGET};
+pub use handler::{host_oracle, AcvmHandler, ORACLE_HOST_CALL_TARGET};
 
 #[cfg(feature = "ffi")]
 crate::export_acvm_ffi!(

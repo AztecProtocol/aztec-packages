@@ -3,7 +3,7 @@
 //! This module defines a simple, pluggable interface for byte backends.
 //! Users can easily implement custom backends (FFI, WASM, IPC, etc.).
 
-use super::error::Result;
+use crate::error::Result;
 
 /// Simple interface for msgpack backend implementations.
 ///
@@ -44,26 +44,19 @@ pub trait Backend {
 }
 
 /// A backend whose calls are awaited rather than blocked on: what a generated
-/// `<Service>AsyncApi` runs over. [`AsyncHostCall`](super::async_host::AsyncHostCall) is the one
+/// `<Service>AsyncApi` runs over. [`AsyncHostCall`](crate::async_host::AsyncHostCall) is the one
 /// a handler calls out through.
 pub trait AsyncBackend {
     /// Send a msgpack command; resolves to the msgpack response.
     fn call(&self, input: Vec<u8>) -> impl std::future::Future<Output = Result<Vec<u8>>>;
 }
 
-// Bridge impl so ipc_runtime::IpcClient (UDS / MPSC-SHM transport) plugs
-// directly into any generated <Service>Api as the Backend. Gated behind the
-// consumer crate's `ipc-runtime` feature so FFI-only consumers don't need
-// the ipc-runtime dependency at all:
-//
-//     [features]
-//     default = ["ipc-runtime"]
-//     ipc-runtime = ["dep:ipc-runtime"]
-#[cfg(feature = "ipc-runtime")]
-impl Backend for ipc_runtime::IpcClient {
+// An IpcClient (UDS / MPSC-SHM transport) is a Backend for any generated <Service>Api.
+#[cfg(feature = "sockets")]
+impl Backend for crate::IpcClient {
     fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
-        ipc_runtime::IpcClient::call(self, input)
-            .map_err(|e| super::error::IpcError::Backend(e.to_string()))
+        crate::IpcClient::call(self, input)
+            .map_err(|e| crate::error::IpcError::Backend(e.to_string()))
     }
     fn destroy(&mut self) -> Result<()> {
         Ok(())

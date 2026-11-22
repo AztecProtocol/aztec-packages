@@ -2,7 +2,7 @@
 name = "ipc-runtime"
 version = "0.1.0"
 edition = "2021"
-description = "Safe Rust bindings to the ipc-runtime C ABI (UDS + MPSC-SHM transport)."
+description = "The runtime for ipc-codegen's Rust code, and safe bindings to the ipc-runtime C ABI (UDS + MPSC-SHM transport)."
 license = "Apache-2.0"
 repository = "https://github.com/AztecProtocol/aztec-packages/tree/next/ipc-runtime"
 # cpp/ is not checked in: the release step copies ../cpp/ipc_runtime there so
@@ -20,3 +20,16 @@ path = "src/lib.rs"
 # binary links.
 [build-dependencies]
 cc = "1.0"
+
+[features]
+default = ["sockets"]
+# The UDS / MPSC-SHM transport (IpcServer, IpcClient), process host calls and serve_async: compiles
+# the C++ runtime. Off for wasm modules and mobile libraries, which need only the pure Rust modules.
+sockets = []
+
+[dependencies]
+thiserror = "1.0"
+
+# host_call_backend frees the host's response buffer with the module's own allocator.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+libc = "0.2"

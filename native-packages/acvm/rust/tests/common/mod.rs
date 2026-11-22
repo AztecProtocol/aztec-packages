@@ -7,7 +7,6 @@ use std::path::PathBuf;
 
 use acir::native_types::{Witness, WitnessMap, WitnessStack};
 use acir::FieldElement;
-use acvm::AcirField;
 use aztec_acvm::{Execution, ForeignCallResolver};
 use base64::Engine;
 

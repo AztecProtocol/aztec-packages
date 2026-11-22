@@ -111,7 +111,7 @@ node --experimental-strip-types --no-warnings \
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
 | `--client` | Emit the typed client: one method per command over a byte backend, the same shape in every language — `<Service>Api<B: Backend>` (Rust), `<Service>Api<ipc_codegen::Backend B>` (C++), `Client(Backend)` (Zig), `AsyncApi`/`SyncApi` over `IpcClientAsync`/`IpcClientSync` (TS). A backend takes the msgpack request bytes and returns the response bytes: ipc-runtime's transport (C++: `ipc_codegen::IpcBackend`), the service in-process (`--ffi`), or your own. |
 | `--package <dir>` | TS only. Emit a complete client package: the generated API over every backend the package has (`--package-transports`), with a `<Service>Service.create(options)` that picks one by default (the first of the spawned process, the napi library and the wasm module that is available, falling back along that order), can be forced to one, or takes a backend object of the consumer's own; one entry per host (node, `browser`, `react-native`) so each host sees only the backends that exist there; the binary resolved from an override path, an environment variable, or the installed per-platform arch package (this package's optional dependencies). With `--server` and no `--client`: a pure-TS server binding package instead, holding wire types, the `Handler` interface and `handleRequest`/`dispatch`, plus the schema file at the package root, with no binary launcher and no arch packages. The byte transport is then supplied by the consumer, e.g. `UdsIpcServer` from ipc-runtime. |
-| `--uds` | Rust/Zig only. Copies the `Backend` trait template (and `error.rs` for Rust) into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. |
+| `--uds` | Zig only. Copies the `Backend` trait template into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. Rust takes the `Backend` traits from the `ipc-runtime` crate. |
 | `--ffi` | In-process FFI, both directions of the contract in `SCHEMA_SPEC.md` ("FFI"). With `--client` (Rust/Zig/C++): generates the FFI backend (`ffi_backend.{rs,zig}`, `<service>_ffi_backend.hpp`), which makes an instance of a linked library's service (`<service>_ipc_ffi_create`) and calls it. With `--server` (Rust/Zig/C++): emits the exports themselves — `<service>_ffi.rs` with an `export_<service>_ffi!` macro over a `Handler + Default` type, `<service>_ffi.zig` with `exportFfi(Handler)` over a default-initialised handler, or `<service>_ffi.{hpp,cpp}` defining `<service>_ipc_ffi_create`/`_call`/`_destroy`/`_alloc`/`_free` over the generated dispatch (the service defines `make_service()`, the one factory the generated `serve()` also runs). Each example's FFI test runs the generated client over the FFI backend against its own exports, in-process. The service prefix on the symbols lets several services be linked into one binary. A wasm reactor built from these is what the TS `wasm` transport runs. |
 | `--package-transports <t>` | TS `--package` only. Comma-separated transports the package offers: `uds`, `shm` (spawned process), `napi` (the service's shared library, run in-process in node through ipc-runtime's Node-API addon) and `wasm` (the service's wasm module, run in-process through `@aztec-foundation/ipc-runtime/wasm`; adds a browser entry). A package without `uds`/`shm` has no binary and no `bin`. |
 | `--package-napi-library <file>`, `--package-napi-library-env-var <name>` | TS `napi` transport. File name of the shared library the owning project builds from the C++ `--ffi --server` output (it exports `<ffi-name>_ipc_ffi_create`, `_call`, `_destroy`, `_alloc` and `_free`, and needs no Node-API code) and ships in the arch packages (see `--package-native`), and the environment variable that overrides its path (default `<LIBRARY_STEM>_NAPI_PATH`). `@aztec-foundation/ipc-runtime`'s Node-API addon loads it with `dlopen`. A library is loaded once per process, and each napi backend makes an instance of the service of its own. |
@@ -230,17 +230,25 @@ src/generate.ts \
   --schema /path/to/myservice_schema.jsonc \
   --lang rust \
   --out /path/to/crate/src/generated \
-  --client --uds --ffi \
+  --client --ffi \
   --skeleton /path/to/crate/src
 ```
 
-Produces `myservice_types.rs`, `myservice_client.rs`, plus `backend.rs`,
-`error.rs`, `ffi_backend.rs` and `host_call_backend.rs`. `MyServiceApi::new(HostCallBackend::new("myservice"))`
+Produces `myservice_types.rs`, `myservice_client.rs` and `ffi_backend.rs`. What they run on comes
+from the `ipc-runtime` crate, which the crate depends on: the `Backend` and `AsyncBackend` traits
+(`ipc_runtime::backend`), the error type (`ipc_runtime::error`), host calls
+(`ipc_runtime::host_call_backend`) and asynchronous instances (`ipc_runtime::async_host`), all pure
+Rust; and, with its `sockets` feature (on by default, compiling ipc-runtime's C++), `IpcServer`,
+`IpcClient` and `ipc_runtime::process_host_calls`. A wasm module or a mobile library depends on it
+with `default-features = false`, so it needs no C++ toolchain. `MyServiceApi::new(HostCallBackend::new("myservice"))`
 calls whatever the host binds to `myservice`, as the C++ `HostCallBackend` does: in a wasm module
 through the `ipc_runtime.host_call` import (on wasm32 it needs the `libc` crate), in a native
 library through the function its host passes to `<service>_ipc_ffi_set_host_call`, and in a server
-process (`--server --uds`) at the paths `--host-call name=path` names, once the process calls
-`process_host_calls::route_host_calls(process_host_calls::host_call_args(&args)?)`. UDS/SHM transport is provided by the
+process at the paths `--host-call name=path` names, once the process calls
+`process_host_calls::route_host_calls(process_host_calls::host_call_args(&args)?)`. A server whose
+handlers await their host calls (`AsyncHostCall`) is served with `process_host_calls::serve_async`
+instead, which keeps taking requests while host calls are out, so a target that calls back into the
+server is answered rather than deadlocking it. UDS/SHM transport is provided by the
 `ipc-runtime` Rust crate; the consumer chooses which to use via the path
 suffix passed at runtime. The skeleton flag also writes a one-time
 `myservice_handlers.rs`, `main.rs`, `Cargo.toml`, and `generate.sh` into the
