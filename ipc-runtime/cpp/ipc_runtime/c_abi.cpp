@@ -131,7 +131,8 @@ ipc_server_t* ipc_server_create_mpsc_shm(const char* base_name,
         if (!base_name) {
             return nullptr;
         }
-        return wrap_server(ipc::IpcServer::create_mpsc_shm(base_name, max_clients, request_ring_size, response_ring_size));
+        return wrap_server(
+            ipc::IpcServer::create_mpsc_shm(base_name, max_clients, request_ring_size, response_ring_size));
     });
 }
 
@@ -142,9 +143,8 @@ void ipc_server_destroy(ipc_server_t* server)
 
 bool ipc_server_listen(ipc_server_t* server)
 {
-    return guarded<bool>("ipc_server_listen", false, [&]() -> bool {
-        return server && server->impl ? server->impl->listen() : false;
-    });
+    return guarded<bool>(
+        "ipc_server_listen", false, [&]() -> bool { return server && server->impl ? server->impl->listen() : false; });
 }
 
 void ipc_server_close(ipc_server_t* server)

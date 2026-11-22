@@ -13,9 +13,9 @@
 
 #include "common/aztec_constants.hpp"
 #include "field/field_element.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "merkle_tree/merkle_tree_id.hpp"
 #include "world_state/test_genesis.hpp"
-#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
 #include "wsdb/wsdb_test_options.hpp"

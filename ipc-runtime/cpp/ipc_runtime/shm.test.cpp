@@ -1528,9 +1528,8 @@ void oversized_response_is_answered(bool reactor)
     };
     std::thread server_thread([&] {
         if (reactor) {
-            server->run_reactor([&](int, std::span<const uint8_t> request, IpcServer::Respond respond) {
-                respond(answer(request));
-            });
+            server->run_reactor(
+                [&](int, std::span<const uint8_t> request, IpcServer::Respond respond) { respond(answer(request)); });
         } else {
             server->run([&](int, std::span<const uint8_t> request) { return answer(request); });
         }

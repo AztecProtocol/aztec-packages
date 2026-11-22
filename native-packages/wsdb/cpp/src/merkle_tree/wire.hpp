@@ -15,10 +15,10 @@
  * Both are identity for types that are already wire records, and element-wise for vectors.
  */
 #include "field/field_element.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "merkle_tree/indexed_leaf.hpp"
 #include "merkle_tree/merkle_tree_id.hpp"
 #include "merkle_tree/response.hpp"
-#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
 #include <msgpack.hpp>
 #include <optional>

@@ -108,7 +108,7 @@ void install(facebook::jsi::Runtime& runtime, RunOnJs run_on_js);
 
 #define IPC_RUNTIME_JSI_DECLARE_FFI_ASYNC(name)                                                                        \
     IPC_RUNTIME_JSI_DECLARE_FFI_WITH_HOST_CALLS(name)                                                                  \
-    extern "C" void* name##_ipc_ffi_create_async(void*, ipc_async_respond_fn, ipc_async_call_fn);                       \
+    extern "C" void* name##_ipc_ffi_create_async(void*, ipc_async_respond_fn, ipc_async_call_fn);                      \
     extern "C" void name##_ipc_ffi_submit(void*, uint64_t, const uint8_t*, size_t);                                    \
     extern "C" void name##_ipc_ffi_deliver(void*, uint64_t, int32_t, const uint8_t*, size_t);                          \
     extern "C" void name##_ipc_ffi_destroy_async(void*);
