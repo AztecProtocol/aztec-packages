@@ -17,8 +17,12 @@ export type IpcServerHandler = (
  * UDS server with the same wire format as UdsIpcClient and the C++
  * ipc::IpcServer socket transport: 4-byte LE length prefix, 8-byte LE request
  * id (echoed on the response), then the payload; the length counts the id
- * plus the payload. Accepts multiple concurrent connections; handler
- * invocations are serialised per-connection.
+ * plus the payload. Accepts multiple concurrent connections. Each request's
+ * handler starts as soon as the request arrives, even while earlier requests
+ * on the same connection are still being handled, and its response is sent
+ * when it finishes, matched to the request by id: a handler waiting on a call
+ * that leads back to this server over the same connection (a host call whose
+ * answer needs a nested call) must not hold up the requests behind it.
  *
  * Signal handling is the caller's responsibility (unlike the C++ server's
  * install_default_signal_handlers); the socket file is unlinked on close()
@@ -115,7 +119,6 @@ export class UdsIpcServer {
     }
     conn.on("close", () => this.connections.delete(conn));
     const frames = new FrameReader();
-    let chain: Promise<void> = Promise.resolve();
 
     conn.on("data", (chunk: Buffer) => {
       frames.push(chunk);
@@ -140,11 +143,10 @@ export class UdsIpcServer {
         // decode with msgpackr, which relies on Buffer semantics for correct string/binary decoding.
         const payload = Buffer.from(frame.subarray(12));
 
-        const prev = chain;
-        chain = (async () => {
-          await prev;
+        void (async () => {
           try {
             const resp = await handler(clientId, payload);
+            if (conn.destroyed) return;
             const header = Buffer.allocUnsafe(12);
             header.writeUInt32LE(resp.length + 8, 0); // length counts id + payload
             header.writeBigUInt64LE(requestId, 4);
@@ -154,9 +156,6 @@ export class UdsIpcServer {
             conn.destroy(err as Error);
           }
         })();
-        void chain.catch(() => {
-          /* errors already handled by destroying the connection */
-        });
       }
     });
 
