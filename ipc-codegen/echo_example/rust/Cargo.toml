@@ -16,7 +16,8 @@ path = "src/echo_client.rs"
 
 [features]
 default = ["ipc-runtime"]
-ipc-runtime = ["dep:ipc-runtime"]
+# The socket transport, which compiles ipc-runtime's C++: the binaries need it, the wasm module not.
+ipc-runtime = ["ipc-runtime/sockets"]
 # The generated FFI exports (export_echo_ffi!) and FFI client backend; the two
 # meet in-process in tests/ffi_roundtrip.rs.
 ffi = ["dep:libc"]
@@ -25,5 +26,5 @@ ffi = ["dep:libc"]
 rmp-serde = "1.1"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
-ipc-runtime = { path = "../../../ipc-runtime/rust", optional = true }
+ipc-runtime = { path = "../../../ipc-runtime/rust", default-features = false }
 libc = { version = "0.2", optional = true }

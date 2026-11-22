@@ -4,3 +4,5 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 cd $(dirname $0)/../rust
 cargo test
+# Without `sockets` the crate is pure Rust, so a wasm module can depend on it with no C++ toolchain.
+cargo build --no-default-features --target wasm32-wasip1

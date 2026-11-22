@@ -153,7 +153,7 @@ Optional:
   --strip-type-prefix      Strip the prefix from generated type and converter
                            names too (e.g. BbCircuitProve -> CircuitProve).
                            Wire tags always keep the full schema name.
-  --uds                    Copy UDS backend templates (rust, zig only)
+  --uds                    Copy the Backend template (zig only; Rust gets it from the ipc-runtime crate)
   --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
                            client backend. With --server: the exported FFI
                            (<service>_ipc_ffi_create/_call/...) over the dispatch
@@ -324,10 +324,10 @@ function parseArgs(argv: string[]): Args {
     console.error(`--package is only supported for --lang ts`);
     process.exit(1);
   }
-  if (args.uds && args.lang !== "rust" && args.lang !== "zig") {
+  if (args.uds && args.lang !== "zig") {
     console.error(
-      `--uds copies backend templates and only applies to rust and zig; ` +
-        `ts takes its transports from ipc-runtime, and cpp always gets ipc_codegen/ipc_backend.hpp`,
+      `--uds copies the Backend template and only applies to zig; rust takes it from the ` +
+        `ipc-runtime crate, ts its transports from ipc-runtime, and cpp always gets ipc_codegen/ipc_backend.hpp`,
     );
     process.exit(1);
   }
@@ -857,25 +857,9 @@ function generate(args: Args) {
           gen.generateApi(compiled),
         );
       }
-      // Backend templates (force-overwritten on regeneration). The `Backend` trait
-      // and `IpcError` type stay shared; ipc-runtime is consumed via the
-      // separate `ipc-runtime` crate.
-      if (args.uds || args.ffi) {
-        copyTemplate("rust", "backend.rs", absOut);
-        copyTemplate("rust", "error.rs", absOut);
-      }
-      if (args.ffi || args.uds) {
-        // For a client inside a wasm module, a native library or a server process, reaching a
-        // service its host provides; the FFI exports and the process routing set its host-call
-        // function.
-        copyTemplate("rust", "host_call_backend.rs", absOut);
-        // Host calls awaited rather than blocked on, and the instances that drive them.
-        copyTemplate("rust", "async_host.rs", absOut);
-      }
-      if (args.server && args.uds) {
-        // A server process is its own host: `--host-call name=path` routes each target.
-        copyTemplate("rust", "process_host_calls.rs", absOut);
-      }
+      // The Backend traits, the error type, host calls and asynchronous instances are not
+      // generated: they live in the \`ipc-runtime\` crate (pure Rust without its \`sockets\`
+      // feature), which generated code imports, so a crate with several services has one copy.
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.
         writeFile("ffi_backend.rs", gen.generateFfiBackend());

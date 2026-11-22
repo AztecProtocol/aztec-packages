@@ -26,9 +26,9 @@
 //! instance to suspend to: `spawn` runs the future to completion at once, and each host call is
 //! made with [`HostCallBackend`], blocking until its answer.
 
-use super::backend::{AsyncBackend, Backend};
-use super::error::{IpcError, Result};
-use super::host_call_backend::HostCallBackend;
+use crate::backend::{AsyncBackend, Backend};
+use crate::error::{IpcError, Result};
+use crate::host_call_backend::HostCallBackend;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::future::Future;

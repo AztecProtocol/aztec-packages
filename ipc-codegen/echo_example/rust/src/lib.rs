@@ -1,27 +1,19 @@
-// Generated modules live in src/generated/. Transport comes from the
-// `ipc-runtime` crate; the per-language UDS template that used to live
-// here (ipc_server.rs / uds_backend.rs) is gone — the runtime is shared.
+// Generated modules live in src/generated/. What they run on (the Backend traits, the error type,
+// host calls, asynchronous instances and the transport) comes from the `ipc-runtime` crate.
 pub mod generated {
-    pub mod async_host;
-    pub mod backend;
     pub mod echo_client;
     #[cfg(feature = "ffi")]
     pub mod echo_ffi;
     pub mod echo_server;
     pub mod echo_types;
-    pub mod error;
     #[cfg(feature = "ffi")]
     pub mod ffi_backend;
-    pub mod host_call_backend;
 }
 
 pub mod handler;
 
-// Re-export under the names that generated server/client code expects
-// (they use `crate::types_gen`, `crate::error`, `crate::backend`)
-pub use generated::backend;
 pub use generated::echo_types as types_gen;
-pub use generated::error;
+pub use ipc_runtime::{backend, error};
 
 // The service as an in-process library: the generated FFI exports over the same
 // handler the socket server uses. With `ffi_backend` in the same crate, the
