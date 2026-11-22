@@ -3,6 +3,7 @@
 #include "ipc_runtime/ipc_server.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <dirent.h>
 #include <gtest/gtest.h>
@@ -89,6 +90,18 @@ size_t thread_count()
     return n > 2 ? n - 2 : 0; // less . and ..
 }
 
+/** The thread count once it settles at `expected`, or after a second: a joined thread can stay listed briefly. */
+size_t thread_count_settling_at(size_t expected)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    size_t n = thread_count();
+    while (n != expected && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        n = thread_count();
+    }
+    return n;
+}
+
 std::vector<uint8_t> call(IpcClient& client, uint8_t n)
 {
     EXPECT_TRUE(client.send(&n, 1, 1'000'000'000ULL));
@@ -105,7 +118,8 @@ TEST(ServeAsyncTest, NestedCallsBackIntoTheServerOnItsOneThread)
     const std::string path = "/tmp/ipc_serve_async_" + std::to_string(getpid()) + ".sock";
     auto server = IpcServer::create_socket(path, 8);
     ASSERT_TRUE(server->listen());
-    const size_t threads_before = thread_count();
+    // Earlier tests' joined threads may still be listed: count from the test's own thread alone.
+    const size_t threads_before = thread_count_settling_at(1);
     std::string error = "not run";
     std::thread server_thread([&] { error = serve_async(*server, countdown, { { "peer", path } }); });
 
@@ -115,7 +129,7 @@ TEST(ServeAsyncTest, NestedCallsBackIntoTheServerOnItsOneThread)
     EXPECT_EQ(call(*client, 0), std::vector<uint8_t>{ 0 });
 #ifdef __linux__
     // The test's own thread and the server's: no thread per call, and none for the connection.
-    EXPECT_EQ(thread_count(), threads_before + 1);
+    EXPECT_EQ(thread_count_settling_at(threads_before + 1), threads_before + 1);
 #endif
 
     client->close();
