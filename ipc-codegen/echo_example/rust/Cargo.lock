@@ -40,6 +40,8 @@ name = "ipc-runtime"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "libc",
+ "thiserror",
 ]
 
 [[package]]

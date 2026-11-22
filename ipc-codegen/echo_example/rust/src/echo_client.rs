@@ -4,7 +4,7 @@
 
 use echo_wire_compat::generated::echo_client::EchoApi;
 use echo_wire_compat::generated::echo_types::{EchoInner, Fr};
-use echo_wire_compat::generated::error::{IpcError, Result};
+use ipc_runtime::error::{IpcError, Result};
 use ipc_runtime::IpcClient;
 
 fn main() -> Result<()> {

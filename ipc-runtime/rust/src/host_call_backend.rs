@@ -25,8 +25,8 @@
 //! stores it with [`set_native_host_call`]; until then every call fails. On wasm32 this needs the
 //! `libc` crate, as the generated FFI exports does.
 
-use super::backend::Backend;
-use super::error::{IpcError, Result};
+use crate::backend::Backend;
+use crate::error::{IpcError, Result};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::atomic::{AtomicUsize, Ordering};
 

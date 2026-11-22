@@ -10,7 +10,6 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang rust \
   --server \
   --client \
-  --uds \
   --ffi \
   --out "$DIR/src/generated"
 

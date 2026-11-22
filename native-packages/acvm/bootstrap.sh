@@ -21,10 +21,10 @@ function generate_rust {
   rm -rf rust/src/generated
   # The Acvm service: served by the binary, exported by the library and the wasm module, and
   # called by the crate's tests over ipc-runtime.
-  ipc_codegen --schema acvm_schema.jsonc --lang rust --server --client --uds --ffi \
+  ipc_codegen --schema acvm_schema.jsonc --lang rust --server --client --ffi \
     --out rust/src/generated/acvm
   # The Oracle service: the crate's client to it, and the server its tests answer foreign calls with.
-  ipc_codegen --schema oracle_schema.jsonc --lang rust --server --client --uds \
+  ipc_codegen --schema oracle_schema.jsonc --lang rust --server --client \
     --out rust/src/generated/oracle
 }
 

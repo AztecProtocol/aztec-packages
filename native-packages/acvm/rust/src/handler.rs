@@ -15,38 +15,25 @@ use crate::generated::acvm::acvm_types::{
     AcvmDecodeAssertionPayloadResponse, AcvmDecompressWitnessStack,
     AcvmDecompressWitnessStackResponse, AcvmExecuteProgram, AcvmExecuteProgramResponse,
 };
-use crate::generated::acvm::async_host::{spawn, AsyncHostCall};
-use crate::generated::oracle::backend::AsyncBackend;
-use crate::generated::oracle::error::{IpcError, Result as OracleResult};
 use crate::generated::oracle::oracle_client::OracleAsyncApi;
 use crate::generated::oracle::oracle_types::{Bin32 as OracleBin32, ForeignCallValue};
+use ipc_runtime::async_host::{spawn, AsyncHostCall};
 
 /// The host-call target the ACVM reaches the Oracle service by.
 pub const ORACLE_HOST_CALL_TARGET: &str = "oracle";
 
 /// The Oracle service at the host's `oracle` target. On an asynchronous instance (the napi, wasm
-/// and JSI hosts) an execution awaiting it suspends, and the instance takes other requests
-/// meanwhile, one the oracle itself makes back into the ACVM included. Anywhere else (the server
-/// process, the synchronous backends) the call blocks until answered.
-pub struct HostOracle(AsyncHostCall);
-
-impl Default for HostOracle {
-    fn default() -> Self {
-        Self(AsyncHostCall::new(ORACLE_HOST_CALL_TARGET))
-    }
-}
-
-impl AsyncBackend for HostOracle {
-    fn call(&self, input: Vec<u8>) -> impl Future<Output = OracleResult<Vec<u8>>> {
-        use crate::generated::acvm::backend::AsyncBackend as _;
-        let answer = self.0.call(input);
-        async move { answer.await.map_err(|e| IpcError::Backend(e.to_string())) }
-    }
+/// and JSI hosts, and the server process on a socket) an execution awaiting it suspends, and the
+/// instance takes other requests meanwhile, one the oracle itself makes back into the ACVM
+/// included. Anywhere else (the server process on shared memory, the synchronous backends) the
+/// call blocks until answered.
+pub fn host_oracle() -> OracleAsyncApi<AsyncHostCall> {
+    OracleAsyncApi::new(AsyncHostCall::new(ORACLE_HOST_CALL_TARGET))
 }
 
 /// An execution's foreign calls, sent to the Oracle service with the execution's id.
 struct OracleResolver {
-    oracle: OracleAsyncApi<HostOracle>,
+    oracle: OracleAsyncApi<AsyncHostCall>,
     execution_id: u64,
 }
 
@@ -81,7 +68,7 @@ impl Handler for AcvmHandler {
     ) {
         spawn(async move {
             let mut resolver = OracleResolver {
-                oracle: OracleAsyncApi::new(HostOracle::default()),
+                oracle: host_oracle(),
                 execution_id: cmd.execution_id,
             };
             let execution = execute(
