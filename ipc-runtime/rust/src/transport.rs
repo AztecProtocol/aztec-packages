@@ -280,7 +280,8 @@ impl IpcServer {
 
 /// A service's asynchronous FFI (`<svc>_ipc_ffi_create_async`, `_submit`, `_deliver`,
 /// `_destroy_async`), which [`IpcServer::serve_async`] drives. Its callbacks may be called on any
-/// thread.
+/// thread. Mirrors `ipc_async_service_t` in `ipc-runtime/cpp/ipc_runtime/ffi_abi.h`, which defines
+/// the contract.
 #[repr(C)]
 pub struct AsyncService {
     pub create: unsafe extern "C" fn(

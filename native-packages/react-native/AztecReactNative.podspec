@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
   s.source_files = [
     'ios/*.{h,mm}',
     'cpp/*.{h,hpp,cpp,c}',
-    'third_party/ipc-runtime-jsi/*.{hpp,cpp}',
+    'third_party/ipc-runtime-jsi/**/*.{h,hpp,cpp}',
     'third_party/sqlite3mc/*.h',
   ]
   s.private_header_files = ['cpp/*.{h,hpp}', 'third_party/**/*.{h,hpp}']

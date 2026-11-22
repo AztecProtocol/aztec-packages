@@ -28,6 +28,8 @@
  * looked up among the symbols already in the process.
  */
 
+#include "ipc_runtime/ffi_abi.h"
+
 #include <jsi/jsi.h>
 
 #include <cstddef>
@@ -37,32 +39,22 @@
 
 namespace ipc::jsi {
 
-/** One library's FFI exports: `<ffiName>_ipc_ffi_*`. set_host_call is null for a library that has no host calls. */
+/**
+ * One library's FFI exports: `<ffiName>_ipc_ffi_*` (ipc_runtime/ffi_abi.h). set_host_call is null for
+ * a library that has no host calls.
+ */
 struct FfiSymbols {
-    void* (*create)() = nullptr;
-    void (*call)(void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len) =
-        nullptr;
-    void (*destroy)(void* instance) = nullptr;
-    void* (*alloc)(size_t size) = nullptr;
-    void (*free)(void* ptr) = nullptr;
-    void (*set_host_call)(int32_t (*host_call)(const uint8_t* target,
-                                               size_t target_len,
-                                               const uint8_t* request,
-                                               size_t request_len,
-                                               uint8_t** response,
-                                               size_t* response_len)) = nullptr;
+    ipc_ffi_create_fn create = nullptr;
+    ipc_ffi_call_fn call = nullptr;
+    ipc_ffi_destroy_fn destroy = nullptr;
+    ipc_ffi_alloc_fn alloc = nullptr;
+    ipc_ffi_free_fn free = nullptr;
+    ipc_ffi_set_host_call_fn set_host_call = nullptr;
     /** The asynchronous instances, for a library that has them (all four, or none). */
-    void* (*create_async)(void* host_ctx,
-                          void (*respond)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len),
-                          void (*call)(void* host_ctx,
-                                       uint64_t call_id,
-                                       const uint8_t* target,
-                                       size_t target_len,
-                                       const uint8_t* request,
-                                       size_t request_len)) = nullptr;
-    void (*submit)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len) = nullptr;
-    void (*deliver)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t len) = nullptr;
-    void (*destroy_async)(void* instance) = nullptr;
+    ipc_ffi_create_async_fn create_async = nullptr;
+    ipc_ffi_submit_fn submit = nullptr;
+    ipc_ffi_deliver_fn deliver = nullptr;
+    ipc_ffi_destroy_fn destroy_async = nullptr;
 };
 
 /** Makes a library linked into the app reachable by its FFI name. */
@@ -98,8 +90,7 @@ void install(facebook::jsi::Runtime& runtime, RunOnJs run_on_js);
 
 #define IPC_RUNTIME_JSI_DECLARE_FFI_WITH_HOST_CALLS(name)                                                              \
     IPC_RUNTIME_JSI_DECLARE_FFI(name)                                                                                  \
-    extern "C" void name##_ipc_ffi_set_host_call(                                                                      \
-        int32_t (*)(const uint8_t*, size_t, const uint8_t*, size_t, uint8_t**, size_t*));
+    extern "C" void name##_ipc_ffi_set_host_call(ipc_ffi_host_call_fn);
 
 #define IPC_RUNTIME_JSI_SYMBOLS(name)                                                                                  \
     ::ipc::jsi::FfiSymbols                                                                                             \
@@ -117,10 +108,7 @@ void install(facebook::jsi::Runtime& runtime, RunOnJs run_on_js);
 
 #define IPC_RUNTIME_JSI_DECLARE_FFI_ASYNC(name)                                                                        \
     IPC_RUNTIME_JSI_DECLARE_FFI_WITH_HOST_CALLS(name)                                                                  \
-    extern "C" void* name##_ipc_ffi_create_async(                                                                      \
-        void*,                                                                                                         \
-        void (*)(void*, uint64_t, const uint8_t*, size_t),                                                             \
-        void (*)(void*, uint64_t, const uint8_t*, size_t, const uint8_t*, size_t));                                    \
+    extern "C" void* name##_ipc_ffi_create_async(void*, ipc_async_respond_fn, ipc_async_call_fn);                       \
     extern "C" void name##_ipc_ffi_submit(void*, uint64_t, const uint8_t*, size_t);                                    \
     extern "C" void name##_ipc_ffi_deliver(void*, uint64_t, int32_t, const uint8_t*, size_t);                          \
     extern "C" void name##_ipc_ffi_destroy_async(void*);

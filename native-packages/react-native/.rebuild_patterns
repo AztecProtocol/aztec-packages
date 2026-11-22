@@ -1,5 +1,6 @@
 ^native-packages/react-native/
 ^ipc-runtime/cpp/jsi/
+^ipc-runtime/cpp/ipc_runtime/ffi_abi\.h$
 ^native-packages/kv-sqlite/kv_schema\.jsonc$
 ^native-packages/kv-sqlite/cpp/src/kv/
 ^ipc-codegen/src/

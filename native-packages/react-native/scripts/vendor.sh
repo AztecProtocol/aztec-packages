@@ -77,3 +77,5 @@ cp -R "$root/ipc-runtime/cpp/ipc_codegen" third_party/kv-sqlite/generated/
 
 mkdir -p third_party/ipc-runtime-jsi
 cp "$root/ipc-runtime/cpp/jsi/ipc_runtime_jsi.hpp" "$root/ipc-runtime/cpp/jsi/ipc_runtime_jsi.cpp" third_party/ipc-runtime-jsi/
+mkdir -p third_party/ipc-runtime-jsi/ipc_runtime
+cp "$root/ipc-runtime/cpp/ipc_runtime/ffi_abi.h" third_party/ipc-runtime-jsi/ipc_runtime/

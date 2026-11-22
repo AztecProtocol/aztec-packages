@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ipc_runtime/ffi_abi.h"
 #include "napi.h"
 
 #include <cstddef>
@@ -45,23 +46,15 @@ class HostCallRouter {
  */
 class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
   public:
-    using Free = void (*)(void* ptr);
-    using Alloc = void* (*)(size_t size);
-    using Create = void* (*)();
-    using CallInstance =
-        void (*)(void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
-    using Destroy = void (*)(void* instance);
-    using AsyncRespond = void (*)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
-    using AsyncCall = void (*)(void* host_ctx,
-                               uint64_t call_id,
-                               const uint8_t* target,
-                               size_t target_len,
-                               const uint8_t* request,
-                               size_t request_len);
-    using CreateAsync = void* (*)(void* host_ctx, AsyncRespond respond, AsyncCall call);
-    using Submit = void (*)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len);
-    using Deliver =
-        void (*)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t response_len);
+    // The contract's function types (ipc_runtime/ffi_abi.h).
+    using Free = ipc_ffi_free_fn;
+    using Alloc = ipc_ffi_alloc_fn;
+    using Create = ipc_ffi_create_fn;
+    using CallInstance = ipc_ffi_call_fn;
+    using Destroy = ipc_ffi_destroy_fn;
+    using CreateAsync = ipc_ffi_create_async_fn;
+    using Submit = ipc_ffi_submit_fn;
+    using Deliver = ipc_ffi_deliver_fn;
 
     /** One per loaded library, shared by every FfiLibrary over it. */
     struct Loaded {

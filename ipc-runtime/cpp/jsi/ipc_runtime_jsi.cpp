@@ -24,7 +24,7 @@ namespace ipc::jsi {
 
 namespace {
 
-using HostCallFn = int32_t (*)(const uint8_t*, size_t, const uint8_t*, size_t, uint8_t**, size_t*);
+using HostCallFn = ipc_ffi_host_call_fn;
 
 /** A host call's answer: response bytes (or an error message) and status, 0 for a response. */
 struct Answer {
