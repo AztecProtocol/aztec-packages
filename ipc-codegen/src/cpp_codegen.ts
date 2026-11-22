@@ -561,6 +561,7 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
 // with #ifndef THROW, so a parent project that predefines them wins.
 #include "ipc_codegen/msgpack_include.hpp"
 
+#include <atomic>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -596,14 +597,16 @@ inline std::vector<uint8_t> make_error(const std::string& message)
 // finished response frame and may be invoked from any thread.
 using RawRespond = std::function<void(std::vector<uint8_t>)>;
 
-// Typed response callback handed to each handler. Exactly one of ok()/error()
-// must be called exactly once — possibly later and from another thread, so a
-// handler may defer its work (e.g. to a thread pool) and respond when ready.
+// Typed response callback handed to each handler. Call one of ok()/error() once —
+// possibly later and from another thread, so a handler may defer its work (e.g. to
+// a thread pool) and respond when ready. Copies share one answer: only the first
+// ok()/error() across them is sent, and if the last copy goes without either, it
+// sends an error saying so, so the caller never waits on a forgotten request.
 template <typename Resp>
 class Responder {
   public:
     Responder(RawRespond raw, const char* resp_type)
-        : raw_(std::move(raw))
+        : state_(std::make_shared<State>(std::move(raw)))
         , resp_type_(resp_type)
     {}
 
@@ -614,13 +617,44 @@ class Responder {
         pk.pack_array(2);
         pk.pack(std::string(resp_type_));
         pk.pack(resp);
-        raw_(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+        state_->answer(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
     }
 
-    void error(const std::string& message) const { raw_(detail::make_error(message)); }
+    void error(const std::string& message) const { state_->answer(detail::make_error(message)); }
 
   private:
-    RawRespond raw_;
+    struct State {
+        explicit State(RawRespond raw)
+            : raw(std::move(raw))
+        {}
+        State(const State&) = delete;
+        State& operator=(const State&) = delete;
+        State(State&&) = delete;
+        State& operator=(State&&) = delete;
+        ~State()
+        {
+            if (answered.exchange(true)) {
+                return;
+            }
+#ifdef BB_NO_EXCEPTIONS
+            raw(detail::make_error("the handler dropped its responder without answering"));
+#else
+            try {
+                raw(detail::make_error("the handler dropped its responder without answering"));
+            } catch (...) { // NOLINT(bugprone-empty-catch): a destructor must not throw
+            }
+#endif
+        }
+        void answer(std::vector<uint8_t> frame)
+        {
+            if (!answered.exchange(true)) {
+                raw(std::move(frame));
+            }
+        }
+        RawRespond raw;
+        std::atomic<bool> answered{ false };
+    };
+    std::shared_ptr<State> state_;
     const char* resp_type_;
 };
 

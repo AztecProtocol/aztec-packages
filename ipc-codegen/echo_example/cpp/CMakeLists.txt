@@ -60,3 +60,7 @@ target_link_libraries(echo_ffi PUBLIC echo_common)
 
 add_executable(ffi_test src/ffi_test.cpp)
 target_link_libraries(ffi_test PRIVATE echo_ffi)
+
+# The generated Responder answers each request exactly once, whatever the handler does.
+add_executable(responder_test src/responder_test.cpp)
+target_link_libraries(responder_test PRIVATE echo_common)

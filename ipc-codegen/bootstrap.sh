@@ -68,6 +68,7 @@ function test_cmds {
   # The generated FFI exports, driven in-process through the generated client
   # over its FFI backend (the Rust equivalent runs as a cargo test during build()).
   echo "$prefix ipc-codegen/echo_example/cpp/build/bin/ffi_test"
+  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/responder_test"
   echo "$prefix ipc-codegen/echo_example/zig/zig-out/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"
