@@ -63,6 +63,5 @@ pub fn merge_checkpoint_rollups(
         fees,
         start_blob_accumulator: left.start_blob_accumulator,
         end_blob_accumulator: right.end_blob_accumulator,
-        final_blob_challenges: left.final_blob_challenges,
     }
 }

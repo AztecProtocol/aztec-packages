@@ -3,8 +3,7 @@ use crate::abis::{
     TxRollupPublicInputs,
 };
 use bigcurve::BigCurve;
-use bignum::BigNum;
-use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use blob::abis::{BlobAccumulator, BLSPoint};
 use protocol_test_utils::{
     fixtures::{proof_data::{make_proof_data, make_proof_data_for_fixed_vk}, vk_tree::vk_tree_root},
     utils::make_fixture,
@@ -22,11 +21,10 @@ use types::{
     address::{AztecAddress, EthAddress},
     blob_data::SpongeBlob,
     constants::{
-        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_GAMMA_FINAL, EMPTY_EPOCH_OUT_HASH,
-        L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
-        MAX_L1_TO_L2_MSGS_PER_BLOCK, OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
+        ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, EMPTY_EPOCH_OUT_HASH, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH, MAX_L1_TO_L2_MSGS_PER_BLOCK,
+        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
-    hash::poseidon2_hash_with_separator,
     merkle_tree::{
         append_only_tree::append_leaves_to_snapshot, MerkleTree,
         test_utils::SingleSubtreeMerkleTree,
@@ -54,7 +52,7 @@ pub struct RollupFixtureBuilder {
     // Used to identify the first checkpoint, which will have an empty start_blob_accumulator.
     pub start_slot_number: Field,
 
-    // Used to generate the consistent and correct final_blob_challenges for all rollups.
+    // The last checkpoint in the epoch.
     pub end_slot_number: Field,
 }
 
@@ -406,7 +404,6 @@ impl RollupFixtureBuilder {
             fees,
             start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
             end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
-            final_blob_challenges: self.get_final_blob_challenges(),
         }
     }
 
@@ -442,7 +439,8 @@ impl RollupFixtureBuilder {
             BlobAccumulator::empty()
         } else {
             let mut accumulator: BlobAccumulator = self.make_fixture(slot_number, 0, 1);
-            accumulator.c_acc.is_infinity = false;
+            accumulator.d_acc.is_infinity = false;
+            accumulator.e_acc.is_infinity = false;
             accumulator
         }
     }
@@ -456,18 +454,9 @@ impl RollupFixtureBuilder {
         commitments
     }
 
-    pub fn get_final_blob_challenges(self) -> FinalBlobBatchingChallenges {
-        // Derived from the end block accumulator of the last checkpoint in an epoch, so that the validation in root rollup will pass.
-        let end_block_accumulator = self.get_blob_accumulator(self.end_slot_number);
-        let z = end_block_accumulator.z_acc;
-        // Safety: This is only for testing.
-        let gamma = unsafe {
-            __from_field(poseidon2_hash_with_separator(
-                [end_block_accumulator.gamma_acc, z],
-                DOM_SEP__BLOB_GAMMA_FINAL,
-            ))
-        };
-        FinalBlobBatchingChallenges { z, gamma: BigNum::from_limbs(gamma) }
+    pub fn get_blob_kzg_proof(self, slot_number: Field) -> BLSPoint {
+        let seed: Field = self.make_fixture(slot_number, 0, 59);
+        BLSPoint::hash_to_curve(seed.to_be_bytes::<32>())
     }
 
     fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {
@@ -576,34 +565,4 @@ impl RollupFixtureBuilder {
         let value_offset = slot_number * (seed * 37) + block_or_tx_number as Field * (seed + 11);
         make_fixture(value_offset)
     }
-}
-
-global TWO_POW_120: u128 = 0x1000000000000000000000000000000;
-
-// Copied from the noir-bignum library. For testing purposes only.
-unconstrained fn __from_field<let N: u32>(field: Field) -> [u128; N] {
-    let mut x = field;
-    let x_first_u128 = (x as u128);
-    let first: u128 = x_first_u128 % TWO_POW_120;
-    // this becomes the same as a integer division because we're removing the remainder
-    x = (x - (first as Field)) / (TWO_POW_120 as Field);
-    let x_second_u128 = (x as u128);
-    let second = x_second_u128 % TWO_POW_120;
-    x = (x - (second as Field)) / (TWO_POW_120 as Field);
-    let x_third_u128 = (x as u128);
-    let third = x_third_u128 % TWO_POW_120;
-    let mut result: [u128; N] = [0; N];
-    if N > 2 {
-        result[0] = first;
-        result[1] = second;
-        result[2] = third;
-    }
-    if N == 2 {
-        result[0] = first;
-        result[1] = second;
-    }
-    if N == 1 {
-        result[0] = first;
-    }
-    result
 }

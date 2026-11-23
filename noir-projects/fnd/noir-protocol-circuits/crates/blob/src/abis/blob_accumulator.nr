@@ -5,11 +5,11 @@ use super::{
 };
 use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381, BLS12_381Scalar}};
 use bignum::{BigNum, BLS12_381_Fq, BLS12_381_Fr};
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Neg};
 use types::{
     constants::{
-        BLOB_ACCUMULATOR_LENGTH, DOM_SEP__BLOB_GAMMA_ACC, DOM_SEP__BLOB_HASHED_Y_LIMBS,
-        DOM_SEP__BLOB_Z_ACC,
+        BLOB_ACCUMULATOR_LENGTH, DOM_SEP__BLOB_ALPHA_ACC, DOM_SEP__BLOB_GAMMA_ACC,
+        DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS,
     },
     hash::{poseidon2_hash_with_separator, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
@@ -17,175 +17,175 @@ use types::{
 };
 
 /**
-* The outputs we care about from using the barycentric to evaluate blob i at z:
-* - z_i = Challenge for one blob (=H(H(blob_i), C_i))
-* - y_i = Evaluation for one blob (=p_i(z))
-* - c_i = Commitment for one blob (=C_i)
-*/
-pub struct BlobAccumulationInputs {
-    pub z_i: Field,
-    pub y_i: BLS12_381_Fr,
-    pub c_i: BatchingBlobCommitment,
-}
-
-/**
-* Contains all fields required to construct a batched KZG proof of ALL blobs in the epoch.
-* Instead of calling the point evaluation precompile on L1 for each blob, we create a multi-opening proof
-* with the scheme below, and call it just once:
-*   point_evaluation_precompile(b, z, y, C, BLS12_381_Fq)
-* Where b (= kzg_to_versioned_hash(C)) and BLS12_381_Fq (= KZG proof) are computed outside the circuit. The other params are
-* calculated here across the rollup circuits (until root, when .finalize() is called).
+* Accumulates a batched KZG multi-point opening of ALL blobs in the epoch, one checkpoint at a time, so that L1 checks
+* every blob with a single call to the point evaluation precompile:
+*   point_evaluation_precompile(v, 0, 0, D, E)
+* which checks e(D, [1]) == e(E, [s]), where v = kzg_to_versioned_hash(D).
+*
+* Each checkpoint k is opened at its own challenge z_k (see `evaluate_blobs_and_batch`), so a checkpoint root proof
+* depends only on its own blobs and on the accumulator of the checkpoints before it. It remains valid for every epoch
+* proof that ends at or after checkpoint k.
+*
+* For checkpoint k with blob commitments C_(k,l), evaluations y_(k,l) = p_(k,l)(z_k), and the hinted KZG proof Q_k of
+* the combined polynomial p_k = sum_l gamma_k^l * p_(k,l) at z_k (which equals sum_l gamma_k^l * proof_(k,l)):
+* - gamma_k := poseidon2(...poseidon2(poseidon2(y_(k,0)), poseidon2(y_(k,1)))..., z_k)
+* - y_k := sum_l gamma_k^l * y_(k,l)
+* - alpha_k := poseidon2(alpha_acc_(k-1), gamma_k, Q_k)
+* - D_k := D_(k-1) + alpha_k * (sum_l gamma_k^l * C_(k,l) - y_k * G + z_k * Q_k)
+* - E_k := E_(k-1) + alpha_k * Q_k
+*
+* The pairing check then asserts sum_k alpha_k * (C_k - [y_k] - (s - z_k) * Q_k) == 0.
+* alpha_k must bind every opening claim up to and including checkpoint k (through alpha_acc_(k-1) and gamma_k, which
+* binds z_k, so every C_(k,l), and every y_(k,l)). A per-checkpoint alpha that does not chain the previous ones lets a
+* prover pick wrong y values in different checkpoints whose errors cancel in the sum.
+*
 * Other notes:
 *  - We use blob_commitments_hash to validate the commitments injected here correspond to blobs published on L1.
-*  - We use gamma as the challenge for multi opening, so it can be discarded once the rollup is complete.
 *  - We already know that the elements in each blob correspond to validated data from the kernels from the use of
 *    the blob_sponge and validating blob_sponge.squeeze() vs H(input_elements).
-*  - We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
-*    and the blob's commitment (c_i).
 *
 * TODO(#14646): Compress BLS12_381_Fr and BLS12_381_Fq values to reduce number of public inputs (BLOB_ACCUMULATOR_LENGTH)
-* TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator instead of having manual implementations.
-* Not done here as BLS12_381_Fr doesn't implement serde and orphan rule prevents me from implementing it here.
 */
 pub struct BlobAccumulator {
     // Hash of Cs (to link to L1 blob hashes) (BN254Fr).
     pub blob_commitments_hash_acc: Field,
-    // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
-    pub z_acc: Field,
-    // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y.
-    pub y_acc: BLS12_381_Fr,
-    // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
-    pub c_acc: BLSPoint,
-    // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
-    pub gamma_acc: Field,
-    // gamma^i for current blob, used above.
-    pub gamma_pow_acc: BLS12_381_Fr,
+    // Fiat-Shamir state chaining every checkpoint's opening claim (BN254Fr). Also the latest alpha_k.
+    pub alpha_acc: Field,
+    // sum_k alpha_k * (C_k - y_k * G + z_k * Q_k)
+    pub d_acc: BLSPoint,
+    // sum_k alpha_k * Q_k
+    pub e_acc: BLSPoint,
 }
 
 impl BlobAccumulator {
-    /**
-    * Init the first accumulation state of the epoch.
-    *
-    * First state of the accumulator:
-    * - blob_commitments_hash_acc := sha256(0x01, C_0) (the epoch's first blob starts a checkpoint, see accumulate())
-    * - z_acc := z_0
-    * - y_acc := gamma^0 * y_0 = y_0
-    * - c_acc := gamma^0 * c_0 = c_0
-    * - gamma_acc := poseidon2(y_0.limbs)
-    * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
-    *
-    * For all blobs i > 0 accumulated, see the below documentation for accumulate().
-    *
-    */
-    pub fn init(first_output: BlobAccumulationInputs, final_gamma: BLS12_381_Fr) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_0 = poseidon2_hash_with_separator(
-            first_output.y_i.get_limbs().map(|l| l as Field),
-            DOM_SEP__BLOB_HASHED_Y_LIMBS,
+    /// Accumulates one checkpoint's opening claim: its first `num_blobs` blobs, with commitments `commitments` and
+    /// evaluations `ys` at the checkpoint's challenge `z`, and the hinted KZG proof `kzg_proof` (Q_k).
+    pub fn accumulate_checkpoint<let NumBlobs: u32>(
+        self,
+        commitments: [BatchingBlobCommitment; NumBlobs],
+        ys: [BLS12_381_Fr; NumBlobs],
+        num_blobs: u32,
+        z: Field,
+        kzg_proof: BatchingBlobCommitment,
+    ) -> Self {
+        let gamma = compute_gamma(ys, num_blobs, z);
+
+        let kzg_proof_fields = kzg_proof.to_compressed_fields();
+        let alpha_acc = poseidon2_hash_with_separator(
+            [self.alpha_acc, gamma, kzg_proof_fields[0], kzg_proof_fields[1]],
+            DOM_SEP__BLOB_ALPHA_ACC,
         );
+
+        // Lossless conversions: BN254 Fr is smaller than BLS12-381 Fr.
+        let alpha = BLS12_381_Fr::from(alpha_acc);
+        let gamma = BLS12_381_Fr::from(gamma);
+
+        // D_k - D_(k-1) = sum_l (alpha * gamma^l) * C_l + (-alpha * y) * G + (alpha * z) * Q, as a single MSM.
+        let mut points: [BLSPoint; NumBlobs + 2] = [BLSPoint::point_at_infinity(); NumBlobs + 2];
+        let mut scalars: [BLS12_381Scalar; NumBlobs + 2] =
+            [BLS12_381Scalar::from_bignum(BLS12_381_Fr::zero()); NumBlobs + 2];
+        // alpha * y = sum_l (alpha * gamma^l) * y_l
+        let mut alpha_y = BLS12_381_Fr::zero();
+        let mut alpha_gamma_pow = alpha;
+        for i in 0..NumBlobs {
+            if i < num_blobs {
+                points[i] = commitments[i].point;
+                scalars[i] = BLS12_381Scalar::from_bignum(alpha_gamma_pow);
+                alpha_y = alpha_y.add(ys[i].mul(alpha_gamma_pow));
+                alpha_gamma_pow = alpha_gamma_pow.mul(gamma);
+            }
+        }
+        points[NumBlobs] = BLS12_381::one();
+        scalars[NumBlobs] = BLS12_381Scalar::from_bignum(alpha_y.neg());
+        points[NumBlobs + 1] = kzg_proof.point;
+        scalars[NumBlobs + 1] = BLS12_381Scalar::from_bignum(alpha.mul(BLS12_381_Fr::from(z)));
+
         Self {
-            // 0x01: the checkpoint-start flag byte, which lets the hash bind how the epoch's blobs split into
-            // checkpoints. The epoch's first blob always starts a checkpoint.
-            blob_commitments_hash_acc: sha256_to_field([1].concat(first_output.c_i.compressed)),
-            z_acc: first_output.z_i,
-            y_acc: first_output.y_i,
-            c_acc: first_output.c_i.point,
-            gamma_acc: hashed_y_0,
-            gamma_pow_acc: final_gamma,
+            blob_commitments_hash_acc: self.accumulate_commitments_hash(commitments, num_blobs),
+            alpha_acc,
+            d_acc: BLS12_381::evaluate_linear_expression(points, scalars, [self.d_acc]),
+            // E_k - E_(k-1) = alpha * Q
+            e_acc: BLS12_381::evaluate_linear_expression(
+                [kzg_proof.point],
+                [BLS12_381Scalar::from_bignum(alpha)],
+                [self.e_acc],
+            ),
         }
     }
 
     /**
-    * LHS Accumulator: Current state of param accumulation from blob 0 to i-1
-    * RHS Accumulator: Outputs from evaluation of blob i
-    *
-    * NB: blob_commitments_hash is written as v below
-    *
-    * Each accumulation:
-    * - blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, s_i, C_i)
-    * - z_acc := poseidon2(z_acc, z_i)
-    * - y_acc := y_acc + (gamma^i * y_i)
-    * - c_acc := c_acc + (gamma^i * c_i)
-    * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
-    * - gamma^(i + 1) = gamma^i * gamma // denoted gamma_pow_acc
-    *
-    * s_i is one byte: 0x01 if blob i is the first of its checkpoint (`is_checkpoint_start`), 0x00 otherwise. L1 derives
-    * the same byte from the blobs attached to each checkpoint proposal, so the final hash binds how the epoch's blobs
-    * are split into checkpoints, not just their order. Without it, a proposal could claim a neighbouring checkpoint's
-    * blob and still match the proof.
-    *
-    * Final accumulated values (from last blob of last checkpoint of epoch):
-    * - blob_commitments_hash := blob_commitments_hash_acc (hash of all commitments (C_i s) and checkpoint starts, to be
-    *   checked on L1)
-    * - z := z_acc (final challenge, at which all blobs are evaluated)
-    * - y := y_acc (final opening to be checked on L1)
-    * - c := c_acc (final commitment to be checked on L1)
-    * - gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, above)
-    *
-    * Final values z and gamma are injected into each checkpoint root circuit. We ensure they are correct by:
-    * - Checking equality in each checkpoint merge circuit and propagating up
-    * - Checking final z_acc == z in root circuit
-    * - Checking final gamma_acc == gamma in root circuit
-    *
+    * blob_commitments_hash_acc := sha256(blob_commitments_hash_acc, s_i, C_i) for each of the checkpoint's first
+    * `num_blobs` blobs, where s_i is one byte: 0x01 if blob i is the first of its checkpoint, 0x00 otherwise. L1
+    * derives the same byte from the blobs attached to each checkpoint proposal, so the final hash binds how the
+    * epoch's blobs are split into checkpoints, not just their order. Without it, a proposal could claim a neighbouring
+    * checkpoint's blob and still match the proof. The epoch's first blob starts the hash as sha256(0x01, C_0).
     */
-    pub fn accumulate(
+    fn accumulate_commitments_hash<let NumBlobs: u32>(
         self,
-        other: BlobAccumulationInputs,
-        is_checkpoint_start: bool,
-        final_gamma: BLS12_381_Fr,
-    ) -> Self {
-        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_i = poseidon2_hash_with_separator(
-            other.y_i.get_limbs().map(|l| l as Field),
-            DOM_SEP__BLOB_HASHED_Y_LIMBS,
-        );
-
-        // Equivalent to self.c_acc.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow_acc)))
-        let c_acc = BLS12_381::evaluate_linear_expression(
-            [other.c_i.point],
-            [BLS12_381Scalar::from_bignum(self.gamma_pow_acc)],
-            [self.c_acc],
-        );
-
-        Self {
-            blob_commitments_hash_acc: sha256_to_field(self
-                .blob_commitments_hash_acc
-                .to_be_bytes::<32>()
-                .concat([is_checkpoint_start as u8])
-                .concat(other.c_i.compressed)),
-            z_acc: poseidon2_hash_with_separator([self.z_acc, other.z_i], DOM_SEP__BLOB_Z_ACC),
-            y_acc: self.y_acc.add(other.y_i.mul(self.gamma_pow_acc)),
-            c_acc,
-            gamma_acc: poseidon2_hash_with_separator(
-                [self.gamma_acc, hashed_y_i],
-                DOM_SEP__BLOB_GAMMA_ACC,
-            ),
-            gamma_pow_acc: self.gamma_pow_acc.mul(final_gamma),
+        commitments: [BatchingBlobCommitment; NumBlobs],
+        num_blobs: u32,
+    ) -> Field {
+        // Only the first checkpoint of an epoch starts from an empty accumulator: the root rollup checks that the
+        // epoch's start accumulator is empty, and every later one carries a non-zero alpha_acc.
+        let is_first_blob_of_epoch = self.is_empty();
+        let mut hash = self.blob_commitments_hash_acc;
+        for i in 0..NumBlobs {
+            if i < num_blobs {
+                hash = if (i == 0) & is_first_blob_of_epoch {
+                    sha256_to_field([1].concat(commitments[i].compressed))
+                } else {
+                    sha256_to_field(hash.to_be_bytes::<32>().concat([(i == 0) as u8]).concat(
+                        commitments[i].compressed,
+                    ))
+                };
+            }
         }
+        hash
     }
 
     /// Completes the final accumulator state.
     pub fn finalize(self) -> FinalBlobAccumulator {
-        // Compress to 2 fields to reduce number of public inputs to the root rollup:
-        let c = compress_to_blob_commitment(self.c_acc).to_compressed_fields();
+        // Compress to 2 fields each to reduce number of public inputs to the root rollup:
         FinalBlobAccumulator {
             blob_commitments_hash: self.blob_commitments_hash_acc,
-            z: self.z_acc,
-            y: self.y_acc,
-            c,
+            d: compress_to_blob_commitment(self.d_acc).to_compressed_fields(),
+            e: compress_to_blob_commitment(self.e_acc).to_compressed_fields(),
         }
     }
+}
+
+/// gamma_k := poseidon2(...poseidon2(poseidon2(y_0), poseidon2(y_1))..., z) over the checkpoint's first `num_blobs`
+/// evaluations. z binds every commitment and all the blob data of the checkpoint (see `evaluate_blobs_and_batch`).
+fn compute_gamma<let NumBlobs: u32>(
+    ys: [BLS12_381_Fr; NumBlobs],
+    num_blobs: u32,
+    z: Field,
+) -> Field {
+    let mut gamma_acc = 0;
+    for i in 0..NumBlobs {
+        if i < num_blobs {
+            // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+            let hashed_y_i = poseidon2_hash_with_separator(
+                ys[i].get_limbs().map(|l| l as Field),
+                DOM_SEP__BLOB_HASHED_Y_LIMBS,
+            );
+            gamma_acc = if i == 0 {
+                hashed_y_i
+            } else {
+                poseidon2_hash_with_separator([gamma_acc, hashed_y_i], DOM_SEP__BLOB_GAMMA_ACC)
+            };
+        }
+    }
+    poseidon2_hash_with_separator([gamma_acc, z], DOM_SEP__BLOB_GAMMA_FINAL)
 }
 
 impl Empty for BlobAccumulator {
     fn empty() -> Self {
         Self {
             blob_commitments_hash_acc: 0,
-            z_acc: 0,
-            y_acc: BLS12_381_Fr::zero(),
-            c_acc: BLSPoint::point_at_infinity(),
-            gamma_acc: 0,
-            gamma_pow_acc: BLS12_381_Fr::zero(),
+            alpha_acc: 0,
+            d_acc: BLSPoint::point_at_infinity(),
+            e_acc: BLSPoint::point_at_infinity(),
         }
     }
 }
@@ -193,16 +193,14 @@ impl Empty for BlobAccumulator {
 impl Eq for BlobAccumulator {
     fn eq(self, other: Self) -> bool {
         (self.blob_commitments_hash_acc.eq(other.blob_commitments_hash_acc))
-            & (self.z_acc.eq(other.z_acc))
-            & (self.y_acc.eq(other.y_acc))
-            & (self.c_acc.eq(other.c_acc))
-            & (self.gamma_acc.eq(other.gamma_acc))
-            & (self.gamma_pow_acc.eq(other.gamma_pow_acc))
+            & (self.alpha_acc.eq(other.alpha_acc))
+            & (self.d_acc.eq(other.d_acc))
+            & (self.e_acc.eq(other.e_acc))
     }
 }
 
-// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator instead of having manual implementations.
-// Not done here as BLS12_381_Fr doesn't implement serde and orphan rule prevents me from implementing it here.
+// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator. Not done here as BLS12_381_Fq doesn't implement serde
+// and the orphan rule prevents implementing it here.
 impl Serialize for BlobAccumulator {
     let N: u32 = BLOB_ACCUMULATOR_LENGTH;
 
@@ -215,18 +213,28 @@ impl Serialize for BlobAccumulator {
     #[inline_always]
     fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
         writer.write(self.blob_commitments_hash_acc);
-        writer.write(self.z_acc);
-        writer.write_array(self.y_acc.get_limbs().map(|l| l as Field));
-        writer.write_array(self.c_acc.x.get_limbs().map(|l| l as Field));
-        writer.write_array(self.c_acc.y.get_limbs().map(|l| l as Field));
-        writer.write(self.c_acc.is_infinity as Field);
-        writer.write(self.gamma_acc);
-        writer.write_array(self.gamma_pow_acc.get_limbs().map(|l| l as Field));
+        writer.write(self.alpha_acc);
+        write_point(writer, self.d_acc);
+        write_point(writer, self.e_acc);
     }
 }
 
-// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulator. Not done here as BLS12_381_Fr doesn't implement it
-// and orphan rule prevents me from implementing it here.
+#[inline_always]
+fn write_point<let K: u32>(writer: &mut Writer<K>, point: BLSPoint) {
+    writer.write_array(point.x.get_limbs().map(|l| l as Field));
+    writer.write_array(point.y.get_limbs().map(|l| l as Field));
+    writer.write(point.is_infinity as Field);
+}
+
+#[inline_always]
+fn read_point<let K: u32>(reader: &mut Reader<K>) -> BLSPoint {
+    BLSPoint {
+        x: BLS12_381_Fq::from_limbs(reader.read_array().map(|e| e as u128)),
+        y: BLS12_381_Fq::from_limbs(reader.read_array().map(|e| e as u128)),
+        is_infinity: reader.read_bool(),
+    }
+}
+
 impl Deserialize for BlobAccumulator {
     let N: u32 = BLOB_ACCUMULATOR_LENGTH;
 
@@ -241,15 +249,9 @@ impl Deserialize for BlobAccumulator {
     fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
         Self {
             blob_commitments_hash_acc: reader.read(),
-            z_acc: reader.read(),
-            y_acc: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
-            c_acc: BLSPoint {
-                x: BLS12_381_Fq::from_limbs(reader.read_array().map(|e| e as u128)),
-                y: BLS12_381_Fq::from_limbs(reader.read_array().map(|e| e as u128)),
-                is_infinity: reader.read_bool(),
-            },
-            gamma_acc: reader.read(),
-            gamma_pow_acc: BLS12_381_Fr::from_limbs(reader.read_array().map(|e| e as u128)),
+            alpha_acc: reader.read(),
+            d_acc: read_point(reader),
+            e_acc: read_point(reader),
         }
     }
 }
@@ -258,15 +260,17 @@ impl Deserialize for BlobAccumulator {
 fn serde_test() {
     let blob_accumulator = BlobAccumulator {
         blob_commitments_hash_acc: 1,
-        z_acc: 2,
-        y_acc: BLS12_381_Fr::from_limbs([3, 4, 5]),
-        c_acc: BLSPoint {
+        alpha_acc: 2,
+        d_acc: BLSPoint {
             x: BLS12_381_Fq::from_limbs([6, 7, 8, 0]),
             y: BLS12_381_Fq::from_limbs([10, 11, 12, 13]),
             is_infinity: false,
         },
-        gamma_acc: 42,
-        gamma_pow_acc: BLS12_381_Fr::from_limbs([14, 15, 16]),
+        e_acc: BLSPoint {
+            x: BLS12_381_Fq::from_limbs([14, 15, 16, 17]),
+            y: BLS12_381_Fq::from_limbs([18, 19, 20, 21]),
+            is_infinity: false,
+        },
     };
 
     let serialized = blob_accumulator.serialize();

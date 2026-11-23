@@ -2,11 +2,7 @@ use crate::{
     abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs},
     block_merge::merge_block_rollups,
 };
-use bignum::BLS12_381_Fr;
-use blob::{
-    abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges},
-    blob_batching::evaluate_blobs_and_batch,
-};
+use blob::{abis::{BlobAccumulator, BLSPoint}, blob_batching::evaluate_blobs_and_batch};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, checkpoint_header::CheckpointHeader,
@@ -28,7 +24,7 @@ pub struct CheckpointRollupPublicInputsComposer<let NumBlobs: u32> {
     previous_out_hash: AppendOnlyTreeSnapshot,
     new_out_hash_sibling_path: [Field; OUT_HASH_TREE_HEIGHT],
     start_blob_accumulator: BlobAccumulator,
-    final_blob_challenges: FinalBlobBatchingChallenges,
+    blob_kzg_proof: BLSPoint,
     blobs_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
     blob_commitments: [BLSPoint; NumBlobs],
     blobs_hash: Field,
@@ -42,7 +38,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         previous_out_hash: AppendOnlyTreeSnapshot,
         new_out_hash_sibling_path: [Field; OUT_HASH_TREE_HEIGHT],
         start_blob_accumulator: BlobAccumulator,
-        final_blob_challenges: FinalBlobBatchingChallenges,
+        blob_kzg_proof: BLSPoint,
         blobs_fields: [Field; NumBlobs * FIELDS_PER_BLOB],
         blob_commitments: [BLSPoint; NumBlobs],
         blobs_hash: Field,
@@ -58,7 +54,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             previous_out_hash,
             new_out_hash_sibling_path,
             start_blob_accumulator,
-            final_blob_challenges,
+            blob_kzg_proof,
             blobs_fields,
             blob_commitments,
             blobs_hash,
@@ -126,7 +122,6 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             fees,
             start_blob_accumulator: self.start_blob_accumulator,
             end_blob_accumulator,
-            final_blob_challenges: self.final_blob_challenges,
         }
     }
 
@@ -192,19 +187,14 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
 
         let sponge_blob_hash = end_sponge_blob.squeeze();
 
-        // Compute fracs and factor once from the shared challenge z.
-        // These are reused for all blob evaluations in this checkpoint.
-        let challenge_z = BLS12_381_Fr::from(self.final_blob_challenges.z);
-
         if !::std::runtime::is_unconstrained() {
             let end_blob_accumulator = evaluate_blobs_and_batch(
                 self.blobs_fields,
                 num_blob_fields,
                 sponge_blob_hash,
                 self.blob_commitments,
-                self.final_blob_challenges,
+                self.blob_kzg_proof,
                 self.start_blob_accumulator,
-                challenge_z,
             );
 
             end_blob_accumulator
@@ -218,9 +208,8 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
                     num_blob_fields,
                     sponge_blob_hash,
                     self.blob_commitments,
-                    self.final_blob_challenges,
+                    self.blob_kzg_proof,
                     self.start_blob_accumulator,
-                    challenge_z,
                 )
             }
         }

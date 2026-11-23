@@ -43,10 +43,4 @@ fn assert_rollups_follow_on_from_each_other(
         right.start_blob_accumulator,
         "Mismatched blob accumulators: expected right.start_blob_accumulator to match left.end_blob_accumulator",
     );
-
-    assert_eq(
-        left.final_blob_challenges,
-        right.final_blob_challenges,
-        "Mismatched final blob challenges of an epoch in checkpoint rollups",
-    );
 }
