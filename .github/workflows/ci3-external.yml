@@ -125,9 +125,6 @@ jobs:
           # We only test on amd64.
           ARCH: amd64
           GITHUB_TOKEN: ${{ github.token }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          # DO NOT allow build instance key access to external jobs.
-          CI_USE_BUILD_INSTANCE_KEY: "0"
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}

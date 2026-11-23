@@ -96,9 +96,7 @@ jobs:
 
       - name: Run
         env:
-          CI_USE_SSH: ${{ (vars.CI_USE_SSH == '1' && !contains(github.event.pull_request.labels.*.name, 'ci-ssm')) && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           # Only set in the private repo: the service account private releases deploy npm packages with.
           # The _KEY suffix keeps ci3/redact treating the value as sensitive.
           GCP_PRIVATE_NPM_DEPLOY_KEY: ${{ secrets.GCP_PRIVATE_NPM_DEPLOY }}
