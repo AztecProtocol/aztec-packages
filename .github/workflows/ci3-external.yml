@@ -11,10 +11,18 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # Only allow one run per <forked-repo>/<branch> and full concurrency on merge queue.
-  group: |
-    ci3-external-${{ github.event_name == 'pull_request' && format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)
-                                                         || github.run_id }}
+  # One run per pull request: a new run cancels the one it supersedes. (This workflow runs on pull_request_target,
+  # never pull_request.) Two kinds of run get a group of their own, so they never cancel another run:
+  #   - merge_group runs (full concurrency on the merge queue);
+  #   - a label event that cannot start CI, i.e. any label other than ci-external-once on a pull request without
+  #     ci-external (see External Contributor Checks). It fails on its own, and a run a maintainer approved with
+  #     ci-external-once carries on.
+  group: >-
+    ci3-external-${{
+    github.event_name == 'pull_request_target'
+    && (github.event.action != 'labeled' || contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once')
+    && format('pr-{0}', github.event.pull_request.number)
+    || github.run_id }}
   cancel-in-progress: true
 
 jobs:
