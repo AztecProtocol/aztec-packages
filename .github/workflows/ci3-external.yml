@@ -132,8 +132,10 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: ./.github/ci3.sh $CI_MODE
 
+      # Post-Actions records this tree as having passed CI (a later first-attempt run of the same tree, in the
+      # same CI mode, is then skipped) and acts on ci-squash-and-merge. So it runs only when the steps above
+      # succeeded, as in ci3.yml.
       - name: Post-Actions
-        if: always()
         env:
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           BENCH_UPLOAD: "0"
