@@ -1,7 +1,8 @@
 // An ordered key-value store: named containers of byte keys and byte values, the operations
-// @aztec-labs/kv-store's maps, multimaps, sets, arrays and singletons are built from. Served by
-// SQLite3 Multiple Ciphers (cpp/) as a native binary, a native library and a wasm module, behind
-// the generated @aztec-labs/kv-sqlite client; nothing here is specific to SQLite.
+// @aztec-labs/kv-store's maps, multimaps, sets, arrays and singletons are built from. Served over
+// SQLite3 Multiple Ciphers natively (cpp/: a binary and a library) and in TypeScript in a browser
+// (kv-store's OPFS worker), behind the generated @aztec-labs/kv-sqlite client; nothing here is
+// specific to SQLite.
 //
 // A container holds entries keyed by (key, index). A map, set or singleton has one entry per key,
 // at index 1. A multimap appends entries to a key, each at the next index. An array is one key
@@ -25,8 +26,8 @@
   "error": { "message": "string" },
 
   "commands": {
-    // Opens the store. Without a path it lives in memory and ends with the instance. Natively the
-    // path is a file; in a wasm module it names the database to the host's `files` target.
+    // Opens the store. Without a path it lives in memory and ends with the instance. The path is
+    // the database file's.
     "Init": {
       "request": {
         "path": "string?",

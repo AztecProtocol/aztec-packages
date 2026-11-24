@@ -3,13 +3,12 @@
   "packageManager": "yarn@4.13.0",
   "private": true,
   "scripts": {
-    "build": "yarn workspace @aztec-labs/kv-sqlite build && yarn workspace @aztec-labs/kv-sqlite-files build",
+    "build": "yarn workspace @aztec-labs/kv-sqlite build",
     "clean": "yarn workspaces foreach -A -p -v run clean"
   },
   "workspaces": [
     "ts",
-    "ts/packages/*",
-    "files"
+    "ts/packages/*"
   ],
   "resolutions": {
     "@aztec-foundation/ipc-runtime": "portal:../../ipc-runtime/ts"

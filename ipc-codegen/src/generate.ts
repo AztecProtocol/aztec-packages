@@ -109,7 +109,8 @@ Optional:
   --package <dir>          Generate a TS package shell around a spawned IPC service (ts only).
                            With --server and no --client, generates a server binding
                            package instead: wire types + Handler/dispatch + the schema
-                           file, no binary or arch packages
+                           file, no binary or arch packages. With both, the client
+                           package also exports the server bindings at <name>/server
   --package-name <name>    TS package name for --package
   --binary-name <name>     Native service binary name for --package
   --binary-env-var <name>  Env var overriding the binary path for --package
@@ -761,11 +762,15 @@ function generate(args: Args) {
                   `${args.packageNapiLibrary.replace(/^lib/, "").replace(/\.(so|dylib)$/, "")}_napi`,
                 )
               : undefined,
+            server: args.server,
           });
           writePackage("package.json", packageGen.generatePackageJson());
           writePackage("tsconfig.json", packageGen.generateTsconfig());
           writePackage("README.md", packageGen.generateReadme());
           writePackage("src/index.ts", packageGen.generateIndex());
+          if (args.server) {
+            writePackage("src/server.ts", packageGen.generateServerIndex());
+          }
           writePackage(
             "src/react-native.ts",
             packageGen.generateReactNativeIndex(),

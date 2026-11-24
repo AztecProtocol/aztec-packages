@@ -1,6 +1,5 @@
-# The generated client package (@aztec-labs/kv-sqlite) and Files server bindings (@aztec-labs/kv-sqlite-files).
+# The generated package (@aztec-labs/kv-sqlite).
 ts/
-files/
 cpp/build*/
 .yarn/*
 !.yarn/patches
