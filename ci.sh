@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# In CI, exit on a cancelled run (see the same trap in .github/ci3.sh). multi_job_run sets its own trap while
+# its jobs run. Locally, Ctrl-C at start-up keeps bash's usual behaviour; during multi_job_run's jobs it waits
+# for their clean-up (instance termination included) before exiting.
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+fi
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -154,10 +161,45 @@ function multi_job_run {
   }
   export -f run
 
+  # Run the jobs so that a cancelled CI run still terminates their EC2 instances.
+  #
+  # When GitHub cancels a run, it sends SIGINT (then SIGTERM) only to the step's top process. In the CI3
+  # Run steps, the workflow and .github/ci3.sh both exec, so that process is this shell. Nothing else
+  # receives the signal, so this shell has to pass it on:
+  #   1. A trap catches INT/TERM and sends TERM to parallel.
+  #   2. parallel sends TERM to each job's process group (see --termseq), which reaches bootstrap_ec2,
+  #      whose own trap terminates the job's instance.
+  # bash runs a trap only once its current foreground command has finished, which for this pipeline
+  # would be too late. So the pipeline runs in the background and this shell waits for it: `wait`
+  # returns as soon as a trapped signal arrives, and the trap runs straight away.
+  #
+  # The trap records every signal in `signalled`, and it is set before parallel starts. A TERM can still be
+  # lost: parallel ignores TERM while it is starting up, before it launches its jobs. So once a signal has
+  # arrived, TERM is sent again every second until the pipeline has exited (see the loop below).
+  local parallel_pid="" signalled=0 pipeline_pid code=0 saved_traps
+  # Put back whatever INT/TERM traps were set before (the start-up trap above, in CI) once the jobs are done.
+  saved_traps=$(trap -p INT TERM)
+  trap 'signalled=1; [ -z "$parallel_pid" ] || kill -TERM $parallel_pid 2>/dev/null || true' INT TERM
   parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
     --tagstring '{1}' \
     --line-buffered --halt now,fail=1 \
-    'run {1} {2} {3} {4}' ::: "$@" | add_timestamps | DUP=1 cache_log "CI run" $RUN_ID
+    'run {1} {2} {3} {4}' ::: "$@" | add_timestamps | DUP=1 cache_log "CI run" $RUN_ID &
+  # $! is the pid of the pipeline's last process (cache_log). `jobs -p %%` gives the pid of its first
+  # process, parallel.
+  pipeline_pid=$!
+  parallel_pid=$(jobs -p %% 2>/dev/null) || true
+  [ $signalled -eq 0 ] || kill -TERM $parallel_pid 2>/dev/null || true
+  # Wait for the pipeline, and return its exit status as before, when it ran in the foreground (pipefail is
+  # on). A trapped signal makes `wait` return early. Then keep sending TERM every second until the
+  # pipeline has exited.
+  wait $pipeline_pid || code=$?
+  while [ $signalled -eq 1 ] && kill -0 $pipeline_pid 2>/dev/null; do
+    kill -TERM $parallel_pid 2>/dev/null || true
+    sleep 1 || true
+  done
+  trap - INT TERM
+  eval "$saved_traps"
+  return $code
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
@@ -187,9 +229,9 @@ case "$cmd" in
     # on-demand (the default fleet behaviour); a mid-run spot reclaim is handled by
     # bootstrap_ec2's internal on-demand retry. CI_DASHBOARD and PARENT_LOG_ID are
     # inherited from the launching run so it nests as a sibling job.
-    # Timestamp the instance-request output. pipefail (in a subshell, since ci.sh doesn't
-    # set it globally) keeps bootstrap_ec2's exit code through add_timestamps — the
-    # launching build instance waits on this fatally.
+    # Timestamp the instance-request output. pipefail keeps bootstrap_ec2's exit code through
+    # add_timestamps (ci3/source already sets it; the subshell states it here) — the launching
+    # build instance waits on this fatally.
     ( set -o pipefail
       AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench${INSTANCE_NAME_SUFFIX:-} \
         bootstrap_ec2 "./bootstrap.sh ci-bench" 2>&1 | add_timestamps )

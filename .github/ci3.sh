@@ -9,6 +9,12 @@ set -euo pipefail
 CI_MODE="${1:?CI_MODE must be provided as first argument}"
 shift
 
+# Exit on a cancelled run. Without a trap, bash ignores a SIGINT that arrives while it waits for a command
+# unless that command also died of it, and GitHub signals only this process. With it, this script exits
+# once the current command finishes, before it can request an instance.
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source_base
 
@@ -84,6 +90,25 @@ function handle_release_pr {
   gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-release-pr" >/dev/null || true
 }
 
+# Succeeds if this run is for a pull request that is already closed.
+#
+# A pull request merged seconds after it was opened is often closed before its run reaches this point.
+#   - ci3.yml (pull_request events): closing the pull request makes cancel-stale-workflows.yml cancel the run,
+#     usually after it has requested an EC2 instance.
+#   - ci3-external.yml (pull_request_target events): nothing cancels the run, so CI would run in full for a
+#     pull request that no longer needs it.
+# Either way ci3.sh skips CI instead. If anything is uncertain (another event, no PR number, an API error or
+# timeout), this fails, and CI runs as normal.
+function pr_closed {
+  [[ "${GITHUB_EVENT_NAME:-}" == pull_request* ]] && [ -n "${PR_NUMBER:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ] || return 1
+  local state
+  if ! state=$(timeout 20 gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .state); then
+    echo "Could not check whether pull request #${PR_NUMBER} is open; running CI." >&2
+    return 1
+  fi
+  [ "$state" == "closed" ]
+}
+
 function main {
   echo_header "CI3 Main Script"
   echo "CI mode: $CI_MODE"
@@ -96,6 +121,16 @@ function main {
   fi
   if [ "${CI_MODE}" == "release-pr" ]; then
     handle_release_pr
+    exit 0
+  fi
+  # Skip CI for a pull request that is already closed (see pr_closed). Only on a run's first attempt, so a
+  # manual re-run still runs CI.
+  # CI3_PR_CLOSED, passed to later steps through GITHUB_ENV, tells Post-Actions (.github/ci3_success.sh) to do
+  # nothing: it records no CI success for this tree and does not act on labels such as ci-squash-and-merge.
+  # Placed before check_cache, which would otherwise export CI_CACHE_NAME for Post-Actions.
+  if [ "${GITHUB_RUN_ATTEMPT:-1}" -eq 1 ] && pr_closed; then
+    echo "Pull request #${PR_NUMBER} is closed; not running CI." >&2
+    [ -z "${GITHUB_ENV:-}" ] || echo "CI3_PR_CLOSED=1" >>"$GITHUB_ENV"
     exit 0
   fi
   check_cache

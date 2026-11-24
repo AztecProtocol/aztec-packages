@@ -129,8 +129,12 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh $CI_MODE
+        # exec replaces this step's shell with ci3.sh, which in turn execs ci.sh. When a run is cancelled, GitHub
+        # signals only the step's top process, so this is what lets the signal reach ci.sh, which passes it on so
+        # that the run's EC2 instances are terminated (see multi_job_run in ci.sh).
+        run: exec ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         if: always()
