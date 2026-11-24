@@ -121,7 +121,11 @@ jobs:
 
       - name: Run
         env:
-          REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
+          # Build instances are named from the first 50 characters of REF_NAME (ci3/aws_instance_name), and a launch
+          # terminates a running instance with the same name. The PR number near the start keeps names unique per pull
+          # request, while a re-run of the same pull request still replaces its previous instance. log_ci_run also
+          # records the PR number from the pr-<number> form.
+          REF_NAME: repo-fork/pr-${{ github.event.pull_request.number }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
           GITHUB_TOKEN: ${{ github.token }}
