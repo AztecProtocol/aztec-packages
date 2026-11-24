@@ -28,7 +28,7 @@ If a bb/proof-system change can affect VKs, refresh in this order:
 
 1. Rebuild the AVM-enabled bb binary so the regenerated VKs reflect the change. `cmake --build build --target bb` is not enough: `noir-projects/fnd/noir-protocol-circuits/bootstrap.sh` resolves the bb binary via `barretenberg/cpp/scripts/find-bb`, which returns `bb-avm` (not `bb`) unless `AVM=0`. From `barretenberg/cpp/`:
    ```bash
-   cmake --preset default -DAVM=ON
+   cmake --preset clang20
    cmake --build build --target bb-avm
    ```
 2. Repin Noir artifacts with the AVM-enabled binary: `./bootstrap.sh pin-build` from `noir-projects/fnd/`. Do not set `AVM=0` — the `*-tx-base-public` circuits verify an AVM proof, so non-AVM `bb` fails their VK generation with "AVM recursion is not supported in this build". Because pin-build runs under `set +e`, that failure does not abort the run; it silently archives an incomplete `pinned-build.tar.gz` with stale/missing VKs.

@@ -17,7 +17,7 @@ To include the `acir_components_check` binary in the image (for ACIR/circuit com
 
 ```bash
 # From barretenberg/cpp
-cmake --preset default && cmake --build build --target acir_components_check
+cmake --preset clang20 && cmake --build build --target acir_components_check
 
 # From barretenberg/security/ssa_fuzzer_programs_proving
 ./prepare_binaries.sh

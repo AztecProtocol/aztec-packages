@@ -14,7 +14,7 @@ hash=$(hash_str \
 # sibling package (+ lmdb, node-addon-api).
 function build_native {
   local build_dir="cpp/build"
-  CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
+  (cd cpp && cmake --preset clang20 >/dev/null)
   cmake --build "$build_dir" --target nodejs_module
   local target_dir="ts/build/$(arch)-$(os)"
   mkdir -p "$target_dir"

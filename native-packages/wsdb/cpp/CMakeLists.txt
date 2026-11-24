@@ -24,9 +24,13 @@ add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR NO_PAR_
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
     add_compile_options(-march=skylake)
 endif()
-add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024 $<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>
+add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024
                     -Wno-deprecated-declarations -Wno-missing-field-initializers)
-add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+# zig's clang always uses its own libc++ and rejects -stdlib (unused-argument warning, an error under -Werror).
+if(NOT CMAKE_CXX_COMPILER MATCHES "zig")
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>)
+    add_link_options(-stdlib=libc++ -static-libstdc++ -static-libgcc)
+endif()
 
 # --- Dependencies -------------------------------------------------------------------------------
 include(FetchContent)

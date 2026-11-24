@@ -260,7 +260,7 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
 ## Testing Sumcheck Changes
 
 ```bash
-cd barretenberg/cpp && cmake --preset default && cd build
+cd barretenberg/cpp && cmake --preset clang20 && cd build
 
 ninja sumcheck_tests && ./bin/sumcheck_tests         # Unit tests
 ninja ultra_honk_tests && ./bin/ultra_honk_tests      # Integration with real circuits

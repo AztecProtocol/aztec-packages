@@ -48,11 +48,12 @@ function inject_version {
   fi
 }
 
-# Strip (llvm-strip-20 where available; bb.exe is left as built), then inject_version (which also
-# re-signs Mach-O). Idempotent.
+# Strip with llvm-strip-20 (bb.exe is left as built), then inject_version (which also re-signs Mach-O).
+# The native build links unstripped so build/bin keeps symbols for profiling, so this is what strips
+# the shipped copy. Idempotent.
 function finalize_bb_binary {
   local binary=$1
-  if command -v llvm-strip-20 >/dev/null 2>&1 && [[ "$binary" != *.exe ]]; then
+  if [[ "$binary" != *.exe ]]; then
     llvm-strip-20 "$binary"
   fi
   inject_version "$binary"

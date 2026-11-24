@@ -222,7 +222,7 @@ e.g. To build and run `ecc` tests:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
-cmake --build --preset default --target ecc_tests
+cmake --build --preset clang20 --target ecc_tests
 cd build
 ./bin/ecc_tests
 ```
@@ -231,13 +231,13 @@ A shorthand for the above is:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
-cmake --build --preset default --target run_ecc_tests
+cmake --build --preset clang20 --target run_ecc_tests
 ```
 
 Running the entire suite of tests using `ctest`:
 
 ```bash
-cmake --build --preset default --target test
+cmake --build --preset clang20 --target test
 ```
 
 You can run specific tests, e.g.
@@ -309,7 +309,7 @@ Some modules have benchmarks. The build targets are named `<module_name>_bench`.
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
-cmake --build --preset default --target ecc_bench
+cmake --build --preset clang20 --target ecc_bench
 cd build
 ./bin/ecc_bench
 ```
@@ -318,7 +318,7 @@ A shorthand for the above is:
 
 ```bash
 # Replace the `default` preset with whichever preset you want to use
-cmake --build --preset default --target run_ecc_bench
+cmake --build --preset clang20 --target run_ecc_bench
 ```
 
 ### Debugging

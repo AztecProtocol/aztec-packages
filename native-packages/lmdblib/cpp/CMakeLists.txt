@@ -62,7 +62,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
 endif()
 add_compile_options(-fconstexpr-steps=100000000 -fbracket-depth=1024)
 add_compile_options(-Wno-deprecated-declarations -Wno-missing-field-initializers)
-add_compile_options(-stdlib=libc++)
+# zig's clang always uses its own libc++ and rejects -stdlib (unused-argument warning).
+if(NOT CMAKE_CXX_COMPILER MATCHES "zig")
+    add_compile_options(-stdlib=libc++)
+endif()
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -94,7 +97,9 @@ add_dependencies(lmdblib lmdb)
 # ---------------------------------------------------------------------------
 option(LMDBLIB_BUILD_TESTS "Build lmdblib C++ tests" ON)
 if(LMDBLIB_BUILD_TESTS)
-    add_link_options(-stdlib=libc++)
+    if(NOT CMAKE_CXX_COMPILER MATCHES "zig")
+        add_link_options(-stdlib=libc++)
+    endif()
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
