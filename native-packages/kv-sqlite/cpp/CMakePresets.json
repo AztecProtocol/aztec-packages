@@ -19,29 +19,6 @@
       }
     },
     {
-      "name": "wasm",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-wasm",
-      "toolchainFile": "${sourceDir}/../../../barretenberg/cpp/cmake/toolchains/wasm32-wasi.cmake",
-      "environment": {
-        "WASI_SDK_PREFIX": "/opt/wasi-sdk",
-        "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
-        "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
-        "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
-        "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_SYSROOT": "$env{WASI_SDK_PREFIX}/share/wasi-sysroot",
-        "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
-        "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
-        "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
-        "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
-        "CMAKE_C_COMPILER_WORKS": "ON",
-        "CMAKE_CXX_COMPILER_WORKS": "ON"
-      }
-    },
-    {
       "name": "cross-base",
       "hidden": true,
       "generator": "Ninja",

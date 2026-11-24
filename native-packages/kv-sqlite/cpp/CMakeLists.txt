@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 # kv-sqlite: the Kv service (../kv_schema.jsonc) over SQLite3 Multiple Ciphers, built as
 #   - kv-sqlite, the server process;
-#   - libkv_sqlite, the same service in-process (kv_sqlite_ipc_ffi_*);
-#   - kv_sqlite.wasm (the `wasm` preset), a WASI reactor exporting the same FFI, whose files are the host's
-#     (host_vfs.cpp over the `files` host-call target, ../files_schema.jsonc).
+#   - libkv_sqlite, the same service in-process (kv_sqlite_ipc_ffi_*).
 project(aztec_kv_sqlite C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,15 +15,7 @@ set(foundation "${pkg}/../..")
 set(gen "${CMAKE_BINARY_DIR}/gen")
 option(KV_BUILD_TESTS "Build kv_tests" ON)
 
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "wasm32")
-    set(WASM ON)
-endif()
 add_compile_definitions(MSGPACK_NO_BOOST MSGPACK_USE_STD_VARIANT_ADAPTOR)
-if(WASM)
-    add_compile_options(-fwasm-exceptions -mllvm -wasm-use-legacy-eh=false)
-    add_link_options(-fwasm-exceptions -lunwind)
-    set(KV_BUILD_TESTS OFF)
-endif()
 
 # --- Dependencies -------------------------------------------------------------------------------
 include(FetchContent)
@@ -50,21 +40,15 @@ set(IPC_RUNTIME_BUILD_NAPI OFF CACHE BOOL "" FORCE)
 add_subdirectory(${foundation}/ipc-runtime/cpp ${CMAKE_BINARY_DIR}/_deps/ipc-runtime)
 
 # --- Generated code -----------------------------------------------------------------------------
-# The Kv server dispatch and FFI, and the Files client the wasm VFS calls; regenerated whenever configure runs,
-# which their inputs below trigger.
+# The Kv server dispatch and FFI; regenerated whenever configure runs, which its inputs below trigger.
 execute_process(
     COMMAND ${foundation}/ipc-codegen/bin/ipc-codegen.mjs
             --schema ${pkg}/kv_schema.jsonc --lang cpp --out ${gen}/generated
             --server --cpp-namespace aztec::kv --cpp-include-dir generated --ffi=kv_sqlite
     COMMAND_ERROR_IS_FATAL ANY OUTPUT_QUIET)
-execute_process(
-    COMMAND ${foundation}/ipc-codegen/bin/ipc-codegen.mjs
-            --schema ${pkg}/files_schema.jsonc --lang cpp --out ${gen}/files/generated
-            --client --cpp-namespace aztec::kv::files_service --cpp-include-dir files/generated
-    COMMAND_ERROR_IS_FATAL ANY OUTPUT_QUIET)
 file(GLOB_RECURSE ipc_codegen_sources ${foundation}/ipc-codegen/src/*.ts)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    ${pkg}/kv_schema.jsonc ${pkg}/files_schema.jsonc ${ipc_codegen_sources})
+    ${pkg}/kv_schema.jsonc ${ipc_codegen_sources})
 
 # --- SQLite -------------------------------------------------------------------------------------
 add_library(kv_sqlite3mc STATIC ${sqlite3mc_SOURCE_DIR}/sqlite3mc_amalgamation.c)
@@ -76,33 +60,14 @@ target_compile_definitions(kv_sqlite3mc PRIVATE
     SQLITE_DEFAULT_MEMSTATUS=0
     SQLITE_LIKE_DOESNT_MATCH_BLOBS=1)
 target_compile_options(kv_sqlite3mc PRIVATE -w)
-if(WASM)
-    # One connection on one thread, and no file system but the host's (host_vfs.cpp); temp files in memory.
-    target_compile_definitions(kv_sqlite3mc PRIVATE
-        SQLITE_OS_OTHER=1 SQLITE_THREADSAFE=0 SQLITE_TEMP_STORE=3 SQLITE_OMIT_WAL=1 ARGON2_NO_THREADS=1)
-else()
-    target_compile_definitions(kv_sqlite3mc PRIVATE SQLITE_THREADSAFE=1)
-    find_package(Threads REQUIRED)
-    target_link_libraries(kv_sqlite3mc PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
-endif()
+target_compile_definitions(kv_sqlite3mc PRIVATE SQLITE_THREADSAFE=1)
+find_package(Threads REQUIRED)
+target_link_libraries(kv_sqlite3mc PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 
 # --- The service --------------------------------------------------------------------------------
-add_library(kv_service STATIC src/kv/store.cpp src/kv/kv_service.cpp)
-if(WASM)
-    target_sources(kv_service PRIVATE src/kv/host_vfs.cpp)
-else()
-    target_sources(kv_service PRIVATE src/kv/files_native.cpp)
-endif()
+add_library(kv_service STATIC src/kv/store.cpp src/kv/kv_service.cpp src/kv/files_native.cpp)
 target_include_directories(kv_service PUBLIC src/kv ${gen} ${gen}/generated ${msgpack_c_SOURCE_DIR}/include)
 target_link_libraries(kv_service PUBLIC kv_sqlite3mc ipc_runtime)
-
-if(WASM)
-    add_executable(kv_sqlite.wasm ${gen}/generated/kv_ffi.cpp)
-    target_link_libraries(kv_sqlite.wasm PRIVATE kv_service)
-    target_compile_options(kv_sqlite.wasm PRIVATE -fvisibility=hidden)
-    target_link_options(kv_sqlite.wasm PRIVATE -mexec-model=reactor -Wl,--export-dynamic -Wl,--strip-debug --no-wasm-opt)
-    return()
-endif()
 
 add_executable(kv-sqlite src/kv/main.cpp)
 target_link_libraries(kv-sqlite PRIVATE kv_service)

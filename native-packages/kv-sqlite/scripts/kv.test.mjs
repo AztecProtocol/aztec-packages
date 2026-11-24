@@ -1,120 +1,33 @@
 // Tests of the generated @aztec-labs/kv-sqlite package, from its build: the same commands give the same answers
-// through the spawned kv-sqlite binary, an instance of its library (napi) and the wasm module (on a worker, and on
-// the calling thread), the module keeping its files through a `files` host-call target answered here from the file
-// system. A database one build writes, encrypted or not, opens in the others.
+// through the spawned kv-sqlite binary and an instance of its library (napi), and a database one writes, encrypted or
+// not, opens in the other.
 import assert from "node:assert/strict";
-import {
-  closeSync,
-  constants,
-  existsSync,
-  fstatSync,
-  fsyncSync,
-  ftruncateSync,
-  mkdtempSync,
-  openSync,
-  readSync,
-  rmSync,
-  unlinkSync,
-  writeSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 
 import { KvService, KvServiceSync } from "@aztec-labs/kv-sqlite";
-import { handleRequestSync } from "@aztec-labs/kv-sqlite-files";
-
-const SQLITE_OPEN_CREATE = 0x4;
+import { handleRequestSync } from "@aztec-labs/kv-sqlite/server";
 
 const dir = mkdtempSync(join(tmpdir(), "kv-sqlite-test-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 let nextFile = 0;
 const freshPath = () => join(dir, `store-${nextFile++}.sqlite`);
 
-/** The Files service over this machine's file system, answering synchronously, as a synchronous backend needs. */
-function fsFiles() {
-  const fds = new Map();
-  let nextHandle = 1;
-  const fd = (handle) => {
-    const found = fds.get(handle);
-    if (found === undefined) {
-      throw new Error(`no open file ${handle}`);
-    }
-    return found;
-  };
-  const handler = {
-    open({ path, flags }) {
-      const handle = nextHandle++;
-      fds.set(
-        handle,
-        openSync(
-          path,
-          constants.O_RDWR |
-            (flags & SQLITE_OPEN_CREATE ? constants.O_CREAT : 0),
-        ),
-      );
-      return { handle };
-    },
-    close({ handle }) {
-      closeSync(fd(handle));
-      fds.delete(handle);
-      return {};
-    },
-    read({ handle, offset, length }) {
-      const data = Buffer.alloc(length);
-      const n = readSync(fd(handle), data, 0, length, Number(offset));
-      return { data: data.subarray(0, n) };
-    },
-    write({ handle, offset, data }) {
-      writeSync(fd(handle), data, 0, data.length, Number(offset));
-      return {};
-    },
-    truncate({ handle, size }) {
-      ftruncateSync(fd(handle), Number(size));
-      return {};
-    },
-    size({ handle }) {
-      return { size: BigInt(fstatSync(fd(handle)).size) };
-    },
-    sync({ handle }) {
-      fsyncSync(fd(handle));
-      return {};
-    },
-    remove({ path }) {
-      if (existsSync(path)) {
-        unlinkSync(path);
-      }
-      return {};
-    },
-    exists({ path }) {
-      return { exists: existsSync(path) };
-    },
-  };
-  return (request) => handleRequestSync(handler, request);
-}
-
 /** Opens a store at `path` (in memory without one) through `backend`, as `KvService` or `KvServiceSync`. */
 async function open(backend, init) {
-  const files = { files: fsFiles() };
   switch (backend) {
     case "process":
       return KvService.create({ backend, init });
     case "napi":
       return KvService.create({ backend, init });
-    case "wasm":
-      return KvService.create({ backend, wasm: { hostCall: files }, init });
     case "napi-sync":
       return KvServiceSync.create({ backend: "napi", init });
-    case "wasm-sync":
-      return KvServiceSync.create({
-        backend: "wasm",
-        wasm: { hostCall: files },
-        init,
-      });
   }
   throw new Error(backend);
 }
-const BACKENDS = ["process", "napi", "wasm", "napi-sync", "wasm-sync"];
+const BACKENDS = ["process", "napi", "napi-sync"];
 
 const bytes = (s) => new TextEncoder().encode(s);
 const text = (b) => new TextDecoder().decode(b);
@@ -294,5 +207,34 @@ test("export and deleteStore", async () => {
     } finally {
       await kv.destroy();
     }
+  }
+});
+
+test("the server bindings answer the client through a backend object", async () => {
+  const held = new Map();
+  const handler = {
+    put({ key, value }) {
+      held.set(text(key), value);
+      return {};
+    },
+    get({ keys }) {
+      return { values: keys.map((key) => ({ value: held.get(text(key)) ?? null })) };
+    },
+  };
+  const kv = await KvService.create({
+    backend: {
+      call: async (request) => handleRequestSync(handler, request),
+      destroy: async () => {},
+    },
+  });
+  try {
+    await kv.put({ container: "map:m", key: bytes("a"), value: bytes("1") });
+    const { values } = await kv.get({ container: "map:m", keys: [bytes("a"), bytes("b")] });
+    assert.deepEqual(
+      values.map(({ value }) => value && text(value)),
+      ["1", null],
+    );
+  } finally {
+    await kv.destroy();
   }
 });

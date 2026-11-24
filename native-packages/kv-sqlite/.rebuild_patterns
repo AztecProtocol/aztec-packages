@@ -6,4 +6,3 @@
 ^native-packages/kv-sqlite/scripts/
 ^ipc-codegen/src/
 ^ipc-runtime/cpp/
-^barretenberg/cpp/cmake/toolchains/wasm32-wasi\.cmake$

@@ -15,27 +15,24 @@ function ipc_codegen {
   "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" "$@"
 }
 
-# The TS packages: the Kv client over the binary (uds), the library (napi) and the wasm module, and the Files
-# service's server bindings, for the host that keeps a wasm module's files.
+# The TS package: the Kv client over the binary (uds) and the library (napi), and the service's server bindings
+# (@aztec-labs/kv-sqlite/server), for a host that serves the Kv service in TypeScript, as kv-store's browser store does
+# over SQLite's own OPFS VFS.
 function generate_ts {
   ipc_codegen --schema kv_schema.jsonc --lang ts \
     --package "$PKG/ts" \
     --package-name @aztec-labs/kv-sqlite \
     --binary-name "$KV_BINARY" \
     --ffi=kv_sqlite \
-    --package-transports uds,napi,wasm \
+    --client --server \
+    --package-transports uds,napi \
     --package-napi-library "$KV_LIBRARY" \
-    --package-wasm-module "kv_sqlite.wasm=$PKG/cpp/build-wasm/bin/kv_sqlite.wasm" \
     "$@"
-  ipc_codegen --schema files_schema.jsonc --lang ts --server \
-    --package "$PKG/files" \
-    --package-name @aztec-labs/kv-sqlite-files
 }
 
-# The binary and the library for this machine, and the wasm module.
+# The binary and the library for this machine.
 function build_cpp {
   (cd cpp && cmake --preset default && cmake --build build)
-  (cd cpp && cmake --preset wasm && cmake --build build-wasm)
 }
 
 function build {
@@ -61,7 +58,7 @@ function test {
 }
 
 function clean {
-  rm -rf ts files node_modules cpp/build cpp/build-wasm
+  rm -rf ts node_modules cpp/build
 }
 
 # Not yet in the root bootstrap's release lists: this machine's platform only.
@@ -71,7 +68,6 @@ function release {
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
-  (cd files && retry "deploy_npm ${REF_NAME#v}")
 }
 
 export -f ipc_codegen generate_ts build_cpp build test_cmds test clean release
