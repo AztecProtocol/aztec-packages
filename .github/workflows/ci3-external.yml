@@ -40,6 +40,26 @@ jobs:
         # a submodule.
         run: if [ "$(git ls-files -s ci3 | cut -c1-6)" = 160000 ]; then git submodule update --init --depth 1 ci3 && git config -f .gitmodules --name-only --get-regexp '\.path$' | sed 's/\.path$/.update/' | grep -vx submodule.ci3.update | xargs -I{} git config {} none; fi
 
+      # Gate 'ci-external-once' on the labeller being a member of AztecProtocol/watchers too. It approves only the run
+      # started by adding it (see HAS_CI_LABEL below), so the labeller is whoever triggered this event. Skipped when
+      # 'ci-external' is on the pull request, whose own check below then decides. Placed before the draft and
+      # 'ci-external' checks, so an unauthorized 'ci-external-once' is always removed.
+      - name: Verify ci-external-once Labeller Authorization
+        if: github.event.action == 'labeled' && github.event.label.name == 'ci-external-once' && !contains(github.event.pull_request.labels.*.name, 'ci-external')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          LABELLER: ${{ github.event.sender.login }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          state=$(gh api "/orgs/AztecProtocol/teams/watchers/memberships/$LABELLER" --jq '.state' 2>/dev/null || true)
+          if [ "$state" != "active" ]; then
+            echo "Error: labeller is not an active member of AztecProtocol/watchers. Stripping 'ci-external-once' label."
+            gh api -X DELETE "/repos/$REPO/issues/$PR_NUMBER/labels/ci-external-once" || true
+            exit 1
+          fi
+          echo "Labeller is authorized."
+
       # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
       - name: Fail If Draft
