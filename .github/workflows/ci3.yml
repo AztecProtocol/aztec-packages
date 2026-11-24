@@ -128,7 +128,10 @@ jobs:
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
-        run: ./.github/ci3.sh $CI_MODE
+        # exec replaces this step's shell with ci3.sh, which in turn execs ci.sh. When a run is cancelled, GitHub
+        # signals only the step's top process, so this is what lets the signal reach ci.sh, which passes it on so
+        # that the run's EC2 instances are terminated (see multi_job_run in ci.sh).
+        run: exec ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         env:
