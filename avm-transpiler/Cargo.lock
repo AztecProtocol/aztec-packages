@@ -4,11 +4,7 @@ version = 4
 
 [[package]]
 name = "acir"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir_field",
  "base64 0.23.0",
@@ -28,11 +24,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -46,11 +38,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -65,11 +53,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir",
  "aes",
@@ -465,11 +449,7 @@ dependencies = [
 
 [[package]]
 name = "bn254_blackbox_solver"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -507,11 +487,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir_field",
  "itertools 0.15.0",
@@ -521,11 +497,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -998,11 +970,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -1224,11 +1192,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "iter-extended"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 
 [[package]]
 name = "itertools"
@@ -1349,11 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "msgpack_tagged_derive",
  "rmp",
@@ -1364,11 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged_derive"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1377,11 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1397,19 +1349,11 @@ dependencies = [
 
 [[package]]
 name = "noirc_arena"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-
-[[package]]
-name = "noirc_artifacts"
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
 
 [[package]]
 name = "noirc_artifacts"
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acir",
  "acvm",
@@ -1428,11 +1372,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "codespan-reporting",
  "fm",
@@ -1444,11 +1384,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acvm",
  "bit-vec",
@@ -1481,11 +1417,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acvm",
  "bn254_blackbox_solver",
@@ -1517,11 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1532,11 +1460,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_span"
-<<<<<<< HEAD
-version = "1.0.0-rc.3"
-=======
 version = "1.0.0"
->>>>>>> 4bfff2243a8 (chore: update Noir to v1.0.0 (#25867))
 dependencies = [
  "codespan",
  "serde",
