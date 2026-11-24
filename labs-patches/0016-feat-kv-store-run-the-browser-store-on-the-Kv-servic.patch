@@ -1,19 +1,20 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Charlie <5764343+charlielye@users.noreply.github.com>
 Date: Thu, 19 Nov 2026 10:57:09 +0000
-Subject: [PATCH] feat(kv-store): run the browser store on
- @aztec-labs/kv-sqlite, and the same store anywhere
+Subject: [PATCH] feat(kv-store): run the browser store on the Kv service, and
+ the same store anywhere
 
 kv-store's containers (map, multimap, array, set, singleton) call the Kv service's generated
-client instead of writing SQL, in AztecKvSqliteStore (@aztec-labs/kv-store/kv-sqlite), which
-takes any of the service's backends: its native library or process in node, the library through
-JSI in React Native, the wasm module in a browser.
+client (@aztec-labs/kv-sqlite) instead of writing SQL, in AztecKvSqliteStore
+(@aztec-labs/kv-store/kv-sqlite), which takes any backend of the service: its native library or
+process in node, the library through JSI in React Native, or a backend object.
 
-AztecSQLiteOPFSStore keeps its API, Web Lock and quarantine. Its worker runs the service's wasm
-module on its own thread with an OPFS `files` target (opfs_files.ts) that keeps the opfs-sahpool
-layout, so stores written so far open unchanged, encrypted ones included; the main thread posts
-the client's command bytes to it. sqlite3mc-wasm remains only for the cut-commit test, which
-writes a store through its own pool VFS.
+AztecSQLiteOPFSStore keeps its API, Web Lock and quarantine. Its worker serves the Kv contract
+itself, in TypeScript (sqlite-opfs/kv_handler.ts, on the package's server bindings), over the
+sqlite3mc wasm build and SQLite's own opfs-sahpool VFS, as the browser store always ran; the main
+thread posts the client's command bytes to it. The handler writes exactly the rows the native
+store does, so a database opens in either: the container suites run against both in node, and
+databases one writes are read and matched by value by the other, encrypted ones included.
 
 The service identifies a value within its key by the SHA-256 of its bytes, where the browser store hashed the JS
 value with ohash, so it does not match multimap values a browser store wrote. PXE_DATA_SCHEMA_VERSION goes to 17,
@@ -24,10 +25,10 @@ Arrays may now hold a value more than once. The browser and IndexedDB stores put
 index, so pushing a value already in the array threw; IndexedDB entries now carry their position in the hash too.
 
 diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
-index 6936d5345f75b3c39a372026d63933db2a532899..11a2974bef809e9e011b223d9e09120d32bed652 100755
+index 6936d5345f75b3c39a372026d63933db2a532899..d30dd90caa65668558b54b30d483dd7829b11e11 100755
 --- a/labs-aztec-toolchain/pins.mjs
 +++ b/labs-aztec-toolchain/pins.mjs
-@@ -84,6 +84,16 @@ const LOCAL_PACKAGES = {
+@@ -84,6 +84,15 @@ const LOCAL_PACKAGES = {
      "portal:barretenberg/ts/wsdb-ref/packages/wsdb-ref-linux-arm64",
    "@aztec-foundation/wsdb-ref-linux-x64":
      "portal:barretenberg/ts/wsdb-ref/packages/wsdb-ref-linux-x64",
@@ -40,12 +41,11 @@ index 6936d5345f75b3c39a372026d63933db2a532899..11a2974bef809e9e011b223d9e09120d
 +    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-linux-arm64",
 +  "@aztec-labs/kv-sqlite-linux-x64":
 +    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-linux-x64",
-+  "@aztec-labs/kv-sqlite-files": "portal:native-packages/kv-sqlite/files",
    "@aztec-labs/kvdb": "portal:native-packages/kvdb/ts",
    "@aztec-labs/kvdb-darwin-arm64":
      "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
 diff --git a/yarn-project/kv-store/README.md b/yarn-project/kv-store/README.md
-index d4b9389fa5a3f05f9ffd2217308b42bda23be331..74e795479e99958b78135096186e3f51a8d5df25 100644
+index d4b9389fa5a3f05f9ffd2217308b42bda23be331..1a1bf801e0462e3d02f91e579ec400e77f5c2c27 100644
 --- a/yarn-project/kv-store/README.md
 +++ b/yarn-project/kv-store/README.md
 @@ -15,5 +15,6 @@ The backend is selected at import time, you import `createStore` (and friends) f
@@ -53,8 +53,8 @@ index d4b9389fa5a3f05f9ffd2217308b42bda23be331..74e795479e99958b78135096186e3f51
  - `@aztec-labs/kv-store/lmdb-v2`: server / Node. The current default for node components.
  - `@aztec-labs/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
 -- `@aztec-labs/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS).
-+- `@aztec-labs/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS): `@aztec-labs/kv-sqlite`'s wasm module on a worker, its files in OPFS.
-+- `@aztec-labs/kv-store/kv-sqlite`: the same store over any of `@aztec-labs/kv-sqlite`'s backends (its native library or process in node, the library through JSI in React Native), so a database has one format everywhere.
++- `@aztec-labs/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS): the Kv service on a worker, in TypeScript over the sqlite3mc wasm build and SQLite's own OPFS VFS.
++- `@aztec-labs/kv-store/kv-sqlite`: the same store over `@aztec-labs/kv-sqlite`'s native service (its library or process in node, the library through JSI in React Native), so a database has one format everywhere.
  - `@aztec-labs/kv-store/deprecated/indexeddb`: **deprecated** browser backend, backed by IndexedDB. New browser code must use `@aztec-labs/kv-store/sqlite-opfs`, as this backend is on its way to being fully deprecated.
 diff --git a/yarn-project/kv-store/bootstrap.sh b/yarn-project/kv-store/bootstrap.sh
 index e76ed71ee8a1e86a8bc08eef297bb412da44f1c6..f29c6ea6fb5ac15fcc178af0ac71c8d9ed0d1100 100755
@@ -70,7 +70,7 @@ index e76ed71ee8a1e86a8bc08eef297bb412da44f1c6..f29c6ea6fb5ac15fcc178af0ac71c8d9
  unscheduled_dirs="src/bench"
  
 diff --git a/yarn-project/kv-store/package.json b/yarn-project/kv-store/package.json
-index 2bb75f5d62973cf8af100736e4f02598756af2c8..262759d080bd6da4873f8e5ff218404809d6ca60 100644
+index 2bb75f5d62973cf8af100736e4f02598756af2c8..6d6933e5e082d522258f1d02ad8f36337109e550 100644
 --- a/yarn-project/kv-store/package.json
 +++ b/yarn-project/kv-store/package.json
 @@ -8,6 +8,7 @@
@@ -81,25 +81,18 @@ index 2bb75f5d62973cf8af100736e4f02598756af2c8..262759d080bd6da4873f8e5ff2184048
      "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
      "./stores": "./dest/stores/index.js"
    },
-@@ -37,8 +38,9 @@
+@@ -37,9 +38,11 @@
    ],
    "dependencies": {
      "@aztec-labs/foundation": "workspace:^",
 +    "@aztec-labs/kv-sqlite": "0.1.0-dummy",
-+    "@aztec-labs/kv-sqlite-files": "0.1.0-dummy",
      "@aztec-labs/native": "workspace:^",
--    "@aztec-labs/sqlite3mc-wasm": "workspace:^",
+     "@aztec-labs/sqlite3mc-wasm": "workspace:^",
      "@aztec-labs/stdlib": "workspace:^",
++    "@noble/hashes": "^1.6.1",
      "buffer": "^6.0.3",
      "idb": "^8.0.0",
-@@ -48,6 +50,7 @@
-     "ordered-binary": "^1.5.3"
-   },
-   "devDependencies": {
-+    "@aztec-labs/sqlite3mc-wasm": "workspace:^",
-     "@jest/globals": "^30.0.0",
-     "@types/jest": "^30.0.0",
-     "@types/node": "^22.15.17",
+     "lmdb": "^3.2.0",
 diff --git a/yarn-project/kv-store/src/deprecated/indexeddb/array.ts b/yarn-project/kv-store/src/deprecated/indexeddb/array.ts
 index ad36056408cf63c56ed88cc031a44a2528aa781e..758c121c849d6c971f7733b411ee0f31a02782e9 100644
 --- a/yarn-project/kv-store/src/deprecated/indexeddb/array.ts
@@ -622,11 +615,13 @@ index 0000000000000000000000000000000000000000..f205629003a09b97cc69041ae09bc573
 +}
 diff --git a/yarn-project/kv-store/src/kv-sqlite/store.test.ts b/yarn-project/kv-store/src/kv-sqlite/store.test.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..4029e9510dc72baaf8f14dfe2b9eac3a70afc835
+index 0000000000000000000000000000000000000000..c347a3d170902ac6b31c3c4233f4455a3a7de31b
 --- /dev/null
 +++ b/yarn-project/kv-store/src/kv-sqlite/store.test.ts
-@@ -0,0 +1,85 @@
-+import { mkdtemp, rm } from 'fs/promises';
+@@ -0,0 +1,193 @@
++import { handleRequestSync } from '@aztec-labs/kv-sqlite/server';
++import sqlite3InitModule, { type Database, SQLITE3_WASM_URL, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
++import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 +import { tmpdir } from 'os';
 +import { join } from 'path';
 +
@@ -636,14 +631,43 @@ index 0000000000000000000000000000000000000000..4029e9510dc72baaf8f14dfe2b9eac3a
 +import { describeAztecSet } from '../interfaces/set_test_suite.js';
 +import { describeAztecSingleton } from '../interfaces/singleton_test_suite.js';
 +import { mockLogger } from '../interfaces/utils.js';
++import { SqliteKvHandler } from '../sqlite-opfs/kv_handler.js';
 +import { SqliteEncryptionError } from './errors.js';
-+import { AztecKvSqliteStore } from './store.js';
++import { AztecKvSqliteStore, type KvSqliteStoreOptions } from './store.js';
 +
-+// The browser store runs the same containers over the wasm module (sqlite-opfs/); these run them over each node
-+// backend, in memory.
-+for (const backend of ['process', 'napi', 'wasm'] as const) {
++let sqlite3: Promise<Sqlite3Static> | undefined;
++
++function loadSqlite3(): Promise<Sqlite3Static> {
++  return (sqlite3 ??= readFile(SQLITE3_WASM_URL).then(wasm => sqlite3InitModule({ wasmBinary: new Uint8Array(wasm) })));
++}
++
++/**
++ * The browser store's Kv service (sqlite-opfs/kv_handler.ts) as a backend object, over the sqlite3mc wasm build. Node
++ * has no OPFS, so a path names a file in the module's in-memory file system, but every command runs through the same
++ * handler as in a browser.
++ */
++async function typescriptBackend(): Promise<NonNullable<KvSqliteStoreOptions['backend']>> {
++  const s = await loadSqlite3();
++  let db: Database | undefined;
++  const handler = new SqliteKvHandler({
++    open: path => (db = new s.oo1.DB(path ?? ':memory:', 'c')),
++    export: () => s.capi.sqlite3_js_db_export(db!.pointer!),
++    remove: () => {},
++  });
++  return {
++    call: request => Promise.resolve(handleRequestSync(handler, request)),
++    destroy: () => Promise.resolve(handler.close()),
++  };
++}
++
++// The same containers over each implementation of the Kv service: the native one through each node backend, and the
++// browser store's in TypeScript.
++for (const backend of ['process', 'napi', 'typescript'] as const) {
 +  describe(`AztecKvSqliteStore (${backend})`, () => {
-+    const open = () => AztecKvSqliteStore.create(mockLogger, { backend });
++    const open = async () =>
++      AztecKvSqliteStore.create(mockLogger, {
++        backend: backend === 'typescript' ? await typescriptBackend() : backend,
++      });
 +    describeAztecMap('AztecMap', open);
 +    describeAztecMultiMap('AztecMultiMap', open);
 +    describeAztecArray('AztecArray', open);
@@ -651,6 +675,83 @@ index 0000000000000000000000000000000000000000..4029e9510dc72baaf8f14dfe2b9eac3a
 +    describeAztecSingleton('AztecSingleton', open);
 +  });
 +}
++
++/** Writes entries whose rows depend on how values are hashed: multimap values and array entries, repeated. */
++async function writeEntries(store: AztecKvSqliteStore) {
++  await store.openMap<string, string>('m').set('k', 'v');
++  const multi = store.openMultiMap<string, string>('mm');
++  await multi.set('k', 'x');
++  await multi.set('k', 'y');
++  await store.openArray<string>('a').push('p', 'p');
++}
++
++/** Reads them back, and matches the multimap's values by value: what breaks if the two hash a value differently. */
++async function checkEntries(store: AztecKvSqliteStore) {
++  expect(await store.openMap<string, string>('m').getAsync('k')).toBe('v');
++  const multi = store.openMultiMap<string, string>('mm');
++  await multi.set('k', 'x');
++  expect(await multi.getValueCountAsync('k')).toBe(2);
++  await multi.deleteValue('k', 'y');
++  expect(await toArray(multi.getValuesAsync('k'))).toEqual(['x']);
++  const array = store.openArray<string>('a');
++  expect(await array.lengthAsync()).toBe(2);
++  expect(await array.atAsync(1)).toBe('p');
++}
++
++async function toArray<T>(values: AsyncIterable<T>): Promise<T[]> {
++  const out: T[] = [];
++  for await (const value of values) {
++    out.push(value);
++  }
++  return out;
++}
++
++describe('AztecKvSqliteStore across implementations', () => {
++  let dir: string;
++  beforeEach(async () => {
++    dir = await mkdtemp(join(tmpdir(), 'kv-sqlite-across-'));
++  });
++  afterEach(async () => {
++    await rm(dir, { recursive: true, force: true });
++  });
++
++  it.each([
++    ['plain', undefined],
++    ['encrypted', 7],
++  ])('a %s database the native service writes, the browser store reads and writes', async (_, keyByte) => {
++    const key = () => (keyByte === undefined ? undefined : new Uint8Array(32).fill(keyByte));
++    const path = join(dir, 'native.sqlite');
++    const native = await AztecKvSqliteStore.create(mockLogger, { path, encryptionKey: key(), backend: 'napi' });
++    await writeEntries(native);
++    await native.close();
++
++    const s = await loadSqlite3();
++    const wasmPath = `/native-${keyByte ?? 'plain'}.sqlite`;
++    s.capi.sqlite3_js_posix_create_file(wasmPath, new Uint8Array(await readFile(path)));
++    const browser = await AztecKvSqliteStore.create(mockLogger, {
++      path: wasmPath,
++      encryptionKey: key(),
++      backend: await typescriptBackend(),
++    });
++    await checkEntries(browser);
++    await browser.close();
++  });
++
++  it('a database the browser store writes, the native service reads and writes', async () => {
++    const browser = await AztecKvSqliteStore.create(mockLogger, {
++      path: '/browser.sqlite',
++      backend: await typescriptBackend(),
++    });
++    await writeEntries(browser);
++    const path = join(dir, 'browser.sqlite');
++    await writeFile(path, await browser.exportDb());
++    await browser.close();
++
++    const native = await AztecKvSqliteStore.create(mockLogger, { path, backend: 'napi' });
++    await checkEntries(native);
++    await native.close();
++  });
++});
 +
 +describe('AztecKvSqliteStore on disk', () => {
 +  let dir: string;
@@ -713,10 +814,10 @@ index 0000000000000000000000000000000000000000..4029e9510dc72baaf8f14dfe2b9eac3a
 +});
 diff --git a/yarn-project/kv-store/src/kv-sqlite/store.ts b/yarn-project/kv-store/src/kv-sqlite/store.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..069591edeeffdff7ac043d5eb8dcbe734e0c463a
+index 0000000000000000000000000000000000000000..2bc73fafad7726d2051eaf013f2f8778e11418df
 --- /dev/null
 +++ b/yarn-project/kv-store/src/kv-sqlite/store.ts
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,249 @@
 +import type { Logger } from '@aztec-labs/foundation/log';
 +import { SerialQueue } from '@aztec-labs/foundation/queue';
 +import { type AsyncApi, type KvCreateOptions, KvService } from '@aztec-labs/kv-sqlite';
@@ -751,16 +852,17 @@ index 0000000000000000000000000000000000000000..069591edeeffdff7ac043d5eb8dcbe73
 +  /** 32 bytes: the database is encrypted at rest (sqlite3mc's ChaCha20). Persistent stores only. */
 +  encryptionKey?: Uint8Array;
 +  /**
-+   * The Kv service's backend: one of @aztec-labs/kv-sqlite's ('process', 'napi', 'wasm', or 'jsi' in React Native),
-+   * or a backend object. Default: the package's own choice for the platform.
++   * The Kv service's backend: one of @aztec-labs/kv-sqlite's ('process' or 'napi' in node, 'jsi' in React Native),
++   * or a backend object, as the browser store's worker is. Default: the package's own choice for the platform.
 +   */
 +  backend?: KvCreateOptions['backend'];
 +}
 +
 +/**
 + * A key-value store over the Kv service (@aztec-labs/kv-sqlite): SQLite3 Multiple Ciphers, in whichever form the
-+ * platform runs it (a native library or process, a wasm module, or the library through JSI in React Native). Every
-+ * container is rows of the service's one table, so a database opens the same in each.
++ * platform runs it (natively a library or process, the library through JSI in React Native, and in a browser the
++ * service in TypeScript over the sqlite3mc wasm build, sqlite-opfs/). Every container is rows of the service's one
++ * table, so a database opens the same in each.
 + *
 + * Commands are ordered by a `SerialQueue`: outside a `transactionAsync` block each command takes the queue for its
 + * own auto-commit; inside one, the block holds the queue and its commands bypass it.
@@ -1192,6 +1294,340 @@ index 6ab64a4e7f5fb5a15bc1963b3d2aaa49284f0f09..13909417b79742705740e5ecfefd814b
 -export function isCorruptionMessage(message: string): boolean {
 -  return SQLITE_CORRUPTION_ERROR_PATTERNS.some(p => p.test(message));
 -}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts b/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ccca9b47acb4966d34016c7ae0a556ffd21ebe0f
+--- /dev/null
++++ b/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts
+@@ -0,0 +1,328 @@
++import type * as Kv from '@aztec-labs/kv-sqlite/server';
++import type { Database } from '@aztec-labs/sqlite3mc-wasm';
++import { sha256 } from '@noble/hashes/sha2';
++import { bytesToHex } from '@noble/hashes/utils';
++
++/**
++ * Where a {@link SqliteKvHandler} keeps its database: opening it (SQLite's own VFS does the I/O), and what the store
++ * does to whole files.
++ */
++export interface SqliteKvFiles {
++  /** Opens the database at `path`, or one in memory without a path; with `encryptionKey`, through sqlite3mc's cipher. */
++  open(path: string | undefined, encrypted: boolean): Database;
++  /** The database file's bytes as stored. */
++  export(path: string): Uint8Array;
++  /** Removes the file if it exists. */
++  remove(path: string): void;
++}
++
++/** A value SQLite binds or hands back. */
++type SqlValue = string | number | bigint | Uint8Array | null;
++
++const SCHEMA_SQL = `
++  CREATE TABLE IF NOT EXISTS data (
++    slot TEXT NOT NULL PRIMARY KEY,
++    container TEXT NOT NULL,
++    key BLOB NOT NULL,
++    key_count INTEGER NOT NULL,
++    hash TEXT NOT NULL,
++    value BLOB
++  ) WITHOUT ROWID;
++
++  CREATE INDEX IF NOT EXISTS idx_container_key ON data(container, key);
++  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_count ON data(container, key, key_count);
++  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
++`;
++
++/**
++ * The Kv service (@aztec-labs/kv-sqlite's contract) over the sqlite3mc wasm build, for a browser, which has no build of
++ * the native service. It writes the database exactly as the native store does (native-packages/kv-sqlite/cpp/src/kv/
++ * store.cpp in aztec-packages): the same table, slots, indices and value hashes, so a database opens in either and
++ * kv-store's containers behave the same over both.
++ */
++export class SqliteKvHandler implements Kv.SyncHandler {
++  #db: Database | undefined;
++  #path: string | undefined;
++
++  constructor(private readonly files: SqliteKvFiles) {}
++
++  init({ path, encryptionKey }: Kv.KvInit): Kv.KvInitResponse {
++    if (this.#db) {
++      throw new Error('the store is already open');
++    }
++    if (encryptionKey && encryptionKey.length !== 32) {
++      throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
++    }
++    if (encryptionKey && !path) {
++      throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
++    }
++    const db = this.files.open(path ?? undefined, !!encryptionKey);
++    try {
++      if (encryptionKey) {
++        db.exec(`PRAGMA cipher = 'chacha20'`);
++        db.exec(`PRAGMA key = "x'${bytesToHex(encryptionKey)}'"`);
++      }
++      db.exec(SCHEMA_SQL);
++    } catch (err) {
++      db.close();
++      throw err;
++    } finally {
++      encryptionKey?.fill(0);
++    }
++    this.#db = db;
++    this.#path = path ?? undefined;
++    return {};
++  }
++
++  /** Closes the database, if open. */
++  close(): void {
++    try {
++      this.#db?.close();
++    } finally {
++      this.#db = undefined;
++    }
++  }
++
++  clear(): Kv.KvClearResponse {
++    this.#exec('DELETE FROM data');
++    return {};
++  }
++
++  export(): Kv.KvExportResponse {
++    this.#open();
++    if (!this.#path) {
++      throw new Error('an ephemeral store has no file to export');
++    }
++    return { bytes: this.files.export(this.#path) };
++  }
++
++  deleteStore(): Kv.KvDeleteStoreResponse {
++    this.#open();
++    this.close();
++    if (this.#path) {
++      this.files.remove(this.#path);
++      this.files.remove(`${this.#path}-journal`);
++    }
++    return {};
++  }
++
++  begin(): Kv.KvBeginResponse {
++    this.#exec('BEGIN');
++    return {};
++  }
++
++  commit(): Kv.KvCommitResponse {
++    this.#exec('COMMIT');
++    return {};
++  }
++
++  rollback(): Kv.KvRollbackResponse {
++    this.#exec('ROLLBACK');
++    return {};
++  }
++
++  get({ container, keys }: Kv.KvGet): Kv.KvGetResponse {
++    return {
++      values: keys.map(key => ({
++        value: this.#first<Uint8Array | null>(
++          'SELECT value FROM data WHERE container = ? AND key = ? AND key_count = 1',
++          [container, key],
++        ),
++      })),
++    };
++  }
++
++  has({ container, key }: Kv.KvHas): Kv.KvHasResponse {
++    return {
++      has: this.#rows('SELECT 1 FROM data WHERE container = ? AND key = ? LIMIT 1', [container, key]).length > 0,
++    };
++  }
++
++  count({ container, key }: Kv.KvCount): Kv.KvCountResponse {
++    const count = key
++      ? this.#first<number>('SELECT COUNT(*) FROM data WHERE container = ? AND key = ?', [container, key])
++      : this.#first<number>('SELECT COUNT(*) FROM data WHERE container = ?', [container]);
++    return { count: count ?? 0 };
++  }
++
++  range({ container, start, end, reverse, limit }: Kv.KvRange): Kv.KvRangeResponse {
++    // Forward [start, end); reverse (start, end]. No limit is -1, which SQLite reads as none.
++    let sql = 'SELECT key, value FROM data WHERE container = ?1';
++    if (start) {
++      sql += reverse ? ' AND key > ?2' : ' AND key >= ?2';
++    }
++    if (end) {
++      sql += reverse ? ' AND key <= ?3' : ' AND key < ?3';
++    }
++    sql += reverse ? ' ORDER BY key DESC, key_count DESC LIMIT ?4' : ' ORDER BY key ASC, key_count ASC LIMIT ?4';
++    const bind: Record<string, SqlValue> = { '?1': container, '?4': limit ?? -1 };
++    if (start) {
++      bind['?2'] = start;
++    }
++    if (end) {
++      bind['?3'] = end;
++    }
++    return {
++      entries: this.#rows(sql, bind).map(([key, value]) => ({ key: blob(key), value: blob(value) })),
++    };
++  }
++
++  put({ container, key, value }: Kv.KvPut): Kv.KvPutResponse {
++    this.#insert(container, key, 1, valueHash(value), value);
++    return {};
++  }
++
++  putMany({ container, entries }: Kv.KvPutMany): Kv.KvPutManyResponse {
++    this.#atomically(() => {
++      for (const { key, value } of entries) {
++        this.#insert(container, key, 1, valueHash(value), value);
++      }
++    });
++    return {};
++  }
++
++  delete({ container, key }: Kv.KvDelete): Kv.KvDeleteResponse {
++    this.#exec('DELETE FROM data WHERE container = ? AND key = ?', [container, key]);
++    return {};
++  }
++
++  append({ container, key, values, unique }: Kv.KvAppend): Kv.KvAppendResponse {
++    return this.#atomically(() => {
++      let last =
++        this.#first<number>('SELECT COALESCE(MAX(key_count), 0) FROM data WHERE container = ? AND key = ?', [
++          container,
++          key,
++        ]) ?? 0;
++      for (const value of values) {
++        let hash = valueHash(value);
++        if (unique) {
++          if (
++            this.#rows('SELECT 1 FROM data WHERE container = ? AND key = ? AND hash = ? LIMIT 1', [
++              container,
++              key,
++              hash,
++            ]).length > 0
++          ) {
++            continue;
++          }
++        } else {
++          hash += `#${last + 1}`;
++        }
++        this.#insert(container, key, ++last, hash, value);
++      }
++      return this.count({ container, key });
++    });
++  }
++
++  values({ container, key }: Kv.KvValues): Kv.KvValuesResponse {
++    return {
++      values: this.#rows('SELECT value FROM data WHERE container = ? AND key = ? ORDER BY key_count ASC', [
++        container,
++        key,
++      ]).map(([value]) => blob(value)),
++    };
++  }
++
++  deleteValue({ container, key, value }: Kv.KvDeleteValue): Kv.KvDeleteValueResponse {
++    this.#exec('DELETE FROM data WHERE container = ? AND key = ? AND hash = ?', [container, key, valueHash(value)]);
++    return {};
++  }
++
++  getAt({ container, key, index }: Kv.KvGetAt): Kv.KvGetAtResponse {
++    return {
++      value: this.#first<Uint8Array | null>(
++        'SELECT value FROM data WHERE container = ? AND key = ? AND key_count = ?',
++        [container, key, index],
++      ),
++    };
++  }
++
++  setAt({ container, key, index, value }: Kv.KvSetAt): Kv.KvSetAtResponse {
++    this.#exec('UPDATE data SET value = ?, hash = ? WHERE container = ? AND key = ? AND key_count = ?', [
++      value,
++      `${valueHash(value)}#${index}`,
++      container,
++      key,
++      index,
++    ]);
++    return { set: this.#open().changes() > 0 };
++  }
++
++  pop({ container, key }: Kv.KvPop): Kv.KvPopResponse {
++    return this.#atomically(() => {
++      const [last] = this.#rows(
++        'SELECT key_count, value FROM data WHERE container = ? AND key = ? ORDER BY key_count DESC LIMIT 1',
++        [container, key],
++      );
++      if (!last) {
++        return { value: null };
++      }
++      const [index, value] = last;
++      this.#exec('DELETE FROM data WHERE container = ? AND key = ? AND key_count = ?', [container, key, index]);
++      return { value: value === null ? null : blob(value) };
++    });
++  }
++
++  #open(): Database {
++    if (!this.#db) {
++      throw new Error('the store is not open: Init opens it');
++    }
++    return this.#db;
++  }
++
++  #exec(sql: string, bind?: SqlValue[] | Record<string, SqlValue>): void {
++    this.#open().exec({ sql, bind });
++  }
++
++  #rows(sql: string, bind: SqlValue[] | Record<string, SqlValue>): SqlValue[][] {
++    const rows: SqlValue[][] = [];
++    this.#open().exec({ sql, bind, rowMode: 'array', resultRows: rows });
++    return rows;
++  }
++
++  /** The first column of the first row, or null with no row. */
++  #first<T extends SqlValue>(sql: string, bind: SqlValue[]): T | null {
++    const [row] = this.#rows(sql, bind);
++    return row ? (row[0] as T) : null;
++  }
++
++  // OR REPLACE: the entry at (container, key, index) is replaced whatever its slot, so one an older browser store
++  // wrote (under its own slot string) is replaced too.
++  #insert(container: string, key: Uint8Array, index: number, hash: string, value: Uint8Array): void {
++    this.#exec('INSERT OR REPLACE INTO data (slot, container, key, key_count, hash, value) VALUES (?, ?, ?, ?, ?, ?)', [
++      `${container}:${bytesToHex(key)}:${index}`,
++      container,
++      key,
++      index,
++      hash,
++      value,
++    ]);
++  }
++
++  #atomically<T>(body: () => T): T {
++    const db = this.#open();
++    db.exec('SAVEPOINT kv_op');
++    try {
++      const result = body();
++      db.exec('RELEASE kv_op');
++      return result;
++    } catch (err) {
++      try {
++        db.exec('ROLLBACK TO kv_op; RELEASE kv_op');
++      } catch {
++        // The body's error is the one to report.
++      }
++      throw err;
++    }
++  }
++}
++
++/** The value's digest as the `hash` column holds it: SHA-256, lowercase hex. */
++function valueHash(value: Uint8Array): string {
++  return bytesToHex(sha256(value));
++}
++
++/** A blob column's bytes; SQLite hands back NULL as null, which the native store reads as no bytes. */
++function blob(value: SqlValue): Uint8Array {
++  return value instanceof Uint8Array ? value : new Uint8Array();
++}
 diff --git a/yarn-project/kv-store/src/sqlite-opfs/map.ts b/yarn-project/kv-store/src/sqlite-opfs/map.ts
 deleted file mode 100644
 index 6bffd8ccb34a46a9b63a9d390ae1e39b462ac956..0000000000000000000000000000000000000000
@@ -1522,298 +1958,6 @@ index 87716172d991d746b947b50a131ac494315c9af8..00000000000000000000000000000000
 -    ]);
 -  }
 -}
-diff --git a/yarn-project/kv-store/src/sqlite-opfs/opfs_files.ts b/yarn-project/kv-store/src/sqlite-opfs/opfs_files.ts
-new file mode 100644
-index 0000000000000000000000000000000000000000..0c959ef1b861362aeb2c579cc8ada39a961e7b03
---- /dev/null
-+++ b/yarn-project/kv-store/src/sqlite-opfs/opfs_files.ts
-@@ -0,0 +1,286 @@
-+/// <reference lib="webworker" />
-+import type {
-+  FilesClose,
-+  FilesCloseResponse,
-+  FilesExists,
-+  FilesExistsResponse,
-+  FilesOpen,
-+  FilesOpenResponse,
-+  FilesRead,
-+  FilesReadResponse,
-+  FilesRemove,
-+  FilesRemoveResponse,
-+  FilesSize,
-+  FilesSizeResponse,
-+  FilesSync,
-+  FilesSyncResponse,
-+  FilesTruncate,
-+  FilesTruncateResponse,
-+  FilesWrite,
-+  FilesWriteResponse,
-+  SyncHandler,
-+} from '@aztec-labs/kv-sqlite-files';
-+
-+// The pool layout of SQLite's opfs-sahpool VFS (the vendored sqlite3mc-wasm's `OpfsSAHPool`), which every browser
-+// store so far was written in, kept byte for byte so those stores open unchanged. A pool directory holds a fixed set
-+// of randomly named files under `.opaque/`, each with a header naming the SQLite file it holds, if any:
-+//
-+//   bytes [0, 512)    logical path, NUL-terminated UTF-8
-+//   bytes [512, 516)  SQLite open flags, big-endian uint32
-+//   bytes [516, 524)  digest over the preceding 516 bytes, two uint32 words in platform (little-endian) order
-+//
-+// and the file's content from byte 4096. pool_integrity.ts reads the same headers.
-+const OPAQUE_DIRECTORY = '.opaque';
-+const HEADER_MAX_PATH_SIZE = 512;
-+const HEADER_OFFSET_FLAGS = HEADER_MAX_PATH_SIZE;
-+const HEADER_CORPUS_SIZE = HEADER_MAX_PATH_SIZE + 4;
-+const HEADER_OFFSET_DIGEST = HEADER_CORPUS_SIZE;
-+const HEADER_OFFSET_DATA = 4096;
-+
-+// sqlite3.h's open flags.
-+const SQLITE_OPEN_CREATE = 0x00000004;
-+const SQLITE_OPEN_DELETEONCLOSE = 0x00000008;
-+const SQLITE_OPEN_EXCLUSIVE = 0x00000010;
-+const SQLITE_OPEN_MEMORY = 0x00000080;
-+const SQLITE_OPEN_MAIN_DB = 0x00000100;
-+const SQLITE_OPEN_MAIN_JOURNAL = 0x00000800;
-+const SQLITE_OPEN_SUPER_JOURNAL = 0x00004000;
-+const SQLITE_OPEN_WAL = 0x00080000;
-+const PERSISTENT_FILE_TYPES =
-+  SQLITE_OPEN_MAIN_DB | SQLITE_OPEN_MAIN_JOURNAL | SQLITE_OPEN_SUPER_JOURNAL | SQLITE_OPEN_WAL;
-+// The pool repurposes SQLITE_OPEN_MEMORY, meaningless for a file on disk, to mark a header that carries a digest.
-+const FLAG_COMPUTE_DIGEST_V2 = SQLITE_OPEN_MEMORY;
-+
-+/** The files a store needs at once (the database and its journal), with room to spare, as the pool always kept. */
-+const MINIMUM_CAPACITY = 8;
-+
-+const textEncoder = new TextEncoder();
-+const textDecoder = new TextDecoder();
-+
-+interface OpenFile {
-+  path: string;
-+  flags: number;
-+  sah: FileSystemSyncAccessHandle;
-+}
-+
-+/**
-+ * The Kv service's `files` host-call target over an OPFS SAH pool, answering synchronously through sync access
-+ * handles (a dedicated worker's only). Holds every handle of the pool from `open` until `release`, so one store at
-+ * a time uses a pool directory; the store's Web Lock (pool_lock.ts) guards that across contexts.
-+ */
-+export class OpfsSahPoolFiles implements SyncHandler {
-+  readonly #names = new Map<FileSystemSyncAccessHandle, string>();
-+  readonly #byPath = new Map<string, FileSystemSyncAccessHandle>();
-+  readonly #free = new Set<FileSystemSyncAccessHandle>();
-+  readonly #open = new Map<number, OpenFile>();
-+  readonly #header = new Uint8Array(HEADER_CORPUS_SIZE);
-+  readonly #headerView = new DataView(this.#header.buffer);
-+  #nextHandle = 1;
-+
-+  private constructor(private readonly opaque: FileSystemDirectoryHandle) {}
-+
-+  /** Takes every file of the pool at `directory` (creating it, and files up to its minimum capacity). */
-+  static async open(directory: string): Promise<OpfsSahPoolFiles> {
-+    let dir = await navigator.storage.getDirectory();
-+    for (const segment of directory.split('/')) {
-+      if (segment) {
-+        dir = await dir.getDirectoryHandle(segment, { create: true });
-+      }
-+    }
-+    const pool = new OpfsSahPoolFiles(await dir.getDirectoryHandle(OPAQUE_DIRECTORY, { create: true }));
-+    try {
-+      await pool.#acquire();
-+      while (pool.#names.size < MINIMUM_CAPACITY) {
-+        await pool.#addFile();
-+      }
-+    } catch (err) {
-+      pool.release();
-+      throw err;
-+    }
-+    return pool;
-+  }
-+
-+  /** Closes every handle of the pool, without touching its files. */
-+  release(): void {
-+    for (const sah of this.#names.keys()) {
-+      sah.close();
-+    }
-+    this.#names.clear();
-+    this.#byPath.clear();
-+    this.#free.clear();
-+    this.#open.clear();
-+  }
-+
-+  open({ path, flags }: FilesOpen): FilesOpenResponse {
-+    flags &= ~FLAG_COMPUTE_DIGEST_V2;
-+    path = poolPath(path);
-+    let sah = this.#byPath.get(path);
-+    if (sah && flags & SQLITE_OPEN_CREATE && flags & SQLITE_OPEN_EXCLUSIVE) {
-+      throw new Error(`file already exists: ${path}`);
-+    }
-+    if (!sah && flags & SQLITE_OPEN_CREATE) {
-+      sah = this.#free.values().next().value;
-+      if (!sah) {
-+        throw new Error(`SAH pool is full. Cannot create file ${path}`);
-+      }
-+      this.#associate(sah, path, flags);
-+    }
-+    if (!sah) {
-+      throw new Error(`file not found: ${path}`);
-+    }
-+    const handle = this.#nextHandle++;
-+    this.#open.set(handle, { path, flags, sah });
-+    return { handle };
-+  }
-+
-+  close({ handle }: FilesClose): FilesCloseResponse {
-+    const file = this.#file(handle);
-+    this.#open.delete(handle);
-+    file.sah.flush();
-+    if (file.flags & SQLITE_OPEN_DELETEONCLOSE) {
-+      this.#deletePath(file.path);
-+    }
-+    return {};
-+  }
-+
-+  read({ handle, offset, length }: FilesRead): FilesReadResponse {
-+    const data = new Uint8Array(length);
-+    const n = this.#file(handle).sah.read(data, { at: HEADER_OFFSET_DATA + Number(offset) });
-+    return { data: data.subarray(0, n) };
-+  }
-+
-+  write({ handle, offset, data }: FilesWrite): FilesWriteResponse {
-+    const n = this.#file(handle).sah.write(data, { at: HEADER_OFFSET_DATA + Number(offset) });
-+    if (n !== data.length) {
-+      throw new Error(`short write: ${n} of ${data.length} bytes`);
-+    }
-+    return {};
-+  }
-+
-+  truncate({ handle, size }: FilesTruncate): FilesTruncateResponse {
-+    this.#file(handle).sah.truncate(HEADER_OFFSET_DATA + Number(size));
-+    return {};
-+  }
-+
-+  size({ handle }: FilesSize): FilesSizeResponse {
-+    return { size: Math.max(0, this.#file(handle).sah.getSize() - HEADER_OFFSET_DATA) };
-+  }
-+
-+  sync({ handle }: FilesSync): FilesSyncResponse {
-+    this.#file(handle).sah.flush();
-+    return {};
-+  }
-+
-+  remove({ path }: FilesRemove): FilesRemoveResponse {
-+    this.#deletePath(poolPath(path));
-+    return {};
-+  }
-+
-+  exists({ path }: FilesExists): FilesExistsResponse {
-+    return { exists: this.#byPath.has(poolPath(path)) };
-+  }
-+
-+  #file(handle: number): OpenFile {
-+    const file = this.#open.get(handle);
-+    if (!file) {
-+      throw new Error(`no open file ${handle}`);
-+    }
-+    return file;
-+  }
-+
-+  async #acquire(): Promise<void> {
-+    for await (const [name, entry] of this.opaque.entries()) {
-+      if (entry.kind !== 'file') {
-+        continue;
-+      }
-+      const sah = await (entry as FileSystemFileHandle).createSyncAccessHandle();
-+      this.#names.set(sah, name);
-+      const path = this.#associatedPath(sah);
-+      if (path) {
-+        this.#byPath.set(path, sah);
-+      } else {
-+        this.#free.add(sah);
-+      }
-+    }
-+  }
-+
-+  async #addFile(): Promise<void> {
-+    const name = Math.random().toString(36).slice(2);
-+    const sah = await (await this.opaque.getFileHandle(name, { create: true })).createSyncAccessHandle();
-+    this.#names.set(sah, name);
-+    this.#associate(sah, '', 0);
-+  }
-+
-+  /** The path a pool file holds, or '' for a free one: a header the pool would not trust is freed, as the pool does. */
-+  #associatedPath(sah: FileSystemSyncAccessHandle): string {
-+    this.#header.fill(0);
-+    sah.read(this.#header, { at: 0 });
-+    const flags = this.#headerView.getUint32(HEADER_OFFSET_FLAGS);
-+    if (this.#header[0] && (flags & SQLITE_OPEN_DELETEONCLOSE || (flags & PERSISTENT_FILE_TYPES) === 0)) {
-+      this.#associate(sah, '', 0);
-+      return '';
-+    }
-+    const stored = new Uint32Array(2);
-+    sah.read(stored, { at: HEADER_OFFSET_DIGEST });
-+    const expected = digest(this.#header, flags);
-+    if (stored[0] !== expected[0] || stored[1] !== expected[1]) {
-+      this.#associate(sah, '', 0);
-+      return '';
-+    }
-+    const length = this.#header.indexOf(0);
-+    if (length === 0) {
-+      sah.truncate(HEADER_OFFSET_DATA);
-+      return '';
-+    }
-+    return textDecoder.decode(this.#header.subarray(0, length === -1 ? HEADER_MAX_PATH_SIZE : length));
-+  }
-+
-+  #associate(sah: FileSystemSyncAccessHandle, path: string, flags: number): void {
-+    this.#header.fill(0);
-+    const { written } = textEncoder.encodeInto(path, this.#header);
-+    if (written + 1 >= HEADER_MAX_PATH_SIZE) {
-+      throw new Error(`Path too long: ${path}`);
-+    }
-+    if (path && flags) {
-+      flags |= FLAG_COMPUTE_DIGEST_V2;
-+    }
-+    this.#headerView.setUint32(HEADER_OFFSET_FLAGS, flags);
-+    sah.write(this.#header, { at: 0 });
-+    sah.write(digest(this.#header, flags), { at: HEADER_OFFSET_DIGEST });
-+    sah.flush();
-+    if (path) {
-+      this.#byPath.set(path, sah);
-+      this.#free.delete(sah);
-+    } else {
-+      sah.truncate(HEADER_OFFSET_DATA);
-+      this.#free.add(sah);
-+    }
-+  }
-+
-+  #deletePath(path: string): void {
-+    const sah = this.#byPath.get(path);
-+    if (sah) {
-+      this.#byPath.delete(path);
-+      this.#associate(sah, '', 0);
-+    }
-+  }
-+}
-+
-+/** The pool's form of a path: its URL pathname, as the pool resolved every name it was given. */
-+function poolPath(path: string): string {
-+  return new URL(path, 'file://localhost/').pathname;
-+}
-+
-+/** The pool's header digest (`computeDigest`): zero words for a header without FLAG_COMPUTE_DIGEST_V2. */
-+function digest(corpus: Uint8Array, flags: number): Uint32Array {
-+  if (!(flags & FLAG_COMPUTE_DIGEST_V2)) {
-+    return new Uint32Array([0, 0]);
-+  }
-+  let h1 = 0xdeadbeef;
-+  let h2 = 0x41c6ce57;
-+  for (const v of corpus) {
-+    h1 = Math.imul(h1 ^ v, 2654435761);
-+    h2 = Math.imul(h2 ^ v, 104729);
-+  }
-+  return new Uint32Array([h1 >>> 0, h2 >>> 0]);
-+}
 diff --git a/yarn-project/kv-store/src/sqlite-opfs/singleton.ts b/yarn-project/kv-store/src/sqlite-opfs/singleton.ts
 deleted file mode 100644
 index 4aa52c78213f0f901a4025d978c188840f265172..0000000000000000000000000000000000000000
@@ -1869,7 +2013,7 @@ index 4aa52c78213f0f901a4025d978c188840f265172..00000000000000000000000000000000
 -  }
 -}
 diff --git a/yarn-project/kv-store/src/sqlite-opfs/store.ts b/yarn-project/kv-store/src/sqlite-opfs/store.ts
-index 9fcd3da7160ce771f9863e58dc36337cc42b7ac6..23a06c6dd285bd2eb90cef811f3cd2ade358ef16 100644
+index 9fcd3da7160ce771f9863e58dc36337cc42b7ac6..8b8db46c65689ec47ff495fc7bd37071523c8f87 100644
 --- a/yarn-project/kv-store/src/sqlite-opfs/store.ts
 +++ b/yarn-project/kv-store/src/sqlite-opfs/store.ts
 @@ -1,91 +1,43 @@
@@ -1908,10 +2052,10 @@ index 9fcd3da7160ce771f9863e58dc36337cc42b7ac6..23a06c6dd285bd2eb90cef811f3cd2ad
 - * with an `#inTx` flag: outside a `transactionAsync` block, each op acquires the
 - * queue for its own auto-commit; inside a block, the outer call holds the queue and
 - * nested ops bypass it to avoid deadlock.
-+ * Main-thread handle for a store persisted to OPFS: the Kv service's wasm module runs on a dedicated Web Worker
-+ * (OPFS sync access handles exist only there), keeping its files in an SAH pool directory in the layout SQLite's
-+ * opfs-sahpool VFS writes, so stores written before open unchanged. Every command is the generated client's bytes,
-+ * posted to the worker.
++ * Main-thread handle for a store persisted to OPFS: the Kv service runs on a dedicated Web Worker (OPFS sync access
++ * handles exist only there), in TypeScript over the sqlite3mc wasm build, its database in an SAH pool directory
++ * through SQLite's own opfs-sahpool VFS, so stores written before open unchanged. Every command is the generated
++ * client's bytes, posted to the worker.
   */
 -export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
 -  readonly #worker: Worker;
@@ -2304,21 +2448,19 @@ index 9fcd3da7160ce771f9863e58dc36337cc42b7ac6..23a06c6dd285bd2eb90cef811f3cd2ad
 +  return dbName.startsWith('/') ? dbName : `/${dbName}`;
  }
 diff --git a/yarn-project/kv-store/src/sqlite-opfs/worker.ts b/yarn-project/kv-store/src/sqlite-opfs/worker.ts
-index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99bed6b3410d 100644
+index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..805fdebc95720b90171f441f73bf58482129b950 100644
 --- a/yarn-project/kv-store/src/sqlite-opfs/worker.ts
 +++ b/yarn-project/kv-store/src/sqlite-opfs/worker.ts
-@@ -1,218 +1,71 @@
+@@ -1,218 +1,106 @@
  /// <reference lib="webworker" />
 -import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
-+import { SyncApi, createBackendSync } from '@aztec-labs/kv-sqlite';
-+import { handleRequestSync } from '@aztec-labs/kv-sqlite-files';
++import { handleRequestSync } from '@aztec-labs/kv-sqlite/server';
++import sqlite3InitModule, { type SAHPoolUtil, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
  
 -import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
 -import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 -import { DEFAULT_SAH_POOL_DIRECTORY } from './pool_lock.js';
-+import type { WorkerRequest, WorkerResponse } from './messages.js';
-+import { OpfsSahPoolFiles } from './opfs_files.js';
- 
+-
 -const SCHEMA_SQL = `
 -  CREATE TABLE IF NOT EXISTS data (
 -    slot TEXT NOT NULL PRIMARY KEY,
@@ -2328,21 +2470,22 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -    hash TEXT NOT NULL,
 -    value BLOB
 -  ) WITHOUT ROWID;
-+// The Kv service's wasm module on this worker's thread, its files kept in the OPFS pool through sync access handles
-+// (only a dedicated worker has them), so each command runs to completion before the next message is taken.
-+let service: Awaited<ReturnType<typeof createBackendSync>> | undefined;
-+let pool: OpfsSahPoolFiles | undefined;
- 
+-
 -  CREATE INDEX IF NOT EXISTS idx_container_key ON data(container, key);
 -  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_count ON data(container, key, key_count);
 -  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
 -`;
--
--const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
--const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
--
--let sqlite3: Sqlite3Static | undefined;
--let pool: SAHPoolUtil | undefined;
++import { SqliteKvHandler } from './kv_handler.js';
++import type { WorkerRequest, WorkerResponse } from './messages.js';
+ 
++// The Kv service on this worker's thread, in TypeScript over the sqlite3mc wasm build, its database in OPFS through
++// SQLite's own opfs-sahpool VFS (sync access handles exist only in a dedicated worker). Each command runs to
++// completion before the next message is taken.
+ const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
+ const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
+ 
+ let sqlite3: Sqlite3Static | undefined;
+ let pool: SAHPoolUtil | undefined;
 -let db: Database | undefined;
 -let dbPath: string | undefined;
 -
@@ -2367,8 +2510,22 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -    );
 -  }
 -  return pool!;
--}
--
++let handler: SqliteKvHandler | undefined;
++
++async function installPool(s: Sqlite3Static, directory: string): Promise<SAHPoolUtil> {
++  const installed = await s.installOpfsSAHPoolVfs({ name: SAH_POOL_VFS_NAME, directory, initialCapacity: 8 });
++  // initialCapacity only fills an empty pool. A first open cut short by a navigation leaves fewer files, which fails
++  // every later open with SQLITE_CANTOPEN once the journal finds no free slot.
++  await installed.reserveMinimumCapacity(8);
++  // Encrypted databases open through sqlite3mc's wrapper of the pool VFS (`multipleciphers-<underlying>`), so it can
++  // intercept their I/O; plain ones use the pool VFS directly.
++  (s.capi as unknown as { sqlite3mc_vfs_create(name: string, makeDefault: number): number }).sqlite3mc_vfs_create(
++    SAH_POOL_VFS_NAME,
++    0,
++  );
++  return installed;
+ }
+ 
 -/**
 - * Applies sqlite3mc's ChaCha20 page cipher using a pre-derived 32-byte key.
 - * The PRAGMAs must run before any schema DDL so sqlite3mc can decrypt existing
@@ -2408,7 +2565,7 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -      db = new activePool.OpfsSAHPoolDb(dbPath);
 -    }
 +async function open(path: string | undefined, poolDirectory: string | undefined, encryptionKey?: Uint8Array) {
-+  if (service) {
++  if (handler) {
 +    throw new Error('SQLite worker: a store is already open');
    }
 -  runSql(SCHEMA_SQL);
@@ -2417,12 +2574,27 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -function handleClose(): void {
    try {
 -    db?.close();
-+    const files = poolDirectory ? (pool = await OpfsSahPoolFiles.open(poolDirectory)) : undefined;
-+    service = await createBackendSync({
-+      backend: 'wasm',
-+      wasm: files ? { hostCall: { files: request => handleRequestSync(files, request) } } : {},
++    const s = (sqlite3 ??= await sqlite3InitModule());
++    const files = poolDirectory ? (pool = await installPool(s, poolDirectory)) : undefined;
++    handler = new SqliteKvHandler({
++      open: (dbPath, encrypted) => {
++        if (!dbPath) {
++          return new s.oo1.DB(':memory:', 'c');
++        }
++        if (!files) {
++          throw new Error('SQLite worker: a persistent store needs a pool directory');
++        }
++        return encrypted
++          ? new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME })
++          : new files.OpfsSAHPoolDb(dbPath);
++      },
++      // Synchronous, whatever the declarations say: the pool reads its file through a sync access handle.
++      export: dbPath => files!.exportFile(dbPath) as unknown as Uint8Array,
++      remove: dbPath => {
++        files?.unlink(dbPath);
++      },
 +    });
-+    new SyncApi(service).init({ path: path ?? null, encryptionKey: encryptionKey ?? null });
++    handler.init({ path: path ?? null, encryptionKey: encryptionKey ?? null });
 +  } catch (err) {
 +    close();
 +    throw err;
@@ -2441,10 +2613,11 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 - * (NoModificationAllowedError from removeEntry, or a hang installing a new pool on the directory).
 - * pauseVfs releases the handles without touching file contents; the worker is terminated right
 - * after, so the pool is never resumed.
-+ * Ends the service and releases the pool's sync access handles before the request is acked. Worker termination
++ * Closes the store and releases the pool's sync access handles before the request is acked. Worker termination
 + * releases them only asynchronously, so without this a caller that deletes or reopens the store directory right after
-+ * close()/delete() resolves races Chromium's cleanup (NoModificationAllowedError from removeEntry, or a hang opening
-+ * the pool again).
++ * close()/delete() resolves races Chromium's cleanup (NoModificationAllowedError from removeEntry, or a hang installing
++ * a new pool on the directory). pauseVfs releases the handles without touching file contents; the worker is
++ * terminated right after, so the pool is never resumed.
   */
 -function releasePool(): void {
 -  pool?.pauseVfs();
@@ -2491,15 +2664,15 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -function requireDb(): Database {
 -  if (!db) {
 -    throw new Error('SQLite worker: no database open');
-+    service?.destroy();
++    handler?.close();
 +  } finally {
-+    service = undefined;
-+    pool?.release();
++    handler = undefined;
++    pool?.pauseVfs();
 +    pool = undefined;
    }
 -  return db;
- }
- 
+-}
+-
 -function runSql(sql: string, bind?: SqlValue[]): { changes: number } {
 -  const conn = requireDb();
 -  conn.exec({ sql, bind });
@@ -2511,8 +2684,8 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -  const rows: ResultRow[] = [];
 -  conn.exec({ sql, bind, rowMode: 'array', resultRows: rows });
 -  return rows;
--}
--
+ }
+ 
 -function normalizeDbPath(dbName: string): string {
 -  return dbName.startsWith('/') ? dbName : `/${dbName}`;
 -}
@@ -2541,18 +2714,18 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -      case 'run': {
 -        const { changes } = runSql(req.sql, req.bind);
 -        return respond({ type: 'ok', id: req.id, changes });
-+      case 'call': {
-+        if (!service) {
-+          throw new Error('SQLite worker: no store open');
-+        }
-+        // A copy: the answer may be a view of the module's memory, which must not be transferred away.
-+        const bytes = service.call(req.bytes).slice();
-+        return respond({ type: 'ok', id: req.id, bytes }, [bytes.buffer as ArrayBuffer]);
-       }
+-      }
 -      case 'all': {
 -        const rows = selectAll(req.sql, req.bind);
 -        return respond({ type: 'ok', id: req.id, rows });
--      }
++      case 'call': {
++        if (!handler) {
++          throw new Error('SQLite worker: no store open');
++        }
++        // A copy: the encoder's answer may be a view of the buffer it reuses, which must not be transferred away.
++        const bytes = handleRequestSync(handler, req.bytes).slice();
++        return respond({ type: 'ok', id: req.id, bytes }, [bytes.buffer as ArrayBuffer]);
+       }
 -      case 'export': {
 -        const bytes = await handleExport();
 -        return respond({ type: 'ok', id: req.id, bytes });
@@ -2570,7 +2743,7 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
          return respond({ type: 'ok', id: req.id });
        default: {
          const _exhaustive: never = req;
-@@ -220,43 +73,6 @@ function respond(msg: WorkerResponse): void {
+@@ -220,43 +108,6 @@ function respond(msg: WorkerResponse): void {
        }
      }
    } catch (err) {
@@ -2616,54 +2789,10 @@ index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..275499bb46a9055f5a9b9bf5662c99be
 -  return undefined;
 -}
 diff --git a/yarn-project/kv-store/vitest.config.ts b/yarn-project/kv-store/vitest.config.ts
-index 22ac1889da29d787290b41c2b89b745885bc12d3..bd5390ac99c6b5b20ca286ea5b5224f87ba5c4bb 100644
+index 22ac1889da29d787290b41c2b89b745885bc12d3..efa74426fe7ca05bff99e96bf9d1ca08da33ffe2 100644
 --- a/yarn-project/kv-store/vitest.config.ts
 +++ b/yarn-project/kv-store/vitest.config.ts
-@@ -1,7 +1,9 @@
- import { playwright } from '@vitest/browser-playwright';
--import { existsSync } from 'fs';
-+import { existsSync, realpathSync } from 'fs';
-+import { createRequire } from 'module';
- import path from 'path';
- import { fileURLToPath } from 'url';
-+import { searchForWorkspaceRoot } from 'vite';
- import { defineConfig } from 'vitest/config';
- 
- import { cacheDir } from './vitest.global-setup.js';
-@@ -14,8 +16,19 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync(systemPlaywrightPath)) {
-   process.env.PLAYWRIGHT_BROWSERS_PATH = systemPlaywrightPath;
- }
- 
-+// @aztec-labs/kv-sqlite fetches its wasm module from its own directory, which is outside the workspace when the
-+// package is a portal into the foundation tree; the dev server has to be allowed to serve it.
-+const kvSqliteDir = path.dirname(
-+  path.dirname(realpathSync(createRequire(import.meta.url).resolve('@aztec-labs/kv-sqlite'))),
-+);
-+
- export default defineConfig({
-   cacheDir,
-+  server: {
-+    fs: {
-+      allow: [searchForWorkspaceRoot(process.cwd()), kvSqliteDir],
-+    },
-+  },
-   define: {
-     'process.env': {},
-   },
-@@ -37,9 +50,9 @@ export default defineConfig({
-       'idb-keyval',
-       'comlink',
-     ],
--    // sqlite3mc-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
--    // rather than pre-bundling, per the upstream docs' recommendation.
--    exclude: ['@aztec-labs/sqlite3mc-wasm'],
-+    // These load their .wasm modules relative to their own files (`new URL(..., import.meta.url)`); let Vite serve
-+    // them as they are rather than pre-bundling, which would move the code away from its assets.
-+    exclude: ['@aztec-labs/sqlite3mc-wasm', '@aztec-labs/kv-sqlite'],
-   },
-   test: {
-     globals: true,
-@@ -57,6 +70,7 @@ export default defineConfig({
+@@ -57,6 +57,7 @@ export default defineConfig({
            environment: 'node',
            include: [
              './src/lmdb/**/*.test.ts',
@@ -2672,10 +2801,10 @@ index 22ac1889da29d787290b41c2b89b745885bc12d3..bd5390ac99c6b5b20ca286ea5b5224f8
              './src/stores/**/*.test.ts',
              './src/interfaces/**/*.test.ts',
 diff --git a/yarn-project/package.json b/yarn-project/package.json
-index fe7fdb2fb9e4d3e7f87aa0ea84b76d837d4d5317..730b6eff130700c976747dcc88d67bce3289f0e3 100644
+index fe7fdb2fb9e4d3e7f87aa0ea84b76d837d4d5317..f58692b26b73391913440efcad8b0965a0f83066 100644
 --- a/yarn-project/package.json
 +++ b/yarn-project/package.json
-@@ -118,6 +118,12 @@
+@@ -118,6 +118,11 @@
      "@aztec-labs/kvdb-darwin-x64": "7.0.0-nightly.20261110",
      "@aztec-labs/kvdb-linux-arm64": "7.0.0-nightly.20261110",
      "@aztec-labs/kvdb-linux-x64": "7.0.0-nightly.20261110",
@@ -2684,7 +2813,6 @@ index fe7fdb2fb9e4d3e7f87aa0ea84b76d837d4d5317..730b6eff130700c976747dcc88d67bce
 +    "@aztec-labs/kv-sqlite-darwin-x64": "7.0.0-nightly.20261110",
 +    "@aztec-labs/kv-sqlite-linux-arm64": "7.0.0-nightly.20261110",
 +    "@aztec-labs/kv-sqlite-linux-x64": "7.0.0-nightly.20261110",
-+    "@aztec-labs/kv-sqlite-files": "7.0.0-nightly.20261110",
      "@aztec-foundation/noir-acvm_js": "7.0.0-nightly.20261110",
      "@aztec-foundation/noir-types": "7.0.0-nightly.20261110",
      "@aztec-foundation/noir-noirc_abi": "7.0.0-nightly.20261110",
