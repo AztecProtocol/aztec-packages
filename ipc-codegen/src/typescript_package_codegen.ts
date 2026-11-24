@@ -34,6 +34,11 @@ export interface TypeScriptPackageOptions {
   napiLibraryEnvVar?: string;
   /** The schema's Init command, when it has one: every service constructor takes `{ init }` and sends it first. */
   init?: { requestType: string };
+  /**
+   * Also export the service's server bindings (`Handler`, `handleRequest` and the rest) at `<package>/server`, for a
+   * host that serves the service itself in TypeScript and hands the client a backend that calls it.
+   */
+  server?: boolean;
 }
 
 function className(prefix: string): string {
@@ -352,13 +357,16 @@ export { SyncApi } from './generated/sync.js';
         // One entry per host, each with its own types: a browser consumer never sees the
         // process backend, a React Native one sees neither process nor wasm.
         ".": {
-          ...(this.wasm ? { browser: entry("browser") } : {}),
+          // Without a wasm module a browser has no backend of its own, so it gets React Native's entry: a backend
+          // object, or one registered, and nothing that reaches for node.
+          browser: entry(this.wasm ? "browser" : "react-native"),
           "react-native": entry("react-native"),
           types: "./dest/index.d.ts",
           default: "./dest/index.js",
         },
         ...(this.wasm ? { "./browser": entry("browser") } : {}),
         "./react-native": entry("react-native"),
+        ...(this.opts.server ? { "./server": entry("server") } : {}),
       },
       files: ["dest/", ...(this.wasm ? ["wasm/"] : []), "README.md"],
       scripts,
@@ -383,6 +391,12 @@ export { SyncApi } from './generated/sync.js';
       },
     };
     return JSON.stringify(pkg, null, 2) + "\n";
+  }
+
+  generateServerIndex(): string {
+    return `export * from './generated/api_types.js';
+export * from './generated/server.js';
+`;
   }
 
   generateBin(): string {
@@ -1226,7 +1240,7 @@ export function createNapiBackendSync(options: ${prefix}NapiOptions = {}): IpcCl
       "node (`default`) has every backend above",
       wasm
         ? "browsers (`browser`) have the wasm module only"
-        : "browsers have no backend of their own (this service has no wasm module)",
+        : "browsers (`browser`) get the React Native entry, since this service has no wasm module: a backend object passed as `options.backend`, or one registered",
       "React Native (`react-native`) has no built-in backend, because Hermes has no WebAssembly or workers — a native backend package registers one with `registerBackend`, or the app passes `options.backend`",
     ].join("; ");
 
@@ -1272,7 +1286,16 @@ modules already there. A spawned process is off the caller's thread either way.
 
 The package resolves to a different entry per host through export conditions:
 ${hosts}.
-
+${
+  this.opts.server
+    ? `
+\`${this.opts.packageName}/server\` holds the server bindings: implement \`Handler\` (or
+\`SyncHandler\`) and answer the client's bytes with \`handleRequest\` (or
+\`handleRequestSync\`), to serve the service in TypeScript behind a backend
+object of your own.
+`
+    : ""
+}
 ## Build
 
 The package shell (package.json, tsconfig, \`src/*.ts\`, \`packages/\`) is

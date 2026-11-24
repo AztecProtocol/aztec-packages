@@ -1,5 +1,5 @@
-// The Kv service: its one factory (make_service), which the server process (main.cpp), the native library and the
-// wasm module all make the service through, over the handlers below. Each handler answers from the instance's
+// The Kv service: its one factory (make_service), which the server process (main.cpp) and the native library both
+// make the service through, over the handlers below. Each handler answers from the instance's
 // Store, and a failure is the service's error, carrying SQLite's message (a wrong key reads "file is not a
 // database").
 #include "generated/kv_dispatch.hpp"

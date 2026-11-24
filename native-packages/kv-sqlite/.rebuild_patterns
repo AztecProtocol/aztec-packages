@@ -7,4 +7,3 @@
 ^ipc-codegen/src/
 ^ipc-codegen/templates/
 ^ipc-runtime/cpp/
-^barretenberg/cpp/cmake/toolchains/wasm32-wasi\.cmake$

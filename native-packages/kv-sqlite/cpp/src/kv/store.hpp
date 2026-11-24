@@ -88,10 +88,7 @@ class Store {
 /** The value's digest as the `hash` column holds it: SHA-256, lowercase hex. */
 std::string value_hash(const uint8_t* data, size_t length);
 
-/**
- * Where a store's files live: the file system natively, the host's `files` target in a wasm module
- * (host_vfs.cpp). SQLite reaches them through its VFS; these are for what the store does to whole files.
- */
+/** What the store does to whole files on the file system (SQLite's own VFS does its I/O). */
 namespace files {
 /** The file's bytes. Throws if it can't be read. */
 Bytes read(const std::string& path);
