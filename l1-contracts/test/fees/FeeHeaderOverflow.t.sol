@@ -14,7 +14,6 @@ import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {console} from "forge-std/console.sol";
@@ -85,7 +84,7 @@ contract FeeHeaderOverflowTest is DecoderBase {
     view
     returns (ProposeArgs memory, CommitteeAttestations memory, address[] memory)
   {
-    bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archiveRoot = TestConstants.GENESIS_ARCHIVE_ROOT;
     ProposedHeader memory header = full.checkpoint.header;
     Slot slotNumber = _rollup.getCurrentSlot();
 

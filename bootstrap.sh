@@ -662,6 +662,7 @@ function release {
     noir
     l1-contracts
     protocol/constants-codegen
+    protocol/genesis
     noir-projects/fnd
   )
 
@@ -685,7 +686,7 @@ function private_release {
   # ci-release-pr label creates, on demand. There are no private nightlies by design
   # (nightly-release-tag.yml runs in the public repo alone). ci3_labels_to_env.sh forces
   # PRIVATE_RELEASE=1 for every release in that repo. We publish only our foundation npm packages (barretenberg/ts, noir,
-  # ipc-runtime, wsdb, protocol/constants-codegen, l1-contracts' l1-artifacts, the noir-projects/fnd
+  # ipc-runtime, wsdb, protocol/constants-codegen, protocol/genesis, l1-contracts' l1-artifacts, the noir-projects/fnd
   # artifacts packages) to the INTERNAL_NPM_REGISTRY npm repo in our internal GCP Artifact Registry.
   # We run the release step for real on exactly those components and do not invoke the others — the
   # remaining release sources publish public artifacts (github releases, crates.io) and are not
@@ -723,7 +724,7 @@ function private_release {
 
   # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
-  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen l1-contracts noir-projects/fnd)
+  local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen protocol/genesis l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
     $project/bootstrap.sh release
   done
@@ -1063,12 +1064,12 @@ case "$cmd" in
     export AVM=0
     export AVM_TRANSPILER=0
     # bb.js formatting only runs yarn in the barretenberg/ts workspace: it needs that workspace installed and the
-    # generated @aztec-foundation/bb.js-api compiled (build_bb_js_api_ts does both), and its lint resolves
+    # generated @aztec-foundation/bb.js-api compiled (build_packages_ts does both), and its lint resolves
     # @aztec-foundation/ipc-runtime through ipc-runtime's built dest/. Generating that package reads and
     # installs bb's wasm builds, so bb is built first.
     barretenberg/cpp/bootstrap.sh build
     ipc-runtime/bootstrap.sh build
-    barretenberg/ts/bootstrap.sh build_bb_js_api_ts
+    barretenberg/ts/bootstrap.sh build_packages_ts
     barretenberg/ts/bb.js/bootstrap.sh formatting
     barretenberg/crs/bootstrap.sh
     barretenberg/cpp/bootstrap.sh test

@@ -14,7 +14,7 @@
  */
 #include "common/aztec_constants.hpp"
 #include "field/field_element.hpp"
-#include "world_state/genesis_protocol_nullifiers.hpp"
+#include "world_state/test_genesis.hpp"
 #include "wsdb/generated/ipc_codegen/msgpack_adaptor.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
 #include "wsdb/generated/wsdb_ffi_backend.hpp"
@@ -106,7 +106,7 @@ std::vector<std::string> aztec_wsdb_options(const std::filesystem::path& data_di
     std::filesystem::create_directories(data_dir);
     std::ostringstream nullifiers;
     nullifiers << "[";
-    auto seeds = world_state::genesis_protocol_nullifiers();
+    auto seeds = world_state::test_genesis_nullifiers();
     for (size_t i = 0; i < seeds.size(); ++i) {
         std::ostringstream hex;
         hex << seeds[i];
@@ -372,7 +372,7 @@ class DiffRun {
                                 .prefilledNullifiers = {},
                                 .genesisTimestamp = 0,
                                 .initialHeaderGeneratorPoint = static_cast<uint32_t>(DOM_SEP__BLOCK_HEADER_HASH) };
-        for (const auto& seed : world_state::genesis_protocol_nullifiers()) {
+        for (const auto& seed : world_state::test_genesis_nullifiers()) {
             genesis.prefilledNullifiers.push_back(bytes_of<wire::Fr>(seed));
         }
         // aztec-wsdb takes its genesis when it is opened; wsdb-ref, from Init, which replaces any earlier state.

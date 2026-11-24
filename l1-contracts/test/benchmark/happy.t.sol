@@ -11,7 +11,6 @@ import {Multicall3} from "./Multicall3.sol";
 import {PartialEpochProofGasReporter} from "./PartialEpochProofGasReporter.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
   AttestationLib,
   Signature,
@@ -307,7 +306,7 @@ abstract contract BenchmarkRollupBase is FeeModelTestPoints, DecoderBase {
   function getCheckpoint() internal returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
-    bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
+    bytes32 archiveRoot = TestConstants.GENESIS_ARCHIVE_ROOT;
 
     ProposedHeader memory header = full.checkpoint.header;
 
