@@ -18,7 +18,9 @@ on:
 concurrency:
   # Pushes to next: one run per commit, so a later merge does not cancel the full run (and
   # benchmarks) of the one before. Everything else: one run per branch.
-  group: ci3-${{ (github.event_name == 'push' && github.ref == 'refs/heads/next' && github.sha) || github.event.merge_group.head_ref || github.ref_name }}
+  # A label that does not affect CI (see the job's `if`) gets a group of its own, so its skipped run
+  # does not cancel the run already in progress.
+  group: ci3-${{ (github.event.action == 'labeled' && !startsWith(github.event.label.name, 'ci-') && github.event.label.name != 'no-cache' && github.run_id) || (github.event_name == 'push' && github.ref == 'refs/heads/next' && github.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -44,7 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
-    if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft'))
+    # Adding a label starts CI only if the label affects CI: every CI label starts with "ci-", plus "no-cache"
+    # (see ci3_labels_to_env.sh). Other labels, such as triage labels, would otherwise restart CI from scratch.
+    if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft')) && (github.event.action != 'labeled' || startsWith(github.event.label.name, 'ci-') || github.event.label.name == 'no-cache')
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     permissions:
       id-token: write   # required for OIDC assume-role with AWS
@@ -117,6 +121,8 @@ jobs:
           INTERNAL_DOCKER_REGISTRY: ${{ vars.INTERNAL_DOCKER_REGISTRY }}
           MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          # Optional: pull requests into base branches matching this pattern skip CI (see .github/ci3.sh).
+          CI3_SKIP_PR_BASES: ${{ vars.CI3_SKIP_PR_BASES }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

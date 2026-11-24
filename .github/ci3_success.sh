@@ -55,9 +55,9 @@ function handle_chonk_input_update {
 
 function main {
   echo_header "CI3 Post-Actions"
-  # Set by .github/ci3.sh when it skipped CI because the pull request was already closed.
-  if [ "${CI3_PR_CLOSED:-0}" -eq 1 ]; then
-    echo "The pull request was closed before CI ran; nothing to do."
+  # Set by .github/ci3.sh when it skipped CI (the pull request was already closed, or its base branch is skipped).
+  if [ "${CI3_SKIPPED:-0}" -eq 1 ]; then
+    echo "CI was skipped for this pull request; nothing to do."
     return
   fi
   # Get repository from git remote

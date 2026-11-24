@@ -108,6 +108,15 @@ function pr_closed {
   [ "$state" == "closed" ]
 }
 
+# Succeeds if this run is for a pull request into a base branch that the repository has chosen to skip:
+# the repository variable CI3_SKIP_PR_BASES holds a bash regular expression (e.g. `^experimental/` for experimental
+# integration branches), matched against the base branch name. Empty or unset, as by default, skips nothing.
+function pr_base_skipped {
+  [ -n "${CI3_SKIP_PR_BASES:-}" ] && [ -n "${PR_BASE_REF:-}" ] || return 1
+  [[ "${GITHUB_EVENT_NAME:-}" == pull_request* ]] || return 1
+  [[ "$PR_BASE_REF" =~ $CI3_SKIP_PR_BASES ]]
+}
+
 function main {
   echo_header "CI3 Main Script"
   echo "CI mode: $CI_MODE"
@@ -122,15 +131,23 @@ function main {
     handle_release_pr
     exit 0
   fi
-  # Skip CI for a pull request that is already closed (see pr_closed). Only on a run's first attempt, so a
-  # manual re-run still runs CI.
-  # CI3_PR_CLOSED, passed to later steps through GITHUB_ENV, tells Post-Actions (.github/ci3_success.sh) to do
+  # Skip CI for a pull request that is already closed (see pr_closed), or whose base branch the repository
+  # has chosen to skip (see pr_base_skipped). Only on a run's first attempt, so a manual re-run still runs CI.
+  # CI3_SKIPPED, passed to later steps through GITHUB_ENV, tells Post-Actions (.github/ci3_success.sh) to do
   # nothing: it records no CI success for this tree and does not act on labels such as ci-squash-and-merge.
   # Placed before check_cache, which would otherwise export CI_CACHE_NAME for Post-Actions.
-  if [ "${GITHUB_RUN_ATTEMPT:-1}" -eq 1 ] && pr_closed; then
-    echo "Pull request #${PR_NUMBER} is closed; not running CI." >&2
-    [ -z "${GITHUB_ENV:-}" ] || echo "CI3_PR_CLOSED=1" >>"$GITHUB_ENV"
-    exit 0
+  if [ "${GITHUB_RUN_ATTEMPT:-1}" -eq 1 ]; then
+    local skip_reason=""
+    if pr_base_skipped; then
+      skip_reason="its base branch ${PR_BASE_REF} matches CI3_SKIP_PR_BASES"
+    elif pr_closed; then
+      skip_reason="it is closed"
+    fi
+    if [ -n "$skip_reason" ]; then
+      echo "Not running CI for pull request #${PR_NUMBER}: ${skip_reason}. Re-run the job to run CI anyway." >&2
+      [ -z "${GITHUB_ENV:-}" ] || echo "CI3_SKIPPED=1" >>"$GITHUB_ENV"
+      exit 0
+    fi
   fi
   check_cache
   echo_header "Run ${CI_MODE} CI"
