@@ -43,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          ./.github/ci3.sh barretenberg-nightly
+          exec ./.github/ci3.sh barretenberg-nightly
 
       - name: Notify Slack on failure
         if: failure() && github.event_name != 'workflow_dispatch'
