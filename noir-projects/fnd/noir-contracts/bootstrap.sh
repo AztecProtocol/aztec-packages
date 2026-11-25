@@ -97,9 +97,52 @@ function compile {
 }
 export -f compile
 
+# Fails when the private-function VKs in a pinned artifact differ from the ones the current bb derives from its
+# bytecode. A proof-system change can move a VK without any bytecode change, and a stale pinned VK fails proving.
+# $1 is the path of a pinned artifact in target/.
+function check_pinned_vks {
+  set -euo pipefail
+  local json_path=$1
+  local tmp=$(mktemp -d)
+  trap "rm -rf $tmp" EXIT
+  cp "$json_path" $tmp/artifact.json
+  $BB aztec_process -i $tmp/artifact.json --force >&2
+  local vks='[.functions[] | {name, verification_key}] | sort_by(.name)'
+  if ! diff <(jq -c "$vks" "$json_path") <(jq -c "$vks" $tmp/artifact.json) >/dev/null; then
+    echo_stderr "ERROR: pinned VKs in $json_path do not match the VKs the current bb computes from its pinned bytecode."
+    echo_stderr "The pin holds the deployed protocol contracts: a bb change that moves these VKs changes the protocol."
+    return 1
+  fi
+}
+export -f check_pinned_vks
+
+# Unpacks the deployed protocol contract artifacts from pinned-build.tar.gz into target/ instead of compiling them,
+# so a Noir, transpiler or bb change cannot move a protocol contract class id.
+function build_pinned {
+  set -euo pipefail
+  echo_stderr "Using pinned-build.tar.gz instead of compiling protocol contracts."
+  rm -rf target
+  mkdir -p target
+  tar xzf pinned-build.tar.gz -C target
+  local artifact
+  for artifact in target/*.json; do
+    stamp_dev_aztec_version "$artifact"
+  done
+  set +e
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag check_pinned_vks {} ::: target/*.json
+  local code=$?
+  cat joblog.txt
+  return $code
+}
+
 # If given an argument, it's the contract to compile.
-# Otherwise parse out all contracts from the root Nargo.toml and process them in parallel.
+# Otherwise parse out all contracts from the root Nargo.toml and process them in parallel, or unpack
+# pinned-build.tar.gz when it exists.
 function build {
+  if [ "$#" -eq 0 ] && [ -f pinned-build.tar.gz ]; then
+    build_pinned
+    return
+  fi
   echo_stderr "Compiling protocol contracts (bb-hash: $BB_HASH)..."
   if [ "$#" -eq 0 ]; then
     rm -rf target
@@ -141,6 +184,16 @@ function test {
 
 function format {
   $NARGO fmt
+}
+
+# Compiles the protocol contracts from source and writes the result to pinned-build.tar.gz. The pin is what the
+# network deploys: re-pinning changes protocol contract class ids, so it is a protocol upgrade, not a build fix.
+function pin-build {
+  rm -f pinned-build.tar.gz
+  build
+  echo_stderr "Creating pinned-build.tar.gz from target..."
+  tar czf pinned-build.tar.gz -C target .
+  echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in
