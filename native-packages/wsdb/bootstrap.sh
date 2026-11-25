@@ -28,7 +28,8 @@ function generate_ts_package {
     --package-name @aztec-labs/wsdb \
     --binary-name "$WSDB_BINARY" \
     --package-transports uds,shm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}'
+    --package-ipc-path-args 'msgpack,run,--input,{path}' \
+    "$@"
 }
 
 # Build the standalone aztec-wsdb binary.
@@ -36,9 +37,6 @@ function build_native {
   local build_dir="cpp/build"
   CC=$(which clang) CXX=$(which clang++) cmake -S cpp -B "$build_dir" -G Ninja >/dev/null
   cmake --build "$build_dir" --target "$WSDB_BINARY" wsdb_tests wsdb_bench
-  local target_dir="ts/build/$(arch)-$(os)"
-  mkdir -p "$target_dir"
-  cp "$build_dir/bin/$WSDB_BINARY" "$target_dir/$WSDB_BINARY"
 }
 
 # Cross-compile aztec-wsdb for a non-host release platform with zig (cpp/CMakePresets.json).
@@ -46,17 +44,14 @@ function build_cross {
   local platform=$1
   echo_header "wsdb build_cross $platform"
   (cd cpp && cmake --preset "$platform" >/dev/null && cmake --build --preset "$platform")
-  mkdir -p "ts/build/$platform"
-  cp "cpp/build-$platform/bin/$WSDB_BINARY" "ts/build/$platform/$WSDB_BINARY"
 }
 
 function build {
   echo_header "wsdb build"
   build_native
-  generate_ts_package
+  generate_ts_package --package-native "$(arch)-$(os)=$PKG/cpp/build/bin/$WSDB_BINARY"
   npm_install_deps
   yarn build
-  (cd ts && yarn prepare_arch_packages "$(arch)-$(os)=build/$(arch)-$(os)/$WSDB_BINARY")
 }
 
 # Emit test commands for the CI test engine.
@@ -95,10 +90,13 @@ function release {
   for platform in arm64-linux amd64-macos arm64-macos; do
     build_cross $platform
   done
-  generate_ts_package
+  generate_ts_package --package-every-platform \
+    --package-native "$(arch)-$(os)=$PKG/cpp/build/bin/$WSDB_BINARY" \
+    --package-native "arm64-linux=$PKG/cpp/build-arm64-linux/bin/$WSDB_BINARY" \
+    --package-native "amd64-macos=$PKG/cpp/build-amd64-macos/bin/$WSDB_BINARY" \
+    --package-native "arm64-macos=$PKG/cpp/build-arm64-macos/bin/$WSDB_BINARY"
   npm_install_deps
   yarn build
-  (cd ts && yarn prepare_arch_packages)
   for package_dir in ts/packages/*; do
     (cd "$package_dir" && retry "deploy_npm ${REF_NAME#v}")
   done
