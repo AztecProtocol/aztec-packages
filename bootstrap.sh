@@ -454,14 +454,23 @@ function prep {
   pull_submodules
 }
 
+# Prints what make would build and why, from the steps' cache keys (ci3/step_plan). Only informative: a
+# failure here never stops the build.
+function plan {
+  echo_header "plan"
+  step_plan "$1" || echo_stderr "Could not work out the build plan. Building anyway."
+}
+
 function build {
   prep
+  plan ${1:-fast}
   echo_header "build"
   make ${1:-fast}
 }
 
 function build_and_test {
   prep
+  plan $1
   echo_header "build and test"
 
   # Start the test engine.
@@ -890,6 +899,11 @@ case "$cmd" in
   "check")
     check_toolchains
     echo "Toolchains look good! 🎉"
+  ;;
+  "plan")
+    # ./bootstrap.sh plan [make goal]: what a build of it would restore, and what it would build and why.
+    pull_submodules
+    plan "${1:-fast}"
   ;;
   "")
     install_hooks

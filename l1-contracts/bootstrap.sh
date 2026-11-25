@@ -41,6 +41,8 @@ function download_solc {
   cache_upload "$artifact" "$solc_path"
 }
 
+# The test commands' key. The builds are keyed and cached as make steps (l1-contracts-src and so on), from the
+# make graph: the verifier's key covers the circuits it is copied from through the noir-protocol-circuits step.
 # We rely on noir-projects for the verifier contract. The noir hash covers the compiler that builds those
 # circuits, which the content patterns alone do not capture.
 export hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
@@ -49,8 +51,10 @@ export hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
   ../barretenberg/cpp/.rebuild_patterns
 ))
 
-function build_src {
-  echo_header "l1-contracts build_src"
+# What the builds need whether or not their outputs come from the cache: the generated sources, solc, the npm
+# dependencies and the libraries.
+function prep {
+  echo_header "l1-contracts prep"
 
   scripts/remake-constants.sh
 
@@ -60,61 +64,57 @@ function build_src {
   # Deps install
   npm_install_deps
 
-  local artifact=l1-contracts-src-$hash.tar.gz
-  if ! cache_download $artifact; then
-    # Clean
-    rm -rf broadcast cache out serve
+  # Check out the libraries at the revisions this repository records. `forge install` is not used for
+  # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
+  # names a revision that a shallow clone does not have.
+  git submodule update --init --recursive ./lib
+}
 
-    # Check out the libraries at the revisions this repository records. `forge install` is not used for
-    # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
-    # names a revision that a shallow clone does not have.
-    git submodule update --init --recursive ./lib
+# build_src, build_verifier and build_artifacts build unconditionally, after prep: their make steps restore
+# them from the cache instead when they can.
+function build_src {
+  echo_header "l1-contracts build_src"
 
-    # Compile contracts
-    # Build everything in src and test (except scripts that need generated verifier).
-    forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol' ! -path 'test/script/*' )
+  # Clean
+  rm -rf broadcast cache out serve
 
-    # Output storage information for the rollup contract.
-    forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+  # Compile contracts
+  # Build everything in src and test (except scripts that need generated verifier).
+  forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol' ! -path 'test/script/*' )
 
-    # Output storage information for the escape hatch contract.
-    forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
+  # Output storage information for the rollup contract.
+  forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
-    cache_upload $artifact out cache
-  fi
+  # Output storage information for the escape hatch contract.
+  forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
 }
 
 function build_verifier {
   echo_header "l1-contracts build_verifier"
 
-  local artifact=l1-contracts-verifier-$hash.tar.gz
-  if ! cache_download $artifact; then
-    mkdir -p generated
+  mkdir -p generated
 
-    # Copy from noir-projects. Bootstrap must have ran in noir-projects.
-    local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
-    if [ -f "$rollup_verifier_path" ]; then
-      cp "$rollup_verifier_path" generated/HonkVerifier.sol
-    else
-      echo_stderr "You may need to run ./bootstrap.sh in the noir-projects folder. Could not find the rollup verifier at $rollup_verifier_path."
-      exit 1
-    fi
-
-    # Build the generated verifier contract with optimization.
-    # Build the scripts that rely on the verifier. These are mutually exclusive with the build in build_src.
-    forge build \
-      $(find generated -name '*.sol') \
-      test/shouting.t.sol \
-      script/deploy/*.s.sol \
-      test/script/*.t.sol
-
-    # Leave the artifact set fully built so `forge test` has nothing left to compile. When forge
-    # incrementally compiles a handful of leftover files on top of an explicit-path build, the
-    # resulting artifacts are inconsistent and the Rollup-deploying suites revert in setUp.
-    forge build
-
-    cache_upload $artifact out cache generated
+  # Copy from noir-projects. Bootstrap must have ran in noir-projects.
+  local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
+  if [ -f "$rollup_verifier_path" ]; then
+    cp "$rollup_verifier_path" generated/HonkVerifier.sol
+  else
+    echo_stderr "You may need to run ./bootstrap.sh in the noir-projects folder. Could not find the rollup verifier at $rollup_verifier_path."
+    exit 1
   fi
+
+  # Build the generated verifier contract with optimization.
+  # Build the scripts that rely on the verifier. These are mutually exclusive with the build in build_src.
+  forge build \
+    $(find generated -name '*.sol') \
+    test/shouting.t.sol \
+    script/deploy/*.s.sol \
+    test/script/*.t.sol
+
+  # Leave the artifact set fully built so `forge test` has nothing left to compile. When forge
+  # incrementally compiles a handful of leftover files on top of an explicit-path build, the
+  # resulting artifacts are inconsistent and the Rollup-deploying suites revert in setUp.
+  forge build
 }
 
 # Generates the TypeScript L1 artifacts package (@aztec-foundation/l1-artifacts): ABIs, bytecode and storage
@@ -124,18 +124,12 @@ function build_verifier {
 function build_artifacts {
   echo_header "l1-contracts build_artifacts"
 
-  local artifact=l1-contracts-ts-$hash.tar.gz
-  if ! cache_download $artifact; then
-    (cd l1-artifacts && yarn build)
-
-    cache_upload $artifact l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts
-  fi
+  (cd l1-artifacts && yarn build)
 }
 
+# Through make, so the builds are restored from the cache when they can be.
 function build {
-  build_src
-  build_verifier
-  build_artifacts
+  make -C "$root" l1-contracts
 }
 
 function test_cmds {

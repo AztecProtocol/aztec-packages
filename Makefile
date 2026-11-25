@@ -27,11 +27,17 @@ ifneq ($(shell "$(ROOT)/bootstrap.sh" init >&2 && echo ok),ok)
 $(error ./bootstrap.sh init failed)
 endif
 
+# Steps: targets ci3 keys and caches from this graph (see ci3/step.mk). Converted targets below set INPUTS and
+# call step; a step's normal prerequisites are part of its key, its order-only ones (after |) only run first.
+include $(ROOT)/ci3/step.mk
+
 # Core helper to run a shell command with colored, prefixed output
 # Usage: $(call run_command,label,directory,command)
-# Color is automatically computed from label hash by color_prefix script
+# Color is automatically computed from label hash by color_prefix script.
+# step_legacy also records the project, so that a step depending on this target is keyed by the project's
+# ./bootstrap.sh hash, and in a planning run (ci3/step_plan) it runs nothing.
 define run_command
-	@cd $(2) && $(ROOT)/ci3/color_prefix $(1) "$(3)"
+	@$(ROOT)/ci3/step_legacy $(1) $(2) "$(3)"
 endef
 
 # Main build helper - calls bootstrap.sh with optional function argument
@@ -121,20 +127,26 @@ noir:
 # AVM Transpiler
 #==============================================================================
 
-avm-transpiler-native:
-	$(call build,$@,avm-transpiler,build_native)
+# Cargo builds noir's sources from the noir-repo submodule (path dependencies), not noir's build output, so
+# those sources are inputs rather than the noir target a prerequisite.
+AVM_TRANSPILER_INPUTS := avm-transpiler/.rebuild_patterns noir/.rebuild_patterns ^noir/noir-repo$$
 
+avm-transpiler-native: private INPUTS := $(AVM_TRANSPILER_INPUTS)
+avm-transpiler-native:
+	$(call step,$@,avm-transpiler,build_native,target/release/avm-transpiler target/release/libavm_transpiler.a)
+
+avm-transpiler-cross-%: private INPUTS := $(AVM_TRANSPILER_INPUTS)
 avm-transpiler-cross-amd64-macos:
-	$(call build,$@,avm-transpiler,build_cross amd64-macos)
+	$(call step,$@,avm-transpiler,build_cross amd64-macos,target/x86_64-apple-darwin/release/libavm_transpiler.a)
 
 avm-transpiler-cross-arm64-macos:
-	$(call build,$@,avm-transpiler,build_cross arm64-macos)
+	$(call step,$@,avm-transpiler,build_cross arm64-macos,target/aarch64-apple-darwin/release/libavm_transpiler.a)
 
 avm-transpiler-cross-arm64-linux:
-	$(call build,$@,avm-transpiler,build_cross arm64-linux)
+	$(call step,$@,avm-transpiler,build_cross arm64-linux,target/aarch64-unknown-linux-gnu/release/libavm_transpiler.a)
 
 avm-transpiler-cross-amd64-windows:
-	$(call build,$@,avm-transpiler,build_cross amd64-windows)
+	$(call step,$@,avm-transpiler,build_cross amd64-windows,target/x86_64-pc-windows-gnu/release/libavm_transpiler.a)
 
 avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
 
@@ -549,8 +561,11 @@ noir-protocol-circuits-variants:
 noir-projects-fnd-format-check: noir noir-protocol-circuits-variants
 	$(call build,$@,noir-projects/fnd,format_check)
 
-noir-protocol-circuits: noir bb-cpp-native noir-projects-fnd-format-check
-	$(call build,$@,noir-projects/fnd/noir-protocol-circuits)
+# Caches per circuit itself (outputs never), but as a step its key covers what the circuits are built from,
+# for the steps that use them. The format check only has to run first.
+noir-protocol-circuits: private INPUTS := noir-projects/fnd/noir-protocol-circuits
+noir-protocol-circuits: noir bb-cpp-native | noir-projects-fnd-format-check
+	$(call step,$@,noir-projects/fnd/noir-protocol-circuits,build,never)
 
 noir-protocol-circuits-tests: noir noir-protocol-circuits
 	$(call test,$@,noir-projects/fnd/noir-protocol-circuits)
@@ -604,13 +619,21 @@ noir-projects: noir-projects-fnd
 l1-contracts-solc:
 	$(call build,$@,l1-contracts,download_solc)
 
+# l1-contracts-prep: What every l1-contracts build needs whether or not its outputs come from the cache: the
+# generated constants, solc, the npm dependencies and the libraries. Not a step: it always runs.
+l1-contracts-prep: l1-contracts-solc
+	$(call build,$@,l1-contracts,prep)
+
+# The steps below run after prep (order-only): what it produces is derived from their inputs, not one.
+l1-contracts-%: private INPUTS := l1-contracts/.rebuild_patterns
+
 # l1-contracts-src: Build all src/ contracts (fully independent!)
-l1-contracts-src: l1-contracts-solc
-	$(call build,$@,l1-contracts,build_src)
+l1-contracts-src: | l1-contracts-prep
+	$(call step,$@,l1-contracts,build_src,out cache)
 
 # l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits)
-l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
-	$(call build,$@,l1-contracts,build_verifier)
+l1-contracts-verifier: noir-protocol-circuits l1-contracts-src | l1-contracts-prep
+	$(call step,$@,l1-contracts,build_verifier,out cache generated)
 
 # l1-contracts-artifacts: Generate the @aztec-foundation/l1-artifacts TS package (ABIs/bytecode/storage) and the
 # self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
@@ -618,8 +641,8 @@ l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 # produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
 # build_src only compiles the src/ coverage mock of the same name, which collides on the same out/ path
 # and would be published instead if the verifier had not run last.
-l1-contracts-artifacts: l1-contracts-verifier
-	$(call build,$@,l1-contracts,build_artifacts)
+l1-contracts-artifacts: l1-contracts-verifier | l1-contracts-prep
+	$(call step,$@,l1-contracts,build_artifacts,l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts)
 
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
