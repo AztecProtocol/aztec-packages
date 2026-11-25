@@ -43,17 +43,18 @@ function build_ec2 {
     exit 1
   fi
 
-  # Request new on-demand instance. The helper writes ip/iid into the state dir and the terminate
-  # helper takes that same dir. SSH mode (KEY_NAME set) so we can drive the build over ssh.
+  # Request new on-demand instance. The helper writes the iid into the state dir and the terminate
+  # helper takes that same dir. Like every build instance it has no key pair, and the build runs over SSM.
   instance_name=build_image_$(echo -n "$branch" | tr -c 'a-zA-Z0-9-' '_')_$arch
   state_dir=$(mktemp -d /tmp/aws_request_instance.XXXXXX)
   trap 'aws_terminate_instance $state_dir || true' EXIT
-  NO_SPOT=1 KEY_NAME=${KEY_NAME:-build-instance} aws_request_instance $instance_name $cpus $arch $state_dir
-  local ip=$(cat $state_dir/ip)
+  NO_SPOT=1 aws_request_instance $instance_name $cpus $arch $state_dir
+  local iid=$(tr -d '\n\r ' < $state_dir/iid)
 
-  ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  SSM_RUN_AS=ubuntu SSM_POLL_TIMEOUT=$((${AWS_SHUTDOWN_TIME:-60} * 60)) ssm_send_command "$iid" "
     set -euo pipefail
-    export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
+    export DOCKERHUB_PASSWORD=$(printf %q "$DOCKERHUB_PASSWORD")
+    cd ~
     mkdir aztec-packages
     cd aztec-packages
     git init . &>/dev/null

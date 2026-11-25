@@ -237,7 +237,7 @@ echo "  - benchmark_breakdown.json (hierarchical timing breakdown)"
 echo "  - proof (the generated proof)"
 
 # Upload benchmark breakdown to disk if running in CI
-if [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+if bench_upload_enabled; then
   echo_header "Uploading UltraHonk benchmark breakdown for $circuit_name (cpus=$cpus)"
 
   if [[ -f "$output/benchmark_breakdown.json" ]]; then
