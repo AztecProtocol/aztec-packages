@@ -6,9 +6,11 @@ ROOT=$(git rev-parse --show-toplevel)
 PKG="$ROOT/native-packages/kvdb"
 NAPI_BINARY=nodejs_module.node
 
-hash=$(hash_str \
-  $(../lmdblib/bootstrap.sh hash) \
-  $(cache_content_hash .rebuild_patterns))
+# Only for `./bootstrap.sh hash`, which scripts/labs_fnd_hashes.sh still reads. The build itself is keyed and cached
+# as the kvdb make step. A function, so the build doesn't pay for lmdblib's.
+function content_hash {
+  echo "$(hash_str $(../lmdblib/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))"
+}
 
 # Build the NAPI addon. kvdb is barretenberg-free: it builds and links only the lmdblib
 # sibling package (+ lmdb, node-addon-api).
@@ -30,7 +32,9 @@ function build_cross {
   cp "cpp/build-$platform/lib/$NAPI_BINARY" "ts/build/$platform/$NAPI_BINARY"
 }
 
-function build {
+# Builds unconditionally: the kvdb make step restores the TS package (ts/dest, ts/build, ts/packages) from the cache
+# instead when it can.
+function build_package {
   echo_header "kvdb build"
   build_native
   # Create the per-arch workspace packages BEFORE installing: npm_install_deps does
@@ -42,9 +46,21 @@ function build {
   yarn build
 }
 
-# Emit test commands for the CI test engine: the addon's message protocol, driven over msgpack from node.
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" kvdb
+}
+
+# Emit test commands for the CI test engine: the addon's message protocol, driven over msgpack from node. Keyed by
+# the kvdb-tests make step.
 function test_cmds {
-  echo "$hash:TIMEOUT=120s cd native-packages/kvdb/ts && node --test test/*.test.mjs"
+  echo "${STEP_KEY:-disabled-cache}:TIMEOUT=120s native-packages/kvdb/bootstrap.sh test_ts"
+}
+
+# The tests import msgpackr from the workspace's node_modules, which a build restored from the cache does not bring.
+function test_ts {
+  npm_install_deps
+  cd ts && node --test test/*.test.mjs
 }
 
 # Manual: build then run the tests directly.
@@ -72,14 +88,14 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f build_native build_cross build test_cmds test clean release
+export -f build_native build_cross build_package build test_cmds test_ts test clean release
 
 case "$cmd" in
   "")
     build
     ;;
   "hash")
-    echo "$hash"
+    content_hash
     ;;
   *)
     default_cmd_handler "$@"
