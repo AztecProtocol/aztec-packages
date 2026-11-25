@@ -222,6 +222,8 @@ function check_library_warnings {
 }
 
 # One `<sha256 of the VK>  <circuit>` line per protocol circuit with a VK, as built into target/.
+# vk_hashes.txt pins what is deployed for v6 and must not change on this branch. Never regenerate it to make CI
+# pass: revert whatever moved the hashes instead. See <protocol_hash_pins> in the root CLAUDE.md.
 function vk_hashes {
   local artifact vk
   for artifact in target/*.json; do

@@ -123,6 +123,8 @@ function build {
 # One `<sha256>  <contract>` line per protocol contract, over everything in its artifact that determines its logic:
 # each function's ABI, bytecode (private ACIR or transpiled public bytecode) and VK, and the storage layout and
 # structs in `outputs`. Debug info, source and version stamps are left out.
+# contract_hashes.txt pins what is deployed for v6 and must not change on this branch. Never regenerate it to make CI
+# pass: revert whatever moved the hashes instead. See <protocol_hash_pins> in the root CLAUDE.md.
 function contract_hashes {
   local artifact
   for artifact in target/*.json; do

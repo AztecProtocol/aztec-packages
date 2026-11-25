@@ -142,6 +142,8 @@ function build {
 # embeds the runtime code and, through the metadata hash, every source file and compiler setting the contract is
 # built from, so any change to what one of these contracts would deploy changes its line. out/ is the default
 # profile's build, which is what DeployRollupForUpgradeV6 deploys to mainnet.
+# bytecode_hashes.txt pins what is deployed for v6 and must not change on this branch. Never regenerate it to make CI
+# pass: revert whatever moved the hashes instead. See <protocol_hash_pins> in the root CLAUDE.md.
 function bytecode_hashes {
   find out -name '*.json' -not -path 'out/build-info/*' -print0 | \
     xargs -0 jq -r 'select((.bytecode.object // "0x") != "0x")

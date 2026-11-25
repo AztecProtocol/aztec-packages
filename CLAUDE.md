@@ -96,6 +96,10 @@ How the labs submodule is built and tested against this tree (all foundation-own
 Never run `labs/noir-projects/noir-contracts/bootstrap.sh pin-standard-build` on your own initiative. The pin exists so ordinary source or bytecode changes do NOT move the standard contracts' canonical addresses, and CI does not fail when the bytecode drifts. A re-pin is a deliberate redeploy decision for a human to make: if a change seems to need one, leave the pin, rebuild against it, and ask. See the comment on `pin-standard-build` for why re-pinning is breaking.
 </standard_contract_repin>
 
+<protocol_hash_pins>
+`noir-projects/fnd/noir-protocol-circuits/vk_hashes.txt`, `noir-projects/fnd/noir-contracts/contract_hashes.txt` and `l1-contracts/bytecode_hashes.txt` pin the deployed protocol: circuit VKs, protocol contracts and L1 bytecode. Never edit or regenerate them on your own initiative, and never to make a failing `check_pinned_hashes` test pass. A failure means the change alters the protocol: find and revert what moved the hashes. Updating a pin is a protocol change that only the protocol owners can approve; if a task seems to need one, stop and ask.
+</protocol_hash_pins>
+
 </git_workflow>
 
 <code_formatting>

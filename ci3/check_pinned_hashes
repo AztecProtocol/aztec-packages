@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fails when the output of a hash command differs from the committed file of expected hashes, so that a PR
-# which changes a pinned artifact has to change that file as well, where reviewers see it.
+# Fails when the output of a hash command differs from the committed file of expected hashes. The files pin
+# deployed protocol artifacts (circuit VKs, protocol contracts, L1 bytecode), so a mismatch means the PR changes
+# the protocol. Do not update a hashes file to make this check pass; see <protocol_hash_pins> in the root CLAUDE.md.
 # Usage: check_pinned_hashes <committed hashes file> <command that prints the current hashes...>
 set -euo pipefail
 
@@ -8,7 +9,9 @@ file=$1
 shift
 
 if ! "$@" | diff -u "$file" -; then
-  echo "The artifacts above differ from $file (- committed, + built)." >&2
-  echo "If the change is intended, run '$* > $file' from the repository root and commit the result." >&2
+  echo "The protocol artifacts above differ from $file (- committed, + built)." >&2
+  echo "This PR changes what is deployed. Do NOT update $file to make this check pass, and do not let an agent do so:" >&2
+  echo "find and revert the change that moved these hashes. Only a protocol change that the protocol owners have" >&2
+  echo "explicitly approved may update the file, with '$* > $file' from the repository root." >&2
   exit 1
 fi
