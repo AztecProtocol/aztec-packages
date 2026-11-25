@@ -75,7 +75,6 @@ fast-foundation: barretenberg bb-tests \
 		ipc-runtime ipc-codegen-tests \
 		constants-codegen constants-codegen-tests \
 		labs-patches-tests \
-		ci3-tests \
 		claude-tests \
 		scripts-tests
 
@@ -429,11 +428,6 @@ claude-tests:
 .PHONY: scripts-tests
 scripts-tests:
 	$(call test,$@,scripts)
-
-# The ci3 scripts' own tests (redact, semver, cache, ...).
-.PHONY: ci3-tests
-ci3-tests:
-	$(call test,$@,ci3)
 
 #==============================================================================
 # Labs (aztec-node, checked out as the labs/ submodule)
