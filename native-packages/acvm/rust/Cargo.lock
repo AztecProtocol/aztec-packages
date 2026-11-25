@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acir"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir_field",
  "base64 0.23.1",
@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -38,7 +38,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -53,13 +53,14 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir",
  "aes",
  "blake2",
  "blake3",
  "cbc",
+ "ecdsa",
  "k256",
  "keccak",
  "log",
@@ -332,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "bn254_blackbox_solver"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -346,7 +347,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir_field",
  "itertools 0.15.0",
@@ -356,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -740,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "iter-extended"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 
 [[package]]
 name = "itertools"
@@ -821,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "msgpack_tagged_derive",
  "rmp",
@@ -832,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged_derive"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -841,7 +842,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -857,7 +858,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "1.0.0-rc.5"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "iter-extended",

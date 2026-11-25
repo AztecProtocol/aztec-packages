@@ -15,9 +15,9 @@ noir/scripts/bump_noir_compiler.sh <ref>
 
 `<ref>` is any noir-lang/noir git reference — a release tag (`v1.0.0-beta.23`), a
 nightly tag (`nightly-2026-06-02`), a branch, or a commit. With no `<ref>` it uses
-the latest `nightly-*` tag. The script bumps the submodule, refreshes
-`avm-transpiler/Cargo.lock` and `yarn-project/yarn.lock`, reformats `noir-projects`,
-and stages everything. It does not commit.
+the latest `nightly-*` tag. The script bumps the submodule, refreshes the
+Cargo.lock of `avm-transpiler` and `native-packages/acvm` (both use noir crates by
+path), reformats `noir-projects`, and stages everything. It does not commit.
 
 Read the script's header and inline comments for what each step does, why, and how
 to recover when a step fails (e.g. a changed transitive Cargo dependency, or the
