@@ -41,15 +41,17 @@ function download_solc {
   cache_upload "$artifact" "$solc_path"
 }
 
-# The test commands' key. The builds are keyed and cached as make steps (l1-contracts-src and so on), from the
-# make graph: the verifier's key covers the circuits it is copied from through the noir-protocol-circuits step.
-# We rely on noir-projects for the verifier contract. The noir hash covers the compiler that builds those
-# circuits, which the content patterns alone do not capture.
-export hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
-  .rebuild_patterns \
-  ../noir-projects/fnd/noir-protocol-circuits \
-  ../barretenberg/cpp/.rebuild_patterns
-))
+# Not a key the build or its tests use: make keys those, from the make graph (l1-contracts-src and so on).
+# It is what `./bootstrap.sh hash` prints, for scripts/labs_fnd_hashes.sh, and what bench_cmds keys the
+# benchmark with, both outside make. The noir hash covers the compiler that builds the circuits the
+# verifier is copied from, which the content patterns alone do not capture.
+function content_hash {
+  hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
+    .rebuild_patterns \
+    ../noir-projects/fnd/noir-protocol-circuits \
+    ../barretenberg/cpp/.rebuild_patterns
+  )
+}
 
 # What the builds need whether or not their outputs come from the cache: the generated sources, solc, the npm
 # dependencies and the libraries.
@@ -72,25 +74,51 @@ function prep {
 
 # build_src, build_verifier and build_artifacts build unconditionally, after prep: their make steps restore
 # them from the cache instead when they can.
+
+# Where build_src compiles: its make step's $STEP_OUT, or the same place when run by hand, so build_verifier
+# always finds it there.
+src_out=$PWD/ci3-out/l1-contracts-src
+
 function build_src {
   echo_header "l1-contracts build_src"
 
-  # Clean
-  rm -rf broadcast cache out serve
+  rm -rf broadcast serve
+  local dir=${STEP_OUT:-$src_out}
+  [ -n "${STEP_OUT:-}" ] || { rm -rf "$dir"; mkdir -p "$dir"; }
+  # forge records these paths in its cache relative to this directory, so build_verifier can move them.
+  local -x FOUNDRY_OUT=$dir/out FOUNDRY_CACHE_PATH=$dir/cache
 
   # Compile contracts
   # Build everything in src and test (except scripts that need generated verifier).
   forge build $(find src test -name '*.sol' ! -name 'shouting.t.sol' ! -path 'test/script/*' )
 
   # Output storage information for the rollup contract.
-  forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+  forge inspect --json src/core/Rollup.sol:Rollup storage > "$FOUNDRY_OUT/Rollup.sol/storage.json"
 
   # Output storage information for the escape hatch contract.
-  forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > ./out/EscapeHatch.sol/storage.json
+  forge inspect --json src/core/EscapeHatch.sol:EscapeHatch storage > "$FOUNDRY_OUT/EscapeHatch.sol/storage.json"
+
+  # The sources' modification times differ between checkouts, and forge decides what to recompile by content
+  # hash, so they are zeroed: the same sources then give the same outputs, and a step after this one stays cached.
+  local files_cache=$FOUNDRY_CACHE_PATH/solidity-files-cache.json
+  jq -c '.files |= map_values(.lastModificationDate = 0)' "$files_cache" >"$files_cache.tmp"
+  mv "$files_cache.tmp" "$files_cache"
 }
 
 function build_verifier {
   echo_header "l1-contracts build_verifier"
+
+  # Continue from build_src's compilation, in out/ and cache/: the tests, the deploy scripts and l1-artifacts
+  # read them there. forge's cache names the directories it was built into, which it otherwise takes to mean
+  # that nothing in it is current.
+  if [ ! -f "$src_out/cache/solidity-files-cache.json" ]; then
+    echo_stderr "No build_src output in $src_out: run ./bootstrap.sh build_src first."
+    exit 1
+  fi
+  rm -rf out cache generated
+  cp -a "$src_out/out" "$src_out/cache" .
+  jq -c '.paths.artifacts = "out" | .paths.build_infos = "out/build-info"' \
+    "$src_out/cache/solidity-files-cache.json" >cache/solidity-files-cache.json
 
   mkdir -p generated
 
@@ -132,22 +160,24 @@ function build {
   make -C "$root" l1-contracts
 }
 
+# Keyed by the l1-contracts-tests step ($STEP_KEY): its inputs, the verifier's outputs and the circuits' key.
 function test_cmds {
-  echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
-  echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && scripts/check_contract_sizes.sh"
-  # generated/HonkVerifier.sol is restored from the cache on a $hash hit, so compare it with the verifier
-  # the circuits build wrote. Keyed on that verifier as well as $hash: under $hash alone the check would
-  # be skipped as already passed in the one case it exists for, a $hash that did not move when the
-  # verifier did.
+  local key=${STEP_KEY:-disabled-cache}
+  echo "$key cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
+  echo "$key cd l1-contracts && forge fmt --check"
+  echo "$key cd l1-contracts && scripts/check_contract_sizes.sh"
+  # generated/HonkVerifier.sol comes from the l1-contracts-verifier step, restored from the cache when its key
+  # is, so compare it with the verifier the circuits build wrote. Keyed on that file's content as well: under
+  # the step's key alone the check would be skipped as already passed in the one case it exists for, the
+  # circuits' key not moving when their verifier did.
   local rollup_verifier_path=../noir-projects/fnd/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
-  local verifier_hash=$(hash_str $hash $(sha256sum < $rollup_verifier_path | cut -d' ' -f1))
-  echo "$verifier_hash cd l1-contracts && cmp generated/HonkVerifier.sol $rollup_verifier_path"
-  echo "$hash cd l1-contracts && forge test"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
-  echo "$hash:ISOLATE=1 cd l1-contracts && scripts/test_rollup_upgrade.sh"
+  local verifier_key=$(hash_str $key $(sha256sum < $rollup_verifier_path | cut -d' ' -f1))
+  echo "$verifier_key cd l1-contracts && cmp generated/HonkVerifier.sol $rollup_verifier_path"
+  echo "$key cd l1-contracts && forge test"
+  echo "$key cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract MerkleCheck --ffi"
+  echo "$key:ISOLATE=1 cd l1-contracts && scripts/test_rollup_upgrade.sh"
   if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
-    echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
+    echo "$key cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi
 }
 
@@ -252,7 +282,7 @@ function partial_epoch_proof_gas_report {
 }
 
 function bench_cmds {
-  echo "$hash l1-contracts/bootstrap.sh bench"
+  echo "$(content_hash) l1-contracts/bootstrap.sh bench"
 }
 
 function bench {
@@ -500,7 +530,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    content_hash
     ;;
   *)
     default_cmd_handler "$@"

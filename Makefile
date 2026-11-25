@@ -91,7 +91,7 @@ fast: fast-foundation fast-labs
 # Full bootstrap.
 full-foundation: fast-foundation bb-full-tests bb-cpp-full
 
-full-labs: labs-full docs docs-tests
+full-labs: labs-full docs docs-tests docs-examples docs-examples-tests docs-checks
 
 full: full-foundation full-labs
 
@@ -430,7 +430,10 @@ wsdb-tests: wsdb
 # .claude tooling
 #==============================================================================
 
+# .codex/ mirrors .claude/ through symlinks, and agents_symlink_test checks them and the root AGENTS.md and
+# CLAUDE.md links too.
 .PHONY: claude-tests
+claude-tests: private INPUTS := ^.*\.claude ^.*\.codex ^AGENTS\.md$$ ^CLAUDE\.md$$
 claude-tests:
 	$(call test,$@,.claude)
 
@@ -438,7 +441,10 @@ claude-tests:
 # Repository scripts
 #==============================================================================
 
+# init_test exercises the root bootstrap.sh. ci3_entrypoints_test reads every script in the repository and keys
+# itself (disabled-cache).
 .PHONY: scripts-tests
+scripts-tests: private INPUTS := ^bootstrap\.sh$$ ^scripts/tests/
 scripts-tests:
 	$(call test,$@,scripts)
 
@@ -467,12 +473,17 @@ labs-deps: bb-ts l1-contracts wsdb kvdb constants-codegen noir-projects-fnd fnd-
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.
+# A never step: apply moves the labs/ checkout itself, and is a no-op when the series is already applied.
 labs-patched:
-	$(call run_command,$@,$(ROOT),./labs-patches/bootstrap.sh apply)
+	$(call step,$@,labs-patches,apply,never)
 
 # The tooling's sandbox lifecycle test, plus check of the committed series against the gitlink.
 # After labs-patched: check must not race apply on the same submodule.
-labs-patches-tests: labs-patched
+# The labs gitlink, which the series applies to, is in the key as well. Not an input pattern: labs/ sits ahead of
+# its gitlink once patched, which git reports as an uncommitted change.
+labs-patches-tests: private INPUTS := ^labs-patches/ ^scripts/labs_test_cmds\.sh$$ ^scripts/labs_env\.sh$$
+labs-patches-tests: private KEY_SALT = $(shell git -C $(ROOT) rev-parse :labs)
+labs-patches-tests: | labs-patched
 	$(call test,$@,labs-patches)
 
 # The portal resolutions change the lockfiles; they are refreshed here so the submodule's
@@ -531,18 +542,46 @@ labs-bench: labs-use-local
 
 # The docs read aztec-node through the commit docs/aztec-node.json pins, and their examples build with
 # that commit's published toolchain, so nothing in this tree is a prerequisite.
-docs:
-	$(call build,$@,docs)
 
-docs-tests: docs
+# What the site's build and tests read whether or not the site comes from the cache: the pinned aztec-node
+# checkout and docs/node_modules. A never step: both are local checks when already current.
+docs-prep:
+	$(call step,$@,docs,prep,never)
+
+# The site, into $(STEP_OUT), and the checks of what it publishes (the aztec.js reference, orphaned URLs). Its
+# inputs are docs/ and the files outside it the pages #include_code. cache_content_hash hashes contents, not
+# names, so docs/'s tree id keys renamed pages; every variable that changes the output is in KEY_ENV.
+docs: private INPUTS = docs/.rebuild_patterns $(shell $(ROOT)/docs/scripts/include_code_patterns.sh)
+docs: private KEY_SALT = $(shell git -C $(ROOT) rev-parse HEAD:docs)
+docs: private KEY_ENV := CONTEXT COMMIT_TAG RELEASE_TYPE DOCS_COMMIT NIGHTLY_TAG DEVNET_TAG TESTNET_TAG \
+  MAINNET_TAG KEEP_DEVELOPER_VERSIONS
+docs: | docs-prep
+	$(call step,$@,docs,build)
+
+docs-tests: private INPUTS := docs/.rebuild_patterns
+docs-tests: docs | docs-prep
 	$(call test,$@,docs)
+
+# Main's examples and each dev line's, compiled and type-checked. Transitional output path: target/ is nargo's
+# workspace target directory, which the examples' tests deploy from in place.
+docs-examples: private INPUTS := docs/examples/.rebuild_patterns ^docs/Nargo\.toml$$ \
+  ^docs/lines/.*/examples/ ^docs/lines/.*/Nargo\.toml$$ ^docs/lines/.*/aztec-node\.json$$
+docs-examples:
+	$(call step,$@,docs,examples,target)
+
+docs-examples-tests: private INPUTS := docs/examples/.rebuild_patterns ^docs/Nargo\.toml$$
+docs-examples-tests: docs-examples
+	$(call test,$@,docs/examples)
 
 # The docs build is full-only, so fast CI runs the docs' own checks (the pinned aztec-node
 # checkout, references, Netlify shape, skills, key-shaped CLI defaults): seconds, and no labs/.
+# They check that the paths the docs reference exist anywhere in the repository, so the whole tree keys them.
+docs-checks: private INPUTS := docs/.rebuild_patterns
+docs-checks: private KEY_SALT = $(shell git -C $(ROOT) rev-parse 'HEAD^{tree}')
 docs-checks:
-	$(call run_command,$@,$(ROOT)/docs,./bootstrap.sh check)
+	$(call step,$@,docs,check)
 
-.PHONY: docs docs-tests docs-checks
+.PHONY: docs-prep docs docs-tests docs-examples docs-examples-tests docs-checks
 
 #==============================================================================
 # Noir Projects
@@ -614,24 +653,31 @@ noir-projects: noir-projects-fnd
 # (barretenberg/sol, docs/examples/solidity) point their foundry.toml at the
 # same binary, so they must wait on this target before invoking forge build,
 # otherwise parallel forge invocations race on ~/.svm.
+# A never step: download_solc caches the binary per platform itself, at the path every foundry.toml names. Its
+# key, which the steps that use it are keyed by, is the version foundry.toml pins.
+l1-contracts-solc l1-contracts-prep: private INPUTS :=
+l1-contracts-solc: private KEY_SALT = $(shell sed -n 's|^solc = "\./solc-\(.*\)"|\1|p' $(ROOT)/l1-contracts/foundry.toml)
 l1-contracts-solc:
-	$(call build,$@,l1-contracts,download_solc)
+	$(call step,$@,l1-contracts,download_solc,never)
 
 # l1-contracts-prep: What every l1-contracts build needs whether or not its outputs come from the cache: the
-# generated constants, solc, the npm dependencies and the libraries. Not a step: it always runs.
+# generated constants, solc, the npm dependencies and the libraries. A never step: it produces sources in place,
+# derived from the l1-contracts steps' inputs, and what is slow in it (solc, the npm install) caches itself.
 l1-contracts-prep: l1-contracts-solc
-	$(call build,$@,l1-contracts,prep)
+	$(call step,$@,l1-contracts,prep,never)
 
 # The steps below run after prep (order-only): what it produces is derived from their inputs, not one.
-# They still list output paths (ci3 step's transitional mode): forge keeps out/ and cache/ as working
-# directories that each build continues from and the tests read in place, rather than as outputs to install.
 l1-contracts-%: private INPUTS := l1-contracts/.rebuild_patterns
 
-# l1-contracts-src: Build all src/ contracts (fully independent!)
+# l1-contracts-src: Build all src/ contracts (fully independent!), into its $STEP_OUT.
 l1-contracts-src: | l1-contracts-prep
-	$(call step,$@,l1-contracts,build_src,out cache)
+	$(call step,$@,l1-contracts,build_src)
 
-# l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits)
+# l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits), continuing from
+# l1-contracts-src's compilation. Still the output paths of ci3 step's transitional mode: forge keeps out/ and
+# cache/ as the working directories that the tests, the deploy scripts they run and l1-artifacts read in place,
+# and generated/ is a source directory (the @generated remapping, used by the tests, the deploy scripts and the
+# published l1-artifacts bundle), so none of them can move to $STEP_OUT without every forge user moving too.
 l1-contracts-verifier: noir-protocol-circuits l1-contracts-src | l1-contracts-prep
 	$(call step,$@,l1-contracts,build_verifier,out cache generated)
 
@@ -641,12 +687,19 @@ l1-contracts-verifier: noir-protocol-circuits l1-contracts-src | l1-contracts-pr
 # produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
 # build_src only compiles the src/ coverage mock of the same name, which collides on the same out/ path
 # and would be published instead if the verifier had not run last.
+# Transitional output paths: the package is a yarn workspace that yarn-project (through use-local's portal) and
+# the release read in place, through its package.json exports.
 l1-contracts-artifacts: l1-contracts-verifier | l1-contracts-prep
 	$(call step,$@,l1-contracts,build_artifacts,l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts)
 
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
+	$(call step_group,$@)
 
-l1-contracts-tests: l1-contracts-verifier
+# The tests read the verifier's out/, cache/ and generated/ in place, and compare generated/ with the circuits'
+# verifier; besides the sources they run the scripts, the fixtures and solhint's configuration.
+l1-contracts-tests: private INPUTS := l1-contracts/.rebuild_patterns ^l1-contracts/scripts/ ^l1-contracts/test/ \
+  ^l1-contracts/\.solhint\.json$$
+l1-contracts-tests: l1-contracts-verifier noir-protocol-circuits | l1-contracts-prep
 	$(call test,$@,l1-contracts)
 
