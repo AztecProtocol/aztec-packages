@@ -41,7 +41,6 @@ jobs:
         timeout-minutes: 120
         env:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           RUN_ID: ${{ github.run_id }}
         run: |
           ./.github/ci3.sh barretenberg-debug
