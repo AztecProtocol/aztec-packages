@@ -128,7 +128,7 @@ jobs:
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
-        run: ./.github/ci3.sh $CI_MODE
+        run: exec ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         env:
