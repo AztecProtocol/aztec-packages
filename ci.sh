@@ -122,44 +122,6 @@ else
   ci_run_dashboard="prs"
 fi
 
-function multi_job_run {
-  if [[ -z "${CI_DASHBOARD:-}" ]]; then
-    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
-      export CI_DASHBOARD=${TARGET_BRANCH:-local}
-    else
-      export CI_DASHBOARD="$ci_run_dashboard"
-    fi
-  fi
-  export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-75}
-  export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
-  export DENOISE=1
-  export DENOISE_WIDTH=32
-  # Only the first job (the amd64 full build) runs the dedicated bench box and uploads;
-  # the rest bench inline as a breakage check (see bootstrap.sh build_and_test). This
-  # de-races multi-instance runs (e.g. merge-queue, grind) that would otherwise
-  # all upload to the same bench cache key.
-  local bench_primary=${1%% *}
-  export bench_primary
-  run() {
-    [ -n "${4:-}" ] && export REF_NAME=$4
-    local bench_upload=0
-    [ "$1" == "$bench_primary" ] && bench_upload=${BENCH_UPLOAD:-0}
-    # Timestamp the bootstrap_ec2 (instance request) sublog. denoise runs the command
-    # under pipefail and bootstrap_ec2 handles spot-eviction retry internally (exec), so
-    # piping through add_timestamps preserves its exit code. DENOISE_DISPLAY_NAME keeps
-    # the parent log's "Executing:" line free of the pipe.
-    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1${INSTANCE_NAME_SUFFIX:-} ARCH=$2 BENCH_UPLOAD=$bench_upload \
-      DENOISE_DISPLAY_NAME="bootstrap_ec2 './bootstrap.sh $3'" \
-      exec denoise "bootstrap_ec2 './bootstrap.sh $3' 2>&1 | add_timestamps"
-  }
-  export -f run
-
-  parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
-    --tagstring '{1}' \
-    --line-buffered --halt now,fail=1 \
-    'run {1} {2} {3} {4}' ::: "$@" | add_timestamps | DUP=1 cache_log "CI run" $RUN_ID
-}
-
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
@@ -169,11 +131,11 @@ case "$cmd" in
     ;;
   fast|barretenberg|barretenberg-full)
     export CI_DASHBOARD="$ci_run_dashboard"
-    # Route through multi_job_run (even for a single instance) so the runner-side
+    # Route through bootstrap_ec2_multi (even for a single instance) so the runner-side
     # orchestration — including the spot/instance request — is captured into a
     # parent dashboard log, matching merge-queue. The job id stays "x-$cmd" so the
     # GitHub status check name is unchanged.
-    multi_job_run "x-$cmd amd64 ci-$cmd"
+    exec bootstrap_ec2_multi "x-$cmd amd64 ci-$cmd"
     ;;
   bench)
     # Launched by the build instance on uploadable runs to produce stable benchmark
@@ -201,34 +163,39 @@ case "$cmd" in
     export CPUS=16
     # Capture the runner-side output (incl. instance request) to a parent dashboard
     # log. No denoise here: this is an interactive debug mode where raw output matters.
-    PARENT_LOG_ID=$RUN_ID bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" 2>&1 | DUP=1 cache_log "CI run" $RUN_ID
+    PARENT_LOG_ID=$RUN_ID exec bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" > >(DUP=1 cache_log "CI run" $RUN_ID) 2>&1
     ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="$ci_run_dashboard"
     export AWS_SHUTDOWN_TIME=75
-    multi_job_run "x-$cmd amd64 ci-$cmd"
+    exec bootstrap_ec2_multi "x-$cmd amd64 ci-$cmd"
     ;;
   chonk-input-update)
     export CI_DASHBOARD="prs"
     export AWS_SHUTDOWN_TIME=90
-    multi_job_run "x-$cmd amd64 ci-chonk-input-update"
+    exec bootstrap_ec2_multi "x-$cmd amd64 ci-chonk-input-update"
     ;;
   barretenberg-debug|barretenberg-nightly)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
     export CPUS=192
     export AWS_SHUTDOWN_TIME=120
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    exec bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
-    multi_job_run \
+    exec bootstrap_ec2_multi \
       $USER'-x'{1..${1:-5}}'-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
+    if [[ "$REF_NAME" =~ ^gh-readonly-queue/ ]]; then
+      export CI_DASHBOARD=${CI_DASHBOARD:-${TARGET_BRANCH:-local}}
+    else
+      export CI_DASHBOARD=${CI_DASHBOARD:-$ci_run_dashboard}
+    fi
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.
-    multi_job_run \
+    exec bootstrap_ec2_multi \
       'x1-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
     ;;
@@ -246,7 +213,7 @@ case "$cmd" in
     export JOB_ID="grind-test-$test_hash"
     export INSTANCE_POSTFIX=$JOB_ID
     export CPUS=${CPUS:-192}
-    bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" | DUP=1 cache_log "Grind test CI run" $RUN_ID
+    exec bootstrap_ec2 "./bootstrap.sh ci-grind-test $(printf %q "$full_cmd") $timeout $jobs_pct $memsuspend_pct $commit" > >(DUP=1 cache_log "Grind test CI run" $RUN_ID)
     ;;
   ############
   # RELEASES #
@@ -259,7 +226,7 @@ case "$cmd" in
     # Roomier instance lifetime than a standard run: the build plus publish exceeds the default
     # 75 min shutdown.
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
-    multi_job_run \
+    exec bootstrap_ec2_multi \
       'x-release amd64 ci-release'
     ;;
   ci-private-release)

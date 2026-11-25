@@ -130,7 +130,7 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_COMMITS: ${{ github.event.pull_request.commits }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh $CI_MODE
+        run: exec ./.github/ci3.sh $CI_MODE
 
       - name: Post-Actions
         if: always()
