@@ -264,7 +264,7 @@ runtime="$runtime_arg"
 flow_name="$(basename "$resolved_chonk_flow_folder")"
 
 # Breakdown and memory profile only exist for native runs (BB_BENCH is compiled out of wasm builds).
-if [[ "$runtime" == "native" ]] && [[ "${CI:-}" == "1" ]] && [[ "${CI_USE_BUILD_INSTANCE_KEY:-0}" == "1" ]]; then
+if [[ "$runtime" == "native" ]] && bench_upload_enabled; then
   echo_header "Uploading Barretenberg benchmark breakdowns for $flow_name"
 
   current_sha=$(git rev-parse HEAD)
