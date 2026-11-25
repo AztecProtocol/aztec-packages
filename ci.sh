@@ -104,7 +104,6 @@ function resolve_instance {
   fi
   resolved_name=$(printf '%s' "$chosen" | awk '{print $1}')
   iid=$(printf '%s' "$chosen" | awk '{print $2}')
-  ip=$(printf '%s' "$chosen" | awk '{print $3}')
   echo_stderr "Connecting to $resolved_name ($iid)."
 }
 
@@ -277,10 +276,11 @@ case "$cmd" in
   # SHELL SESSIONS #
   ##################
   shell-new)
-    # Spin up ec2 instance, clone, and drop into shell.
-    # False triggers the shell on fail.
-    cmd="${1:-false}"
-    CI_USE_SSH=1 exec bootstrap_ec2 "$cmd"
+    # Spin up an ec2 instance, clone, run the optional command, then keep the instance and its container up
+    # until Ctrl-C. Instances are reached only through SSM, so the shell is opened from another terminal.
+    cmd="${1:-true}"
+    echo_stderr "Once it is up, run ./ci.sh shell-container (or shell-host) in another terminal. Ctrl-C here ends the instance."
+    exec bootstrap_ec2 "$cmd; sleep infinity"
     ;;
   shell-container)
     # Drop into a zsh shell in a running build instance's container. Optional filter
@@ -290,32 +290,22 @@ case "$cmd" in
     #   ci.sh shell-container pr-12345 arm64  # the arm build of that run
     resolve_instance "$@"
     container_cmd="docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build zsh"
-    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-      if [ -z "$ip" ] || [ "$ip" = "None" ]; then echo_stderr "No public IP for $resolved_name."; exit 1; fi
-      ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "$container_cmd"
-    else
-      # SSM sessions run as the non-root ssm-user (which has passwordless sudo), so
-      # use sudo rather than runuser. Running docker as root is fine — the container
-      # itself drops to aztec-dev via --user.
-      aws ssm start-session \
-        --region us-east-2 \
-        --target "$iid" \
-        --document-name "AWS-StartInteractiveCommand" \
-        --parameters "{\"command\":[\"sudo bash -c '$container_cmd'\"]}"
-    fi
+    # SSM sessions run as the non-root ssm-user (which has passwordless sudo), so
+    # use sudo rather than runuser. Running docker as root is fine — the container
+    # itself drops to aztec-dev via --user.
+    aws ssm start-session \
+      --region us-east-2 \
+      --target "$iid" \
+      --document-name "AWS-StartInteractiveCommand" \
+      --parameters "{\"command\":[\"sudo bash -c '$container_cmd'\"]}"
     ;;
   shell-host)
     # Drop into a shell on a running build host. Optional filter tokens select the
     # instance (see shell-container).
     resolve_instance "$@"
-    if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-      if [ -z "$ip" ] || [ "$ip" = "None" ]; then echo_stderr "No public IP for $resolved_name."; exit 1; fi
-      ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-    else
-      aws ssm start-session \
-        --region us-east-2 \
-        --target "$iid"
-    fi
+    aws ssm start-session \
+      --region us-east-2 \
+      --target "$iid"
     ;;
   kill)
     # Terminate ALL running build instances matching the filter tokens (default: the
