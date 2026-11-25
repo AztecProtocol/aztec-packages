@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Fails when the output of a hash command differs from the committed file of expected hashes, so that a PR
+# which changes a pinned artifact has to change that file as well, where reviewers see it.
+# Usage: check_pinned_hashes <committed hashes file> <command that prints the current hashes...>
+set -euo pipefail
+
+file=$1
+shift
+
+if ! "$@" | diff -u "$file" -; then
+  echo "The artifacts above differ from $file (- committed, + built)." >&2
+  echo "If the change is intended, run '$* > $file' from the repository root and commit the result." >&2
+  exit 1
+fi

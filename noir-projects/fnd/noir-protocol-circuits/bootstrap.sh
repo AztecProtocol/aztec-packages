@@ -221,6 +221,16 @@ function check_library_warnings {
     parallel -v --line-buffer --tag $NARGO --program-dir ./crates/{} check --deny-warnings
 }
 
+# One `<sha256 of the VK>  <circuit>` line per protocol circuit with a VK, as built into target/.
+function vk_hashes {
+  local artifact vk
+  for artifact in target/*.json; do
+    vk=$(jq -r '.verificationKey.bytes // empty' "$artifact")
+    [ -n "$vk" ] || continue
+    echo "$(printf %s "$vk" | sha256sum | cut -d' ' -f1)  $(basename "$artifact" .json)"
+  done | LC_ALL=C sort -k2
+}
+
 export -f hex_to_fields_json circuit_kind compile generate_vk check_pinned_vk
 
 function build {
@@ -309,6 +319,10 @@ function test_cmds {
       "^noir-projects/fnd/chonk_circuits.json" \
       "^noir-projects/fnd/rollup_honk_circuits.json"))
     echo "$classifier_hash noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh"
+  fi
+  # The mock circuits reuse this script and have no hashes file.
+  if [ -f vk_hashes.txt ]; then
+    echo "disabled-cache ci3/check_pinned_hashes noir-projects/fnd/noir-protocol-circuits/vk_hashes.txt noir-projects/fnd/noir-protocol-circuits/bootstrap.sh vk_hashes"
   fi
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="

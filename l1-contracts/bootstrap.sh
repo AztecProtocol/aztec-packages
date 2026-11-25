@@ -137,7 +137,23 @@ function build {
   build_artifacts
 }
 
+# One `<sha256 of creation bytecode>  <source>:<contract>` line per production contract in out/: everything
+# deployable under src/ except the mocks, plus the pinned and the generated rollup verifier. Creation bytecode
+# embeds the runtime code and, through the metadata hash, every source file and compiler setting the contract is
+# built from, so any change to what one of these contracts would deploy changes its line. out/ is the default
+# profile's build, which is what DeployRollupForUpgradeV6 deploys to mainnet.
+function bytecode_hashes {
+  find out -name '*.json' -not -path 'out/build-info/*' -print0 | \
+    xargs -0 jq -r 'select((.bytecode.object // "0x") != "0x")
+      | (.metadata.settings.compilationTarget | to_entries[0] | "\(.key):\(.value)") + " " + .bytecode.object' | \
+    grep -E '^(src/|script/deploy/HonkVerifier\.sol:|generated/HonkVerifier\.sol:)' | grep -v '^src/mock/' | \
+    while read -r name bytecode; do
+      echo "$(printf %s "$bytecode" | sha256sum | cut -d' ' -f1)  $name"
+    done | LC_ALL=C sort -k2
+}
+
 function test_cmds {
+  echo "disabled-cache ci3/check_pinned_hashes l1-contracts/bytecode_hashes.txt l1-contracts/bootstrap.sh bytecode_hashes"
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && scripts/check_contract_sizes.sh"

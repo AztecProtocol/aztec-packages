@@ -120,7 +120,19 @@ function build {
   return $code
 }
 
+# One `<sha256>  <contract>` line per protocol contract, over everything in its artifact that determines its logic:
+# each function's ABI, bytecode (private ACIR or transpiled public bytecode) and VK, and the storage layout and
+# structs in `outputs`. Debug info, source and version stamps are left out.
+function contract_hashes {
+  local artifact
+  for artifact in target/*.json; do
+    echo "$(jq -cS '{functions: (.functions | map(del(.debug_symbols)) | sort_by(.name)), outputs}' "$artifact" | \
+      sha256sum | cut -d' ' -f1)  $(basename "$artifact" .json)"
+  done | LC_ALL=C sort -k2
+}
+
 function test_cmds {
+  echo "disabled-cache ci3/check_pinned_hashes noir-projects/fnd/noir-contracts/contract_hashes.txt noir-projects/fnd/noir-contracts/bootstrap.sh contract_hashes"
   # Fairies want to run these tests on every PR
   if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
