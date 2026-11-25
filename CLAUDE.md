@@ -21,7 +21,7 @@ The noir-projects build scripts default `$NARGO` to `noir/noir-repo/target/relea
 </build_system>
 
 <bumping_noir>
-To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes `avm-transpiler/Cargo.lock`, reformats `noir-projects/fnd`, and stages everything (the labs lockfile is refreshed by `labs-use-local` at build time). Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
+To bump the Noir compiler version (e.g. a request like "bump the noir compiler version to X"), run `noir/scripts/bump_noir_compiler.sh <ref>` — the single source of truth, also surfaced via the `noir-sync-update` skill. It bumps the `noir/noir-repo` submodule to `<ref>` (a noir-lang/noir ref: release tag `v1.0.0-beta.23`, nightly `nightly-2026-06-02`, branch, or commit), refreshes the Cargo.lock of the crates that use noir crates by path (`avm-transpiler`, `native-packages/acvm`), reformats `noir-projects/fnd`, and stages everything (the labs lockfile is refreshed by `labs-use-local` at build time). Do not bump the submodule by hand; skipping any of these leaves the tree inconsistent and fails CI. The script does not commit — verify with `git status` from the repo root, then commit as `chore: update Noir to <ref>`.
 </bumping_noir>
 
 <genesis_constants>
