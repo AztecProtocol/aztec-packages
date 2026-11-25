@@ -49,13 +49,11 @@ define build
 	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(3)')
 endef
 
-# Collects the test commands from the given project
-# Writes the full output to /tmp/test_cmds atomically.
-# The test engine is expected to be running and it will read commands from this file.
-# MAKEFILE_TARGET is exported so filter_test_cmds can inject it into the hash prefix for targeted rebuilds.
+# Collects the test commands from the given project, for the test engine (it reads /tmp/test_cmds).
+# A test target is a ci3 step: keyed from its INPUTS and its prerequisites' outputs, which test_cmds gets as
+# $STEP_KEY to prefix its commands with (see ci3/step). MAKEFILE_TARGET is set for filter_test_cmds.
 define test
-	$(call run_command,$(1),$(ROOT)/$(2),\
-	  export MAKEFILE_TARGET=$(1) && ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | $(ROOT)/ci3/atomic_append /tmp/test_cmds)
+	$(call step_tests,$(1),$(2),$(3))
 endef
 
 #==============================================================================
