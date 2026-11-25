@@ -156,7 +156,7 @@ function main {
 
   # Benching modes run their benches on a dedicated, fixed-hardware box (stable numbers)
   # and publish the result; ci-fast never benches. For multi-instance runs (merge-queue fires
-  # several) only the first instance keeps BENCH_UPLOAD=1 — multi_job_run forces the
+  # several) only the first instance keeps BENCH_UPLOAD=1 — bootstrap_ec2_multi forces the
   # rest to 0 so they bench inline as a breakage check without racing the upload. The bench
   # box publishes to its run's dashboard section (CI_DASHBOARD: next, prs, ...).
   if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
