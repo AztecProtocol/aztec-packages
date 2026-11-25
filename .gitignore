@@ -39,3 +39,6 @@ __pycache__
 # Local opt-in: install nargo from the matching official noir release instead of building from source.
 noir-from-release.flag
 npm-release
+
+# Outputs of ci3 steps ($STEP_OUT): see ci3/step.
+ci3-out/

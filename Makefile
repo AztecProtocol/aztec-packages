@@ -133,20 +133,20 @@ AVM_TRANSPILER_INPUTS := avm-transpiler/.rebuild_patterns noir/.rebuild_patterns
 
 avm-transpiler-native: private INPUTS := $(AVM_TRANSPILER_INPUTS)
 avm-transpiler-native:
-	$(call step,$@,avm-transpiler,build_native,target/release/avm-transpiler target/release/libavm_transpiler.a)
+	$(call step,$@,avm-transpiler,build_native)
 
 avm-transpiler-cross-%: private INPUTS := $(AVM_TRANSPILER_INPUTS)
 avm-transpiler-cross-amd64-macos:
-	$(call step,$@,avm-transpiler,build_cross amd64-macos,target/x86_64-apple-darwin/release/libavm_transpiler.a)
+	$(call step,$@,avm-transpiler,build_cross amd64-macos)
 
 avm-transpiler-cross-arm64-macos:
-	$(call step,$@,avm-transpiler,build_cross arm64-macos,target/aarch64-apple-darwin/release/libavm_transpiler.a)
+	$(call step,$@,avm-transpiler,build_cross arm64-macos)
 
 avm-transpiler-cross-arm64-linux:
-	$(call step,$@,avm-transpiler,build_cross arm64-linux,target/aarch64-unknown-linux-gnu/release/libavm_transpiler.a)
+	$(call step,$@,avm-transpiler,build_cross arm64-linux)
 
 avm-transpiler-cross-amd64-windows:
-	$(call step,$@,avm-transpiler,build_cross amd64-windows,target/x86_64-pc-windows-gnu/release/libavm_transpiler.a)
+	$(call step,$@,avm-transpiler,build_cross amd64-windows)
 
 avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos avm-transpiler-cross-arm64-linux avm-transpiler-cross-amd64-windows
 
@@ -625,6 +625,8 @@ l1-contracts-prep: l1-contracts-solc
 	$(call build,$@,l1-contracts,prep)
 
 # The steps below run after prep (order-only): what it produces is derived from their inputs, not one.
+# They still list output paths (ci3 step's transitional mode): forge keeps out/ and cache/ as working
+# directories that each build continues from and the tests read in place, rather than as outputs to install.
 l1-contracts-%: private INPUTS := l1-contracts/.rebuild_patterns
 
 # l1-contracts-src: Build all src/ contracts (fully independent!)

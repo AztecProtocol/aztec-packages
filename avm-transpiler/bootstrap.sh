@@ -17,6 +17,7 @@ export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
 # Builds unconditionally: the avm-transpiler-native make step restores it from the cache instead when it can.
+# Installs the binary and library into $STEP_OUT (ci3-out/avm-transpiler-native), where barretenberg links it.
 function build_native {
   echo_header "avm-transpiler build_native"
   # Serialize cargo/rustup operations to avoid race conditions with noir build
@@ -29,9 +30,12 @@ function build_native {
 
   denoise "cargo fmt --check"
   denoise "cargo clippy"
+
+  cp target/release/avm-transpiler target/release/libavm_transpiler.a "${STEP_OUT:?run through make: make avm-transpiler-native}/"
 }
 
 # Builds unconditionally: the avm-transpiler-cross-<target> make steps restore it from the cache instead.
+# Installs the library into $STEP_OUT (ci3-out/avm-transpiler-cross-<target>), where barretenberg links it.
 function build_cross {
   local target=$1
   echo_header "avm-transpiler build_cross $target"
@@ -74,6 +78,8 @@ function build_cross {
   ) 200>/tmp/rustup.lock
 
   cargo zigbuild --release --target "$rust_target" --lib
+
+  cp "target/$rust_target/release/libavm_transpiler.a" "${STEP_OUT:?run through make: make avm-transpiler-cross-$target}/"
 }
 
 # Through make, so the builds are restored from the cache when they can be.
