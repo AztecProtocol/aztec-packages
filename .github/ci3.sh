@@ -84,6 +84,20 @@ function handle_release_pr {
   gh api -X DELETE "repos/${github_repository}/issues/${PR_NUMBER}/labels/ci-release-pr" >/dev/null || true
 }
 
+# Succeeds if this run is for a pull request that is already closed, typically one merged straight after it
+# was opened. ci3.yml's run is then cancelled by cancel-stale-workflows.yml, usually after it has requested an
+# instance; ci3-external.yml's is not cancelled at all. If anything is uncertain (another event, no PR number,
+# an API error or timeout), this fails and CI runs as normal.
+function pr_closed {
+  [[ "${GITHUB_EVENT_NAME:-}" == pull_request* ]] && [ -n "${PR_NUMBER:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ] || return 1
+  local state
+  if ! state=$(timeout 20 gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .state); then
+    echo "Could not check whether pull request #${PR_NUMBER} is open; running CI." >&2
+    return 1
+  fi
+  [ "$state" == "closed" ]
+}
+
 function main {
   echo_header "CI3 Main Script"
   echo "CI mode: $CI_MODE"
@@ -96,6 +110,13 @@ function main {
   fi
   if [ "${CI_MODE}" == "release-pr" ]; then
     handle_release_pr
+    exit 0
+  fi
+  # Only on a run's first attempt, so a manual re-run still runs CI. Before check_cache, which would export
+  # CI_CACHE_NAME for Post-Actions; CI3_PR_CLOSED tells Post-Actions to do nothing instead.
+  if [ "${GITHUB_RUN_ATTEMPT:-1}" -eq 1 ] && pr_closed; then
+    echo "Pull request #${PR_NUMBER} is closed; not running CI." >&2
+    [ -z "${GITHUB_ENV:-}" ] || echo "CI3_PR_CLOSED=1" >>"$GITHUB_ENV"
     exit 0
   fi
   check_cache
