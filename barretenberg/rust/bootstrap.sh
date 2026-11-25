@@ -3,10 +3,6 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# The crate generates its own bindings, so the hash covers the schema and
-# ipc-codegen (see .rebuild_patterns) rather than the whole ts build.
-hash=$(hash_str $(cache_content_hash .rebuild_patterns))
-
 # Generate the Rust client from the checked-in bb schema via ipc-codegen.
 # --ffi also emits the Backend trait, error type and FFI backend, so the
 # generated client never depends on hand-maintained copies of them.
@@ -26,23 +22,17 @@ function generate {
 function build {
   echo_header "barretenberg-rs build"
 
-  if ! cache_download barretenberg-rs-$hash.tar.gz; then
-    generate
+  # The bb-rs make step caches target/release and the generated sources (see the Makefile).
+  generate
 
-    # Build all targets
-    # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
-    # Must use absolute path since build.rs runs from a different directory
-    BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
-
-    # Upload build artifacts and generated source files to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated
-  fi
+  # Build all targets
+  # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
+  # Must use absolute path since build.rs runs from a different directory
+  BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 }
 
 function test_cmds {
-  # List all test binaries
-  local prefix=$hash
-  echo "$prefix barretenberg/rust/scripts/run_test.sh"
+  echo "${STEP_KEY:-disabled-cache} barretenberg/rust/scripts/run_test.sh"
 }
 
 function test {
@@ -170,19 +160,17 @@ case "$cmd" in
     git clean -fdx
     ;;
   "ci")
-    build
+    make -C "$root" bb-rs
     test
     ;;
   ""|"fast"|"full")
-    build
-    ;;
-  "hash")
-    echo "$hash"
+    # Through make, so that it is restored from the cache when it can be.
+    make -C "$root" bb-rs
     ;;
   bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
-  test|test_cmds|test_download)
+  build|test|test_cmds|test_download)
     $cmd
     ;;
   *)

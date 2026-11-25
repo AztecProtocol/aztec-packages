@@ -11,13 +11,17 @@ WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
 WSDB_REF_ADDON=wsdb_ref_napi.node
 WSDB_REF_BINARY=wsdb-ref
 
-hash=$(hash_str \
-  $(bb.js/bootstrap.sh hash) \
-  $(../cpp/bootstrap.sh hash) \
-  $(../../ipc-codegen/bootstrap.sh hash) \
-  $(../../ipc-runtime/bootstrap.sh hash) \
-  $(cache_content_hash .rebuild_patterns) \
-  $(semver check $REF_NAME && echo 1 || echo 0))
+# The builds are keyed and cached as make steps (bb-ts-packages-build, bb-ts and so on), from the make graph. This
+# hash is only for `./bootstrap.sh hash`, which scripts/labs_fnd_hashes.sh records for the labs toolchain.
+function compute_hash {
+  hash_str \
+    $(bb.js/bootstrap.sh hash) \
+    $(../cpp/bootstrap.sh hash) \
+    $(../../ipc-codegen/bootstrap.sh hash) \
+    $(../../ipc-runtime/bootstrap.sh hash) \
+    $(cache_content_hash .rebuild_patterns) \
+    $(semver check $REF_NAME && echo 1 || echo 0)
+}
 
 # The workspaces resolve @aztec-foundation/ipc-runtime through a portal into
 # ipc-runtime/ts, so what node_modules ends up containing depends on that
@@ -114,8 +118,13 @@ function generate_packages {
   generate_wsdb_ref_package
 }
 
-function install_and_compile_packages {
+# The workspace's node_modules. The generated workspaces must exist first: yarn install fails without them.
+function install {
   npm_install_deps "$IPC_RUNTIME_PKG"
+}
+
+function install_and_compile_packages {
+  install
   yarn workspaces foreach -A -p -t \
     --include "$BB_JS_API_PACKAGE" --include "$BB_AVM_SIM_PACKAGE" \
     --include "$CDB_PACKAGE" --include "$WSDB_REF_PACKAGE" run build
@@ -174,7 +183,7 @@ function build_packages {
 }
 
 function build_bb_js {
-  (cd bb.js && ./bootstrap.sh)
+  (cd bb.js && ./bootstrap.sh build)
 }
 
 # The bb and bb-avm binaries as npm packages: a meta package per binary (@aztec-foundation/bb,
@@ -215,9 +224,9 @@ function release_bb_bin {
   done
 }
 
+# The packages and bb.js, through make, so that they are restored from the cache when they can be.
 function build {
-  build_packages
-  build_bb_js
+  make -C "$root" bb-ts
 }
 
 # `test_cmds bb_avm_sim` and `test_cmds wsdb_ref` list those packages' tests alone: they need their
@@ -225,12 +234,12 @@ function build {
 function test_cmds {
   case "${1:-}" in
     bb_avm_sim)
-      echo "$hash barretenberg/ts/scripts/bb_avm_sim_test.sh"
+      echo "${STEP_KEY:-disabled-cache} barretenberg/ts/scripts/bb_avm_sim_test.sh"
       ;;
     wsdb_ref)
       local backend
       for backend in process-uds process-shm napi wasm; do
-        echo "$hash barretenberg/ts/scripts/wsdb_ref_test.sh $backend"
+        echo "${STEP_KEY:-disabled-cache} barretenberg/ts/scripts/wsdb_ref_test.sh $backend"
       done
       ;;
     *)
@@ -316,7 +325,7 @@ function release {
 
 export -f generate_bb_avm_sim_package generate_cdb_package generate_bb_js_api_package generate_wsdb_ref_package
 export -f generate_packages install_and_compile_packages native_build_dirs cross_build_dirs stage_arch_packages
-export -f build_packages_ts build_packages build_bb_js build
+export -f install build_packages_ts build_packages build_bb_js build
 export -f release deploy_bb_js_api deploy_bb_avm_sim deploy_cdb deploy_wsdb_ref
 
 case "$cmd" in
@@ -324,7 +333,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo "$hash"
+    compute_hash
     ;;
   *)
     default_cmd_handler "$@"
