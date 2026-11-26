@@ -146,6 +146,7 @@ function mathProblems(buildDir: string): string[] {
 const OFF_SITE_CSS = /(?:url\(\s*|@import\s*)["']?((?:https?:)?\/\/[^"')\s;]+)/gi;
 
 // Every reader's browser fetches what a stylesheet names on another host; the browser smoke sees only what its pages use.
+// A plain match suffices on the bundle: Lightning CSS (`faster`) decodes escapes and drops comments when it minifies.
 const offSiteCss = (buildDir: string) =>
   fs.globSync("**/*.css", { cwd: buildDir }).flatMap((file) =>
     [...fs.readFileSync(path.join(buildDir, file), "utf8").matchAll(OFF_SITE_CSS)].map((m) => `/${file}: loads ${m[1]} from another host; serve it from the site`),
