@@ -361,22 +361,12 @@ function status {
 }
 
 # Test commands for the foundation test engine: the lifecycle test runs the tooling against
-# a sandbox fixture, and check verifies the committed series against the gitlink.
-# The paths are root-relative (the test engine runs from the repo root), and so is the hash
-# input: the Makefile invokes this from labs-patches/, hence the cd. The gitlink is part of
-# the hash so check is never served from the test cache across a pin bump.
+# a sandbox fixture, and check verifies the committed series against the gitlink. Keyed by the
+# labs-patches-tests make step ($STEP_KEY), whose key covers the series, the scripts and the gitlink.
 function test_cmds {
-  local inputs="labs-patches scripts/labs_test_cmds.sh scripts/labs_env.sh"
-  local h
-  # Uncommitted edits must not be served a cached result, as with cache_content_hash.
-  if [ -n "$(cd "$fnd_root" && git status --porcelain -- $inputs)" ]; then
-    h=disabled-cache
-  else
-    h=$(cd "$fnd_root" && { git rev-parse :labs; git ls-files -z -- $inputs | xargs -0 cat; } | git hash-object --stdin | cut -c1-16)
-  fi
-  [ -n "$h" ] || die "could not hash labs-patches"
-  echo "$h labs-patches/tests/lifecycle_test"
-  echo "$h labs-patches/bootstrap.sh check"
+  local key=${STEP_KEY:-disabled-cache}
+  echo "$key labs-patches/tests/lifecycle_test"
+  echo "$key labs-patches/bootstrap.sh check"
 }
 
 case "${1:-apply}" in
