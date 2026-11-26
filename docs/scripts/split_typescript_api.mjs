@@ -73,7 +73,6 @@ const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<"
 
 /**
  * The landing page of a TypeScript API folder: its scoped index, the guide, each package file and the summary.
- * Unstyled but for the color scheme, so it reads in light and dark.
  *
  * @param {{dir: string, version: string, packages: {file: string, npmName: string, description: string}[], summary: boolean}} folder
  *   `dir` is the folder's path under the site root; `packages` the package files it holds, in order;

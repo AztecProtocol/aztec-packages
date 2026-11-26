@@ -81,15 +81,22 @@ test("every declaration of the committed reference lands in exactly one page", (
 
 test("each served folder gets an index page listing the package files it holds, its indexes and the guide", (t) => {
   t.mock.method(console, "log", () => {});
-  const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
+  const json = (name: string) => JSON.parse(fs.readFileSync(new URL(`../../${name}.json`, import.meta.url), "utf8"));
+  const config = json("developer_version_config");
+  const [developer] = networkDocs.docsInstances(config, json("network_version_config"), false);
+  const served = networkDocs.apiReferenceDirs(developer, json("developer_versions")).filter((d) => d.kind === "typescript");
   const folder = networkDocs.networkApiFolder(config, "mainnet");
   assert.ok(folder, "developer_version_config.json maps no mainnet version");
   const build = fs.mkdtempSync(path.join(os.tmpdir(), "ts-folder-page-"));
   try {
+    for (const { dir } of served) {
+      fs.mkdirSync(path.join(build, dir), { recursive: true });
+      fs.writeFileSync(path.join(build, dir, "aztec.js.md"), pkg);
+    }
     const dir = path.join(build, "typescript-api", folder);
-    fs.mkdirSync(dir, { recursive: true });
-    for (const file of ["aztec.js.md", "foundation.md", "llm-summary.txt"]) fs.writeFileSync(path.join(dir, file), pkg);
+    for (const file of ["foundation.md", "llm-summary.txt"]) fs.writeFileSync(path.join(dir, file), pkg);
     assert.equal(main(build, {}), 0);
+    for (const { dir } of served) assert.ok(fs.existsSync(path.join(build, dir, "index.html")), dir);
     const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
     const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
     assert.deepEqual(hrefs, [

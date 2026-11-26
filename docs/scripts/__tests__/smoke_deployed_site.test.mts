@@ -136,6 +136,12 @@ test("a TypeScript folder that answers 404, or a page that is not its index, fai
   assert.match((await run([missing.origin])).out, new RegExp(`^FAIL B8 .*/typescript-api/${folder}/: got 404`, "m"));
   const other = await serve((o) => ({ ...netlifyRoutes(o), [`/typescript-api/${folder}/`]: send(200, "text/html; charset=utf-8", "<html></html>") }));
   assert.match((await run([other.origin])).out, new RegExp(`^FAIL B8 .*/typescript-api/${folder}/: not the folder's index page`, "m"));
+  const testnet = folderOf("testnet");
+  const gone = send(404, "text/html; charset=utf-8", "Page Not Found");
+  const bare = await serve((o) => ({ ...netlifyRoutes(o), "/typescript-api/testnet": gone, [`/typescript-api/${testnet}`]: gone }));
+  const out = (await run([bare.origin])).out;
+  assert.match(out, /^FAIL B8 .*\/typescript-api\/testnet: expected 302, got 404/m);
+  assert.match(out, new RegExp(`^FAIL B8 .*/typescript-api/${testnet}: expected 301, got 404`, "m"));
 });
 
 test("a request that gets no answer is retried once, and only its check's line says so", async () => {

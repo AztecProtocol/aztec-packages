@@ -207,10 +207,9 @@ export const CHECKS: Check[] = [
       for (const [network, folder] of folders) {
         await lands("aztec-nr-api", network, "/noir_aztec/index.html", "text/html");
         await lands("typescript-api", network, "/llms.txt", "text/plain");
-        indexPage(await lands("typescript-api", network, "/", "text/html"), folder);
+        for (const rest of ["", "/"]) indexPage(await lands("typescript-api", network, rest, "text/html"), folder);
       }
-      indexPage(await lands("typescript-api", "mainnet", "", "text/html"), mainnet);
-      redirectTo(await get(`/typescript-api/${mainnet}`, BROWSER_ACCEPT), `/typescript-api/${mainnet}/`, problems);
+      for (const folder of new Set(folders.values())) redirectTo(await get(`/typescript-api/${folder}`, BROWSER_ACCEPT), `/typescript-api/${folder}/`, problems);
       await lands("aztec-nr-api", "mainnet", "", "text/html");
       await lands("aztec-nr-api", "mainnet", "/", "text/html");
       const twin = await lands("aztec-nr-api", "mainnet", `/${API_PAGE}.md`, "text/markdown");
