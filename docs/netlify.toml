@@ -387,6 +387,12 @@
     to = "/participate/:splat"
     status = 301
 
+# The basics overview repeated the Basics list of the Participate overview.
+[[redirects]]
+    from = "/participate/basics"
+    to = "/participate"
+    status = 301
+
 # Network → Operate redirect
 [[redirects]]
     from = "/network/*"
