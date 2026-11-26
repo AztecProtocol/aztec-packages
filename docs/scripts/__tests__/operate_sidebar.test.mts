@@ -43,10 +43,10 @@ function sidebarIds(file: string): Set<string> {
   return ids;
 }
 
-/** Doc ids under `root`/docs-operate that `root`/sidebars-operate.js does not list; `_` paths are partials. */
-function orphans(root: string): string[] {
-  const listed = sidebarIds(path.join(root, "sidebars-operate.js"));
-  const pagesDir = path.join(root, "docs-operate");
+/** Doc ids under `root`/`docsFolder` that `root`/`sidebar` does not list; `_` paths are partials. */
+function orphans(root: string, docsFolder = "docs-operate", sidebar = "sidebars-operate.js"): string[] {
+  const listed = sidebarIds(path.join(root, sidebar));
+  const pagesDir = path.join(root, docsFolder);
   const pages = fs
     .readdirSync(pagesDir, { recursive: true, encoding: "utf8" })
     .map((rel) => rel.split(path.sep).join("/"))
@@ -72,6 +72,10 @@ test("every operate page is in its sidebar or listed in UNLISTED with a reason",
     [],
     "these UNLISTED pages are in a sidebar now, or gone: remove them from UNLISTED",
   );
+});
+
+test("every participate page is in its sidebar", () => {
+  assert.deepEqual(orphans(docsDir, "docs-participate", "sidebars-participate.js"), [], "add each page to sidebars-participate.js");
 });
 
 test("ids, sidebars and partials follow Docusaurus for shapes the operate tree does not use yet", () => {

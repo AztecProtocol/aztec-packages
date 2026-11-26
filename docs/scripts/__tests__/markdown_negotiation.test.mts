@@ -145,6 +145,14 @@ test("markdown negotiation is unchanged: its .md fetch is marked, so a retired p
   assert.equal(retired.probes[0]?.headers["x-markdown-negotiation"], "subrequest");
 });
 
+test("a markdown request for a path naming another host fetches nothing and gets the normal response", async (t) => {
+  const { serve } = site(t);
+  for (const path of ["//other.example/page", "/\\other.example/page"]) {
+    const reply = await serve(path, { headers: { accept: "text/markdown" } });
+    assert.deepEqual([reply.response, reply.probes], [undefined, []], path);
+  }
+});
+
 test("the config turns on Netlify's error bypass, so an exception falls through to the normal response", () => {
   assert.deepEqual(config, { path: "/*", onError: "bypass" });
 });
