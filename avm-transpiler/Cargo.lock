@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acir"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir_field",
  "base64 0.23.0",
@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -38,7 +38,7 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -53,13 +53,14 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir",
  "aes",
  "blake2",
  "blake3",
  "cbc",
+ "ecdsa",
  "k256",
  "keccak",
  "log",
@@ -385,10 +386,11 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bit-vec"
-version = "0.9.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b71798fca2c1fe1086445a7258a4bc81e6e49dcd24c8d0dd9a1e57395b603f51"
+checksum = "72503af1e72be411d74ca45cd6b309878fcb35354e252fc2a3a8bda3a97082a0"
 dependencies = [
+ "borsh",
  "serde",
 ]
 
@@ -447,7 +449,7 @@ dependencies = [
 
 [[package]]
 name = "bn254_blackbox_solver"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -461,16 +463,31 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "1.6.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1da5ab77c1437701eeff7c88d968729e7766172279eab0676857b3d63af7a6f"
+checksum = "553c5d846a6ba5150c65e3b1b8ec073bcf1abc20f9b7220de384a4443ea4e20a"
 dependencies = [
+ "borsh-derive",
+ "bytes",
  "cfg_aliases",
 ]
 
 [[package]]
+name = "borsh-derive"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12cdfe656708a01f89b451a7d36466e6fe6c414de0aa18fc54f864f6f9ca9f56"
+dependencies = [
+ "once_cell",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
 name = "brillig"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir_field",
  "itertools 0.15.0",
@@ -480,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -516,6 +533,12 @@ name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
+name = "bytes"
+version = "1.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cbc"
@@ -947,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -1169,7 +1192,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "iter-extended"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 
 [[package]]
 name = "itertools"
@@ -1290,7 +1313,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "msgpack_tagged_derive",
  "rmp",
@@ -1301,7 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "msgpack_tagged_derive"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1310,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_abi"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1326,11 +1349,11 @@ dependencies = [
 
 [[package]]
 name = "noirc_arena"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 
 [[package]]
 name = "noirc_artifacts"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acir",
  "acvm",
@@ -1349,7 +1372,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "codespan-reporting",
  "fm",
@@ -1361,7 +1384,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "bit-vec",
@@ -1394,7 +1417,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "bn254_blackbox_solver",
@@ -1426,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1437,7 +1460,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_span"
-version = "1.0.0-rc.3"
+version = "1.0.0"
 dependencies = [
  "codespan",
  "serde",
