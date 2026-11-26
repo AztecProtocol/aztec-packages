@@ -13,20 +13,17 @@ export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 export BB=${BB:-$(../../../barretenberg/cpp/scripts/find-bb)}
 export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(../../../barretenberg/cpp/bootstrap.sh hash)
-export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
+# What the per-circuit caches below are keyed by: the nargo and bb this build uses. Run as a step (make
+# noir-protocol-circuits / mock-protocol-circuits), ci3 hands each prerequisite's identity in as CI3_KEY_<NAME>.
+# Outside make there is none, and nothing is cached.
+export NOIR_KEY=${CI3_KEY_NOIR:-disabled-cache}
+export BB_KEY=${CI3_KEY_BB_CPP_NATIVE:-disabled-cache}
 # This script picks the nargo and bb invocations, so it is an input to every artifact it caches.
 export script_hash=$(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh")
 
 export key_dir=./target/keys
 mkdir -p $key_dir
 
-# Allows reusing this script when running from mock-protocol-circuits dir.
-project_name=$(basename "$PWD")
-# Hash of the entire protocol circuits.
-# Needed for test hash, as we presently don't have a program hash for each individual test.
-# Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/fnd/$project_name/crates/" "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
 # Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
@@ -84,14 +81,14 @@ function compile {
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash" $script_hash)
+  echo_stderr "Hash preimage: $NOIR_KEY-$program_hash"
+  local hash=$(hash_str "$NOIR_KEY-$program_hash" $script_hash)
   # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
   # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
-  # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
-  # `$NOIR_HASH-$program_hash-$circuits_hash"`
-  # We don't want to include `-$circuits_hash"` ordinarily, because it would force unnecessary
-  # rebuilds when tests / comments are changed.
+  # re-compilation by temporarily replacing $NOIR_KEY on the above two lines with:
+  # `$NOIR_KEY-$program_hash-$STEP_KEY"`
+  # We don't want to include `-$STEP_KEY"` ordinarily: it covers everything in the project (tests and comments
+  # among them) and bb, so it would force unnecessary rebuilds when tests / comments / bb are changed.
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -129,7 +126,7 @@ function generate_vk {
   # below from the circuit's kind, so the key carries the kind (which is what the pattern files
   # decide) and this script (which maps a kind to flags).
   local kind=$(circuit_kind "$name")
-  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-$kind" $script_hash)
+  local hash=$(hash_str "$BB_KEY-$bytecode_hash-$name-$kind" $script_hash)
   local key_path="$key_dir/$name.vk.data.json"
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -227,10 +224,14 @@ export -f hex_to_fields_json circuit_kind compile generate_vk check_pinned_vk
 function build {
   set -eu
 
-  # Writes the workspace Nargo.toml the package listings below read.
-  if [ -f "package.json" ]; then
-    denoise "yarn && yarn generate_variants"
-  fi
+  # The workspace Nargo.toml the package listings below read is generated (generate_variants, which make runs
+  # first as noir-protocol-circuits-variants).
+  [ -f Nargo.toml ] || { echo_stderr "$PWD/Nargo.toml not found; run ./bootstrap.sh generate_variants first."; return 1; }
+
+  # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use, and the parallel nargo runs
+  # below would each try. Fetching first, with retries, rides out the DNS failures heavy CI load causes
+  # ("Could not resolve host: github.com"). nargo serializes concurrent fetches into its cache itself.
+  RETRY_SLEEP=10 retry "$NARGO fetch"
 
   # Before anything in target/ is touched, so a warning costs no recompile.
   check_library_warnings
@@ -289,27 +290,24 @@ function generate_reset_config {
   denoise "BB=$BB node ./scripts/generate_reset_config.js"
 }
 
+# Each command is prefixed with the key of the test step (make noir-protocol-circuits-tests), which covers this
+# project, the scripts the tests run, and nargo. Outside make nothing is cached.
 function test_cmds {
+  local key=${STEP_KEY:-disabled-cache}
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    local prefix="$circuits_hash"
+    local prefix="$key"
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
       prefix+=":TIMEOUT=20m"
     fi
     echo "$prefix noir-projects/fnd/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
-  # Unit tests of the reset config generator, keyed on the scripts they cover rather than the circuits.
+  # Unit tests of the reset config generator.
   if [ -f ./scripts/generate_reset_config.test.js ]; then
-    local scripts_hash=$(hash_str $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/scripts/"))
-    echo "$scripts_hash node --test noir-projects/fnd/noir-protocol-circuits/scripts/generate_reset_config.test.js"
+    echo "$key node --test noir-projects/fnd/noir-protocol-circuits/scripts/generate_reset_config.test.js"
   fi
   # The mock circuits reuse this script; the classifier test lives with the real circuits only.
   if [ -f ./scripts/circuit_kind.test.sh ]; then
-    local classifier_hash=$(hash_str $(cache_content_hash \
-      "^noir-projects/fnd/noir-protocol-circuits/bootstrap.sh" \
-      "^noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh" \
-      "^noir-projects/fnd/chonk_circuits.json" \
-      "^noir-projects/fnd/rollup_honk_circuits.json"))
-    echo "$classifier_hash noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh"
+    echo "$key noir-projects/fnd/noir-protocol-circuits/scripts/circuit_kind.test.sh"
   fi
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
@@ -332,7 +330,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
+    echo "$key $nargo_root_rel execute --program-dir noir-projects/fnd/noir-protocol-circuits/crates/$circuit --silence-warnings  --skip-brillig-constraints-check"
   done
 }
 
@@ -345,10 +343,15 @@ function format {
   $NARGO fmt
 }
 
+# Run after the build, outside make, so each bench is keyed by exactly what it measures: the artifact, the bb
+# that proves it, and the bench script.
 function bench_cmds {
-  prefix="$circuits_hash noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh"
+  local tools_hash
+  tools_hash=$(hash_str "$(sha256sum "$BB" | cut -d' ' -f1)" \
+    $(cache_content_hash "^noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh"))
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
+    local prefix="$(hash_str "$tools_hash" "$(sha256sum "$artifact" | cut -d' ' -f1)") noir-projects/fnd/noir-protocol-circuits/scripts/run_bench.sh"
     case $(circuit_kind "$(basename "$artifact" .json)") in
       hiding|kernel|app) echo "$prefix $artifact --scheme chonk" ;;
       rollup_honk) echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation" ;;
@@ -376,6 +379,7 @@ function generate_variants {
 function pin-build {
   # Force a real build by removing any existing pinned archive.
   rm -f pinned-build.tar.gz
+  [ -f package.json ] && generate_variants
   build
   echo_stderr "Creating pinned-build.tar.gz from target..."
   tar czf pinned-build.tar.gz -C target .
@@ -387,7 +391,8 @@ case "$cmd" in
     rm -rf $key_dir
     ;;
   "")
-    build
+    # Through make, which caches it: this directory's target (this script also builds the mock circuits).
+    make -C "$root" "$(basename "$PWD")"
     ;;
   *)
     default_cmd_handler "$@"

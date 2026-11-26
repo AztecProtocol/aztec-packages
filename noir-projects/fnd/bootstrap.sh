@@ -3,11 +3,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Format check across the fnd workspaces. CI runs this via the root Makefile's
-# noir-projects-fnd-format-check target. The fnd and labs checks both warm the
-# shared nargo dependency cache — parallel nargo runs trip over each other
-# downloading — so on the monorepo the Makefile serializes labs after fnd.
-# Ordered after generate_variants and before the subproject builds so the cache
-# is warm by the time they run.
+# noir-projects-fnd-format-check target, after generate_variants (the circuits workspace's Nargo.toml is
+# generated). It is cached, so it cannot be what warms the nargo dependency cache: each build fetches its own.
 function format_check {
   # nargo downloads its git dependencies (e.g. noir-lang/poseidon) on first use.
   # Under heavy parallel CI load the VPC DNS resolver drops lookups
@@ -20,25 +17,10 @@ function format_check {
   RETRY_SLEEP=10 retry "$fmt_check || { rm -rf \"\$HOME/nargo\"; exit 1; }"
 }
 
+# The subprojects are make targets (noir-protocol-circuits, mock-protocol-circuits, protocol-contracts), which
+# key and cache them.
 function build {
-  echo_header "noir-projects fnd build"
-
-  # Use fmt as a trick to download dependencies.
-  # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
-  # Also doubles up as our formatting check.
-  function prep {
-    set -eu
-    ./noir-protocol-circuits/bootstrap.sh generate_variants
-    format_check
-  }
-  export -f prep format_check
-
-  denoise prep
-
-  parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
-    mock-protocol-circuits \
-    noir-protocol-circuits \
-    noir-contracts
+  make -C "$root" noir-projects-fnd
 }
 
 # With no argument this is a local-dev entry only (via ./bootstrap.sh test). CI does not run that
@@ -47,33 +29,16 @@ function build {
 # fnd-release-tests target.
 function test_cmds {
   if [ "${1:-}" = release ]; then
-    # ci3 stays whole rather than naming the scripts the release path runs, because that list is
-    # transitive: the release gate lives in source_bootstrap and calls semver, and deploy_npm reaches
-    # release_prep_package_json. A list that falls behind skips the test instead of breaking.
-    local noir_hash content_hash prefix
-    noir_hash=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
-    content_hash=$(cache_content_hash \
-      "^noir-projects/fnd/" \
-      "^ci3/" \
-      ../../avm-transpiler/.rebuild_patterns \
-      ../../barretenberg/cpp/.rebuild_patterns \
-      ../../barretenberg/ts/.rebuild_patterns)
-    prefix=$(hash_str "$noir_hash" "$content_hash")
-    echo "$prefix noir-projects/fnd/bootstrap.sh release_smoke_test"
+    # Keyed by the fnd-release-tests step: the build output it stages, this script, and ci3 (see the Makefile).
+    echo "${STEP_KEY:-disabled-cache} noir-projects/fnd/bootstrap.sh release_smoke_test"
     return
   fi
   if [ "${1:-}" = genesis ]; then
     # The committed genesis (protocol/genesis) is derived from the protocol contracts with
     # barretenberg and the reference world state, so it goes stale when any of them moves. Consumers read it rather
-    # than deriving it, so this is the check that it still matches the contracts.
-    local genesis_hash
-    genesis_hash=$(hash_str "${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}" "$(cache_content_hash \
-      "^noir-projects/fnd/" \
-      "^protocol/" \
-      ../../avm-transpiler/.rebuild_patterns \
-      ../../barretenberg/cpp/.rebuild_patterns \
-      ../../barretenberg/ts/.rebuild_patterns)")
-    echo "$genesis_hash noir-projects/fnd/scripts/regenerate_genesis_constants.sh --check"
+    # than deriving it, so this is the check that it still matches the contracts. Keyed by the fnd-genesis-tests
+    # step (see the Makefile).
+    echo "${STEP_KEY:-disabled-cache} noir-projects/fnd/scripts/regenerate_genesis_constants.sh --check"
     return
   fi
   parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts
@@ -250,8 +215,8 @@ function pin-build {
     noir-protocol-circuits
 }
 
-# Identity of the protocol circuits and contracts for consumers' cache keys. Their inputs
-# beyond the sources (nargo, bb) are hashed by the consumer alongside this.
+# Identity of the protocol circuits and contracts for the labs submodule's cache keys
+# (scripts/labs_fnd_hashes.sh). Their inputs beyond the sources (nargo, bb) are hashed alongside this.
 function hash {
   cache_content_hash "^noir-projects/fnd/"
 }

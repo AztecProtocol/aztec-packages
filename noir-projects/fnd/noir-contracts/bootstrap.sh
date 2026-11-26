@@ -9,8 +9,11 @@ export PLATFORM_TAG=any
 
 export BB=${BB:-../../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../../noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$(../../../barretenberg/cpp/bootstrap.sh hash)}
-export NOIR_HASH=${NOIR_HASH:-$(../../../noir/bootstrap.sh hash)}
+# What the per-contract cache below is keyed by, besides the sources: the nargo and bb (with the transpiler it
+# links) this build uses. Run as a step (make protocol-contracts), ci3 hands each prerequisite's identity in as
+# CI3_KEY_<NAME>. Outside make there is none, and nothing is cached.
+export NOIR_KEY=${CI3_KEY_NOIR:-disabled-cache}
+export BB_KEY=${CI3_KEY_BB_CPP_NATIVE:-disabled-cache}
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
@@ -20,11 +23,10 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 function get_contract_hash {
   local contract_path=$(get_contract_path "$1")
   hash_str \
-    $NOIR_HASH \
+    $NOIR_KEY \
+    $BB_KEY \
     $(cache_content_hash \
-      ../../../avm-transpiler/.rebuild_patterns \
-      ../../../barretenberg/cpp/.rebuild_patterns \
-      ../../../barretenberg/ts/.rebuild_patterns \
+      "^noir-projects/fnd/noir-contracts/bootstrap.sh" \
       "^noir-projects/fnd/noir-contracts/contracts/$contract_path/" \
       "^noir-projects/fnd/noir-contracts/contracts/protocol/aztec_sublib/" \
       "^noir-projects/fnd/noir-protocol-circuits/crates/types/")
@@ -145,6 +147,9 @@ function unpack_pinned {
 # Otherwise parse out all contracts from the root Nargo.toml and process them in parallel. When pinned-build.tar.gz
 # exists, the contracts it holds are taken from it and only the rest are compiled.
 function build {
+  # nargo downloads its git dependencies on first use, and the parallel compiles below would each try. Fetching
+  # first, with retries, rides out the DNS failures heavy CI load causes. nargo serializes concurrent fetches.
+  RETRY_SLEEP=10 retry "$NARGO fetch"
   if [ "$#" -eq 0 ]; then
     rm -rf target
     mkdir -p target
@@ -162,7 +167,7 @@ function build {
   else
     local contracts="$@"
   fi
-  echo_stderr "Compiling contracts (bb-hash: $BB_HASH): "$contracts
+  echo_stderr "Compiling contracts (bb key: $BB_KEY): "$contracts
   set +e
   parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]}
   code=$?
@@ -170,11 +175,12 @@ function build {
   return $code
 }
 
+# Each command is prefixed with the key of the test step (make protocol-contracts-tests). Outside make nothing is
+# cached.
 function test_cmds {
-  local -A cache
+  local key=${STEP_KEY:-disabled-cache}
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
-    echo "${cache[$package]} noir-projects/fnd/scripts/run_test.sh noir-contracts $package $test"
+    echo "$key noir-projects/fnd/scripts/run_test.sh noir-contracts $package $test"
   done
 }
 
@@ -209,7 +215,8 @@ case "$cmd" in
     done
     ;;
   "")
-    build
+    # Through make, which caches it.
+    make -C "$root" protocol-contracts
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
