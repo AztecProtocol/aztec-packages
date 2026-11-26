@@ -8,8 +8,6 @@ if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
   exit 0
 fi
 
-# barretenberg's hash still chains this one. The builds themselves are keyed and cached as make steps.
-hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
 export SOURCE_DATE_EPOCH=0
@@ -94,9 +92,6 @@ function build {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo $hash
     ;;
   *)
     default_cmd_handler "$@"

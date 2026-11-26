@@ -31,6 +31,11 @@ endif
 # call step; a step's normal prerequisites are part of its key, its order-only ones (after |) only run first.
 include $(ROOT)/ci3/step.mk
 
+# The release being built, if REF_NAME is one: release builds stamp their version into what they ship, so a target
+# whose outputs carry it has RELEASE_VERSION in its KEY_ENV. Not REF_NAME, which on any other build is a branch
+# name and would give each branch a cache of its own.
+export RELEASE_VERSION := $(shell $(ROOT)/ci3/semver check "$$REF_NAME" 2>/dev/null && echo "$$REF_NAME")
+
 # Core helper to run a shell command with colored, prefixed output
 # Usage: $(call run_command,label,directory,command)
 # Color is automatically computed from label hash by color_prefix script.
@@ -105,8 +110,14 @@ bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir wsdb \
 bench-labs: labs-bench
 
 # The benchmark commands, keyed like tests (ci3 step_benches): bootstrap.sh bench_cmds collects them through make.
-BENCH_CMDS := bb-ts-benches bb-sol-benches wsdb-benches noir-protocol-circuits-benches l1-contracts-benches
+BENCH_CMDS := bb-cpp-benches bb-ts-benches bb-sol-benches wsdb-benches noir-protocol-circuits-benches l1-contracts-benches
 bench-cmds: $(BENCH_CMDS)
+
+# The micro, Chonk IVC (native, wasm, browser) and rollup UltraHonk benches. The browser bench drives bb-acir's
+# harness; the rollup bench reads labs' inputs, and keys its own cache by labs' yarn-project.
+bb-cpp-benches: private INPUTS := ^barretenberg/cpp/scripts/ ^barretenberg/cpp/bootstrap\.sh$$
+bb-cpp-benches: bb-cpp-native bb-cpp-wasm-threads bb-cpp-chonk-inputs bb-acir
+	$(call step_benches,$@,barretenberg/cpp)
 
 bb-ts-benches: private INPUTS := $(BB_TS_INPUTS)
 bb-ts-benches: bb-ts
@@ -165,11 +176,14 @@ noir-release-check:
 # those sources are inputs rather than the noir target a prerequisite.
 AVM_TRANSPILER_INPUTS := avm-transpiler/.rebuild_patterns noir/.rebuild_patterns ^noir/noir-repo$$
 
+# AVM_TRANSPILER=0 builds nothing.
 avm-transpiler-native: private INPUTS := $(AVM_TRANSPILER_INPUTS)
+avm-transpiler-native: private KEY_ENV := AVM_TRANSPILER
 avm-transpiler-native:
 	$(call step,$@,avm-transpiler,build_native)
 
 avm-transpiler-cross-%: private INPUTS := $(AVM_TRANSPILER_INPUTS)
+avm-transpiler-cross-%: private KEY_ENV := AVM_TRANSPILER
 avm-transpiler-cross-amd64-macos:
 	$(call step,$@,avm-transpiler,build_cross amd64-macos)
 
@@ -350,7 +364,7 @@ bb-cpp-smt:
 # The GitHub release tarballs, in barretenberg/cpp/ci3-out/bb-cpp-release-dir. They hold the distributed binaries,
 # stamped with the release version.
 bb-cpp-release-dir: private INPUTS := ^barretenberg/cpp/bootstrap\.sh$$
-bb-cpp-release-dir: private KEY_ENV := REF_NAME NATIVE_PRESET AVM
+bb-cpp-release-dir: private KEY_ENV := RELEASE_VERSION NATIVE_PRESET AVM
 bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
 	$(call step,$@,barretenberg/cpp,build_release_dir)
 
@@ -367,6 +381,7 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 BB_TS_INPUTS := barretenberg/ts/.rebuild_patterns
 
 bb-ts-packages-build: private INPUTS := $(BB_TS_INPUTS)
+bb-ts-packages-build: private KEY_ENV := RELEASE_VERSION
 bb-ts-packages-build: ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
 	$(call step,$@,barretenberg/ts,build_packages,bb.js-api bb-avm-sim cdb wsdb-ref)
 
@@ -380,7 +395,9 @@ bb-ts-packages: bb-ts-packages-build
 # BB TypeScript - TypeScript bindings, over bb.js-api.
 # Path list: bb.js is a yarn workspace whose dest/ is read in place through node module resolution (acir_tests, the
 # labs portals).
+# bb.js stamps the release version, and builds without the AVM under AVM_TRANSPILER=0.
 bb-ts: private INPUTS := $(BB_TS_INPUTS)
+bb-ts: private KEY_ENV := RELEASE_VERSION AVM_TRANSPILER
 bb-ts: bb-ts-packages
 	$(call step,$@,barretenberg/ts,build_bb_js,bb.js/dest)
 
@@ -391,13 +408,14 @@ BB_BIN_INPUTS := ^barretenberg/ts/scripts/native_packages\.sh$$ ^barretenberg/ts
 BB_BIN_OUTPUTS := bb-cli/packages bb-avm-cli/packages
 
 bb-bin: private INPUTS := $(BB_BIN_INPUTS)
+bb-bin: private KEY_ENV := RELEASE_VERSION
 bb-bin: bb-cpp-native
 	$(call step,$@,barretenberg/ts,build_bb_bin,$(BB_BIN_OUTPUTS))
 
 # Stages every platform and checks each binary against the release tarballs. Which platforms it stages depends on
 # whether REF_NAME is a release tag, so that is part of the key.
 bb-bin-cross-copy: private INPUTS := $(BB_BIN_INPUTS)
-bb-bin-cross-copy: private KEY_ENV := REF_NAME
+bb-bin-cross-copy: private KEY_ENV := RELEASE_VERSION
 bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
 	$(call step,$@,barretenberg/ts,cross_copy_bb_bin,$(BB_BIN_OUTPUTS))
 

@@ -16,9 +16,6 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Only for `./bootstrap.sh hash`, which other projects' bootstraps (and scripts/labs_fnd_hashes.sh) still chain.
-# The builds themselves are keyed and cached as make steps.
-hash=$(cache_content_hash .rebuild_patterns)
 
 BUILD_DIR=${BUILD_DIR:-cpp/build}
 
@@ -131,9 +128,6 @@ function release {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

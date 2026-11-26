@@ -5,9 +5,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 set -eou pipefail
 
 noir_commit=$(git -C noir-repo rev-parse HEAD)
-# Only for `./bootstrap.sh hash`, which other projects' bootstraps (and scripts/labs_fnd_hashes.sh) still chain.
-# The build itself is keyed and cached as the noir make step.
-export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
 
 # Must be in dependency order for releasing.
 export js_projects="
@@ -230,9 +227,6 @@ case "$cmd" in
     ;;
   "")
     build
-    ;;
-  "hash")
-    echo $hash
     ;;
   *)
     default_cmd_handler "$@"

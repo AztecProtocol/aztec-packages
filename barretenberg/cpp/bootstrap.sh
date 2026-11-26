@@ -9,8 +9,8 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 # The builds are keyed and cached by ci3 as make steps (the bb-cpp-* targets in the root Makefile), from the make
-# graph. This hash is only for the bench commands and for the projects that still chain it (`./bootstrap.sh hash`).
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# graph; the bench commands by the bb-cpp-benches step.
+bench_key=${STEP_KEY:-disabled-cache}
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # The version a bb binary reports is written over a placeholder that follows a sentinel (see common/version.cpp),
@@ -439,9 +439,9 @@ function chonk_ivc_bench_cmds {
     [[ -n "$flow" ]] || continue
     [[ -z "$flow_filter" || "$flow" == *"$flow_filter"* ]] || continue
     flow_dir="chonk-pinned-flows/$flow"
-    echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native $flow_dir"
+    echo "$bench_key:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native $flow_dir"
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm $flow_dir"
+      echo "$bench_key:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm $flow_dir"
     fi
   done < <(pinned_chonk_bench_flow_names)
 }
@@ -451,7 +451,7 @@ function chonk_browser_bench_cmds {
   while IFS= read -r flow; do
     [[ -n "$flow" ]] || continue
     flow_dir="chonk-pinned-flows/$flow"
-    echo "$hash:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
+    echo "$bench_key:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
   done < <(pinned_chonk_bench_flow_names)
 }
 
@@ -459,12 +459,12 @@ function ultrahonk_rollup_bench_cmds {
   local inputs_dir="../../labs/yarn-project/end-to-end/ultrahonk-bench-inputs"
   local cpus
   for cpus in 8 16 32; do
-    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base $inputs_dir $cpus"
+    echo "$bench_key:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base $inputs_dir $cpus"
   done
 }
 
 function bench_cmds {
-  prefix="$hash:CPUS=8"
+  prefix="$bench_key:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
@@ -533,9 +533,6 @@ case "$cmd" in
   "ci")
     build
     test
-    ;;
-  "hash")
-    echo $hash
     ;;
   *)
     default_cmd_handler "$@"
