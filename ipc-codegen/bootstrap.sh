@@ -10,9 +10,12 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Only for `./bootstrap.sh hash`, which other projects' bootstraps still chain. The build itself is keyed and cached
+# as the ipc-codegen make step.
 hash=$(cache_content_hash .rebuild_patterns)
 
-function build {
+# Builds unconditionally: the ipc-codegen make step restores the echo examples from the cache instead when it can.
+function build_echo_examples {
   echo_header "ipc-codegen build"
 
   # Service generation is invoked by each service's own build flow. The build
@@ -30,6 +33,11 @@ function build {
   # refreshing them, run `./bootstrap.sh update_goldens` and commit the diff.
 }
 
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" ipc-codegen
+}
+
 function update_goldens {
   echo_header "ipc-codegen update_goldens"
   # Rebuild the rust generate_golden binary first.
@@ -45,10 +53,11 @@ function release {
   retry "deploy_npm ${REF_NAME#v}"
 }
 
+# Keyed by the ipc-codegen-tests make step ($STEP_KEY).
 function test_cmds {
   local matrix_langs=(rust ts zig cpp)
 
-  local prefix="$hash:CPUS=1:TIMEOUT=120s"
+  local prefix="${STEP_KEY:-disabled-cache}:CPUS=1:TIMEOUT=120s"
   local script="ipc-codegen/echo_example/scripts/run_cross_language_test.sh"
 
   # Generator unit tests (schema validation).
@@ -58,13 +67,13 @@ function test_cmds {
   echo "$prefix ipc-codegen/scripts/strip_only_test.sh"
 
   # Golden tests (each language verifies it can deserialize the goldens
-  # baked by build(), and re-encode them byte-identically).
+  # baked by build_echo_examples(), and re-encode them byte-identically).
   echo "$prefix $script golden rust"
   echo "$prefix $script golden ts"
   echo "$prefix $script golden cpp"
   echo "$prefix $script golden zig"
   # The generated FFI entries, driven in-process through the generated client
-  # over its FFI backend (the Rust equivalent runs as a cargo test during build()).
+  # over its FFI backend (the Rust equivalent runs as a cargo test during build_echo_examples()).
   echo "$prefix ipc-codegen/echo_example/cpp/build/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/zig/zig-out/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
@@ -89,7 +98,7 @@ function test_cmds {
   done
 
   # TS SHM client coverage. The NAPI addon is built by ipc-runtime/bootstrap.sh
-  # during build(); a missing addon should fail these tests loudly rather than
+  # during its build; a missing addon should fail these tests loudly rather than
   # silently dropping coverage.
   for server in "${shm_server_langs[@]}"; do
     echo "$prefix $script matrix $server ts shm"

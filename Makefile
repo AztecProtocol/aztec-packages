@@ -118,8 +118,20 @@ release: release-foundation
 # Noir
 #==============================================================================
 
-noir:
-	$(call build,$@,noir)
+# nargo, noir-execute and noir-profiler, and the noir JS packages. They stay where they are built (transitional
+# path list): nargo is read from noir-repo/target/release by many scripts and the labs toolchain, and labs portals
+# into noir/packages.
+NOIR_OUTPUTS := $(addprefix noir-repo/target/release/,nargo noir-execute noir-profiler) packages \
+  $(addprefix noir-repo/,acvm-repo/acvm_js/nodejs acvm-repo/acvm_js/web tooling/noir_codegen/lib tooling/noir_js/lib \
+    tooling/noir_js_types/lib tooling/noirc_abi_wasm/nodejs tooling/noirc_abi_wasm/web)
+
+noir: private INPUTS := noir/.rebuild_patterns ^noir/noir-repo$$ ^noir/scripts/
+noir: | noir-release-check
+	$(call step,$@,noir,build_noir,$(NOIR_OUTPUTS))
+
+# On a release, checks the pinned noir release installs with noirup. Not a step: it always runs, cached or not.
+noir-release-check:
+	$(call build,$@,noir,release_check)
 
 #==============================================================================
 # AVM Transpiler
@@ -358,9 +370,14 @@ bb-full-tests: bb-cpp-wasm-threads-tests bb-cpp-asan-tests bb-cpp-smt-tests
 #==============================================================================
 
 .PHONY: constants-codegen constants-codegen-tests
+# The package's build embeds the protocol circuits' constants.nr. dest/ and inputs/ stay in the package (transitional
+# path list): labs portals into the package directory.
+CONSTANTS_CODEGEN_INPUTS := protocol/constants-codegen ^noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants\.nr$$
+constants-codegen: private INPUTS := $(CONSTANTS_CODEGEN_INPUTS)
 constants-codegen:
-	$(call build,$@,protocol/constants-codegen)
+	$(call step,$@,protocol/constants-codegen,build_package,dest inputs)
 
+constants-codegen-tests: private INPUTS := $(CONSTANTS_CODEGEN_INPUTS)
 constants-codegen-tests: constants-codegen
 	$(call test,$@,protocol/constants-codegen)
 
@@ -368,50 +385,74 @@ constants-codegen-tests: constants-codegen
 # IPC Codegen
 #==============================================================================
 
+# ipc-codegen's generator is source that its users run themselves (they take ipc-codegen's sources as inputs, not
+# this target). What this builds is the echo example harness its tests run, which the tests read where each
+# language's tool builds it (transitional path list).
 .PHONY: ipc-codegen ipc-codegen-tests
-ipc-codegen: ipc-runtime
-	$(call build,$@,ipc-codegen)
+# The TS examples are cached whole: what their generation and npm install write there changes with the generator.
+IPC_CODEGEN_ECHO_OUTPUTS := echo_example/cpp/build/bin \
+  $(addprefix echo_example/rust/target/debug/,echo_server echo_client golden_test) \
+  echo_example/zig/zig-out echo_example/ts echo_example/ts_package
 
-ipc-codegen-tests: ipc-codegen
+ipc-codegen: private INPUTS := ipc-codegen/.rebuild_patterns
+ipc-codegen: ipc-runtime
+	$(call step,$@,ipc-codegen,build_echo_examples,$(IPC_CODEGEN_ECHO_OUTPUTS))
+
+ipc-codegen-tests: private INPUTS := ipc-codegen/.rebuild_patterns ^ipc-codegen/test/ ^ipc-codegen/scripts/
+ipc-codegen-tests: ipc-codegen ipc-runtime
 	$(call test,$@,ipc-codegen)
 
+# The TS package's dest/ and build/ (the host NAPI addon) stay in place (transitional path list): consumers portal
+# into ipc-runtime/ts. So does the C++ test binary, beside them.
 .PHONY: ipc-runtime ipc-runtime-tests ipc-runtime-cross
+ipc-runtime-%: private INPUTS := ipc-runtime/.rebuild_patterns
+ipc-runtime: private INPUTS := ipc-runtime/.rebuild_patterns
 ipc-runtime:
-	$(call build,$@,ipc-runtime)
+	$(call step,$@,ipc-runtime,build_native,ts/dest ts/build cpp/build/ipc_runtime_tests)
 
 ipc-runtime-tests: ipc-runtime
 	$(call test,$@,ipc-runtime)
 
-# Cross-compile the NAPI addon for the 3 non-host release targets.
-# Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
+# Cross-compile the NAPI addon for the 3 non-host release targets, into $STEP_OUT, where the release's
+# cross_copy reads it. Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
 ipc-runtime-cross-arm64-linux:
-	$(call build,$@,ipc-runtime,build_cross arm64-linux)
+	$(call step,$@,ipc-runtime,build_cross arm64-linux)
 
 ipc-runtime-cross-amd64-macos:
-	$(call build,$@,ipc-runtime,build_cross amd64-macos)
+	$(call step,$@,ipc-runtime,build_cross amd64-macos)
 
 ipc-runtime-cross-arm64-macos:
-	$(call build,$@,ipc-runtime,build_cross arm64-macos)
+	$(call step,$@,ipc-runtime,build_cross arm64-macos)
 
 ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
+	$(call step_group,$@)
 
 #==============================================================================
 # Native packages (lmdblib, kvdb, wsdb)
 #==============================================================================
 
 # lmdblib and kvdb are barretenberg-free: they build against their own deps
-# (lmdb, msgpack-c, node-addon-api) only, never bb.
+# (lmdb, msgpack-c, node-addon-api) only, never bb. kvdb and wsdb compile lmdblib's sources themselves, so they take
+# them as inputs rather than the lmdblib target as a prerequisite.
 .PHONY: lmdblib kvdb lmdblib-tests kvdb-tests wsdb-tests
+lmdblib lmdblib-tests: private INPUTS := native-packages/lmdblib/.rebuild_patterns
 lmdblib:
-	$(call build,$@,native-packages/lmdblib)
+	$(call step,$@,native-packages/lmdblib,build_native)
 
+# kvdb's TS package (dest/, the addon in build/, the per-arch packages/) stays in place (transitional path list):
+# labs portals into native-packages/kvdb/ts.
+kvdb kvdb-tests: private INPUTS := native-packages/kvdb/.rebuild_patterns
 kvdb:
-	$(call build,$@,native-packages/kvdb)
+	$(call step,$@,native-packages/kvdb,build_package,ts/dest ts/build ts/packages)
 
-# wsdb builds barretenberg's wsdb-ref sources itself (see native-packages/wsdb/README.md), so it needs no bb build. Its
-# package is generated by this checkout's ipc-codegen and compiled against its ipc-runtime.
-wsdb: ipc-codegen
-	$(call build,$@,native-packages/wsdb)
+# wsdb builds barretenberg's wsdb-ref sources itself (see native-packages/wsdb/README.md), so it needs no bb build:
+# those sources, ipc-runtime's C++ and ipc-codegen's generator are inputs. Its TS package is compiled against
+# ipc-runtime's built TS package. The generated package (ts/) stays in place (transitional path list): labs portals
+# into it. So do the test and bench binaries, beside it.
+wsdb: private INPUTS := native-packages/wsdb/.rebuild_patterns barretenberg/cpp/.rebuild_patterns \
+  ^barretenberg/cpp/src/barretenberg/wsdb_ref/ ^ipc-runtime/cpp/ ^ipc-codegen/src/ ^ipc-codegen/templates/
+wsdb: ipc-runtime
+	$(call step,$@,native-packages/wsdb,build_package,ts cpp/build/bin/wsdb_tests cpp/build/bin/wsdb_bench)
 
 # Native-package tests. lmdblib and wsdb are self-contained gtest binaries. kvdb has no
 # C++ tests: its NAPI protocol is driven from node (ts/test) and exercised further by
@@ -423,6 +464,7 @@ lmdblib-tests: lmdblib
 kvdb-tests: kvdb
 	$(call test,$@,native-packages/kvdb)
 
+wsdb-tests: private INPUTS := native-packages/wsdb/.rebuild_patterns
 wsdb-tests: wsdb
 	$(call test,$@,native-packages/wsdb)
 

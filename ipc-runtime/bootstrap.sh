@@ -16,11 +16,15 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Only for `./bootstrap.sh hash`, which other projects' bootstraps (and scripts/labs_fnd_hashes.sh) still chain.
+# The builds themselves are keyed and cached as make steps.
 hash=$(cache_content_hash .rebuild_patterns)
 
 BUILD_DIR=${BUILD_DIR:-cpp/build}
 
-function build {
+# Builds unconditionally: the ipc-runtime make step restores its outputs (the TS package's dest/ and build/, and the
+# C++ test binary) from the cache instead when it can.
+function build_native {
   echo_header "ipc-runtime build"
   cmake -B "$BUILD_DIR" -S cpp -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
   cmake --build "$BUILD_DIR" --target ipc_runtime ipc_runtime_tests
@@ -42,10 +46,17 @@ function build {
   fi
 }
 
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" ipc-runtime
+}
+
+# Keyed by the ipc-runtime-tests make step ($STEP_KEY).
 function test_cmds {
-  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/cpp/build/ipc_runtime_tests"
-  echo "$hash:CPUS=4:TIMEOUT=300s ipc-runtime/scripts/run_rust_tests.sh"
-  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_ts_tests.sh"
+  local prefix=${STEP_KEY:-disabled-cache}
+  echo "$prefix:CPUS=1:TIMEOUT=120s ipc-runtime/cpp/build/ipc_runtime_tests"
+  echo "$prefix:CPUS=4:TIMEOUT=300s ipc-runtime/scripts/run_rust_tests.sh"
+  echo "$prefix:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_ts_tests.sh"
 }
 
 function test {
@@ -58,10 +69,13 @@ function clean {
   rm -rf "$BUILD_DIR"
 }
 
+# Builds unconditionally, installing the addon into $STEP_OUT (ci3-out/ipc-runtime-cross-<arch>), where cross_copy
+# reads it: the ipc-runtime-cross-<arch> make steps restore it from the cache instead when they can.
 function build_cross {
   local arch=$1
   echo_header "ipc-runtime build_cross $arch"
   (cd cpp && cmake --preset "$arch" && cmake --build --preset "$arch")
+  cp "cpp/build-$arch/lib/ipc_runtime_napi.node" "${STEP_OUT:?run through make: make ipc-runtime-cross-$arch}/"
 }
 
 function cross_copy {
