@@ -62,6 +62,16 @@ function stamp_dev_aztec_version {
 }
 export -f stamp_dev_aztec_version
 
+# Prints the artifact name nargo writes for a contract, `<package>-<contract>`.
+# $1 is the contract name or path
+function artifact_name {
+  local contract_path=$(get_contract_path "$1")
+  local package=$(grep -oP '(?<=^name = ")[^"]+' "contracts/$contract_path/Nargo.toml")
+  local contract_name=$(awk '/^contract / { print $2 } /^pub contract / { print $3 }' "contracts/$contract_path/src/main.nr")
+  echo "$package-$contract_name"
+}
+export -f artifact_name
+
 # This compiles a noir contract, transpiles public functions, strips internal prefixes,
 # and generates verification keys for private functions via 'bb aztec_process'.
 # $1 is the input package name or path. On exit its fully processed json artifact is in the target dir.
@@ -71,10 +81,7 @@ function compile {
 
   local contract_path=$(get_contract_path "$1")
   local contract=$(grep -oP '(?<=^name = ")[^"]+' "contracts/$contract_path/Nargo.toml")
-  # Calculate filename because nargo...
-  local contract_name=$(cat contracts/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
-  local filename="$contract-$contract_name.json"
-  local json_path="./target/$filename"
+  local json_path="./target/$(artifact_name "$1").json"
   local contract_hash=$(get_contract_hash $1)
   if ! cache_download contract-$contract_hash.tar.gz; then
     # Aztec private app circuits intentionally defer validation of some oracle outputs (including
@@ -97,10 +104,46 @@ function compile {
 }
 export -f compile
 
+# Fails when the private-function VKs in a pinned artifact differ from the ones the current bb derives from its
+# bytecode. A proof-system change can move a VK without any bytecode change, and a stale pinned VK fails proving.
+# $1 is the path of a pinned artifact in target/.
+function check_pinned_vks {
+  set -euo pipefail
+  local json_path=$1
+  local tmp=$(mktemp -d)
+  trap "rm -rf $tmp" EXIT
+  cp "$json_path" $tmp/artifact.json
+  $BB aztec_process -i $tmp/artifact.json --force >&2
+  local vks='[.functions[] | {name, verification_key}] | sort_by(.name)'
+  if ! diff <(jq -c "$vks" "$json_path") <(jq -c "$vks" $tmp/artifact.json) >/dev/null; then
+    echo_stderr "ERROR: pinned VKs in $json_path do not match the VKs the current bb computes from its pinned bytecode."
+    echo_stderr "The pin holds the deployed protocol contracts: a bb change that moves these VKs changes the protocol."
+    return 1
+  fi
+}
+export -f check_pinned_vks
+
+# Unpacks pinned-build.tar.gz into target/ and checks its VKs. The archive holds the deployed protocol contract
+# artifacts, so a Noir, transpiler or bb change cannot move a protocol contract class id.
+function unpack_pinned {
+  set -euo pipefail
+  echo_stderr "Using pinned-build.tar.gz for the protocol contracts it contains."
+  tar xzf pinned-build.tar.gz -C target
+  local artifact
+  for artifact in target/*.json; do
+    stamp_dev_aztec_version "$artifact"
+  done
+  set +e
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag check_pinned_vks {} ::: target/*.json
+  local code=$?
+  cat joblog.txt
+  return $code
+}
+
 # If given an argument, it's the contract to compile.
-# Otherwise parse out all contracts from the root Nargo.toml and process them in parallel.
+# Otherwise parse out all contracts from the root Nargo.toml and process them in parallel. When pinned-build.tar.gz
+# exists, the contracts it holds are taken from it and only the rest are compiled.
 function build {
-  echo_stderr "Compiling protocol contracts (bb-hash: $BB_HASH)..."
   if [ "$#" -eq 0 ]; then
     rm -rf target
     mkdir -p target
@@ -110,9 +153,15 @@ function build {
     local contracts=$(grep -oP "(?<=contracts/)[^\"]+" Nargo.toml | while read -r c; do
       grep -q '^type = "contract"' "contracts/$c/Nargo.toml" && echo "$c"
     done)
+    if [ -f pinned-build.tar.gz ]; then
+      unpack_pinned || return
+      contracts=$(for c in $contracts; do [ -f "target/$(artifact_name $c).json" ] || echo "$c"; done)
+      [ -n "$contracts" ] || return 0
+    fi
   else
     local contracts="$@"
   fi
+  echo_stderr "Compiling contracts (bb-hash: $BB_HASH): "$contracts
   set +e
   parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]}
   code=$?
@@ -141,6 +190,20 @@ function test {
 
 function format {
   $NARGO fmt
+}
+
+# Compiles the contracts from source and writes the protocol contracts listed in protocol_contracts.json to
+# pinned-build.tar.gz. The pin is what the network deploys: re-pinning changes protocol contract class ids, so it is a
+# protocol upgrade, not a build fix.
+function pin-build {
+  set -euo pipefail
+  rm -f pinned-build.tar.gz
+  build
+  local protocol_contracts
+  protocol_contracts=$(jq -r '.[] + ".json"' protocol_contracts.json)
+  echo_stderr "Creating pinned-build.tar.gz from target..."
+  tar czf pinned-build.tar.gz -C target $protocol_contracts
+  echo_stderr "Done. pinned-build.tar.gz created. Commit it to pin these artifacts."
 }
 
 case "$cmd" in
