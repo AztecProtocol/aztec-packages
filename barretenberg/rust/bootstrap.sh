@@ -63,10 +63,9 @@ function test {
   BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition" denoise "cargo test --release --features ffi"
 }
 
-function crate_published {
-  curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/$1/$2" | jq -e '.version.num' &>/dev/null
-}
-
+# Stage the crate for the release's publish step (bootstrap.sh publish, on the GitHub runner), beside
+# the ipc-runtime crate it depends on, and verify the staged pair builds together here, where the
+# static library is at hand.
 function release {
   echo_header "barretenberg-rs release"
 
@@ -81,34 +80,20 @@ function release {
     generate
   fi
 
-  # Check if this version is already published on crates.io (idempotent re-runs).
-  if crate_published barretenberg-rs $version; then
-    echo "barretenberg-rs@$version already published on crates.io. Skipping."
-    return 0
-  fi
-
-  # Publish from a staged copy so the checkout is left untouched. ipc-runtime's
-  # crate is staged beside it, at the same relative path and at this version, so
-  # the path dependency resolves; ipc-runtime's release (which runs first)
-  # publishes that build, and the version pin below names it exactly.
-  local stage=$(mktemp -d)
-  local dest=$stage/barretenberg/rust
-  "$root/ipc-runtime/bootstrap.sh" stage_crate $version $stage
+  # Staged from a copy so the checkout is left untouched. ipc-runtime's release, which runs first,
+  # staged its crate at the same relative path and at this version, so the path dependency resolves;
+  # the version pin below names exactly that build.
+  local crates=${RELEASE_DIR:?RELEASE_DIR is required}/crates
+  local dest=$crates/barretenberg/rust
+  [ -d $crates/ipc-runtime/rust ] || "$root/ipc-runtime/bootstrap.sh" stage_crate $version $crates
   mkdir -p $dest
   tar -c --exclude=./target . | tar -x -C $dest
   sed -i "s/^version = \".*\"/version = \"$version\"/" $dest/Cargo.toml
   sed -i -E "s|^(ipc-runtime = \{ path = \"[^\"]*\", version = \")[^\"]*|\1=$version|" $dest/barretenberg-rs/Cargo.toml
 
-  # --allow-dirty because generated files are gitignored
-  local extra_flags=""
-  if ! gh release view "v$version" --repo AztecProtocol/barretenberg &>/dev/null; then
-    # No matching GitHub release yet — skip verification build (which would try to download libbb-external.a)
-    echo "No GitHub release found for v$version, adding --no-verify (pass REF_NAME matching a release for full verification)"
-    extra_flags="--no-verify"
-  fi
-  local bb_lib_dir="$(cd ../cpp/build/lib && pwd)"
-  (cd $dest && BB_LIB_DIR="$bb_lib_dir" retry "denoise 'do_or_dryrun cargo publish --allow-dirty $extra_flags -p barretenberg-rs'")
-  rm -rf $stage
+  local target=$(mktemp -d) bb_lib_dir=$(cd ../cpp/build/lib && pwd)
+  (cd $dest && CARGO_TARGET_DIR=$target BB_LIB_DIR=$bb_lib_dir denoise "cargo build --release -p barretenberg-rs")
+  rm -rf $target
 }
 
 function test_download {

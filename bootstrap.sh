@@ -640,15 +640,13 @@ function release {
     return
   fi
 
-  # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
-  # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
-  release_bb_github
-
-  # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
-  # through the release cache (see ci-release); ci3.yml's publish-npm job publishes them with npm
-  # trusted publishing.
-  export NPM_PACK_DIR=$root/npm-release
-  rm -rf "$NPM_PACK_DIR"
+  # Nothing is published from here: this machine runs the whole build, so it holds no publishing
+  # credential. Each project stages what it publishes under RELEASE_DIR (npm tarballs in deploy_npm's
+  # pack mode, crates, the GitHub release assets), and the bundle is handed to the publish step
+  # (bootstrap.sh publish, run by ci3.yml's publish job on the GitHub runner) through the cache.
+  export RELEASE_DIR=$root/release-out
+  export NPM_PACK_DIR=$RELEASE_DIR/npm
+  rm -rf "$RELEASE_DIR"
 
   # Only the foundation packages are published from here; the labs packages (yarn-project, playground,
   # aztec-up, aztec-nr, the docker release-image) are published from the labs repo.
@@ -672,10 +670,62 @@ function release {
   done
 
   # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
-  # A dry run packs but does not upload.
+  # A dry run stages but does not upload.
   if [ "${DRY_RUN:-0}" != 1 ]; then
-    S3_FORCE_UPLOAD=1 cache_upload "npm-release-$REF_NAME.tar.gz" npm-release
+    S3_FORCE_UPLOAD=1 cache_upload "release-$REF_NAME.tar.gz" release-out
   fi
+}
+
+function crate_published {
+  curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/$1/$2" | jq -e '.version.num' &>/dev/null
+}
+
+# <name> <dir> [cargo args]: publishes a crate staged by a release, unless this version is already out.
+# <dir> is the crate, or its workspace, whose Cargo.toml carries the version.
+function publish_crate {
+  local name=$1 dir=$2 version=${REF_NAME#v}
+  shift 2
+  if ! grep -qx "version = \"$version\"" "$dir/Cargo.toml"; then
+    echo_stderr "Refusing to publish $name from $dir: it is not at version $version."
+    exit 1
+  fi
+  if crate_published $name $version; then
+    echo "$name@$version already published on crates.io. Skipping."
+    return
+  fi
+  echo_header "publishing $name@$version"
+  # --no-verify: the release build verified the staged crates where the static library is at hand.
+  # --allow-dirty: the staged copy has generated files and no git checkout.
+  (cd "$dir" && retry "do_or_dryrun cargo publish --no-verify --allow-dirty $*")
+}
+
+function publish {
+  # The publish step of a public release: publishes the bundle `release` staged, from the machine
+  # that holds the publishing credentials (in CI, ci3.yml's publish job on the GitHub runner, in the
+  # master environment) rather than the one that built it. Needs the AWS role that can read the
+  # cache, GITHUB_TOKEN for the release in AztecProtocol/barretenberg, CARGO_REGISTRY_TOKEN, and npm
+  # trusted publishing. DRY_RUN=1 prints what it would publish.
+  "$root/scripts/assert_public_release"
+  if ! semver check "$REF_NAME"; then
+    echo_stderr "Nothing to publish for $REF_NAME: not a release version."
+    exit 1
+  fi
+  local dir
+  dir=$(mktemp -d)
+  source $ci3/source_cache_bucket aztec-ci-release-cache
+  cache_download "release-$REF_NAME.tar.gz" "$dir"
+  dir=$dir/release-out
+
+  # The GitHub release first: barretenberg-rs downloads its static library from it.
+  release_bb_github
+  do_or_dryrun gh release upload "$REF_NAME" "$dir"/github/* --repo AztecProtocol/barretenberg --clobber
+
+  # ipc-runtime first: barretenberg-rs depends on it at exactly this version, and cargo publish waits
+  # until a published crate is available in the index.
+  publish_crate ipc-runtime "$dir/crates/ipc-runtime/rust"
+  publish_crate barretenberg-rs "$dir/crates/barretenberg/rust" -p barretenberg-rs
+
+  EXPECTED_VERSION=${REF_NAME#v} scripts/publish_npm_release "$dir/npm"
 }
 
 function release_dryrun {
@@ -993,6 +1043,17 @@ case "$cmd" in
     #   fi
     # fi
 
+    # Never the shared build cache, which any CI build can write and anyone can read: a release in
+    # the private repo builds in the private cache (which its CI already uses, see
+    # ci3_labels_to_env.sh), any other in the release cache, through which it also hands its bundle
+    # to the publish job.
+    if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
+       [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+      source $ci3/source_cache_bucket aztec-ci-private-cache
+    else
+      source $ci3/source_cache_bucket aztec-ci-release-cache
+    fi
+
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
@@ -1008,11 +1069,6 @@ case "$cmd" in
       export NO_CACHE_UPLOAD=1
       # Unset so child bootstrap.sh re-derives these from the worktree.
       unset COMMIT_HASH root
-    elif [ "${PRIVATE_RELEASE:-0}" != 1 ] &&
-         [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" != "aztecprotocol/aztec-packages-private" ]; then
-      # A public release builds from, and hands its npm bundle to publish-npm through, the release
-      # cache: never the shared build cache, which any CI build can write.
-      source $ci3/source_release_cache
     fi
     ./bootstrap.sh build release
     ./bootstrap.sh release

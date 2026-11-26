@@ -80,10 +80,6 @@ function stage_cross_addons {
   done
 }
 
-function crate_published {
-  curl -sf -H "User-Agent: aztec-packages-ci (tech@aztec-labs.com)" "https://crates.io/api/v1/crates/ipc-runtime/$1" | jq -e '.version.num' &>/dev/null
-}
-
 # Stage the publishable crate, at <version>, in <dir>/ipc-runtime/rust. The
 # checkout is left untouched: other projects hash these files later in the run.
 # The crate compiles the C++ runtime itself, so it ships a copy of the sources.
@@ -96,22 +92,15 @@ function stage_crate {
   sed -i "0,/^version = \".*\"/s//version = \"$version\"/" $dest/Cargo.toml
 }
 
-# Publish the Rust crate to crates.io. barretenberg-rs depends on it at the
-# same version, and its release runs after this one.
+# Stage the crate for the release's publish step (bootstrap.sh publish, on the GitHub runner, which
+# publishes it to crates.io before barretenberg-rs), and verify it here: packaging builds the crate
+# on its own, which proves the copied sources are complete.
 function release_crate {
-  local version=$1
-
-  if crate_published $version; then
-    echo "ipc-runtime@$version already published on crates.io. Skipping."
-    return 0
-  fi
-
-  local stage=$(mktemp -d)
-  stage_crate $version $stage
-  # Verification builds the packaged crate on its own, which proves the copied
-  # sources are complete. --allow-dirty in case the temp dir is inside a git repo.
-  (cd $stage/ipc-runtime/rust && retry "denoise 'do_or_dryrun cargo publish --allow-dirty'")
-  rm -rf $stage
+  local version=$1 crates=${RELEASE_DIR:?RELEASE_DIR is required}/crates
+  stage_crate $version $crates
+  local target=$(mktemp -d)
+  (cd $crates/ipc-runtime/rust && CARGO_TARGET_DIR=$target denoise "cargo package --allow-dirty")
+  rm -rf $target
 }
 
 function release {

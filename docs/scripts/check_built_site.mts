@@ -143,6 +143,15 @@ function mathProblems(buildDir: string): string[] {
   return problems;
 }
 
+const OFF_SITE_CSS = /(?:url\(\s*|@import\s*)["']?\s*((?:https?:)?\/\/[^"')\s;]+)/gi;
+
+// Every reader's browser fetches what a stylesheet names on another host; the browser smoke sees only what its pages use.
+// A plain match suffices on the bundle: Lightning CSS (`faster`) decodes escapes and drops comments when it minifies.
+const offSiteCss = (buildDir: string) =>
+  fs.globSync("**/*.css", { cwd: buildDir }).flatMap((file) =>
+    [...fs.readFileSync(path.join(buildDir, file), "utf8").matchAll(OFF_SITE_CSS)].map((m) => `/${file}: loads ${m[1]} from another host; serve it from the site`),
+  );
+
 function readPage(buildDir: string, url: string): string | null {
   const p = url.slice(1);
   for (const file of p ? [`${p}.html`, `${p}/index.html`] : ["index.html"]) {
@@ -223,7 +232,12 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     ];
     for (const dir of leaks) problems.push(`${dir}: served by production, which serves released docs only`);
   }
-  problems.push(...mathProblems(buildDir));
+  problems.push(...mathProblems(buildDir), ...offSiteCss(buildDir));
+  const [developer] = networkDocs.docsInstances(model.configs.developer, model.configs.network, model.production);
+  for (const { kind, dir } of networkDocs.apiReferenceDirs(developer, model.cut.developer)) {
+    if (kind === "typescript" && !fs.existsSync(path.join(buildDir, dir, "index.html")))
+      problems.push(`/${dir}/: no index.html, so the folder's URL answers 404 (split_typescript_api.mjs writes it)`);
+  }
 
   for (const problem of problems) log(problem);
   const layout = model.production ? "production" : "non-production";

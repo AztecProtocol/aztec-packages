@@ -32,10 +32,12 @@ function toMarkdownPath(pathname) {
 
 const toPagePath = (twinPath) => (twinPath === "/index.md" ? "/" : twinPath.slice(0, -3));
 
+// netlify dev's fetch wrapper re-resolves the path against the site, where `//host/...` names another host.
+const namesAnotherHost = (url) => url.pathname.startsWith("//");
+
 /** A bare HEAD to this site that leaves redirects unfollowed; null for a path starting with `//`. */
 async function probe(url) {
-  // netlify dev's fetch wrapper re-resolves the path against the site, where `//host/...` names another host.
-  if (url.pathname.startsWith("//")) return null;
+  if (namesAnotherHost(url)) return null;
   return fetch(url, { method: "HEAD", redirect: "manual", headers: { accept: "text/html", [SUBREQUEST_HEADER]: "subrequest" } });
 }
 
@@ -80,7 +82,7 @@ export default async (request, context) => {
 
   const accept = request.headers.get("accept") || "";
   if (!prefersMarkdown(accept)) return;
-  if (FILE.test(url.pathname)) return;
+  if (FILE.test(url.pathname) || namesAnotherHost(url)) return;
 
   const markdownUrl = new URL(url.toString());
   markdownUrl.pathname = toMarkdownPath(url.pathname);

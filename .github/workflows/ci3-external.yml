@@ -114,7 +114,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN || secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-external-${{ github.run_id }}
           role-duration-seconds: 7200

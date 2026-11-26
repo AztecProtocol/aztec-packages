@@ -27,6 +27,8 @@ export default async (request) => {
   if (query.from === null && query.to === null) return;
   const problem = queryProblem(query);
   if (problem) return badRange(problem);
+  // netlify dev's fetch wrapper re-resolves the path against the site, where `//host/...` names another host.
+  if (url.pathname.startsWith("//")) return;
 
   // Assigned, never resolved as a reference: a path that starts with `//` would name another host.
   const indexUrl = new URL(url.origin);
@@ -44,4 +46,4 @@ export default async (request) => {
   return reply(200, renderRange(selection, url.origin + url.pathname.replace(/\.md$/, "")), "text/markdown");
 };
 
-export const config = { path: "/*/migration_notes.md" };
+export const config = { path: "/*/migration_notes.md", onError: "bypass" };

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { type TestContext, test } from "node:test";
 import { compareVersions, parseVersion, renderRange, selectRange } from "../../src/migration_ranges.mjs";
-import serveRange from "../../netlify/edge-functions/migration-notes-range.mjs";
+import serveRange, { config as rangeConfig } from "../../netlify/edge-functions/migration-notes-range.mjs";
 import { indexMigrationNotes, splitSections } from "../index_migration_notes.mjs";
 
 const docs = path.join(import.meta.dirname, "../..");
@@ -155,6 +155,10 @@ test("the edge function serves a range, refuses a bad one, and otherwise steps a
   assert.equal(await serve("?from=5.2.0", null), undefined);
 
   fetched.length = 0;
-  await serveRange(new Request("https://docs.example//elsewhere.example/x/migration_notes.md?from=5.2.0"));
-  assert.deepEqual(fetched.map((u) => new URL(u).origin), ["https://docs.example"]);
+  assert.equal(await serveRange(new Request("https://docs.example//elsewhere.example/x/migration_notes.md?from=5.2.0")), undefined);
+  assert.deepEqual(fetched, []);
+});
+
+test("the edge function config turns on Netlify's error bypass, so an exception serves the static twin", () => {
+  assert.deepEqual(rangeConfig, { path: "/*/migration_notes.md", onError: "bypass" });
 });

@@ -114,6 +114,12 @@ function get_latest_run_id {
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
 export RUN_ID=${RUN_ID:-$(date +%s%3N)}
 
+# What ci3/bootstrap_ec2 passes into the build container beyond ci3's own settings: these
+# variables as they are, and these files (paths on this machine, passed as paths to a copy).
+export CI3_PASS_ENV="${CI3_PASS_ENV:-} GCP_PROJECT_ID NETLIFY_SITE_ID NETLIFY_AUTH_TOKEN
+  AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION CHONK_INPUTS_STATE_DIR"
+export CI3_PASS_FILES="${CI3_PASS_FILES:-} GOOGLE_APPLICATION_CREDENTIALS"
+
 # Dashboard section for the regular CI runs: runs on next itself are the post-merge runs (next has
 # no merge queue), so they get their own section; everything else is a PR run.
 if [ "$REF_NAME" == "next" ]; then
