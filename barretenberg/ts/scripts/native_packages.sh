@@ -5,7 +5,7 @@
 #                                      (native, or the named cross builds; a release stages every
 #                                      platform)
 #   verify <bb|bb-avm>                 every staged binary must be byte-identical to the one
-#                                      in barretenberg/cpp/build-release/*.tar.gz
+#                                      in barretenberg/cpp/ci3-out/bb-cpp-release-dir/*.tar.gz
 set -euo pipefail
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
@@ -53,10 +53,10 @@ JSON
 function build_dir { [ "$1" = "$(arch)-$(os)" ] && echo "$cpp/build" || echo "$cpp/build-$1"; }
 # Release tarball for a platform (release dir naming uses darwin/windows, build dirs macos/windows).
 function tarball { case "$1" in
-  amd64-linux|arm64-linux) echo "$cpp/build-release/barretenberg${name#bb}-$1.tar.gz" ;;
-  amd64-macos) echo "$cpp/build-release/barretenberg-amd64-darwin.tar.gz" ;;
-  arm64-macos) echo "$cpp/build-release/barretenberg-arm64-darwin.tar.gz" ;;
-  amd64-windows) echo "$cpp/build-release/barretenberg-amd64-windows.tar.gz" ;; esac; }
+  amd64-linux|arm64-linux) echo "$cpp/ci3-out/bb-cpp-release-dir/barretenberg${name#bb}-$1.tar.gz" ;;
+  amd64-macos) echo "$cpp/ci3-out/bb-cpp-release-dir/barretenberg-amd64-darwin.tar.gz" ;;
+  arm64-macos) echo "$cpp/ci3-out/bb-cpp-release-dir/barretenberg-arm64-darwin.tar.gz" ;;
+  amd64-windows) echo "$cpp/ci3-out/bb-cpp-release-dir/barretenberg-amd64-windows.tar.gz" ;; esac; }
 
 case "$cmd" in
   stage)

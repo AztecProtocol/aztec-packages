@@ -192,7 +192,7 @@ function build_bb_bin {
 function cross_copy_bb_bin {
   ./scripts/native_packages.sh stage bb "$@"
   ./scripts/native_packages.sh stage bb-avm "$@"
-  if [ -d ../cpp/build-release ]; then
+  if [ -d ../cpp/ci3-out/bb-cpp-release-dir ]; then
     ./scripts/native_packages.sh verify bb
     ./scripts/native_packages.sh verify bb-avm
   fi

@@ -193,6 +193,7 @@ barretenberg: bb-cpp bb-ts-packages bb-ts bb-bin bb-rs bb-acir bb-docs bb-sol bb
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
+	$(call step_group,$@)
 
 # BB CRS Download. The CRS goes to ~/.bb-crs, outside the repository, so it cannot be restored from a step's
 # cache: it always runs (never), and skips what is already downloaded itself. Its key covers what it downloads.
@@ -204,107 +205,157 @@ bb-crs:
 bb-bbup:
 	$(call step_group,$@)
 
-# Format check (skipped if cache hit)
+# The bb-cpp-* targets are steps. Each cmake preset builds in a build dir of its own (build, build-wasm,
+# build-<target>), which local builds continue from and the rest of the repository reads in place (build/bin/bb
+# above all): so a preset's step caches its bin and lib dirs in place (ci3 step's transitional path list) rather
+# than installing them into $STEP_OUT.
+# bb compiles ipc-runtime's C++ sources and includes avm-transpiler's C header, from their checkouts: those are
+# inputs. What it links of avm-transpiler is that step's output, so avm-transpiler-native is a prerequisite.
+BB_CPP_INPUTS := barretenberg/cpp/.rebuild_patterns ^ipc-runtime/cpp/ ^avm-transpiler/avm_transpiler\.h$$
+bb-cpp-%: private INPUTS := $(BB_CPP_INPUTS)
+# The tests read the binaries (their prerequisites' outputs), bb's scripts and the test data in its sources.
+bb-cpp-%-tests: private INPUTS := barretenberg/cpp/.rebuild_patterns ^barretenberg/cpp/src/.*\.testdata\.bin$$
+
+# The native preset, and so its build dir, follow NATIVE_PRESET and AVM (as in barretenberg/cpp/bootstrap.sh).
+BB_NATIVE_PRESET := $(or $(NATIVE_PRESET),$(if $(filter 0,$(AVM)),clang20-no-avm,clang20))
+BB_NATIVE_BUILD_DIR = $(shell $(ROOT)/barretenberg/cpp/scripts/preset-build-dir $(BB_NATIVE_PRESET))
+BB_NATIVE_KEY_ENV := NATIVE_PRESET AVM AVM_TRANSPILER
+
+# $(call bb_cpp_dist,<build dir>): stages a preset's distributed binaries (bin/dist: stripped, and stamped with the
+# release version in a release) after its step, whether the step built the outputs or restored them. They are not
+# part of the outputs: the release version is not in the key. Skipped while ci3/step_plan only works out keys.
+define bb_cpp_dist
+	@[ "$${CI3_KEYS_ONLY:-0}" = 1 ] || { cd $(ROOT)/barretenberg/cpp && $(ROOT)/ci3/color_prefix $@ "./bootstrap.sh stage_dist_binaries $(1)/bin"; }
+endef
+
+# Format check: a check, so the builds only run after it (order-only); its step records the pass.
+bb-cpp-format-check: private INPUTS := ^barretenberg/cpp/src/.*\.(cpp|hpp|tcc)$$ ^barretenberg/cpp/\.clang-format$$ ^barretenberg/cpp/format\.sh$$
 bb-cpp-format-check:
-	$(call build,$@,barretenberg/cpp,build_format_check)
+	$(call step,$@,barretenberg/cpp,build_format_check)
 
 # BB C++ Native - Split into compilation and linking phases
-# Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
+# Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler). A warm-up of
+# the build dir bb-cpp-native continues from (order-only): it outputs nothing, and its step records that it ran, so
+# it is skipped while its inputs are unchanged.
+bb-cpp-native-objects: private KEY_ENV := $(BB_NATIVE_KEY_ENV)
 bb-cpp-native-objects:
-	$(call build,$@,barretenberg/cpp,build_native_objects)
+	$(call step,$@,barretenberg/cpp,build_native_objects)
 
 # Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-format-check
-	$(call build,$@,barretenberg/cpp,build_native)
+bb-cpp-native: private KEY_ENV := $(BB_NATIVE_KEY_ENV)
+bb-cpp-native: avm-transpiler-native | bb-cpp-native-objects bb-cpp-format-check
+	$(call step,$@,barretenberg/cpp,build_native,$(BB_NATIVE_BUILD_DIR)/bin $(BB_NATIVE_BUILD_DIR)/lib)
+	$(call bb_cpp_dist,$(BB_NATIVE_BUILD_DIR))
 
+# Downloads the pinned Chonk inputs (chonk-pinned-flows), which it skips when they are already there.
+bb-cpp-chonk-inputs: private INPUTS := ^barretenberg/cpp/scripts/(chonk-inputs\.hash|chonk_inputs\.sh|pinned_chonk_inputs\.sh)$$
 bb-cpp-chonk-inputs:
-	$(call build,$@,barretenberg/cpp,download_chonk_inputs)
+	$(call step,$@,barretenberg/cpp,download_chonk_inputs,never)
 
 # BB C++ WASM - Single-threaded WebAssembly build
 bb-cpp-wasm:
-	$(call build,$@,barretenberg/cpp,build_preset wasm)
+	$(call step,$@,barretenberg/cpp,build_preset wasm,build-wasm/bin)
 
 # BB C++ WASM Threads - Multi-threaded WebAssembly build
 bb-cpp-wasm-threads:
-	$(call build,$@,barretenberg/cpp,build_preset wasm-threads)
+	$(call step,$@,barretenberg/cpp,build_preset wasm-threads,build-wasm-threads/bin)
 
-# Cross-compile object phases (parallel with avm-transpiler cross-compile)
+# Cross-compile object phases (parallel with avm-transpiler cross-compile): warm-ups, as bb-cpp-native-objects.
+bb-cpp-cross-arm64-linux-objects bb-cpp-cross-amd64-macos-objects bb-cpp-cross-arm64-macos-objects: private KEY_ENV := AVM_TRANSPILER
 bb-cpp-cross-arm64-linux-objects:
-	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
+	$(call step,$@,barretenberg/cpp,build_cross_objects arm64-linux)
 
 bb-cpp-cross-amd64-macos-objects:
-	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-macos)
+	$(call step,$@,barretenberg/cpp,build_cross_objects amd64-macos)
 
 bb-cpp-cross-arm64-macos-objects:
-	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
+	$(call step,$@,barretenberg/cpp,build_cross_objects arm64-macos)
+
+# The cross builds run one after another (order-only: none reads another's outputs), as they generate the IPC
+# sources into the checkout.
+bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos: private KEY_ENV := AVM_TRANSPILER
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux
-	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
+bb-cpp-cross-arm64-linux: avm-transpiler-cross-arm64-linux | bb-cpp-native bb-cpp-cross-arm64-linux-objects
+	$(call step,$@,barretenberg/cpp,build_preset arm64-linux,build-arm64-linux/bin build-arm64-linux/lib)
+	$(call bb_cpp_dist,build-arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos
-	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
+bb-cpp-cross-amd64-macos: avm-transpiler-cross-amd64-macos | bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects
+	$(call step,$@,barretenberg/cpp,build_preset amd64-macos,build-amd64-macos/bin build-amd64-macos/lib)
+	$(call bb_cpp_dist,build-amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
-	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
+bb-cpp-cross-arm64-macos: avm-transpiler-cross-arm64-macos | bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects
+	$(call step,$@,barretenberg/cpp,build_preset arm64-macos,build-arm64-macos/bin build-arm64-macos/lib)
+	$(call bb_cpp_dist,build-arm64-macos)
 
-# Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos avm-transpiler-cross-amd64-windows
-	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
+# Cross-compile for AMD64 Windows (release only). Its preset links no avm-transpiler.
+bb-cpp-cross-amd64-windows: | bb-cpp-cross-arm64-macos
+	$(call step,$@,barretenberg/cpp,build_preset amd64-windows,build-amd64-windows/bin build-amd64-windows/lib)
+	$(call bb_cpp_dist,build-amd64-windows)
 
-# iOS SDK download (shared by all iOS cross-compile targets)
+# iOS SDK download (shared by all iOS cross-compile targets). The script pins the version and skips the download
+# when the SDK is already there.
+bb-cpp-ios-sdk: private INPUTS := ^barretenberg/cpp/scripts/download-ios-sdk\.sh$$
+bb-cpp-ios-sdk: private KEY_ENV := IOS_SDK_VERSION
 bb-cpp-ios-sdk:
-	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-ios-sdk.sh)
+	$(call step,$@,barretenberg/cpp,download_ios_sdk,never)
 
-# Android sysroot download (shared by all Android cross-compile targets)
+# Android sysroot download (shared by all Android cross-compile targets), as bb-cpp-ios-sdk.
+bb-cpp-android-sysroot: private INPUTS := ^barretenberg/cpp/scripts/download-android-sysroot\.sh$$
 bb-cpp-android-sysroot:
-	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
+	$(call step,$@,barretenberg/cpp,download_android_sysroot,never)
 
 # Cross-compile for ARM64 iOS (release only, static lib only)
-bb-cpp-cross-arm64-ios: bb-cpp-cross-amd64-windows bb-cpp-ios-sdk
-	$(call build,$@,barretenberg/cpp,build_preset arm64-ios)
+bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk | bb-cpp-cross-amd64-windows
+	$(call step,$@,barretenberg/cpp,build_preset arm64-ios,build-arm64-ios/lib)
 
 # Cross-compile for ARM64 iOS Simulator (release only, static lib only)
-bb-cpp-cross-arm64-ios-sim: bb-cpp-cross-arm64-ios bb-cpp-ios-sdk
-	$(call build,$@,barretenberg/cpp,build_preset arm64-ios-sim)
+bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk | bb-cpp-cross-arm64-ios
+	$(call step,$@,barretenberg/cpp,build_preset arm64-ios-sim,build-arm64-ios-sim/lib)
 
 # Cross-compile for ARM64 Android (release only, static lib only)
-bb-cpp-cross-arm64-android: bb-cpp-cross-arm64-ios-sim bb-cpp-android-sysroot
-	$(call build,$@,barretenberg/cpp,build_preset arm64-android)
+bb-cpp-cross-arm64-android: bb-cpp-android-sysroot | bb-cpp-cross-arm64-ios-sim
+	$(call step,$@,barretenberg/cpp,build_preset arm64-android,build-arm64-android/lib)
 
 # Cross-compile for x86_64 Android (release only, static lib only)
-bb-cpp-cross-x86_64-android: bb-cpp-cross-arm64-android bb-cpp-android-sysroot
-	$(call build,$@,barretenberg/cpp,build_preset x86_64-android)
+bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot | bb-cpp-cross-arm64-android
+	$(call step,$@,barretenberg/cpp,build_preset x86_64-android,build-x86_64-android/lib)
 
 bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
+	$(call step_group,$@)
 
-# GCC syntax check (CI only, non-release)
+# GCC syntax check (CI only, non-release). Checks: their steps record the pass.
 bb-cpp-gcc:
-	$(call build,$@,barretenberg/cpp,build_gcc_syntax_check_only)
+	$(call step,$@,barretenberg/cpp,build_gcc_syntax_check_only)
 
 # Fuzzing preset check (CI only, non-release)
 bb-cpp-fuzzing:
-	$(call build,$@,barretenberg/cpp,build_fuzzing_syntax_check_only)
+	$(call step,$@,barretenberg/cpp,build_fuzzing_syntax_check_only)
 
 # Windows cross-compile syntax check (CI only, non-release) - the Windows binary is otherwise
 # only built on the release path, so this gates Windows-only breakages at PR time.
 bb-cpp-windows:
-	$(call build,$@,barretenberg/cpp,build_windows_syntax_check_only)
+	$(call step,$@,barretenberg/cpp,build_windows_syntax_check_only)
 
 # Address sanitizer build (CI only, non-release)
 bb-cpp-asan:
-	$(call build,$@,barretenberg/cpp,build_preset asan-fast)
+	$(call step,$@,barretenberg/cpp,build_preset asan-fast,build-asan-fast/bin)
 
-# SMT verification (CI_FULL only)
+# SMT verification (CI_FULL only). The tests run from the build dir, cvc5's libraries included.
 bb-cpp-smt:
-	$(call build,$@,barretenberg/cpp,build_smt_verification)
+	$(call step,$@,barretenberg/cpp,build_smt_verification,build-smt)
 
+# The GitHub release tarballs, in barretenberg/cpp/ci3-out/bb-cpp-release-dir. They hold the distributed binaries,
+# stamped with the release version.
+bb-cpp-release-dir: private INPUTS := ^barretenberg/cpp/bootstrap\.sh$$
+bb-cpp-release-dir: private KEY_ENV := REF_NAME NATIVE_PRESET AVM
 bb-cpp-release-dir: bb-cpp-native bb-cpp-cross bb-cpp-wasm bb-cpp-wasm-threads
-	$(call build,$@,barretenberg/cpp,build_release_dir)
+	$(call step,$@,barretenberg/cpp,build_release_dir)
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
+	$(call step_group,$@)
 
 # The generated barretenberg/ts packages: @aztec-foundation/bb.js-api, bb-avm-sim, cdb and wsdb-ref. They are
 # workspaces of one yarn workspace, so one target generates them, installs node_modules once and compiles them
@@ -407,6 +458,7 @@ bb-sol: bb-cpp-native bb-crs | l1-contracts-solc
 # Barretenberg Tests
 #==============================================================================
 
+bb-cpp-native-tests: private KEY_ENV := $(BB_NATIVE_KEY_ENV)
 bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
