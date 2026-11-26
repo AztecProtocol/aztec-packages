@@ -73,6 +73,7 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     ~MockHighLevelMerkleDB() override;
 
     MOCK_METHOD(TreeStates, get_tree_state, (), (const, override));
+    MOCK_METHOD(uint32_t, get_num_private_note_hashes, (), (const, override));
     MOCK_METHOD(FF, storage_read, (const AztecAddress& contract_address, const FF& slot), (const, override));
     MOCK_METHOD(void,
                 storage_write,
@@ -85,7 +86,6 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MOCK_METHOD(void, siloed_nullifier_write, (const FF& nullifier), (override));
     MOCK_METHOD(bool, note_hash_exists, (uint64_t leaf_index, const FF& unique_note_hash), (const, override));
     MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
-    MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));
     MOCK_METHOD(void, unique_note_hash_write, (const FF& note_hash), (override));
     MOCK_METHOD(bool, l1_to_l2_msg_exists, (uint64_t leaf_index, const FF& msg_hash), (const, override));
 

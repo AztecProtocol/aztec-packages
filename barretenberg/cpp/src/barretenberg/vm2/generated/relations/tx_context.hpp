@@ -13,10 +13,10 @@ template <typename FF_> class tx_contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 76> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 2, 3, 2, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5,
-        5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 3, 4, 4, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5
+    static constexpr std::array<size_t, 78> SUBRELATION_PARTIAL_LENGTHS = {
+        2, 2, 3, 3, 2, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 5, 5, 5, 3, 4, 4, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -38,59 +38,60 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
     static constexpr const std::string_view NAME = "tx_context";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INIT_TX_REVERTED = 15;
-    static constexpr size_t SR_SET_TX_REVERTED = 16;
-    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 20;
-    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 21;
-    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 22;
-    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 23;
-    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 24;
-    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 25;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 26;
-    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 27;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 28;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 29;
-    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 30;
-    static constexpr size_t SR_L1_L2_TREE_SIZE_CONTINUITY = 31;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 32;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 33;
-    static constexpr size_t SR_NUM_PUBLIC_LOGS_CONTINUITY = 34;
-    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 35;
-    static constexpr size_t SR_TX_REVERTED_CONTINUITY = 36;
-    static constexpr size_t SR_PROPAGATE_L2_GAS_USED = 38;
-    static constexpr size_t SR_PROPAGATE_DA_GAS_USED = 39;
-    static constexpr size_t SR_PROPAGATE_L2_GAS_LIMIT = 40;
-    static constexpr size_t SR_PROPAGATE_DA_GAS_LIMIT = 41;
-    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 42;
-    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 43;
-    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 44;
-    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 45;
-    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 46;
-    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 47;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 48;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 49;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 50;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 51;
-    static constexpr size_t SR_PUBLIC_LOG_COUNT_IMMUTABILITY = 52;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 53;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY = 54;
-    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY = 55;
-    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 56;
-    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 57;
-    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 58;
-    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 59;
-    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 60;
-    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 61;
-    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 62;
-    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 63;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 64;
-    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 65;
-    static constexpr size_t SR_PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY = 66;
-    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 67;
-    static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 68;
-    static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 69;
-    static constexpr size_t SR_NEXT_CONTEXT_ID_INITIAL_VALUE = 74;
-    static constexpr size_t SR_NEXT_CONTEXT_ID_CONTINUITY = 75;
+    static constexpr size_t SR_INIT_TX_REVERTED = 16;
+    static constexpr size_t SR_SET_TX_REVERTED = 17;
+    static constexpr size_t SR_NOTE_HASH_ROOT_CONTINUITY = 21;
+    static constexpr size_t SR_NOTE_HASH_TREE_SIZE_CONTINUITY = 22;
+    static constexpr size_t SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY = 23;
+    static constexpr size_t SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY = 24;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_CONTINUITY = 25;
+    static constexpr size_t SR_NULLIFIER_TREE_SIZE_CONTINUITY = 26;
+    static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_CONTINUITY = 27;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_ROOT_CONTINUITY = 28;
+    static constexpr size_t SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY = 29;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY = 30;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY = 31;
+    static constexpr size_t SR_L1_L2_TREE_ROOT_CONTINUITY = 32;
+    static constexpr size_t SR_L1_L2_TREE_SIZE_CONTINUITY = 33;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY = 34;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY = 35;
+    static constexpr size_t SR_NUM_PUBLIC_LOGS_CONTINUITY = 36;
+    static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY = 37;
+    static constexpr size_t SR_TX_REVERTED_CONTINUITY = 38;
+    static constexpr size_t SR_PROPAGATE_L2_GAS_USED = 40;
+    static constexpr size_t SR_PROPAGATE_DA_GAS_USED = 41;
+    static constexpr size_t SR_PROPAGATE_L2_GAS_LIMIT = 42;
+    static constexpr size_t SR_PROPAGATE_DA_GAS_LIMIT = 43;
+    static constexpr size_t SR_NOTE_HASH_ROOT_IMMUTABILITY = 44;
+    static constexpr size_t SR_NOTE_HASH_SIZE_IMMUTABILITY = 45;
+    static constexpr size_t SR_NOTE_HASH_COUNT_IMMUTABILITY = 46;
+    static constexpr size_t SR_NULLIFIER_ROOT_IMMUTABILITY = 47;
+    static constexpr size_t SR_NULLIFIER_SIZE_IMMUTABILITY = 48;
+    static constexpr size_t SR_NULLIFIER_COUNT_IMMUTABILITY = 49;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_IMMUTABILITY = 50;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_IMMUTABILITY = 51;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY = 52;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY = 53;
+    static constexpr size_t SR_PUBLIC_LOG_COUNT_IMMUTABILITY = 54;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY = 55;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY = 56;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY = 57;
+    static constexpr size_t SR_NOTE_HASH_ROOT_PADDED_IMMUTABILITY = 58;
+    static constexpr size_t SR_NOTE_HASH_SIZE_PADDED_IMMUTABILITY = 59;
+    static constexpr size_t SR_NOTE_HASH_COUNT_PADDED_IMMUTABILITY = 60;
+    static constexpr size_t SR_NULLIFIER_ROOT_PADDED_IMMUTABILITY = 61;
+    static constexpr size_t SR_NULLIFIER_SIZE_PADDED_IMMUTABILITY = 62;
+    static constexpr size_t SR_NULLIFIER_COUNT_PADDED_IMMUTABILITY = 63;
+    static constexpr size_t SR_PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY = 64;
+    static constexpr size_t SR_PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY = 65;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY = 66;
+    static constexpr size_t SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY = 67;
+    static constexpr size_t SR_PUBLIC_LOG_COUNT_PADDED_IMMUTABILITY = 68;
+    static constexpr size_t SR_L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY = 69;
+    static constexpr size_t SR_L2_GAS_USED_IMMUTABILITY = 70;
+    static constexpr size_t SR_DA_GAS_USED_IMMUTABILITY = 71;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_INITIAL_VALUE = 76;
+    static constexpr size_t SR_NEXT_CONTEXT_ID_CONTINUITY = 77;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -106,6 +107,8 @@ template <typename FF> class tx_context : public Relation<tx_contextImpl<FF>> {
             return "NOTE_HASH_TREE_SIZE_CONTINUITY";
         case SR_NUM_NOTE_HASHES_EMITTED_CONTINUITY:
             return "NUM_NOTE_HASHES_EMITTED_CONTINUITY";
+        case SR_NUM_PRIVATE_NOTE_HASHES_CONTINUITY:
+            return "NUM_PRIVATE_NOTE_HASHES_CONTINUITY";
         case SR_NULLIFIER_TREE_ROOT_CONTINUITY:
             return "NULLIFIER_TREE_ROOT_CONTINUITY";
         case SR_NULLIFIER_TREE_SIZE_CONTINUITY:

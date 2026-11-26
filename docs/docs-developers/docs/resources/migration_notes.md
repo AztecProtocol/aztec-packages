@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Protocol] Private note hashes are unique before the tx is sent; public note hash nonces count down
+
+The private kernel now makes every note hash emitted in private unique, revertible or not. The AVM no longer makes revertible private note hashes unique: it inserts them as-is. So a tx's creator knows the final note hash, and hence the nullifier, of every note it creates in private before broadcasting the tx, even when the tx makes public function calls.
+
+Every note hash nonce is still `poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, index)`, and every index is still below `MAX_NOTE_HASHES_PER_TX` (64), but the index is no longer always the note hash's position in the tx:
+
+| Note hash | Nonce index |
+| --- | --- |
+| Emitted in private (revertible or not, in any tx) | `i`, its index in the private kernel's final note hash array (non-revertible first, then revertible, then padding) |
+| Emitted in public (setup, app logic or teardown) | `63 - k`, where `k` is the number of public note hashes the tx already has in the note hash tree |
+
+So private indices count up from 0 and public ones count down from 63. Private-only txs are unchanged. If app logic reverts, its note hashes and the tx's revertible private note hashes are dropped, and `k` counts only the public note hashes that remain, so teardown's note hashes continue the count from the end of setup.
+
+**Migration:** code that recomputes a note's nonce must use these indices: `i` for a revertible note created in private in a tx with public calls, and `63 - k` for a note hash emitted in public, such as a completed partial note. aztec-nr's nonce discovery already tries every index below 64, so contracts that rely on it need no change.
+
 ### [PXE] The `resolveTaggingSecretStrategy` hook also decides self-sends
 
 The PXE used to replace the hook's answer with an address-derived secret for unconstrained delivery to one of the wallet's own accounts. It now applies the hook's answer to every message, including those. `DEFAULT_TAGGING_SECRET_STRATEGY` is replaced by `defaultTaggingSecretStrategy`, which returns the strategy the PXE applies when no hook is configured.

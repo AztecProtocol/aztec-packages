@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/uint_128_t_adaptor.hpp"
@@ -50,6 +51,25 @@ static_assert(static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) == 
               "TransactionPhase::NR_NULLIFIER_INSERTION must match AVM_TX_PHASE_VALUE_START");
 static_assert(static_cast<uint8_t>(TransactionPhase::LAST) == AVM_TX_PHASE_VALUE_LAST,
               "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_LAST");
+
+/**
+ * @brief The nonce index of a note hash emitted in public (EMITNOTEHASH).
+ *
+ * Private note hashes take nonce indices counting up from 0 (the private kernel makes them unique), while public ones
+ * count down from MAX_NOTE_HASHES_PER_TX - 1: the nonce index is MAX_NOTE_HASHES_PER_TX - 1 - k, where
+ * k = note_hash_index - num_private_note_hashes is the number of the tx's public note hashes already in the tree.
+ * Must match note_hash_tree_check.pil's #[NONCE_INDEX].
+ *
+ * @param note_hash_index The note hash's index in the tx (the number of the tx's note hashes already in the tree).
+ * @param num_private_note_hashes The number of the tx's private note hashes in the tree.
+ */
+inline uint64_t nonce_index_of_public_note_hash(uint64_t note_hash_index, uint64_t num_private_note_hashes)
+{
+    constexpr uint64_t max_note_hashes = MAX_NOTE_HASHES_PER_TX;
+    BB_ASSERT_LTE(num_private_note_hashes, note_hash_index, "More private note hashes than note hashes in the tree");
+    BB_ASSERT_LT(note_hash_index, max_note_hashes, "Note hash index out of range");
+    return max_note_hashes - 1 + num_private_note_hashes - note_hash_index;
+}
 
 using InternalCallId = uint32_t;
 

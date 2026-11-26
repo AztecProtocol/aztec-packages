@@ -73,6 +73,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
     // Unconstrained.
     TreeStates get_tree_state() const override;
+    uint32_t get_num_private_note_hashes() const override;
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
@@ -95,7 +96,6 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Returns a unique note hash stored in the tree at leaf_index.
     bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
-    void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
 
@@ -124,7 +124,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
     // Stack of tree counters for checkpoints. Starts empty.
     std::stack<TreeCounters> tree_counters_stack{
-        { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0 } }
+        { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0, .num_private_note_hashes = 0 } }
     };
 };
 

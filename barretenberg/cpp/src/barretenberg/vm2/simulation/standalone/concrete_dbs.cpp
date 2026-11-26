@@ -146,20 +146,19 @@ bool PureMerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_h
     return (unique_note_hash == leaf_value);
 }
 
+uint32_t PureMerkleDB::get_num_private_note_hashes() const
+{
+    return tree_counters_stack.top().num_private_note_hashes;
+}
+
 void PureMerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
     uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
     FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
-    raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
-
-    tree_counters_stack.top().note_hash_counter++;
-}
-
-void PureMerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
-{
-    uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
-    FF unique_note_hash = unconstrained_make_unique_note_hash(siloed_note_hash, first_nullifier, note_hash_counter);
+    FF unique_note_hash = unconstrained_make_unique_note_hash(
+        siloed_note_hash,
+        first_nullifier,
+        nonce_index_of_public_note_hash(note_hash_counter, tree_counters_stack.top().num_private_note_hashes));
     raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
 
     tree_counters_stack.top().note_hash_counter++;
@@ -170,6 +169,7 @@ void PureMerkleDB::unique_note_hash_write(const FF& unique_note_hash)
     raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash });
 
     tree_counters_stack.top().note_hash_counter++;
+    tree_counters_stack.top().num_private_note_hashes++;
 }
 
 bool PureMerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const

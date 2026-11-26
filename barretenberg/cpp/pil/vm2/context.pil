@@ -42,6 +42,7 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
+    pol commit num_private_note_hashes;
     pol commit is_static; // @boolean (on active rows it follows from the different constraints in "IS STATIC" section below)
                           // At the start of an enqueued call, is_static is copied from tx.pil (which is boolean in tx.pil)
                           // and in the next rows it is propagated or re-assigned to 0 or 1.
@@ -327,6 +328,18 @@ namespace execution;
     // NOTE: don't need to gate by NOT_LAST_EXEC because last execution row must be the end of an enqueued call.
     // enqueued_call_end is mutually exclusive with precomputed.first_row. The term `- precomputed.first_row` is
     // defensive to support a potential case where the first row has a non-zero transaction fee.
+
+    // =============================
+    //    NUMBER OF PRIVATE NOTE HASHES
+    // =============================
+
+    // The number of the tx's private note hashes in the note hash tree during this enqueued call. Note hashes emitted
+    // by the call derive their nonce index from it (see emit_notehash.pil). It gets set at the start of an enqueued
+    // call (via #[DISPATCH_EXEC_START] (tx.pil)) and remains the same throughout the enqueued call, nested calls
+    // included: only the tx trace inserts private note hashes, never during an enqueued call.
+    #[NUM_PRIVATE_NOTE_HASHES_NEXT_ROW]
+    (1 - enqueued_call_end - precomputed.first_row) * (num_private_note_hashes' - num_private_note_hashes) = 0;
+    // NOTE: same gating as #[TRANSACTION_FEE_NEXT_ROW] above.
 
     // =============================
     //    IS STATIC

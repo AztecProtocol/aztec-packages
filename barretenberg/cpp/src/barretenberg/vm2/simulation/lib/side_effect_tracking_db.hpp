@@ -32,6 +32,7 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
     bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
     uint32_t get_checkpoint_id() const override;
     TreeStates get_tree_state() const override;
+    uint32_t get_num_private_note_hashes() const override;
     LowLevelMerkleDBInterface& as_unconstrained() const override;
 
     // These methods track the side effects and delegate to the merkle db.
@@ -42,7 +43,6 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
     void nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
     void siloed_nullifier_write(const FF& nullifier) override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
-    void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
     void pad_trees() override;
 

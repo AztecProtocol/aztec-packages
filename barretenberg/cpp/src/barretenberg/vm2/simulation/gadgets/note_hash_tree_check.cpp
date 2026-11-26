@@ -50,16 +50,16 @@ FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_
 }
 
 /**
- * @brief Derives a nonce for a note hash from the transaction's first nullifier and the note hash counter.
+ * @brief Derives a nonce for a note hash from the transaction's first nullifier and its nonce index.
  *
  * The nonce ensures uniqueness of note hashes within and across transactions.
  *
- * @param note_hash_counter The index of the note hash in the transaction.
- * @return The nonce: Poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter).
+ * @param nonce_index The index the nonce commits to (see note_hash_tree_check.pil's #[NONCE_INDEX]).
+ * @return The nonce: Poseidon2(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, nonce_index).
  */
-FF NoteHashTreeCheck::make_nonce(uint64_t note_hash_counter) const
+FF NoteHashTreeCheck::make_nonce(uint64_t nonce_index) const
 {
-    return poseidon2.hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return poseidon2.hash({ DOM_SEP__NOTE_HASH_NONCE, first_nullifier, nonce_index });
 }
 
 /**
@@ -86,6 +86,8 @@ FF NoteHashTreeCheck::make_unique(const FF& siloed_note_hash, const FF& nonce) c
  * @param note_hash The raw (inner) note hash to append.
  * @param contract_address The address of the contract that created the note.
  * @param note_hash_counter A counter distinguishing this note hash within the transaction.
+ * @param num_private_note_hashes The number of the tx's private note hashes in the tree. The nonce index is
+ *        nonce_index_of_public_note_hash(note_hash_counter, num_private_note_hashes).
  * @param sibling_path The Merkle sibling path for the append operation.
  * @param prev_snapshot The tree snapshot before the append.
  * @return The updated tree snapshot after inserting the new leaf.
@@ -93,34 +95,15 @@ FF NoteHashTreeCheck::make_unique(const FF& siloed_note_hash, const FF& nonce) c
 AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash(const FF& note_hash,
                                                            AztecAddress contract_address,
                                                            uint64_t note_hash_counter,
+                                                           uint64_t num_private_note_hashes,
                                                            std::span<const FF> sibling_path,
                                                            const AppendOnlyTreeSnapshot& prev_snapshot)
 {
-    return append_note_hash_internal(
-        note_hash, contract_address, /*should_make_unique=*/true, note_hash_counter, sibling_path, prev_snapshot);
-}
-
-/**
- * @brief Appends a pre-siloed note hash to the tree after making it unique.
- *
- * Skips the siloing step (the note hash is already bound to a contract) but still derives a
- * nonce and computes the unique note hash before insertion.
- *
- * @param siloed_note_hash The already-siloed note hash to append.
- * @param note_hash_counter A counter distinguishing this note hash within the transaction.
- * @param sibling_path The Merkle sibling path for the append operation.
- * @param prev_snapshot The tree snapshot before the append.
- * @return The updated tree snapshot after inserting the new leaf.
- */
-AppendOnlyTreeSnapshot NoteHashTreeCheck::append_siloed_note_hash(const FF& siloed_note_hash,
-                                                                  uint64_t note_hash_counter,
-                                                                  std::span<const FF> sibling_path,
-                                                                  const AppendOnlyTreeSnapshot& prev_snapshot)
-{
-    return append_note_hash_internal(siloed_note_hash,
-                                     /* contract_address */ std::nullopt,
-                                     /* should_make_unique */ true,
+    return append_note_hash_internal(note_hash,
+                                     contract_address,
+                                     /*should_make_unique=*/true,
                                      note_hash_counter,
+                                     num_private_note_hashes,
                                      sibling_path,
                                      prev_snapshot);
 }
@@ -146,6 +129,7 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_unique_note_hash(const FF& uniq
                                      /* contract_address */ std::nullopt,
                                      /* should_make_unique */ false,
                                      note_hash_counter,
+                                     /* num_private_note_hashes */ 0,
                                      sibling_path,
                                      prev_snapshot);
 }
@@ -161,6 +145,8 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_unique_note_hash(const FF& uniq
  * @param contract_address If present, the note hash is siloed with this address before insertion.
  * @param should_make_unique If true, a nonce is derived and the note hash is made unique.
  * @param note_hash_counter A counter distinguishing this note hash within the transaction.
+ * @param num_private_note_hashes If making the note hash unique, the number of the tx's private note hashes in the
+ *        tree, from which the nonce index is derived.
  * @param sibling_path The Merkle sibling path for the append operation.
  * @param prev_snapshot The tree snapshot before the append.
  * @return The updated tree snapshot after inserting the new leaf.
@@ -169,6 +155,7 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
                                                                     std::optional<AztecAddress> contract_address,
                                                                     bool should_make_unique,
                                                                     uint64_t note_hash_counter,
+                                                                    uint64_t num_private_note_hashes,
                                                                     std::span<const FF> sibling_path,
                                                                     const AppendOnlyTreeSnapshot& prev_snapshot)
 {
@@ -181,10 +168,12 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
     }
     std::optional<NoteHashUniquenessData> uniqueness_data = std::nullopt;
     if (should_make_unique) {
-        FF nonce = make_nonce(note_hash_counter);
+        FF nonce = make_nonce(nonce_index_of_public_note_hash(note_hash_counter, num_private_note_hashes));
         note_hash = make_unique(note_hash, nonce);
-        uniqueness_data =
-            NoteHashUniquenessData{ .nonce = nonce, .unique_note_hash = note_hash, .first_nullifier = first_nullifier };
+        uniqueness_data = NoteHashUniquenessData{ .nonce = nonce,
+                                                  .unique_note_hash = note_hash,
+                                                  .first_nullifier = first_nullifier,
+                                                  .num_private_note_hashes = num_private_note_hashes };
     }
 
     FF next_root = merkle_check.write(

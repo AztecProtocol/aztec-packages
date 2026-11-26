@@ -122,6 +122,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         // Non-tree-tracked side effects
         .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
+        .num_private_note_hashes = merkle_db.get_num_private_note_hashes(),
         // Phase
         .phase = get_phase(),
     };
@@ -202,6 +203,7 @@ ContextEvent NestedContext::serialize_context_event()
         // Non-tree-tracked side effects
         .numPublicLogFields = side_effects.get_num_public_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
+        .num_private_note_hashes = merkle_db.get_num_private_note_hashes(),
         // Phase
         .phase = get_phase(),
     };

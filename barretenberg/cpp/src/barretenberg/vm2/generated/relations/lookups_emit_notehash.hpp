@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_emit_notehash_notehash_tree_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_NOTEHASH_NOTEHASH_TREE_WRITE";
     static constexpr std::string_view RELATION_NAME = "emit_notehash";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_write_note_hash;
     static constexpr Column DST_SELECTOR = Column::note_hash_tree_check_write;
     static constexpr Column COUNTS = Column::lookup_emit_notehash_notehash_tree_write_counts;
@@ -29,14 +29,20 @@ struct lookup_emit_notehash_notehash_tree_write_settings_ {
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_sel_write_note_hash,
         ColumnAndShifts::execution_prev_num_note_hashes_emitted,
+        ColumnAndShifts::execution_num_private_note_hashes,
         ColumnAndShifts::execution_discard,
         ColumnAndShifts::execution_note_hash_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_note_hash,       ColumnAndShifts::note_hash_tree_check_leaf_index,
-        ColumnAndShifts::note_hash_tree_check_prev_root,       ColumnAndShifts::note_hash_tree_check_sel_silo,
-        ColumnAndShifts::note_hash_tree_check_address,         ColumnAndShifts::note_hash_tree_check_sel_unique,
-        ColumnAndShifts::note_hash_tree_check_note_hash_index, ColumnAndShifts::note_hash_tree_check_discard,
+        ColumnAndShifts::note_hash_tree_check_note_hash,
+        ColumnAndShifts::note_hash_tree_check_leaf_index,
+        ColumnAndShifts::note_hash_tree_check_prev_root,
+        ColumnAndShifts::note_hash_tree_check_sel_silo,
+        ColumnAndShifts::note_hash_tree_check_address,
+        ColumnAndShifts::note_hash_tree_check_sel_unique,
+        ColumnAndShifts::note_hash_tree_check_note_hash_index,
+        ColumnAndShifts::note_hash_tree_check_num_private_note_hashes,
+        ColumnAndShifts::note_hash_tree_check_discard,
         ColumnAndShifts::note_hash_tree_check_next_root
     };
 };

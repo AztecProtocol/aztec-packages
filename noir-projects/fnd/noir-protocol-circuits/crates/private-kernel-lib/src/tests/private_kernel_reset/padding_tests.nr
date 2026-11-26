@@ -68,12 +68,11 @@ fn squashing_siloing_and_ordering_with_padded_items() {
     // The note hash at index 2 is squashed.
     assert_array_eq(
         public_inputs.end.note_hashes.array,
-        builder.compute_output_note_hashes([
-            note_hashes[0],
-            note_hashes[1],
-            padded_note_hashes[0],
-            padded_note_hashes[1],
-        ]),
+        // The output's first nullifier, the note-nonce base, is the first survivor (original index 1).
+        builder.compute_output_note_hashes_with_first_nullifier(
+            [note_hashes[0], note_hashes[1], padded_note_hashes[0], padded_note_hashes[1]],
+            nullifiers[1],
+        ),
     );
     assert_eq(public_inputs.end.note_hashes.length, 4);
 

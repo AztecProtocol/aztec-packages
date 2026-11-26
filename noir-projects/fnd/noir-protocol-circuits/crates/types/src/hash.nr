@@ -76,25 +76,44 @@ pub fn compute_siloed_note_hash(contract_address: AztecAddress, note_hash: Field
 /// and hence before an archive block root had been established for that block -- but that feature
 /// was abandoned for the Aztec Network for having too many bad tradeoffs).
 ///
-/// (
-///   Edit: it is no longer true that all final note_hashes will be known by the creator of a tx
-///   before they send it to the network. If a tx makes public function calls, then _revertible_
-///   note_hashes that are created in private will not be made unique in private by the Reset circuit,
-///   but will instead be made unique by the AVM, because the `note_index_in_tx` will not be known
-///   until the AVM has executed the public functions of the tx. (See an explanation in
-///   reset_output_composer.nr for why).
-///   For some such txs, the `note_index_in_tx` might still be predictable through simulation, but
-///   for txs whose public functions create a varying number of non-revertible notes (determined at
-///   runtime), the `note_index_in_tx` will not be deterministically derivable before submitting the
-///   tx to the network.
-/// )
-///
 /// We use the `first_nullifier` of a tx as a seed of uniqueness. We have a guarantee that there will
 /// always be at least one nullifier per tx, because the init circuit will create one if one isn't
 /// created naturally by any functions of the tx. (Search "protocol_nullifier").
-/// We combine the `first_nullifier` with the note's index (its position within this tx's new
-/// note_hashes array) (`note_index_in_tx`) to get a truly unique value to inject into a note, which
-/// we call a `note_nonce`.
+///
+/// The nonce also commits to an index that is unique within the tx:
+///     `note_nonce = H(DOM_SEP__NOTE_HASH_NONCE, first_nullifier, nonce_index)`
+/// Writing MAX for `MAX_NOTE_HASHES_PER_TX`, every nonce index lies in [0, MAX):
+///
+/// - A note hash emitted in private has nonce index `i`, its position in the private kernel's final
+///   (squashed, sorted, padded) note hash array: non-revertible note hashes first, then revertible
+///   ones. The rule is the same whether or not the note hash is revertible and whether or not the tx
+///   makes public function calls, so the private kernel makes every private note hash unique and the
+///   tx's creator knows all of them before broadcasting the tx.
+/// - A note hash emitted in public (by the AVM) has nonce index `MAX - 1 - k`, where `k` is the
+///   number of public note hashes the tx has in the note hash tree before it. Public nonce indices
+///   count down from `MAX - 1`, while private ones count up from 0.
+///
+/// No two note hashes that end up in the tree have the same unique note hash. The tree holds at most
+/// MAX note hashes for a tx. The AVM inserts them in the order private non-revertible, public
+/// non-revertible (setup), private revertible, public revertible (app logic, then teardown). If app
+/// logic or teardown reverts, or the private revertible note hashes can't be inserted, the tree is
+/// restored to its state at the end of setup, dropping the private revertible and later note hashes.
+/// Write `n` for the number of the tx's private note hashes in the tree (padding included):
+/// - Public nonce indices are distinct (`k` grows with each surviving public note hash) and lie in
+///   [n, MAX), because `n + k_total <= MAX`.
+/// - While the private revertible note hashes are in the tree, `n` is the whole private array, so
+///   every private index is below `n` and below every public index.
+/// - After a rollback, the real (non-padding) private non-revertible note hashes still have indices
+///   below `n`: real note hashes come first in the private array, non-revertible before revertible.
+///   Padding the tail-to-public kernel moves into the non-revertible array keeps its index from the
+///   end of the private array, which can equal a public index. Padding is siloed under
+///   `SIDE_EFFECT_MASKING_ADDRESS`, which no contract can have, so its siloed note hash, and hence
+///   its unique note hash, differs from that of any note hash emitted in public.
+/// - Note hashes a rollback drops are never inserted, so reusing their indices is harmless.
+///
+/// The nonce index is not the note hash's position in the note hash tree, and nothing requires it to
+/// be: it only has to be unique among the tx's note hashes in the tree. (A private revertible note
+/// hash's tree position depends on public execution, but its nonce does not.)
 pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [note_nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, DOM_SEP__UNIQUE_NOTE_HASH)
