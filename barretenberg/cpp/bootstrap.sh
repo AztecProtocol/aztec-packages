@@ -497,7 +497,7 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
-# Upload assets to release in AztecProtocol/barretenberg.
+# The assets of the GitHub release in AztecProtocol/barretenberg.
 function release {
   echo_header "bb cpp release"
   # A private release publishes only to the internal Artifact Registry; refuse a GitHub publish
@@ -507,7 +507,10 @@ function release {
   # The GitHub release assets are the legacy channel: the same binaries ship as npm packages
   # (@aztec-foundation/bb, @aztec-foundation/bb-avm and their platform packages) and bbup
   # installs from npm first. Kept while older bbup versions and the static libraries need it.
-  do_or_dryrun gh release upload $REF_NAME build-release/* --repo AztecProtocol/barretenberg --clobber
+  # Staged for the release's publish step (bootstrap.sh publish, on the GitHub runner), which uploads
+  # them to the release.
+  mkdir -p ${RELEASE_DIR:?RELEASE_DIR is required}/github
+  cp build-release/* $RELEASE_DIR/github/
 }
 
 function bench_ivc {

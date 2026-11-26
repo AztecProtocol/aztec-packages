@@ -104,7 +104,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Used by docs CI scripts to post to #docs-alerts (the SLACK_BOT_TOKEN bot lacks access there).
           AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN: ${{ secrets.AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN }}
@@ -139,11 +138,12 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: ./.github/ci3_success.sh
 
-  # Publishes the npm packages a release build packed (bootstrap.sh release → deploy_npm pack mode →
-  # build cache) with npm trusted publishing: this runner's OIDC token is the only credential, so the
-  # EC2 build machine never holds npm publish rights. Public repo only — the private repo publishes
-  # to the internal GCP Artifact Registry straight from EC2 (bootstrap.sh private_release).
-  publish-npm:
+  # Publishes what a release build staged (bootstrap.sh release → the release bundle in the cache):
+  # the GitHub release in AztecProtocol/barretenberg, the crates and the npm packages. The publishing
+  # credentials live only in this job, never on the EC2 machine that runs the build; npm uses trusted
+  # publishing, so this runner's OIDC token is its only credential. Public repo only: the private repo
+  # publishes to the internal GCP Artifact Registry straight from EC2 (bootstrap.sh private_release).
+  publish:
     needs: ci
     if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'AztecProtocol/aztec-packages'
     runs-on: ubuntu-latest
@@ -171,7 +171,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
-          role-session-name: publish-npm-${{ github.run_id }}
+          role-session-name: publish-${{ github.run_id }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -182,14 +182,12 @@ jobs:
       - name: Update npm
         run: npm install -g npm@^11.5.1 && npm --version
 
-      # Authenticated S3 download using the runner's AWS OIDC role, not the plain-HTTP cache
-      # endpoint, and extracted outside the checkout. publish_npm_release then refuses any
-      # tarball that is not one of our packages at exactly this tag's version.
-      - name: Download the packed release
-        run: |
-          dir=$(mktemp -d)
-          echo "NPM_RELEASE_DIR=$dir" >> "$GITHUB_ENV"
-          S3_BUILD_CACHE_AWS_PARAMS="--region us-east-2" ./ci3/cache_download "npm-release-${GITHUB_REF_NAME}.tar.gz" "$dir"
-
+      # gh and cargo come with the runner image. The bundle is downloaded through authenticated S3
+      # with this job's AWS role, not the plain-HTTP cache endpoint, and extracted outside the
+      # checkout; each channel then refuses anything not at exactly this tag's version.
       - name: Publish
-        run: ./scripts/publish_npm_release "$NPM_RELEASE_DIR/npm-release"
+        env:
+          S3_BUILD_CACHE_AWS_PARAMS: --region us-east-2
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: ./bootstrap.sh publish
