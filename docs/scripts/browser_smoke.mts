@@ -143,16 +143,14 @@ export const SMOKES: Smoke[] = [
       for (const p of ["/", "/developers/overview"]) {
         const page = await open(p);
         await expect(`${p}: Geist Variable as the body font`, page.waitForFunction(() => getComputedStyle(document.body).fontFamily.startsWith('"Geist Variable"')));
-        // A synchronous predicate: waitForFunction treats a returned promise as truthy.
-        await expect(
-          `${p}: Geist Variable loaded for regular and semibold text`,
-          page.waitForFunction(() => {
-            for (const weight of [400, 600]) void document.fonts.load(`${weight} 1em "Geist Variable"`);
-            return [...document.fonts].some(
-              (face) => face.family.replace(/"/g, "") === "Geist Variable" && face.weight === "100 900" && face.status === "loaded",
-            );
-          }),
-        );
+        for (const weight of [400, 600]) {
+          // load() resolves to the faces whose unicode-range covers the text, so a face loaded for other glyphs does not count.
+          const loaded = page.evaluate(
+            async (font) => (await document.fonts.load(font, "Private apps")).some((face) => face.weight === "100 900" && face.status === "loaded"),
+            `${weight} 1em "Geist Variable"`,
+          );
+          await expect(`${p}: Geist Variable loaded for ${weight} Latin text`, loaded.then((ok) => ok || Promise.reject(new Error("no face"))));
+        }
       }
       const font = requested.find((r) => r.resourceType() === "font" && /\/geist-[^/]*\.woff2$/.test(new URL(r.url()).pathname));
       if (!font) throw new Error("no Geist woff2 was requested");
