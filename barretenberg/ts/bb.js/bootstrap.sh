@@ -3,15 +3,16 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# We mix if we're a release into the hash, as releases have all architectures built.
-# Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
-# with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
-# that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
-hash=$(hash_str \
-  $(../../cpp/bootstrap.sh hash) \
-  $(cache_content_hash ../.rebuild_patterns) \
-  $(semver check $REF_NAME && echo 1 || echo 0) \
-  ${AVM_TRANSPILER:-1})
+# The build is keyed and cached as the bb-ts make step, and its tests are keyed by the bb-ts-tests step. This hash
+# remains for `./bootstrap.sh hash` (part of barretenberg/ts's, which scripts/labs_fnd_hashes.sh records) and for
+# the benchmark's key, as benchmarks are not make steps.
+function compute_hash {
+  hash_str \
+    $(../../cpp/bootstrap.sh hash) \
+    $(cache_content_hash ../.rebuild_patterns) \
+    $(semver check $REF_NAME && echo 1 || echo 0) \
+    ${AVM_TRANSPILER:-1}
+}
 
 # bb.js compiles against @aztec-foundation/bb.js-api, which the bb-ts-packages make target builds first.
 function formatting {
@@ -23,12 +24,9 @@ function build {
   echo_header "bb.js build"
   yarn formatting
 
-  if ! cache_download bb.js-$hash.tar.gz; then
-    find . -exec touch -d "@0" {} + 2>/dev/null || true
-    yarn clean
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
-    cache_upload bb.js-$hash.tar.gz dest
-  fi
+  find . -exec touch -d "@0" {} + 2>/dev/null || true
+  yarn clean
+  parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
 
   # We copy snapshot dirs to dest so we can run tests from dest.
   # This is because web-workers run into issues with transpilation.
@@ -43,19 +41,20 @@ function build {
 }
 
 function test_cmds {
+  local prefix=${STEP_KEY:-disabled-cache}
   cd dest/node
   for test in **/*.test.js; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.js$ ]] && continue
     [[ "$test" == "barretenberg/chonk_pinned_inputs.test.js" ]] && continue
 
-    echo "$hash barretenberg/ts/bb.js/scripts/run_test.sh $test"
+    echo "$prefix barretenberg/ts/bb.js/scripts/run_test.sh $test"
   done
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh barretenberg/chonk_pinned_inputs.test.js"
+  echo "$prefix:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh barretenberg/chonk_pinned_inputs.test.js"
 }
 
 function bench_cmds {
-  echo "$hash:CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
+  echo "$(compute_hash):CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
 }
 
 function test {
@@ -69,10 +68,11 @@ function release {
 
 case "$cmd" in
   "")
-    build
+    # Through make, so that it is restored from the cache when it can be.
+    make -C "$root" bb-ts
     ;;
   "hash")
-    echo "$hash"
+    compute_hash
     ;;
   *)
     default_cmd_handler "$@"

@@ -4,11 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 export CRS_PATH="../cpp/srs_db"
 
-export hash=$(cache_content_hash \
-  ^barretenberg/sol/ \
-  ../cpp/.rebuild_patterns
-)
-
 
 function test {
     echo_header "sol testing"
@@ -16,7 +11,7 @@ function test {
 }
 
 function test_cmds {
-    test_cmds_internal | awk "{ print \"$hash \" \$0 }"
+    test_cmds_internal | awk "{ print \"${STEP_KEY:-disabled-cache} \" \$0 }"
 }
 
 function test_cmds_internal {
@@ -30,24 +25,17 @@ function test_cmds_internal {
 function build_sol {
     echo_header "barretenberg/sol building sol"
 
-    local artifact=barretenberg-sol-$hash.zst
-    if ! cache_download $artifact; then
+    rm -rf broadcast cache out
+    # Check out the libraries at the revisions this repository records. `forge install` is not used for
+    # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
+    # names a revision that a shallow clone does not have.
+    git submodule update --init --recursive ./lib
 
-        rm -rf broadcast cache out
-        # Check out the libraries at the revisions this repository records. `forge install` is not used for
-        # this: it syncs every submodule of the repository to foundry.lock, and exits non-zero when the lock
-        # names a revision that a shallow clone does not have.
-        git submodule update --init --recursive ./lib
-
-        forge fmt || true
-        denoise "forge build"
-
-        cache_upload $artifact out
-    fi
+    forge fmt || true
+    denoise "forge build"
 }
 
 function generate_vks {
-    # Only run on a cache miss
     ./scripts/init_honk.sh
 }
 
@@ -66,13 +54,15 @@ function build_code {
 
 export -f build_code check_generated_contracts_synced generate_vks build_sol
 
+# The bb-sol make step runs it, and caches out/, cache/ and the generated keys (see the Makefile).
 function build {
   echo_header "barretenberg/sol building"
   build_code
 }
 
+# Benchmarks are not make steps, so their key is still hashed here: the contracts and bb, which generates them.
 function bench_cmds {
-  echo "$hash barretenberg/sol/bootstrap.sh bench"
+  echo "$(cache_content_hash ^barretenberg/sol/ ../cpp/.rebuild_patterns) barretenberg/sol/bootstrap.sh bench"
 }
 
 function bench {
@@ -126,10 +116,8 @@ function bench {
 
 case "$cmd" in
   "")
-    build
-    ;;
-  "hash")
-    echo $hash
+    # Through make, so that it is restored from the cache when it can be.
+    make -C "$root" bb-sol
     ;;
   *)
     default_cmd_handler "$@"

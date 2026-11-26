@@ -170,13 +170,15 @@ barretenberg: bb-cpp bb-ts-packages bb-ts bb-bin bb-rs bb-acir bb-docs bb-sol bb
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
 
-# BB CRS Download
+# BB CRS Download. The CRS goes to ~/.bb-crs, outside the repository, so it cannot be restored from a step's
+# cache: it always runs (never), and skips what is already downloaded itself. Its key covers what it downloads.
+bb-crs: private INPUTS := ^barretenberg/crs/
 bb-crs:
-	$(call build,$@,barretenberg/crs)
+	$(call step,$@,barretenberg/crs,build,never)
 
-# BBup - BB updater tool
+# BBup - BB updater tool. Nothing to build: its tests install released binaries.
 bb-bbup:
-	$(call build,$@,barretenberg/bbup)
+	$(call step_group,$@)
 
 # Format check (skipped if cache hit)
 bb-cpp-format-check:
@@ -283,40 +285,99 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 # The generated barretenberg/ts packages: @aztec-foundation/bb.js-api, bb-avm-sim, cdb and wsdb-ref. They are
 # workspaces of one yarn workspace, so one target generates them, installs node_modules once and compiles them
 # together. Generation copies in bb's wasm modules (single- and multi-threaded), and the packages ship this machine's
-# bb, bb-avm-sim and wsdb-ref.
-bb-ts-packages: ipc-codegen ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
-	$(call build,$@,barretenberg/ts,build_packages)
+# bb, bb-avm-sim and wsdb-ref. The generator's sources and the schemas are inputs (barretenberg/ts/.rebuild_patterns):
+# it runs from source, so ipc-codegen's own build is not a prerequisite.
+# Path list: the packages are yarn workspaces, read in place through node module resolution (bb.js, acir_tests, the
+# labs portals, fnd-genesis), so the generated workspace directories are cached where they are.
+BB_TS_INPUTS := barretenberg/ts/.rebuild_patterns
+
+bb-ts-packages-build: private INPUTS := $(BB_TS_INPUTS)
+bb-ts-packages-build: ipc-runtime bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
+	$(call step,$@,barretenberg/ts,build_packages,bb.js-api bb-avm-sim cdb wsdb-ref)
+
+# The packages ready to use: the workspace's node_modules, which the packages, bb.js and their consumers resolve their
+# dependencies from, installed every run whether or not the packages came from the cache (npm_install_deps caches
+# node_modules itself, by lockfile).
+bb-ts-packages: private INPUTS := $(BB_TS_INPUTS)
+bb-ts-packages: bb-ts-packages-build
+	$(call step,$@,barretenberg/ts,install,never)
 
 # BB TypeScript - TypeScript bindings, over bb.js-api.
+# Path list: bb.js is a yarn workspace whose dest/ is read in place through node module resolution (acir_tests, the
+# labs portals).
+bb-ts: private INPUTS := $(BB_TS_INPUTS)
 bb-ts: bb-ts-packages
-	$(call build,$@,barretenberg/ts,build_bb_js)
+	$(call step,$@,barretenberg/ts,build_bb_js,bb.js/dest)
 
 # bb and bb-avm as npm packages (meta + one package per platform).
+# Path list: the meta packages find their platform packages beside them in a checkout (bb-cli/platform.js), the release
+# publishes them from there, and bb-bin-cross-copy stages the other platforms into the same directories.
+BB_BIN_INPUTS := ^barretenberg/ts/scripts/native_packages\.sh$$ ^barretenberg/ts/bb-cli/ ^barretenberg/ts/bb-avm-cli/
+BB_BIN_OUTPUTS := bb-cli/packages bb-avm-cli/packages
+
+bb-bin: private INPUTS := $(BB_BIN_INPUTS)
 bb-bin: bb-cpp-native
-	$(call build,$@,barretenberg/ts,build_bb_bin)
+	$(call step,$@,barretenberg/ts,build_bb_bin,$(BB_BIN_OUTPUTS))
 
-# Stages every platform and checks each binary against the release tarballs.
+# Stages every platform and checks each binary against the release tarballs. Which platforms it stages depends on
+# whether REF_NAME is a release tag, so that is part of the key.
+bb-bin-cross-copy: private INPUTS := $(BB_BIN_INPUTS)
+bb-bin-cross-copy: private KEY_ENV := REF_NAME
 bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
-	$(call build,$@,barretenberg/ts,cross_copy_bb_bin)
+	$(call step,$@,barretenberg/ts,cross_copy_bb_bin,$(BB_BIN_OUTPUTS))
 
-# BB Rust - barretenberg-rs FFI crate
-bb-rs: bb-ts bb-cpp-native
-	$(call build,$@,barretenberg/rust)
+# BB Rust - barretenberg-rs FFI crate. It links bb's libbb-external.a, and generates its client from the bb schema
+# itself (see barretenberg/rust/.rebuild_patterns), so it needs no TypeScript build.
+# Path list: cargo's target/ is a working directory that the tests and the release build continue from.
+bb-rs: private INPUTS := barretenberg/rust/.rebuild_patterns
+bb-rs: bb-cpp-native
+	$(call step,$@,barretenberg/rust,build,target/release barretenberg-rs/src/generated)
 
-# BB ACIR Tests - ACIR compatibility tests
-bb-acir: noir bb-cpp-native bb-ts
-	$(call build,$@,barretenberg/acir_tests)
+# BB ACIR Tests - ACIR compatibility tests.
+# The test programs: noir's execution_success programs (from the noir-repo submodule) and the internal ones, compiled
+# with nargo, the recursive ones with inputs proved by bb.
+# Path list: the test scripts, benches and harnesses read each program in place, beside its sources.
+bb-acir-programs: private INPUTS := barretenberg/acir_tests/.rebuild_patterns ^barretenberg/noir/ ^noir/noir-repo$$
+bb-acir-programs: noir bb-cpp-native
+	$(call step,$@,barretenberg/acir_tests,build_programs,acir_tests)
 
-# BB Documentation
-bb-docs:
-	$(call build,$@,barretenberg/docs)
+# The acir_tests workspace's node_modules: installed every run (npm_install_deps caches node_modules itself, by
+# lockfile). It links bb.js and bb.js-api through portals, which must exist first.
+bb-acir-deps: private INPUTS := ^barretenberg/acir_tests/(package\.json|yarn\.lock|[^/]+/package\.json)$$
+bb-acir-deps: bb-ts-packages
+	$(call step,$@,barretenberg/acir_tests,install,never)
 
-# BB Solidity - Solidity verifier contracts.
-# Depends on l1-contracts-solc so that the foundry build uses the solc binary
-# pulled in by l1-contracts (see barretenberg/sol/foundry.toml) rather than
-# triggering a parallel svm download.
-bb-sol: bb-cpp-native bb-crs l1-contracts-solc
-	$(call build,$@,barretenberg/sol)
+# The browser test app (a bundle of bb.js and its wasm modules) and the bb.js test harness.
+# Path list: both are yarn workspaces, whose dest/ the tests run in place.
+bb-acir-js: private INPUTS := ^barretenberg/acir_tests/(browser-test-app|bbjs-test)/
+bb-acir-js: bb-acir-deps bb-ts
+	$(call step,$@,barretenberg/acir_tests,build_js,browser-test-app/dest bbjs-test/dest)
+
+bb-acir: bb-acir-programs bb-acir-js
+	$(call step_group,$@)
+
+# BB Documentation. The docs site's node_modules, installed every run (npm_install_deps caches it itself): the
+# build and the tests use it.
+bb-docs-deps: private INPUTS := ^barretenberg/docs/(package\.json|yarn\.lock)$$
+bb-docs-deps:
+	$(call step,$@,barretenberg/docs,install,never)
+
+# A check that the site builds: nothing uses what it writes (build/), so nothing is cached but its pass.
+bb-docs: private INPUTS := ^barretenberg/docs/
+bb-docs: bb-docs-deps
+	$(call step,$@,barretenberg/docs,build)
+
+# BB Solidity - Solidity verifier contracts, with verification keys generated by bb's honk_solidity_key_gen
+# against the CRS.
+# l1-contracts-solc only has to run first, so that the foundry build uses the solc binary pulled in by l1-contracts
+# (see barretenberg/sol/foundry.toml, whose path names its version) rather than triggering a parallel svm download.
+# Path list: forge keeps out/ and cache/ as working directories that the tests continue from, and the keys are
+# generated into src/.
+BB_SOL_INPUTS := ^barretenberg/sol/
+
+bb-sol: private INPUTS := $(BB_SOL_INPUTS)
+bb-sol: bb-cpp-native bb-crs | l1-contracts-solc
+	$(call step,$@,barretenberg/sol,build,out cache src/honk/keys)
 
 #==============================================================================
 # Barretenberg Tests
@@ -337,28 +398,40 @@ bb-cpp-asan-tests: bb-cpp-asan
 bb-cpp-smt-tests: bb-cpp-smt
 	$(call test,$@,barretenberg/cpp,smt)
 
-bb-acir-tests: bb-acir
+# The tests run bb, bb.js and the packages' native and wasm builds, as well as the programs.
+bb-acir-tests: private INPUTS := ^barretenberg/acir_tests/ ^barretenberg/cpp/scripts/find-bb$$
+bb-acir-tests: bb-acir bb-cpp-native bb-ts bb-ts-packages
 	$(call test,$@,barretenberg/acir_tests)
 
-bb-ts-tests: bb-ts
+# The tests are compiled into bb.js/dest, and run bb through the packages.
+bb-ts-tests: private INPUTS := $(BB_TS_INPUTS) ^barretenberg/cpp/scripts/chonk_inputs\.sh$$
+bb-ts-tests: bb-ts bb-ts-packages
 	$(call test,$@,barretenberg/ts)
 
+bb-avm-sim-tests: private INPUTS := $(BB_TS_INPUTS)
 bb-avm-sim-tests: bb-ts-packages
 	$(call test,$@,barretenberg/ts,bb_avm_sim)
 
+bb-wsdb-ref-tests: private INPUTS := $(BB_TS_INPUTS)
 bb-wsdb-ref-tests: bb-ts-packages
 	$(call test,$@,barretenberg/ts,wsdb_ref)
 
-bb-sol-tests: bb-sol
+# The differential fuzzer tests prove with bb's binaries (scripts/run_fuzzer.sh).
+bb-sol-tests: private INPUTS := $(BB_SOL_INPUTS)
+bb-sol-tests: bb-sol bb-cpp-native bb-crs
 	$(call test,$@,barretenberg/sol)
 
+bb-docs-tests: private INPUTS := ^barretenberg/docs/
 bb-docs-tests: bb-docs
 	$(call test,$@,barretenberg/docs)
 
+bb-bbup-tests: private INPUTS := ^barretenberg/bbup/
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
-bb-rs-tests: bb-rs
+# The tests link libbb-external.a and spawn bb.
+bb-rs-tests: private INPUTS := barretenberg/rust/.rebuild_patterns ^barretenberg/rust/scripts/
+bb-rs-tests: bb-rs bb-cpp-native
 	$(call test,$@,barretenberg/rust)
 
 bb-tests: bb-cpp-native-tests bb-cpp-wasm-tests bb-acir-tests bb-ts-tests bb-avm-sim-tests bb-wsdb-ref-tests bb-sol-tests bb-bbup-tests bb-docs-tests bb-rs-tests
