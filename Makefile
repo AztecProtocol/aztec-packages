@@ -141,9 +141,9 @@ l1-contracts-benches: l1-contracts noir-protocol-circuits
 
 bench: bench-foundation bench-labs
 
-# Release. Everything plus copy bb cross compiles to ts projects.
-# barretenberg/ts stages every platform's binaries into its packages in its own release step, so no cross copy here.
-release-foundation: fast-foundation bb-cpp-release-dir bb-bin-cross-copy ipc-runtime-cross
+# Release: everything, plus the cross builds and release tarballs. Each project's release step packages every
+# platform's binaries from the cross build directories itself.
+release-foundation: fast-foundation bb-cpp-release-dir ipc-runtime-cross
 
 release-labs: fast-labs
 
@@ -373,8 +373,8 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 
 # The generated barretenberg/ts packages: @aztec-foundation/bb.js-api, bb-avm-sim, cdb and wsdb-ref. They are
 # workspaces of one yarn workspace, so one target generates them, installs node_modules once and compiles them
-# together. Generation copies in bb's wasm modules (single- and multi-threaded), and the packages ship this machine's
-# bb, bb-avm-sim and wsdb-ref. The generator's sources and the schemas are inputs (barretenberg/ts/.rebuild_patterns):
+# together. Generation copies in bb's wasm modules (single- and multi-threaded) and this machine's bb, bb-avm-sim and
+# wsdb-ref. The generator's sources and the schemas are inputs (barretenberg/ts/.rebuild_patterns):
 # it runs from source, so ipc-codegen's own build is not a prerequisite.
 # Path list: the packages are yarn workspaces, read in place through node module resolution (bb.js, acir_tests, the
 # labs portals, fnd-genesis), so the generated workspace directories are cached where they are.
@@ -403,7 +403,7 @@ bb-ts: bb-ts-packages
 
 # bb and bb-avm as npm packages (meta + one package per platform).
 # Path list: the meta packages find their platform packages beside them in a checkout (bb-cli/platform.js), the release
-# publishes them from there, and bb-bin-cross-copy stages the other platforms into the same directories.
+# publishes them from there.
 BB_BIN_INPUTS := ^barretenberg/ts/scripts/native_packages\.sh$$ ^barretenberg/ts/bb-cli/ ^barretenberg/ts/bb-avm-cli/
 BB_BIN_OUTPUTS := bb-cli/packages bb-avm-cli/packages
 
@@ -411,13 +411,6 @@ bb-bin: private INPUTS := $(BB_BIN_INPUTS)
 bb-bin: private KEY_ENV := RELEASE_VERSION
 bb-bin: bb-cpp-native
 	$(call step,$@,barretenberg/ts,build_bb_bin,$(BB_BIN_OUTPUTS))
-
-# Stages every platform and checks each binary against the release tarballs. Which platforms it stages depends on
-# whether REF_NAME is a release tag, so that is part of the key.
-bb-bin-cross-copy: private INPUTS := $(BB_BIN_INPUTS)
-bb-bin-cross-copy: private KEY_ENV := RELEASE_VERSION
-bb-bin-cross-copy: bb-bin bb-cpp-cross bb-cpp-release-dir
-	$(call step,$@,barretenberg/ts,cross_copy_bb_bin,$(BB_BIN_OUTPUTS))
 
 # BB Rust - barretenberg-rs FFI crate. It links bb's libbb-external.a, and generates its client from the bb schema
 # itself (see barretenberg/rust/.rebuild_patterns), so it needs no TypeScript build.
@@ -584,7 +577,7 @@ ipc-runtime-tests: ipc-runtime
 	$(call test,$@,ipc-runtime)
 
 # Cross-compile the NAPI addon for the 3 non-host release targets, into $STEP_OUT, where the release's
-# cross_copy reads it. Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
+# stage_cross_addons reads it. Host (amd64-linux) addon is produced by the standalone `ipc-runtime` target.
 ipc-runtime-cross-arm64-linux:
 	$(call step,$@,ipc-runtime,build_cross arm64-linux)
 

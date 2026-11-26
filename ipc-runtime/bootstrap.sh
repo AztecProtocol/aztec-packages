@@ -66,8 +66,8 @@ function clean {
   rm -rf "$BUILD_DIR"
 }
 
-# Builds unconditionally, installing the addon into $STEP_OUT (ci3-out/ipc-runtime-cross-<arch>), where cross_copy
-# reads it: the ipc-runtime-cross-<arch> make steps restore it from the cache instead when they can.
+# Builds unconditionally, installing the addon into $STEP_OUT (ci3-out/ipc-runtime-cross-<arch>), where
+# stage_cross_addons reads it: the ipc-runtime-cross-<arch> make steps restore it from the cache instead when they can.
 function build_cross {
   local arch=$1
   echo_header "ipc-runtime build_cross $arch"
@@ -75,8 +75,20 @@ function build_cross {
   cp "cpp/build-$arch/lib/ipc_runtime_napi.node" "${STEP_OUT:?run through make: make ipc-runtime-cross-$arch}/"
 }
 
-function cross_copy {
-  ./ts/scripts/copy_cross.sh "$@"
+# The Node-API addon's cross builds beside this machine's in ts/build/<arch>, where native_loader.ts finds them,
+# stripped, and the macOS ones re-signed (stripping invalidates their ad-hoc signature).
+function stage_cross_addons {
+  local arch f
+  for arch in arm64-linux amd64-macos arm64-macos; do
+    mkdir -p ts/build/$arch
+    cp ci3-out/ipc-runtime-cross-$arch/ipc_runtime_napi.node ts/build/$arch/
+  done
+  llvm-strip-20 ts/build/*/*
+  for arch in amd64-macos arm64-macos; do
+    for f in ts/build/$arch/*; do
+      ldid -S "$f"
+    done
+  done
 }
 
 function crate_published {
@@ -115,7 +127,7 @@ function release_crate {
 
 function release {
   local version=${REF_NAME#v}
-  cross_copy
+  stage_cross_addons
   (cd ts && retry "deploy_npm $version")
 
   # Private releases also run this function but publish only to the internal
