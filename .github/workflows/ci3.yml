@@ -77,7 +77,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN || secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-${{ github.run_id }}
           role-duration-seconds: 7200 # 2h – covers max AWS_SHUTDOWN_TIME (90 min ARM) + 30 min buffer
@@ -125,7 +125,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          AWS_OIDC_ROLE_ARN: ${{ vars.AWS_OIDC_ROLE_ARN || secrets.AWS_OIDC_ROLE_ARN }}
         # NOTE: $CI_MODE is set in the Determine CI Mode step.
         run: exec ./.github/ci3.sh $CI_MODE
 
@@ -169,7 +169,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN || secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: publish-${{ github.run_id }}
 
