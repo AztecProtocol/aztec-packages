@@ -645,7 +645,8 @@ function release {
   release_bb_github
 
   # The npm packages are only packed here (deploy_npm pack mode) and handed to the GitHub runner
-  # through the build cache; ci3.yml's publish-npm job publishes them with npm trusted publishing.
+  # through the release cache (see ci-release); ci3.yml's publish-npm job publishes them with npm
+  # trusted publishing.
   export NPM_PACK_DIR=$root/npm-release
   rm -rf "$NPM_PACK_DIR"
 
@@ -1007,6 +1008,11 @@ case "$cmd" in
       export NO_CACHE_UPLOAD=1
       # Unset so child bootstrap.sh re-derives these from the worktree.
       unset COMMIT_HASH root
+    elif [ "${PRIVATE_RELEASE:-0}" != 1 ] &&
+         [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" != "aztecprotocol/aztec-packages-private" ]; then
+      # A public release builds from, and hands its npm bundle to publish-npm through, the release
+      # cache: never the shared build cache, which any CI build can write.
+      source $ci3/source_release_cache
     fi
     ./bootstrap.sh build release
     ./bootstrap.sh release
