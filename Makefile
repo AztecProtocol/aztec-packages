@@ -550,7 +550,7 @@ constants-codegen-tests: constants-codegen
 # language's tool builds it (transitional path list).
 .PHONY: ipc-codegen ipc-codegen-tests
 # The TS examples: what their generation and npm install write beside their committed sources (their .gitignores).
-IPC_CODEGEN_TS_PACKAGE_OUTPUTS := .ipc-codegen-manifest .tsbuildinfo build dest node_modules package.json packages \
+IPC_CODEGEN_TS_PACKAGE_OUTPUTS := .ipc-codegen-manifest .tsbuildinfo dest node_modules package.json packages \
   tsconfig.json wasm src/generated $(addprefix src/,$(addsuffix .ts,bin browser index platform process react-native wasm))
 IPC_CODEGEN_ECHO_OUTPUTS := echo_example/cpp/build/bin \
   $(addprefix echo_example/rust/target/debug/,echo_server echo_client golden_test) \
