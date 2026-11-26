@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import networkDocs from "../../src/network_docs.js";
 import packages from "../typescript_api_generation/packages.js";
-import { declarations, splitPackage } from "../split_typescript_api.mjs";
+import { declarations, folderPage, main, splitPackage } from "../split_typescript_api.mjs";
 
 const pkg = [
   "# @aztec/foundation",
@@ -75,6 +77,39 @@ test("every declaration of the committed reference lands in exactly one page", (
     assert.equal(placed.length, markdown.match(/^### /gm)?.length ?? 0, name);
     assert.equal(new Set(pages.map((p) => p.file.toLowerCase())).size, pages.length, name);
   }
+});
+
+test("each served folder gets an index page listing the package files it holds, its indexes and the guide", (t) => {
+  t.mock.method(console, "log", () => {});
+  const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
+  const folder = networkDocs.networkApiFolder(config, "mainnet");
+  const build = fs.mkdtempSync(path.join(os.tmpdir(), "ts-folder-page-"));
+  try {
+    const dir = path.join(build, "typescript-api", folder);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const file of ["aztec.js.md", "foundation.md", "llm-summary.txt"]) fs.writeFileSync(path.join(dir, file), pkg);
+    assert.equal(main(build, {}), 0);
+    const html = fs.readFileSync(path.join(dir, "index.html"), "utf8");
+    const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(hrefs, [
+      `/typescript-api/${folder}/llms.txt`,
+      "/developers/docs/aztec-js/typescript_api_reference",
+      `/typescript-api/${folder}/aztec.js.md`,
+      `/typescript-api/${folder}/foundation.md`,
+      `/typescript-api/${folder}/llm-summary.txt`,
+    ]);
+    assert.match(html, new RegExp(`^<!doctype html>\\n<html lang="en">[\\s\\S]*<title>TypeScript API reference, ${folder}</title>`));
+    assert.match(html, /<meta name="color-scheme" content="light dark">/);
+    assert.match(html, />@aztec-labs\/aztec\.js<\/a>: Main SDK for building Aztec applications</);
+  } finally {
+    fs.rmSync(build, { recursive: true, force: true });
+  }
+});
+
+test("the index page escapes the text it is built from", () => {
+  const html = folderPage({ dir: "typescript-api/v1.0.0", version: "v1.0.0", packages: [{ file: "a.md", npmName: "@x/a", description: '<script>"&' }], summary: false });
+  assert.match(html, /: &lt;script&gt;&quot;&amp;<\/li>/);
+  assert.doesNotMatch(html, /<script>|llm-summary/);
 });
 
 test("packages are ours only under the documented scope", () => {
