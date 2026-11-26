@@ -4174,6 +4174,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource-variable/geist@npm:5.3.0":
+  version: 5.3.0
+  resolution: "@fontsource-variable/geist@npm:5.3.0"
+  checksum: 10c0/6b1d1d249643377c885d040769bf0964f242e8d03c4470535329ad4eed3d30a8134fea0d45c0b99b8069924a1f506a3bcb5b8d9cea77b7b5234dc7dd57371842
+  languageName: node
+  linkType: hard
+
 "@gar/promise-retry@npm:^1.0.0":
   version: 1.0.2
   resolution: "@gar/promise-retry@npm:1.0.2"
@@ -8786,6 +8793,7 @@ __metadata:
     "@docusaurus/preset-classic": "npm:3.10.2"
     "@docusaurus/theme-mermaid": "npm:3.10.2"
     "@docusaurus/tsconfig": "npm:3.10.2"
+    "@fontsource-variable/geist": "npm:5.3.0"
     "@getbrevo/brevo": "npm:^3.0.1"
     "@mdx-js/react": "npm:^3.1.1"
     "@rspack/core": "npm:^1.0.0"

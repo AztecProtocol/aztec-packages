@@ -13,6 +13,7 @@ import katex from "rehype-katex";
 // biome-ignore lint/suspicious/noTsIgnore: baselined 2026-11-12: nothing type-checks this file, so @ts-expect-error would go unverified
 // @ts-ignore
 const path = require("path");
+const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const { createRequire } = require("module");
 const {
@@ -229,6 +230,19 @@ const rehypePlugins = [
 // KaTeX's stylesheet must match the KaTeX that renders the markup, so it comes from rehype-katex's own
 // katex dependency; the bundler serves it and its fonts from the site.
 const katexCss = createRequire(require.resolve("rehype-katex")).resolve("katex/dist/katex.min.css");
+// Upright only, as Google Fonts served it to the site.
+const geistCss = require.resolve("@fontsource-variable/geist/wght.css");
+
+// OFL-1.1 requires the licence text with every copy of the font, and the woff2 files carry only its URL.
+const geistLicense = () => ({
+  name: "geist-license",
+  async postBuild({ outDir }) {
+    const fonts = fs.globSync("assets/**/geist-*.woff2", { cwd: outDir });
+    if (!fonts.length) throw new Error("geist-license: the build has no Geist woff2 to put the licence beside");
+    const license = require.resolve("@fontsource-variable/geist/LICENSE");
+    for (const dir of new Set(fonts.map(path.dirname))) fs.copyFileSync(license, path.join(outDir, dir, "Geist-LICENSE.txt"));
+  },
+});
 
 const config = {
   title: SITE_TITLE,
@@ -314,7 +328,7 @@ const config = {
         docs: false,
         blog: false,
         theme: {
-          customCss: [katexCss, require.resolve("./src/css/custom.css")],
+          customCss: [katexCss, geistCss, require.resolve("./src/css/custom.css")],
         },
         // Enable pages for root-level content (index.mdx, networks, etc.)
         pages: {
@@ -493,6 +507,7 @@ const config = {
         apiDirs: Object.values(developerApiFolders).map((folder) => `aztec-nr-api/${folder}/`),
       },
     ],
+    geistLicense,
   ],
   customFields: {
     organizationId: ORGANIZATION_ID,
