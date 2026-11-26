@@ -1,5 +1,6 @@
 // Splits each package file of the TypeScript API reference in a build (typescript-api/<folder>/<pkg>.md,
-// up to 235 KB) into one page per exported name, <pkg>/<Name>.md, which an agent can fetch whole.
+// up to 235 KB) into one page per exported name, <pkg>/<Name>.md, which an agent can fetch whole, and
+// writes the folder's index.html, which the generator does not make.
 
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -68,7 +69,36 @@ export function splitPackage(markdown, { pkg, npmName: npm, version, index }) {
   });
 }
 
-/** Splits every documented package of each TypeScript folder `apiReferenceDirs` lists; returns the exit code. */
+const escapeHtml = (text) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+/**
+ * The landing page of a TypeScript API folder: its scoped index, the guide, each package file and the summary.
+ *
+ * @param {{dir: string, version: string, packages: {file: string, npmName: string, description: string}[], summary: boolean}} folder
+ *   `dir` is the folder's path under the site root; `packages` the package files it holds, in order;
+ *   `summary` whether it holds llm-summary.txt
+ * @returns {string}
+ */
+export function folderPage({ dir, version, packages, summary }) {
+  const link = (file, text) => `<a href="/${escapeHtml(dir)}/${escapeHtml(file)}">${escapeHtml(text)}</a>`;
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<meta name="color-scheme" content="light dark">',
+    `<title>TypeScript API reference, ${escapeHtml(version)}</title>`,
+    `<h1>TypeScript API reference, ${escapeHtml(version)}</h1>`,
+    `<p>The Aztec TypeScript packages, one markdown file each. ${link(SCOPED_API_INDEX, "llms.txt")} links a page per exported name. The <a href="/developers/docs/aztec-js/typescript_api_reference">TypeScript API reference</a> guide explains the packages.</p>`,
+    "<ul>",
+    ...packages.map((p) => `<li>${link(p.file, p.npmName)}: ${escapeHtml(p.description)}</li>`),
+    "</ul>",
+    ...(summary ? [`<p>${link("llm-summary.txt", "llm-summary.txt")}: a summary of every package.</p>`] : []),
+    "",
+  ].join("\n");
+}
+
+/** Splits every documented package of each TypeScript folder `apiReferenceDirs` lists and writes its index page; returns the exit code. */
 export function main(buildDir, env = process.env) {
   const config = (name) => JSON.parse(fs.readFileSync(new URL(`../${name}_version_config.json`, import.meta.url), "utf8"));
   const [developer] = docsInstances(config("developer"), config("network"), env.CONTEXT === "production");
@@ -83,18 +113,20 @@ export function main(buildDir, env = process.env) {
       continue;
     }
     const index = `${llmsSiteUrl(env)}/${dir}/${SCOPED_API_INDEX}`;
-    let packages = 0;
+    const listed = [];
     let pages = 0;
-    for (const { name: pkg } of documentedPackages()) {
+    for (const { name: pkg, description } of documentedPackages()) {
       const file = path.join(root, `${pkg}.md`);
       if (!fs.existsSync(file)) continue;
       const split = splitPackage(fs.readFileSync(file, "utf8"), { pkg, npmName: npmName(pkg), version, index });
       fs.mkdirSync(path.join(root, pkg), { recursive: true });
       for (const page of split) fs.writeFileSync(path.join(root, page.file), page.markdown);
-      packages++;
+      listed.push({ file: `${pkg}.md`, npmName: npmName(pkg), description });
       pages += split.length;
     }
-    console.log(`typescript split: ${dir}: ${packages} packages, ${pages} pages`);
+    const summary = fs.existsSync(path.join(root, "llm-summary.txt"));
+    fs.writeFileSync(path.join(root, "index.html"), folderPage({ dir, version, packages: listed, summary }));
+    console.log(`typescript split: ${dir}: ${listed.length} packages, ${pages} pages, index.html`);
   }
   return failed ? 1 : 0;
 }
