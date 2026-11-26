@@ -3,7 +3,7 @@
 #include <cstddef>
 
 namespace bb {
-// Internal: Full string with sentinel prefix for binary patching by inject_version
+// Internal: Full string with sentinel prefix for binary patching by set_bb_version
 extern const char* const BB_VERSION_PLACEHOLDER;
 
 // The sentinel string length (used to compute offset to actual version)
