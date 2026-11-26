@@ -5,10 +5,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 ROOT=$(git rev-parse --show-toplevel)
 PKG="$ROOT/native-packages/lmdblib"
 
-# Only for `./bootstrap.sh hash`, which kvdb's and wsdb's still chain. The build itself is keyed and cached as the
-# lmdblib make step.
-hash=$(hash_str \
-  $(cache_content_hash .rebuild_patterns))
 
 # Build liblmdblib.a and its tests, unconditionally, installing them into $STEP_OUT (ci3-out/lmdblib): the lmdblib
 # make step restores them from the cache instead when it can. lmdblib is barretenberg-free: it builds against its own
@@ -47,9 +43,6 @@ export -f build_native build test_cmds test clean
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

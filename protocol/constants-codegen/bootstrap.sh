@@ -3,9 +3,6 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Only for `./bootstrap.sh hash`, which scripts/labs_fnd_hashes.sh still reads. The build itself is keyed and cached
-# as the constants-codegen make step.
-hash=$(cache_content_hash .)
 
 # Tests and in-repo generation (remake-constants.sh) run src/*.ts directly via node's built-in type stripping.
 # tsc only exists to emit the published npm artifact: node refuses to strip types under node_modules, so the package
@@ -42,9 +39,6 @@ function release {
 case "$cmd" in
   "")
     build
-    ;;
-  hash)
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

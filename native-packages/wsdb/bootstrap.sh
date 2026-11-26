@@ -10,15 +10,6 @@ WSDB_BINARY=aztec-wsdb
 # from once native-packages leaves aztec-packages.
 WSDB_SCHEMA="$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc"
 
-# While wsdb lives in aztec-packages it builds against this checkout's barretenberg (the wsdb-ref
-# sources), ipc-runtime and ipc-codegen (see cpp/CMakeLists.txt), so the hash follows theirs. Only for
-# `./bootstrap.sh hash` (scripts/labs_fnd_hashes.sh) and bench_cmds, which run outside make: the build itself is keyed
-# and cached as the wsdb make step. A function, so the builds don't pay for barretenberg's hash chain.
-function content_hash {
-  echo "$(hash_str $(../lmdblib/bootstrap.sh hash) $(../../barretenberg/cpp/bootstrap.sh hash) \
-    $(../../ipc-codegen/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))"
-}
-
 IPC_CODEGEN_DIR="$ROOT/ipc-codegen"
 
 function generate_ts_package {
@@ -78,7 +69,8 @@ function test_cmds {
 # The tree benchmarks (cpp/src/benchmark), in the repo's bench-out/*.bench.json form. Every
 # family at 1024 leaves: about a minute, where the full sweep to 8192 runs over ten minutes.
 function bench_cmds {
-  echo "$(content_hash):CPUS=8 native-packages/wsdb/bootstrap.sh bench"
+  # Keyed by the wsdb-benches make step.
+  echo "${STEP_KEY:-disabled-cache}:CPUS=8 native-packages/wsdb/bootstrap.sh bench"
 }
 
 function bench {
@@ -121,9 +113,6 @@ export -f generate_ts_package build_native build_cross build_package build test_
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    content_hash
     ;;
   *)
     default_cmd_handler "$@"

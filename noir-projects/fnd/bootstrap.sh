@@ -215,12 +215,6 @@ function pin-build {
     noir-protocol-circuits
 }
 
-# Identity of the protocol circuits and contracts for the labs submodule's cache keys
-# (scripts/labs_fnd_hashes.sh). Their inputs beyond the sources (nargo, bb) are hashed alongside this.
-function hash {
-  cache_content_hash "^noir-projects/fnd/"
-}
-
 case "$cmd" in
   "")
     build

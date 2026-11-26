@@ -10,9 +10,6 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Only for `./bootstrap.sh hash`, which other projects' bootstraps still chain. The build itself is keyed and cached
-# as the ipc-codegen make step.
-hash=$(cache_content_hash .rebuild_patterns)
 
 # Builds unconditionally: the ipc-codegen make step restores the echo examples from the cache instead when it can.
 function build_echo_examples {
@@ -113,9 +110,6 @@ function test {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

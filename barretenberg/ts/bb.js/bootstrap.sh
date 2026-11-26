@@ -3,16 +3,7 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# The build is keyed and cached as the bb-ts make step, and its tests are keyed by the bb-ts-tests step. This hash
-# remains for `./bootstrap.sh hash` (part of barretenberg/ts's, which scripts/labs_fnd_hashes.sh records) and for
-# the benchmark's key, as benchmarks are not make steps.
-function compute_hash {
-  hash_str \
-    $(../../cpp/bootstrap.sh hash) \
-    $(cache_content_hash ../.rebuild_patterns) \
-    $(semver check $REF_NAME && echo 1 || echo 0) \
-    ${AVM_TRANSPILER:-1}
-}
+# The build is keyed and cached as the bb-ts make step, its tests by bb-ts-tests and its benchmark by bb-ts-benches.
 
 # bb.js compiles against @aztec-foundation/bb.js-api, which the bb-ts-packages make target builds first.
 function formatting {
@@ -54,7 +45,7 @@ function test_cmds {
 }
 
 function bench_cmds {
-  echo "$(compute_hash):CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
+  echo "${STEP_KEY:-disabled-cache}:CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
 }
 
 function test {
@@ -70,9 +61,6 @@ case "$cmd" in
   "")
     # Through make, so that it is restored from the cache when it can be.
     make -C "$root" bb-ts
-    ;;
-  "hash")
-    compute_hash
     ;;
   *)
     default_cmd_handler "$@"

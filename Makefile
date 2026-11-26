@@ -104,6 +104,30 @@ bench-foundation: bb-cpp-native bb-cpp-wasm-threads bb-ts bb-sol bb-acir wsdb \
 
 bench-labs: labs-bench
 
+# The benchmark commands, keyed like tests (ci3 step_benches): bootstrap.sh bench_cmds collects them through make.
+BENCH_CMDS := bb-ts-benches bb-sol-benches wsdb-benches noir-protocol-circuits-benches l1-contracts-benches
+bench-cmds: $(BENCH_CMDS)
+
+bb-ts-benches: private INPUTS := $(BB_TS_INPUTS)
+bb-ts-benches: bb-ts
+	$(call step_benches,$@,barretenberg/ts)
+
+bb-sol-benches: private INPUTS := $(BB_SOL_INPUTS)
+bb-sol-benches: bb-sol bb-cpp-native bb-crs
+	$(call step_benches,$@,barretenberg/sol)
+
+wsdb-benches: private INPUTS := native-packages/wsdb/.rebuild_patterns
+wsdb-benches: wsdb
+	$(call step_benches,$@,native-packages/wsdb)
+
+# Keyed per circuit by the bootstrap: by the artifact and the bb binary that proves it.
+noir-protocol-circuits-benches: | noir-protocol-circuits bb-cpp-native
+	$(call step_benches,$@,noir-projects/fnd/noir-protocol-circuits)
+
+l1-contracts-benches: private INPUTS := l1-contracts/.rebuild_patterns ^l1-contracts/scripts/ ^l1-contracts/test/
+l1-contracts-benches: l1-contracts noir-protocol-circuits
+	$(call step_benches,$@,l1-contracts)
+
 bench: bench-foundation bench-labs
 
 # Release. Everything plus copy bb cross compiles to ts projects.
@@ -588,7 +612,11 @@ fnd-artifacts-stage: private INPUTS := ^noir-projects/fnd/bootstrap\.sh$$ noir-p
 fnd-artifacts-stage: noir-projects-fnd
 	$(call step,$@,noir-projects/fnd,stage_packages,protocol-circuits-artifacts/dist mock-protocol-circuits-artifacts/dist protocol-contracts-artifacts/dist)
 
-labs-deps: bb-ts l1-contracts wsdb kvdb constants-codegen noir-projects-fnd fnd-artifacts-stage
+# What labs consumes from this tree: the binaries, and everything the use-local manifests portal into.
+LABS_PROVIDERS := bb-cpp-native noir bb-ts l1-contracts wsdb kvdb ipc-runtime constants-codegen fnd-genesis \
+  noir-projects-fnd fnd-artifacts-stage
+labs-deps: $(LABS_PROVIDERS)
+	$(call step_group,$@)
 
 # Checks the submodule out at its gitlink with the labs-patches series applied (no-op when
 # already there). use-local rewrites are re-done after it, so it must run first.
@@ -607,13 +635,11 @@ labs-patches-tests: | labs-patched
 
 # The portal resolutions change the lockfiles; they are refreshed here so the submodule's
 # own installs see them consistent (yarn refuses to touch a lockfile under CI).
-# scripts/labs_fnd_hashes.sh records the providers' content hashes in the submodule, which is
-# what makes the labs cache keys (builds and tests) follow this tree.
-labs-use-local: labs-patched labs-deps
-	$(call run_command,$@,$(LABS_DIR),./labs-aztec-toolchain/bootstrap.sh use-local $(ROOT) \
-	  && $(ROOT)/scripts/labs_fnd_hashes.sh \
-	  && (cd yarn-project && YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile) \
-	  && $(ROOT)/labs-patches/bootstrap.sh commit-use-local)
+# scripts/labs_fnd_hashes.sh records in the submodule what ci3 hands this step for each provider (its output
+# hash, or its key), which is what makes the labs cache keys (builds and tests) follow this tree.
+# A never step: it rewrites the labs checkout, which is not an output to cache.
+labs-use-local: $(LABS_PROVIDERS) | labs-patched
+	$(call step,$@,labs-patches,use-local,never)
 
 # ci3 takes the repo root from an inherited $$root, so the submodule's make must not see
 # this tree's. The test commands it collects are relative to the submodule, and the test
@@ -653,7 +679,7 @@ labs-yarn-project: labs-use-local
 labs-bench: labs-use-local
 	$(call run_command,$@,$(LABS_DIR),$(LABS_MAKE) bench)
 
-.PHONY: labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
+.PHONY: bench-cmds $(BENCH_CMDS) labs-deps labs-patched labs-patches-tests labs-use-local labs-fast labs-full labs-bench labs-yarn-project fnd-artifacts-stage
 
 #==============================================================================
 # Docs

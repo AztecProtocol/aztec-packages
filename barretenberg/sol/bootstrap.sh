@@ -62,7 +62,8 @@ function build {
 
 # Benchmarks are not make steps, so their key is still hashed here: the contracts and bb, which generates them.
 function bench_cmds {
-  echo "$(cache_content_hash ^barretenberg/sol/ ../cpp/.rebuild_patterns) barretenberg/sol/bootstrap.sh bench"
+  # Keyed by the bb-sol-benches make step.
+  echo "${STEP_KEY:-disabled-cache} barretenberg/sol/bootstrap.sh bench"
 }
 
 function bench {

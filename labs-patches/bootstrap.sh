@@ -16,6 +16,9 @@
 #   check             verify the series applies cleanly to the gitlink, without touching labs/
 #   bump <ref>        move the gitlink to an upstream ref (branch, tag or sha) and re-apply
 #   commit-use-local  commit the worktree's use-local rewrite as the marker commit
+#   use-local         point labs at this checkout: rewrite its manifests, record the foundation's
+#                     identity (scripts/labs_fnd_hashes.sh), refresh the lockfiles, commit the marker.
+#                     Run by the labs-use-local make step, whose prerequisites' values it records.
 #   check_staged      fail if a patched or marker commit is staged as the gitlink (pre-commit)
 #   status            show the base, the series, and what sits on top in labs/
 #   test              run the sandbox lifecycle test (tests/lifecycle_test) and check
@@ -369,12 +372,21 @@ function test_cmds {
   echo "$key labs-patches/bootstrap.sh check"
 }
 
+# labs has a ci3 of its own: it must not inherit this tree's root.
+function use_local {
+  (cd "$labs" && env -u root -u ci3 ./labs-aztec-toolchain/bootstrap.sh use-local "$fnd_root")
+  "$fnd_root/scripts/labs_fnd_hashes.sh"
+  (cd "$labs/yarn-project" && env -u root -u ci3 YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=update-lockfile)
+  commit_use_local
+}
+
 case "${1:-apply}" in
   apply) apply ;;
   export) export_series ;;
   check) check ;;
   bump) bump "${2:-}" ;;
   commit-use-local) commit_use_local ;;
+  use-local) use_local ;;
   check_staged) check_staged ;;
   status) status ;;
   upstream) upstream "${2:-}" "${3:-}" ;;

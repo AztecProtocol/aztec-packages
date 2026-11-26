@@ -541,14 +541,18 @@ function labs_bench_cmds {
   scripts/labs_test_cmds.sh ./bootstrap.sh bench_cmds
 }
 
+# The benchmark commands, from the make targets that list them (bench-cmds, or the targets given), each keyed by
+# its target. Never filtered by the test cache: the bench box runs them all.
 function bench_cmds {
-  if [ "$#" -eq 0 ]; then
-    set -- barretenberg/{ts,cpp,sol} native-packages/wsdb noir-projects/fnd/noir-protocol-circuits l1-contracts
-    parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
-    labs_bench_cmds
-    return
+  local file
+  file=$(mktemp)
+  if ! CI3_TEST_CMDS_FILE=$file USE_TEST_CACHE=0 make -s --no-print-directory "${@:-bench-cmds}" >&2; then
+    rm -f "$file"
+    return 1
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
+  cat "$file"
+  rm -f "$file"
+  [ "$#" -gt 0 ] || labs_bench_cmds
 }
 
 function bench_merge {

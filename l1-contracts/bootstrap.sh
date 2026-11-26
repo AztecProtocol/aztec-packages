@@ -41,18 +41,6 @@ function download_solc {
   cache_upload "$artifact" "$solc_path"
 }
 
-# Not a key the build or its tests use: make keys those, from the make graph (l1-contracts-src and so on).
-# It is what `./bootstrap.sh hash` prints, for scripts/labs_fnd_hashes.sh, and what bench_cmds keys the
-# benchmark with, both outside make. The noir hash covers the compiler that builds the circuits the
-# verifier is copied from, which the content patterns alone do not capture.
-function content_hash {
-  hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash \
-    .rebuild_patterns \
-    ../noir-projects/fnd/noir-protocol-circuits \
-    ../barretenberg/cpp/.rebuild_patterns
-  )
-}
-
 # What the builds need whether or not their outputs come from the cache: the generated sources, solc, the npm
 # dependencies and the libraries.
 function prep {
@@ -282,7 +270,8 @@ function partial_epoch_proof_gas_report {
 }
 
 function bench_cmds {
-  echo "$(content_hash) l1-contracts/bootstrap.sh bench"
+  # Keyed by the l1-contracts-benches make step.
+  echo "${STEP_KEY:-disabled-cache} l1-contracts/bootstrap.sh bench"
 }
 
 function bench {
@@ -528,9 +517,6 @@ function release {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    content_hash
     ;;
   *)
     default_cmd_handler "$@"

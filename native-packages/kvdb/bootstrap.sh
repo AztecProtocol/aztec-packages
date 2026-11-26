@@ -6,11 +6,6 @@ ROOT=$(git rev-parse --show-toplevel)
 PKG="$ROOT/native-packages/kvdb"
 NAPI_BINARY=nodejs_module.node
 
-# Only for `./bootstrap.sh hash`, which scripts/labs_fnd_hashes.sh still reads. The build itself is keyed and cached
-# as the kvdb make step. A function, so the build doesn't pay for lmdblib's.
-function content_hash {
-  echo "$(hash_str $(../lmdblib/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))"
-}
 
 # Build the NAPI addon. kvdb is barretenberg-free: it builds and links only the lmdblib
 # sibling package (+ lmdb, node-addon-api).
@@ -93,9 +88,6 @@ export -f build_native build_cross build_package build test_cmds test_ts test cl
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    content_hash
     ;;
   *)
     default_cmd_handler "$@"

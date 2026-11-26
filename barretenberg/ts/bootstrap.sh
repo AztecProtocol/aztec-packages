@@ -11,17 +11,7 @@ WSDB_REF_PACKAGE=@aztec-foundation/wsdb-ref
 WSDB_REF_ADDON=wsdb_ref_napi.node
 WSDB_REF_BINARY=wsdb-ref
 
-# The builds are keyed and cached as make steps (bb-ts-packages-build, bb-ts and so on), from the make graph. This
-# hash is only for `./bootstrap.sh hash`, which scripts/labs_fnd_hashes.sh records for the labs toolchain.
-function compute_hash {
-  hash_str \
-    $(bb.js/bootstrap.sh hash) \
-    $(../cpp/bootstrap.sh hash) \
-    $(../../ipc-codegen/bootstrap.sh hash) \
-    $(../../ipc-runtime/bootstrap.sh hash) \
-    $(cache_content_hash .rebuild_patterns) \
-    $(semver check $REF_NAME && echo 1 || echo 0)
-}
+# The builds are keyed and cached as make steps (bb-ts-packages-build, bb-ts and so on), from the make graph.
 
 # The workspaces resolve @aztec-foundation/ipc-runtime through a portal into
 # ipc-runtime/ts, so what node_modules ends up containing depends on that
@@ -331,9 +321,6 @@ export -f release deploy_bb_js_api deploy_bb_avm_sim deploy_cdb deploy_wsdb_ref
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    compute_hash
     ;;
   *)
     default_cmd_handler "$@"
