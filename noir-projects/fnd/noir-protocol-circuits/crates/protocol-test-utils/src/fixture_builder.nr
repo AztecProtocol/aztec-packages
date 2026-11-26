@@ -75,8 +75,8 @@ use types::{
     },
     hash::{
         compute_contract_class_log_hash, compute_note_nonce_and_unique_note_hash,
-        compute_siloed_note_hash, compute_siloed_nullifier, compute_siloed_private_log_first_field,
-        create_protocol_nullifier,
+        compute_private_note_hash_nonce_index, compute_siloed_note_hash, compute_siloed_nullifier,
+        compute_siloed_private_log_first_field, create_protocol_nullifier,
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -846,6 +846,34 @@ impl FixtureBuilder {
                 self.note_hashes.push(Counted::new(siloed_value, MAX_U32_VALUE).scope(
                     SIDE_EFFECT_MASKING_ADDRESS,
                 ));
+            }
+        }
+    }
+
+    /// Makes every note hash in `note_hashes` unique in place, the way the terminal reset does: at
+    /// its index, in the private non-revertible or private revertible nonce section per this
+    /// builder's `is_private_only` and `claimed_revertible_counter`. The nonce base mirrors the
+    /// circuit: this builder's first nullifier value (already siloed in an output builder), or 0
+    /// when it has none.
+    pub fn uniquify_note_hashes(&mut self) {
+        let first_nullifier = if self.nullifiers.len() == 0 {
+            0
+        } else {
+            self.nullifiers.get(0).innermost().value
+        };
+        for i in 0..self.note_hashes.max_len() {
+            if i < self.note_hashes.len() {
+                let mut note_hash = self.note_hashes.get(i);
+                let is_non_revertible = note_hash.is_non_revertible(
+                    self.is_private_only,
+                    self.claimed_revertible_counter,
+                );
+                note_hash.inner.inner = compute_note_nonce_and_unique_note_hash(
+                    note_hash.innermost(),
+                    first_nullifier,
+                    compute_private_note_hash_nonce_index(i, is_non_revertible),
+                );
+                self.note_hashes.set(i, note_hash);
             }
         }
     }

@@ -178,6 +178,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_contract_addr, setup_call.contract_address },
                           { C::tx_is_static, setup_call.is_static_call },
                           { C::tx_calldata_hash, setup_call.calldata_hash },
+                          { C::tx_note_hash_nonce_index_offset, NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE },
                       } });
             calls_remaining--;
             read_pi_offset++;
@@ -270,6 +271,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_contract_addr, app_logic_call.contract_address },
                           { C::tx_is_static, app_logic_call.is_static_call },
                           { C::tx_calldata_hash, app_logic_call.calldata_hash },
+                          { C::tx_note_hash_nonce_index_offset, NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE },
                       } });
             calls_remaining--;
             read_pi_offset++;
@@ -290,6 +292,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::tx_start_phase, 1 },
                       { C::tx_end_phase, 1 },
+                      { C::tx_note_hash_nonce_index_offset, NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE },
                   } });
         // Collect fees
         trace.set(row++,

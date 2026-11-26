@@ -42,6 +42,7 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
+    pol commit note_hash_nonce_index_offset;
     pol commit is_static; // @boolean (on active rows it follows from the different constraints in "IS STATIC" section below)
                           // At the start of an enqueued call, is_static is copied from tx.pil (which is boolean in tx.pil)
                           // and in the next rows it is propagated or re-assigned to 0 or 1.
@@ -327,6 +328,17 @@ namespace execution;
     // NOTE: don't need to gate by NOT_LAST_EXEC because last execution row must be the end of an enqueued call.
     // enqueued_call_end is mutually exclusive with precomputed.first_row. The term `- precomputed.first_row` is
     // defensive to support a potential case where the first row has a non-zero transaction fee.
+
+    // =============================
+    //    NOTE HASH NONCE INDEX OFFSET
+    // =============================
+
+    // The offset of the nonce index section for note hashes emitted by this enqueued call (see emit_notehash.pil).
+    // It gets set at the start of an enqueued call (via #[DISPATCH_EXEC_START] (tx.pil)), where tx.pil derives it
+    // from the phase, and remains the same throughout the enqueued call, nested calls included.
+    #[NOTE_HASH_NONCE_INDEX_OFFSET_NEXT_ROW]
+    (1 - enqueued_call_end - precomputed.first_row) * (note_hash_nonce_index_offset' - note_hash_nonce_index_offset) = 0;
+    // NOTE: same gating as #[TRANSACTION_FEE_NEXT_ROW] above.
 
     // =============================
     //    IS STATIC

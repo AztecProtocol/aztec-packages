@@ -51,6 +51,19 @@ static_assert(static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) == 
 static_assert(static_cast<uint8_t>(TransactionPhase::LAST) == AVM_TX_PHASE_VALUE_LAST,
               "TransactionPhase::LAST must match AVM_TX_PHASE_VALUE_LAST");
 
+/**
+ * @brief The nonce index section offset for note hashes emitted (EMITNOTEHASH) by an enqueued call in `phase`.
+ *
+ * Such a note hash's nonce index is its index in the tx's note hashes plus this offset: the public non-revertible
+ * section for setup, the public revertible section for app logic and teardown. Must match tx.pil's
+ * #[NOTE_HASH_NONCE_INDEX_OFFSET].
+ */
+inline uint64_t note_hash_nonce_index_offset_for_phase(TransactionPhase phase)
+{
+    return phase == TransactionPhase::SETUP ? NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_NON_REVERTIBLE
+                                            : NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE;
+}
+
 using InternalCallId = uint32_t;
 
 /**

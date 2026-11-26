@@ -423,7 +423,7 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
  *        the embedded event type PrivateAppendTreeEvent.
  *
  * @param revertible Whether the note hash is revertible.
- * @param note_hash The note hash to insert. If revertible, it is siloed but not unique. Otherwise, it is unique.
+ * @param note_hash The note hash to insert. It is already siloed and unique.
  * @throws TxExecutionException if the maximum number of note hashes is reached.
  */
 void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
@@ -439,11 +439,8 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
             throw TxExecutionException("Maximum number of note hashes reached");
         }
 
-        if (revertible) {
-            merkle_db.siloed_note_hash_write(note_hash);
-        } else {
-            merkle_db.unique_note_hash_write(note_hash);
-        }
+        // The private kernel makes every private note hash unique, revertible or not.
+        merkle_db.unique_note_hash_write(note_hash);
 
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
@@ -583,12 +580,12 @@ void TxExecution::insert_revertibles(const Tx& tx)
         }
     }
 
-    // 2. Write the siloed non-unique note hashes.
+    // 2. Write the note hashes. The private kernel already made them unique.
     if (tx.revertible_accumulated_data.note_hashes.empty()) {
         emit_empty_phase(TransactionPhase::R_NOTE_INSERTION);
     } else {
-        for (const auto& siloed_note_hash : tx.revertible_accumulated_data.note_hashes) {
-            emit_note_hash(true, siloed_note_hash);
+        for (const auto& unique_note_hash : tx.revertible_accumulated_data.note_hashes) {
+            emit_note_hash(true, unique_note_hash);
         }
     }
 

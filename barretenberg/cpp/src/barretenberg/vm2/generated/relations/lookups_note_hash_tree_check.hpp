@@ -81,7 +81,7 @@ struct lookup_note_hash_tree_check_nonce_computation_poseidon2_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::note_hash_tree_check_nonce_separator,
         ColumnAndShifts::note_hash_tree_check_first_nullifier,
-        ColumnAndShifts::note_hash_tree_check_note_hash_index,
+        ColumnAndShifts::note_hash_tree_check_nonce_index,
         ColumnAndShifts::note_hash_tree_check_nonce,
         ColumnAndShifts::note_hash_tree_check_const_three
     };

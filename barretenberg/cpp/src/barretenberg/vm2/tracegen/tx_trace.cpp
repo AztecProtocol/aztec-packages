@@ -656,6 +656,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                 overloaded{
                     [&](const EnqueuedCallEvent& event) {
                         trace.set(row, handle_enqueued_call_event(event));
+                        trace.set(row,
+                                  { { { C::tx_note_hash_nonce_index_offset,
+                                        note_hash_nonce_index_offset_for_phase(phase) } } });
                         gas_used = tx_phase_event->state_after.gas_used;
                     },
                     [&](const PrivateAppendTreeEvent& event) {

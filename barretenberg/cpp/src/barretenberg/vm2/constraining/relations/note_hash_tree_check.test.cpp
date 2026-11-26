@@ -196,7 +196,12 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
                                               unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, 0, 128, sibling_path),
                                           .next_available_leaf_index = 128 };
 
-    note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
+    note_hash_tree_check_simulator.append_note_hash(raw_note_hash,
+                                                    AztecAddress(7),
+                                                    10,
+                                                    NOTE_HASH_NONCE_INDEX_OFFSET_PUBLIC_REVERTIBLE,
+                                                    sibling_path,
+                                                    prev_snapshot);
 
     NoteHashTreeCheckTraceBuilder note_hash_tree_check_builder;
     note_hash_tree_check_builder.process(note_hash_tree_check_event_emitter.dump_events(), trace);

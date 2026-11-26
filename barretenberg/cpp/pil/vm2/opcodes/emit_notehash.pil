@@ -17,6 +17,7 @@ include "../trees/note_hash_tree_check.pil";
  * - prev_note_hash_tree_root: root before the write                        (from context.pil)
  * - prev_note_hash_tree_size: leaf index for the new note hash             (from context.pil)
  * - prev_num_note_hashes_emitted: count before this emission               (from context.pil)
+ * - note_hash_nonce_index_offset: nonce index section of the enqueued call (from context.pil)
  * - note_hash_tree_root: root after the write                              (from context.pil)
  * - note_hash_tree_size: tree size after the write                         (from context.pil)
  * - num_note_hashes_emitted: count after this emission                     (from context.pil)
@@ -26,7 +27,9 @@ include "../trees/note_hash_tree_check.pil";
  * Interactions:
  * - The gadget performs a lookup into the note_hash_tree_check gadget to write the note hash.
  *     - The lookup passes sel_silo=1 and sel_unique=1 so the tree check gadget silos the
- *       note hash with the contract address and makes it unique with the note hash index.
+ *       note hash with the contract address and makes it unique. The nonce index is the note hash
+ *       index (prev_num_note_hashes_emitted) plus note_hash_nonce_index_offset, the offset of the
+ *       public non-revertible (setup) or public revertible (app logic, teardown) section.
  *     - This lookup is only performed if no error occurs (sel_write_note_hash = 1).
  *
  * Errors:
@@ -73,6 +76,7 @@ namespace execution;
         contract_address,  // from context.pil
         sel_write_note_hash, // sel_unique=1
         prev_num_note_hashes_emitted, // note_hash_index from context.pil
+        note_hash_nonce_index_offset, // from context.pil
         discard, // from discard.pil
         note_hash_tree_root // next_root from context.pil
     } in note_hash_tree_check.write {
@@ -83,6 +87,7 @@ namespace execution;
         note_hash_tree_check.address,
         note_hash_tree_check.sel_unique,
         note_hash_tree_check.note_hash_index,
+        note_hash_tree_check.nonce_index_offset,
         note_hash_tree_check.discard,
         note_hash_tree_check.next_root
     };

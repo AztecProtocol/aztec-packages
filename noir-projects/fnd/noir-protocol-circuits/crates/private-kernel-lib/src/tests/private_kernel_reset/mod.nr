@@ -30,7 +30,10 @@ use types::{
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
-    hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
+    hash::{
+        compute_app_siloed_secret_key, compute_private_note_hash_nonce_index,
+        compute_siloed_nullifier,
+    },
     merkle_tree::{
         LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
@@ -225,18 +228,29 @@ impl TestBuilder {
         self,
         note_hashes: [Scoped<Counted<NoteHash>>; N],
     ) -> [Scoped<Counted<NoteHash>>; N] {
-        let is_private_only = self.previous_kernel.is_private_only;
-        let claimed_revertible_counter = self.previous_kernel.claimed_revertible_counter;
+        // For setups that don't squash or reorder the first nullifier, the output's first nullifier
+        // (the note-nonce base) is the input's first nullifier.
+        self.compute_output_note_hashes_with_first_nullifier(
+            note_hashes,
+            self.previous_kernel.nullifiers.get_unchecked(0),
+        )
+    }
 
+    /// Like `compute_output_note_hashes`, but names the output's first nullifier explicitly, for
+    /// tests whose input's first nullifier is squashed or shuffled away.
+    pub fn compute_output_note_hashes_with_first_nullifier<let N: u32>(
+        self,
+        note_hashes: [Scoped<Counted<NoteHash>>; N],
+        first_nullifier: Scoped<Counted<Nullifier>>,
+    ) -> [Scoped<Counted<NoteHash>>; N] {
         let mut output = note_hashes;
         for i in 0..N {
-            let note_hash = note_hashes[i];
-            // We don't silo revertible note hashes with nonces, since we don't know their final position in the tx
-            output[i] = if note_hash.is_non_revertible(is_private_only, claimed_revertible_counter) {
-                self.compute_output_unique_siloed_note_hash(note_hash, i)
-            } else {
-                self.compute_output_siloed_note_hash(note_hash)
-            };
+            // Every private note hash is made unique at its index, revertible or not, in its section.
+            output[i] = self.compute_output_unique_siloed_note_hash_with_first_nullifier(
+                note_hashes[i],
+                i,
+                first_nullifier,
+            );
         }
         output
     }
@@ -282,7 +296,17 @@ impl TestBuilder {
                 first_nullifier.innermost().value,
             )
         };
-        uniquify_siloed_note_hash(siloed_note_hash, siloed_first_nullifier, note_hash_index)
+        // Mirror the circuit: the nonce index is the output index, placed in the private
+        // non-revertible or private revertible section.
+        let is_non_revertible = note_hash.is_non_revertible(
+            self.previous_kernel.is_private_only,
+            self.previous_kernel.claimed_revertible_counter,
+        );
+        uniquify_siloed_note_hash(
+            siloed_note_hash,
+            siloed_first_nullifier,
+            compute_private_note_hash_nonce_index(note_hash_index, is_non_revertible),
+        )
     }
 
     pub fn compute_output_nullifiers<let N: u32>(
