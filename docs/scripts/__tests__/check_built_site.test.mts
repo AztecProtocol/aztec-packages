@@ -137,6 +137,8 @@ function fixtureBuild(): { dir: string; write: (url: string, html: string) => vo
   for (const v of ["", "v5.2.0/"]) write(`/operate/${v}operators/solo-sequencer/install-toolchain`, shell("") + "<code>v6.0.0</code>");
   for (const page of MATH_PAGES) write(`/developers/${page}`, shell("") + math);
   write("/typescript-api/v6.0.0/index", "<!doctype html>");
+  fs.mkdirSync(path.join(dir, "assets/css"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "assets/css/styles.css"), `@font-face{src:url(/assets/fonts/a.woff2)}.x{background:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>")}`);
   return { dir, write };
 }
 const math = "<p>rollup <span class=katex><span class=katex-html aria-hidden=true>n</span></span></p>";
@@ -193,6 +195,16 @@ test("main passes a healthy build and names each regression it is for", () => {
       /MATH_PAGES docs\/foundational-topics\/ethereum-aztec-messaging: no built page renders math there/,
     ],
     ["TypeScript folder page gone", (b) => fs.rmSync(path.join(b.dir, "typescript-api/v6.0.0/index.html")), /\/typescript-api\/v6\.0\.0\/: no index\.html/],
+    [
+      "font from another host",
+      (b) => fs.appendFileSync(path.join(b.dir, "assets/css/styles.css"), "@font-face{src:url(//fonts.gstatic.com/g.woff2)}"),
+      /\/assets\/css\/styles\.css: loads \/\/fonts\.gstatic\.com\/g\.woff2 from another host/,
+    ],
+    [
+      "stylesheet from another host",
+      (b) => fs.writeFileSync(path.join(b.dir, "assets/css/more.css"), '@import"https://fonts.googleapis.com/css2?family=Geist";'),
+      /\/assets\/css\/more\.css: loads https:\/\/fonts\.googleapis\.com\/css2\?family=Geist from another host/,
+    ],
   ];
   for (const [name, breakIt, expected] of breaks) {
     const b = fixtureBuild();
