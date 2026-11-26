@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Creates npm packages that a release will publish for the first time, and gives CI trusted
+# publishing on them. A release publishes from GitHub Actions with npm trusted publishing (see
+# publish_npm_release), which can only publish to a package that already exists and trusts the
+# workflow, so a new package needs this once, run by hand by an npm owner of the scope.
+#
+#   usage: scripts/npm_init_packages <package>...
+#   e.g.   scripts/npm_init_packages @aztec-foundation/foo @aztec-foundation/foo-{linux,darwin}-{x64,arm64}
+#
+# For each package that does not exist it publishes an empty placeholder, 0.0.0-init (under the
+# `init` dist-tag, though npm makes a package's first version `latest` too), then adds a trusted
+# publisher for ci3.yml in the master environment to every package. Re-runnable: existing packages
+# get only the trust step, which is skipped where it is already set.
+#
+# Needs npm >= 11.15 and `npm login`. Each publish asks for 2FA. The trust step asks once if you tick
+# "skip two-factor authentication for the next 5 minutes" at its first prompt.
+set -euo pipefail
+
+REPO=${REPO:-AztecProtocol/aztec-packages}
+WORKFLOW=${WORKFLOW:-ci3.yml}
+ENVIRONMENT=${ENVIRONMENT:-master}
+PLACEHOLDER_VERSION=0.0.0-init
+
+if [ $# -eq 0 ]; then
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  exit 1
+fi
+packages=("$@")
+
+npm whoami >/dev/null || { echo "Run 'npm login' first."; exit 1; }
+
+# Straight to the registry: npm view can answer from its own cache.
+function on_registry {
+  curl -sf "https://registry.npmjs.org/${1/\//%2f}" | jq -e --arg v "${2:-}" '$v == "" or .versions[$v] != null' >/dev/null
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+published=()
+echo "### Placeholders for packages that do not exist yet"
+for pkg in "${packages[@]}"; do
+  if on_registry "$pkg"; then
+    echo "== $pkg exists"
+    continue
+  fi
+  echo "== $pkg: publishing placeholder $PLACEHOLDER_VERSION"
+  dir="$tmp/${pkg//\//_}"
+  mkdir -p "$dir"
+  jq -n --arg name "$pkg" --arg v "$PLACEHOLDER_VERSION" --arg repo "$REPO" \
+    '{name: $name, version: $v, description: "Placeholder that reserves the name; real releases come from CI.",
+      repository: {type: "git", url: "git+https://github.com/\($repo).git"}, license: "Apache-2.0"}' \
+    >"$dir/package.json"
+  # A placeholder from an earlier run can still be processing: npm rejects the publish as a duplicate
+  # while the registry does not show the package yet. It is published, so carry on. npm's output stays
+  # on the terminal, as it carries the 2FA prompt; the reason is read from its log.
+  if ! (cd "$dir" && npm publish --access public --tag init --logs-dir "$dir.logs"); then
+    if grep -qs "cannot publish over the previously published versions" "$dir".logs/*.log; then
+      echo "   already published by an earlier run; npm is still processing it"
+    else
+      exit 1
+    fi
+  fi
+  published+=("$pkg")
+  sleep 2
+done
+
+# A new package can take minutes to appear, and trusting it before then fails. Waiting here, with no
+# 2FA call, keeps the trust step's 5-minute window for the calls themselves.
+if [ ${#published[@]} -gt 0 ]; then
+  echo "### Waiting for the new placeholders to appear on the registry (at most 10 minutes)"
+  deadline=$((SECONDS + 600))
+  for pkg in "${published[@]}"; do
+    until on_registry "$pkg" "$PLACEHOLDER_VERSION"; do
+      if [ $SECONDS -ge $deadline ]; then
+        echo "   gave up waiting for $pkg@$PLACEHOLDER_VERSION; re-run once it appears"
+        break
+      fi
+      echo "   waiting for $pkg@$PLACEHOLDER_VERSION..."
+      sleep 15
+    done
+  done
+fi
+
+echo "### Trusted publishing for $REPO $WORKFLOW ($ENVIRONMENT)"
+failed=0
+for pkg in "${packages[@]}"; do
+  if npm trust list "$pkg" 2>/dev/null | grep -qF "$WORKFLOW"; then
+    echo "== $pkg already trusts $WORKFLOW"
+    continue
+  fi
+  echo "== $pkg: trusting"
+  if ! npm trust github "$pkg" --repo "$REPO" --file "$WORKFLOW" --env "$ENVIRONMENT" --allow-publish -y; then
+    echo "   failed; check 'npm trust list $pkg', or add the trusted publisher on npmjs.com"
+    failed=1
+  fi
+  sleep 2
+done
+exit $failed
