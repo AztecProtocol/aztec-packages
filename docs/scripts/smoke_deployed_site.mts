@@ -200,10 +200,17 @@ export const CHECKS: Check[] = [
         problems.push(`${expected}: got ${page.status} ${page.type}, expected 200 ${type}`);
         return undefined;
       };
-      for (const network of folders.keys()) {
+      // The build writes each TypeScript folder's index.html; Netlify 301s the folder without its slash to it.
+      const indexPage = (page: Reply | undefined, folder: string) => {
+        if (page && !page.body.includes(`href="/typescript-api/${folder}/llms.txt"`)) problems.push(`${page.url.pathname}: not the folder's index page, which links its llms.txt`);
+      };
+      for (const [network, folder] of folders) {
         await lands("aztec-nr-api", network, "/noir_aztec/index.html", "text/html");
         await lands("typescript-api", network, "/llms.txt", "text/plain");
+        indexPage(await lands("typescript-api", network, "/", "text/html"), folder);
       }
+      indexPage(await lands("typescript-api", "mainnet", "", "text/html"), mainnet);
+      redirectTo(await get(`/typescript-api/${mainnet}`, BROWSER_ACCEPT), `/typescript-api/${mainnet}/`, problems);
       await lands("aztec-nr-api", "mainnet", "", "text/html");
       await lands("aztec-nr-api", "mainnet", "/", "text/html");
       const twin = await lands("aztec-nr-api", "mainnet", `/${API_PAGE}.md`, "text/markdown");

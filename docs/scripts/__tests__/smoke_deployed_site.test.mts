@@ -32,6 +32,9 @@ function apiRoutes(origin: string): Record<string, Handler> {
     for (const rest of ["/noir_aztec/index.html", `/${fn}.md`, "", "/"])
       routes[`/aztec-nr-api/${network}${rest}`] = redirect(`${origin}/aztec-nr-api/${folder}/${rest.replace(/^\//, "")}`, 302);
     routes[`/typescript-api/${network}/llms.txt`] = redirect(`${origin}/typescript-api/${folder}/llms.txt`, 302);
+    for (const rest of ["", "/"]) routes[`/typescript-api/${network}${rest}`] = redirect(`${origin}/typescript-api/${folder}/`, 302);
+    routes[`/typescript-api/${folder}`] = redirect(`${origin}/typescript-api/${folder}/`);
+    routes[`/typescript-api/${folder}/`] = send(200, "text/html; charset=utf-8", `<a href="/typescript-api/${folder}/llms.txt">llms.txt</a>`);
     routes[`/aztec-nr-api/${network}/${fn}`] = (req, res) =>
       req.headers.accept?.includes("text/markdown")
         ? send(200, "text/markdown; charset=utf-8", API_TWIN, { vary: "Accept" })(req, res)
@@ -125,6 +128,14 @@ test("each broken behaviour fails its own check, and a redirect off the site is 
   assert.match(fail("B9"), /\/developers\/docs\.md: expected 301, got 404/);
   assert.match(fail("B8"), new RegExp(`/typescript-api/testnet/llms\\.txt: redirects to /typescript-api/mainnet/llms\\.txt, expected /typescript-api/${folderOf("testnet")}/llms\\.txt`));
   assert.deepEqual(elsewhere.hits, []);
+});
+
+test("a TypeScript folder that answers 404, or a page that is not its index, fails B8", async () => {
+  const folder = folderOf("mainnet");
+  const missing = await serve((o) => ({ ...netlifyRoutes(o), [`/typescript-api/${folder}/`]: send(404, "text/html; charset=utf-8", "Page Not Found") }));
+  assert.match((await run([missing.origin])).out, new RegExp(`^FAIL B8 .*/typescript-api/${folder}/: got 404`, "m"));
+  const other = await serve((o) => ({ ...netlifyRoutes(o), [`/typescript-api/${folder}/`]: send(200, "text/html; charset=utf-8", "<html></html>") }));
+  assert.match((await run([other.origin])).out, new RegExp(`^FAIL B8 .*/typescript-api/${folder}/: not the folder's index page`, "m"));
 });
 
 test("a request that gets no answer is retried once, and only its check's line says so", async () => {
