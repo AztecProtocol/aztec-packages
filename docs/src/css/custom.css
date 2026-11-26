@@ -5,7 +5,6 @@
  */
 
 /* Geist for body copy; ABC Oracle (bundled, Book weight only) for display headings. */
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
 
 @font-face {
   font-family: "ABC Oracle";
@@ -74,7 +73,7 @@
     var(--aztec-lime) 89%
   );
 
-  --aztec-font-display: "ABC Oracle", "Geist", sans-serif;
+  --aztec-font-display: "ABC Oracle", "Geist Variable", sans-serif;
 }
 
 /* ============================================
@@ -82,7 +81,7 @@
    ============================================ */
 
 :root {
-  --ifm-font-family-base: "Geist", sans-serif;
+  --ifm-font-family-base: "Geist Variable", sans-serif;
   --ifm-heading-font-family: var(--aztec-font-display);
   --ifm-heading-font-weight: 400;
   --ifm-code-font-size: 95%;

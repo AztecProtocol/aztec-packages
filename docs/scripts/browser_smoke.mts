@@ -1,13 +1,13 @@
 // Checks in headless Chromium what renders only in the browser (OperatorConfig, search, the version
-// switch, KaTeX's stylesheet and fonts), so no HTML check can see it. Every host but the loopback copy of the build is blocked, so
-// analytics and CDNs cannot slow or flake it.
+// switch, KaTeX's stylesheet and fonts, the body font), so no HTML check can see it. Every host but the loopback copy of the build is blocked, so
+// analytics and CDNs cannot slow or flake it, and a page that asks another host for a font or a stylesheet fails its check.
 //
 //   node scripts/browser_smoke.mts <build-dir>
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { type Browser, chromium, type Page } from "playwright";
+import { type Browser, chromium, type Page, type Request } from "playwright";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -36,8 +36,8 @@ async function serve(root: string): Promise<{ origin: string; close: () => void 
   return { origin: `http://127.0.0.1:${(server.address() as { port: number }).port}`, close: () => server.close() };
 }
 
-/** `requested` holds every URL the smoke's pages requested, blocked ones included, from before the first navigation. */
-type Smoke = { id: string; name: string; run: (open: (path: string) => Promise<Page>, requested: string[]) => Promise<void> };
+/** `requested` holds every request the smoke's pages made, blocked ones included, from before the first navigation. */
+type Smoke = { id: string; name: string; run: (open: (path: string) => Promise<Page>, requested: Request[]) => Promise<void> };
 
 const firstLine = (error: unknown) => (error instanceof Error ? error.message : String(error)).split("\n")[0];
 
@@ -109,8 +109,8 @@ export const SMOKES: Smoke[] = [
       const page = await open("/developers/docs/foundational-topics/advanced/storage/indexed_merkle_tree");
       const site = new URL(page.url()).origin;
       const noKatexOffSite = () => {
-        const offSite = requested.filter((url) => /katex/i.test(url) && new URL(url).origin !== site);
-        if (offSite.length) throw new Error(`KaTeX loaded from another host: ${offSite[0]}`);
+        const offSite = requested.filter((r) => /katex/i.test(r.url()) && new URL(r.url()).origin !== site);
+        if (offSite.length) throw new Error(`KaTeX loaded from another host: ${offSite[0].url()}`);
       };
       // Once now for the stylesheet, which loads with the page, and again after the font waits.
       noKatexOffSite();
@@ -136,14 +136,42 @@ export const SMOKES: Smoke[] = [
       noKatexOffSite();
     },
   },
+  {
+    id: "C6",
+    name: "body text renders in the site's own Geist, with the font's licence beside it",
+    run: async (open, requested) => {
+      for (const p of ["/", "/developers/overview"]) {
+        const page = await open(p);
+        await expect(`${p}: Geist Variable as the body font`, page.waitForFunction(() => getComputedStyle(document.body).fontFamily.startsWith('"Geist Variable"')));
+        // A synchronous predicate: waitForFunction treats a returned promise as truthy.
+        await expect(
+          `${p}: Geist Variable loaded for regular and semibold text`,
+          page.waitForFunction(() => {
+            for (const weight of [400, 600]) void document.fonts.load(`${weight} 1em "Geist Variable"`);
+            return [...document.fonts].some(
+              (face) => face.family.replace(/"/g, "") === "Geist Variable" && face.weight === "100 900" && face.status === "loaded",
+            );
+          }),
+        );
+      }
+      const font = requested.find((r) => r.resourceType() === "font" && /\/geist-[^/]*\.woff2$/.test(new URL(r.url()).pathname));
+      if (!font) throw new Error("no Geist woff2 was requested");
+      // OFL-1.1 requires the licence text with every copy of the font, and the woff2 files carry only its URL.
+      const licence = new URL("Geist-LICENSE.txt", font.url());
+      const reply = await fetch(licence);
+      const text = await reply.text();
+      if (reply.status !== 200 || !text.includes("SIL OPEN FONT LICENSE Version 1.1") || !text.includes("The Geist Project Authors"))
+        throw new Error(`${licence.pathname}: got ${reply.status}, expected the OFL-1.1 text with Geist's copyright`);
+    },
+  },
 ];
 
 async function runSmoke(browser: Browser, origin: string, smoke: Smoke): Promise<string[]> {
   const context = await browser.newContext();
   context.setDefaultTimeout(15_000);
   await context.route((url) => url.origin !== origin, (route) => route.abort());
-  const requested: string[] = [];
-  context.on("request", (request) => requested.push(request.url()));
+  const requested: Request[] = [];
+  context.on("request", (request) => requested.push(request));
   const errors: string[] = [];
   const open = async (p: string) => {
     const page = await context.newPage();
@@ -165,6 +193,8 @@ async function runSmoke(browser: Browser, origin: string, smoke: Smoke): Promise
   } finally {
     await context.close();
   }
+  const offSite = requested.filter((r) => ["font", "stylesheet"].includes(r.resourceType()) && new URL(r.url()).origin !== origin);
+  errors.push(...new Set(offSite.map((r) => `a ${r.resourceType()} from another host: ${r.url()}`)));
   return errors;
 }
 
