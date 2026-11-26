@@ -1,10 +1,10 @@
 use crate::{
     address::AztecAddress,
     side_effect::{Ordered, scoped::Scoped},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Packable, Serialize)]
 pub struct Counted<T> {
     pub inner: T,
     pub counter: u32,

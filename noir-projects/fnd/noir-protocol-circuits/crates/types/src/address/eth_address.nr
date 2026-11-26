@@ -1,6 +1,6 @@
 use crate::{
     constants::MAX_ETH_ADDRESS_BIT_SIZE,
-    traits::{Deserialize, Empty, Packable, Serialize, ToField},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 use std::meta::derive;
 
@@ -18,6 +18,12 @@ impl Empty for EthAddress {
 impl ToField for EthAddress {
     fn to_field(self) -> Field {
         self.inner
+    }
+}
+
+impl FromField for EthAddress {
+    fn from_field(value: Field) -> Self {
+        EthAddress::from_field(value)
     }
 }
 
@@ -56,8 +62,8 @@ impl EthAddress {
 mod test {
     use crate::{
         address::eth_address::EthAddress,
-        constants::ETH_ADDRESS_LENGTH,
-        traits::{Deserialize, Serialize},
+        constants::{ETH_ADDRESS_LENGTH, MAX_ETH_ADDRESS_BIT_SIZE},
+        traits::{Deserialize, FromField, Serialize},
     };
 
     #[test]
@@ -68,5 +74,16 @@ mod test {
         let serialized: [Field; ETH_ADDRESS_LENGTH] = item.serialize();
         let deserialized = EthAddress::deserialize(serialized);
         assert_eq(item, deserialized);
+    }
+
+    #[test]
+    fn from_field_trait_matches_constructor() {
+        let value = 2.pow_32(MAX_ETH_ADDRESS_BIT_SIZE as Field) - 1;
+        assert_eq(<EthAddress as FromField>::from_field(value), EthAddress::from_field(value));
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn from_field_trait_rejects_fields_above_max_bit_size() {
+        let _ = <EthAddress as FromField>::from_field(2.pow_32(MAX_ETH_ADDRESS_BIT_SIZE as Field));
     }
 }

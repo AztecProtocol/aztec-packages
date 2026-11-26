@@ -3,12 +3,12 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         partial_state_reference::PartialStateReference,
     },
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Packable, Serialize},
 };
 use std::meta::derive;
 
 /// Deprecated. Use `TreeSnapshots` instead.
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct StateReference {
     pub l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
     pub partial: PartialStateReference,

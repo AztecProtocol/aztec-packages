@@ -1,4 +1,4 @@
-use crate::traits::{Deserialize, Empty, Serialize};
+use crate::traits::{Deserialize, Empty, Packable, Serialize};
 use std::meta::derive;
 
 /// A request from an app circuit to the kernel for validation of a siloed app secret key.
@@ -6,7 +6,7 @@ use std::meta::derive;
 /// The master public key is exposed only as its [`hash_public_key`](crate::public_keys::hash_public_key) digest -- apps
 /// must not see the raw point. The kernel reset circuit derives the point from the master secret
 /// key hint, hashes it, and asserts equality with `pk_m_hash`.
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct KeyValidationRequest {
     pub pk_m_hash: Field,
     pub sk_app: Field, // not a grumpkin scalar because it's output of poseidon2

@@ -1,11 +1,11 @@
-use crate::traits::{Deserialize, Empty, Serialize};
+use crate::traits::{Deserialize, Empty, Packable, Serialize};
 
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
 /// Validation must include:
 /// - Asserting all items to the LHS of the length are nonempty (dense).
 /// - Asserting all items to the RHS of the length are empty.
-#[derive(Eq, Deserialize, Serialize)]
+#[derive(Eq, Deserialize, Packable, Serialize)]
 pub struct ClaimedLengthArray<T, let N: u32> {
     pub array: [T; N],
     pub length: u32,

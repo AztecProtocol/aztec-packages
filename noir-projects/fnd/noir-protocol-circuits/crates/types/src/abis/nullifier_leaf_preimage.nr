@@ -1,10 +1,10 @@
 use crate::{
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
     side_effect::Readable,
-    traits::{Deserialize, Empty, Hash, Serialize},
+    traits::{Deserialize, Empty, Hash, Packable, Serialize},
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct NullifierLeafPreimage {
     pub nullifier: Field,
     pub next_nullifier: Field,

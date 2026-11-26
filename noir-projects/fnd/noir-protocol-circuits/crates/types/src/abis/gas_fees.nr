@@ -1,7 +1,7 @@
-use crate::traits::{Deserialize, Empty, Serialize};
+use crate::traits::{Deserialize, Empty, Packable, Serialize};
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct GasFees {
     pub fee_per_da_gas: u128,
     pub fee_per_l2_gas: u128,

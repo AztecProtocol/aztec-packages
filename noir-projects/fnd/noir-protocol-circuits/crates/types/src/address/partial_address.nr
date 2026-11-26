@@ -3,12 +3,12 @@ use crate::{
     constants::DOM_SEP__PARTIAL_ADDRESS,
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Serialize, ToField},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 use std::meta::derive;
 
 // Partial address
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PartialAddress {
     pub inner: Field,
 }
@@ -16,6 +16,12 @@ pub struct PartialAddress {
 impl ToField for PartialAddress {
     fn to_field(self) -> Field {
         self.inner
+    }
+}
+
+impl FromField for PartialAddress {
+    fn from_field(value: Field) -> Self {
+        PartialAddress::from_field(value)
     }
 }
 
@@ -67,7 +73,10 @@ impl PartialAddress {
 }
 
 mod test {
-    use crate::{address::partial_address::PartialAddress, traits::{Deserialize, Serialize}};
+    use crate::{
+        address::partial_address::PartialAddress,
+        traits::{Deserialize, FromField, Serialize},
+    };
 
     #[test]
     fn serialization_of_partial_address() {
@@ -75,5 +84,10 @@ mod test {
         let serialized: [Field; 1] = item.serialize();
         let deserialized = PartialAddress::deserialize(serialized);
         assert_eq(item, deserialized);
+    }
+
+    #[test]
+    fn from_field_trait_matches_constructor() {
+        assert_eq(<PartialAddress as FromField>::from_field(1), PartialAddress::from_field(1));
     }
 }

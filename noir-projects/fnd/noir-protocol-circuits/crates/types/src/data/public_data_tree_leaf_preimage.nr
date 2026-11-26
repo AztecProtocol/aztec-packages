@@ -1,10 +1,10 @@
 use crate::{
     data::public_data_tree_leaf::PublicDataTreeLeaf,
     merkle_tree::{IndexedTreeLeafPreimage, LeafPreimage},
-    traits::{Deserialize, Empty, Hash, Serialize},
+    traits::{Deserialize, Empty, Hash, Packable, Serialize},
 };
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PublicDataTreeLeafPreimage {
     pub slot: Field,
     pub value: Field,

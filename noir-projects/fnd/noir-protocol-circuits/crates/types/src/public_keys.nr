@@ -7,7 +7,7 @@ use crate::{
     },
     hash::poseidon2_hash_with_separator,
     point::{EmbeddedCurvePoint, validate_on_curve},
-    traits::{Deserialize, Hash, Serialize},
+    traits::{Deserialize, Hash, Packable, Serialize},
 };
 
 use std::{default::Default, meta::derive};
@@ -23,7 +23,7 @@ pub fn hash_public_key(p: EmbeddedCurvePoint) -> Field {
     poseidon2_hash_with_separator([p.x, p.y], DOM_SEP__SINGLE_PUBLIC_KEY_HASH as Field)
 }
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct IvpkM {
     pub inner: EmbeddedCurvePoint,
 }
@@ -46,7 +46,7 @@ impl Hash for IvpkM {
 /// [`hash_public_key`] digests of the underlying points. The points themselves are not exposed
 /// here - they are only known to the owner. `ivpk_m` remains a point because address derivation
 /// (encrypt-to-address) requires the raw point in-circuit.
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct PublicKeys {
     pub npk_m_hash: Field,
     pub ivpk_m: IvpkM,
@@ -103,6 +103,7 @@ impl PublicKeys {
     }
 }
 
+#[derive(Eq, Packable)]
 pub struct AddressPoint {
     pub inner: EmbeddedCurvePoint,
 }
