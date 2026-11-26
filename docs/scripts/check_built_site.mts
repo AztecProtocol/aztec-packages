@@ -143,7 +143,7 @@ function mathProblems(buildDir: string): string[] {
   return problems;
 }
 
-const OFF_SITE_CSS = /(?:url\(\s*|@import\s*)["']?((?:https?:)?\/\/[^"')\s;]+)/gi;
+const OFF_SITE_CSS = /(?:url\(\s*|@import\s*)["']?\s*((?:https?:)?\/\/[^"')\s;]+)/gi;
 
 // Every reader's browser fetches what a stylesheet names on another host; the browser smoke sees only what its pages use.
 // A plain match suffices on the bundle: Lightning CSS (`faster`) decodes escapes and drops comments when it minifies.

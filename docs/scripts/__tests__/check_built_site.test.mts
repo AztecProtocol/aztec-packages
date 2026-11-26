@@ -197,7 +197,7 @@ test("main passes a healthy build and names each regression it is for", () => {
     ["TypeScript folder page gone", (b) => fs.rmSync(path.join(b.dir, "typescript-api/v6.0.0/index.html")), /\/typescript-api\/v6\.0\.0\/: no index\.html/],
     [
       "font from another host",
-      (b) => fs.appendFileSync(path.join(b.dir, "assets/css/styles.css"), "@font-face{src:url(//fonts.gstatic.com/g.woff2)}"),
+      (b) => fs.appendFileSync(path.join(b.dir, "assets/css/styles.css"), "@font-face{src:url(\" //fonts.gstatic.com/g.woff2\")}"),
       /\/assets\/css\/styles\.css: loads \/\/fonts\.gstatic\.com\/g\.woff2 from another host/,
     ],
     [
