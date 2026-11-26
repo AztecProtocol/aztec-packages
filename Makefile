@@ -556,10 +556,13 @@ constants-codegen-tests: constants-codegen
 # this target). What this builds is the echo example harness its tests run, which the tests read where each
 # language's tool builds it (transitional path list).
 .PHONY: ipc-codegen ipc-codegen-tests
-# The TS examples are cached whole: what their generation and npm install write there changes with the generator.
+# The TS examples: what their generation and npm install write beside their committed sources (their .gitignores).
+IPC_CODEGEN_TS_PACKAGE_OUTPUTS := .ipc-codegen-manifest .tsbuildinfo build dest node_modules package.json packages \
+  tsconfig.json wasm src/generated $(addprefix src/,$(addsuffix .ts,bin browser index platform process react-native wasm))
 IPC_CODEGEN_ECHO_OUTPUTS := echo_example/cpp/build/bin \
   $(addprefix echo_example/rust/target/debug/,echo_server echo_client golden_test) \
-  echo_example/zig/zig-out echo_example/ts echo_example/ts_package
+  echo_example/zig/zig-out echo_example/ts/node_modules echo_example/ts/src/generated \
+  $(addprefix echo_example/ts_package/,$(IPC_CODEGEN_TS_PACKAGE_OUTPUTS))
 
 ipc-codegen: private INPUTS := ipc-codegen/.rebuild_patterns
 ipc-codegen: ipc-runtime
