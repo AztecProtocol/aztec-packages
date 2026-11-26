@@ -224,6 +224,11 @@ export function main(buildDir: string, model: Model, log: (line: string) => void
     for (const dir of leaks) problems.push(`${dir}: served by production, which serves released docs only`);
   }
   problems.push(...mathProblems(buildDir));
+  const [developer] = networkDocs.docsInstances(model.configs.developer, model.configs.network, model.production);
+  for (const { kind, dir } of networkDocs.apiReferenceDirs(developer, model.cut.developer)) {
+    if (kind === "typescript" && !fs.existsSync(path.join(buildDir, dir, "index.html")))
+      problems.push(`/${dir}/: no index.html, so the folder's URL answers 404 (split_typescript_api.mjs writes it)`);
+  }
 
   for (const problem of problems) log(problem);
   const layout = model.production ? "production" : "non-production";
