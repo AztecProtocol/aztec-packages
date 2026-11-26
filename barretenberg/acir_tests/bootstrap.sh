@@ -5,23 +5,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
-tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ./.rebuild_patterns \
-    ../cpp/.rebuild_patterns \
-    ../noir/ \
-    )).tar.gz
-
-tests_hash=$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(../cpp/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ^barretenberg/acir_tests/ \
-    ./.rebuild_patterns \
-    ../ts/.rebuild_patterns \
-    ../noir/))
-
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
   local program=$1
@@ -98,36 +81,49 @@ function compile {
   denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
 }
 
-function build {
-  echo_header "acir_tests build"
+# The make steps bb-acir-programs, bb-acir-deps and bb-acir-js run the three functions below, and cache what
+# they build (see the Makefile).
 
-  if ! cache_download $tests_tar; then
-    rm -rf acir_tests
-    denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
-    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
-    # These use folding, which is not currently supported. Folding programs are all named
-    # fold_*, so the glob covers whatever set upstream ships.
-    rm -rf acir_tests/fold_*
-    # The following tests fail because they use CallData/ReturnData with UltraBuilder, which is not supported.
-    rm -rf acir_tests/{regression_7612,regression_7143,regression_claude_1124,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
-    # This compiler typing test optimizes to an empty circuit while retaining unused input witnesses.
-    rm -rf acir_tests/associated_constant_as_array_length
-    # Merge the internal test programs with the acir tests.
-    cp -R ./internal_test_programs/* acir_tests
+# The test programs, in acir_tests/: noir's execution_success programs and the internal ones, compiled.
+function build_programs {
+  echo_header "acir_tests build programs"
 
-    # Generates the Prover.toml files for the recursive tests from the assert_statement test.
-    denoise regenerate_recursive_inputs
+  rm -rf acir_tests
+  denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
+  cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+  # Running these requires extra gluecode so they're skipped.
+  rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+  # These use folding, which is not currently supported. Folding programs are all named
+  # fold_*, so the glob covers whatever set upstream ships.
+  rm -rf acir_tests/fold_*
+  # The following tests fail because they use CallData/ReturnData with UltraBuilder, which is not supported.
+  rm -rf acir_tests/{regression_7612,regression_7143,regression_claude_1124,databus_composite_calldata,databus_two_calldata_simple,databus_two_calldata,databus}
+  # This compiler typing test optimizes to an empty circuit while retaining unused input witnesses.
+  rm -rf acir_tests/associated_constant_as_array_length
+  # Merge the internal test programs with the acir tests.
+  cp -R ./internal_test_programs/* acir_tests
 
-    # Compile all tests
-    compile
-    cache_upload $tests_tar acir_tests
-  fi
+  # Generates the Prover.toml files for the recursive tests from the assert_statement test.
+  denoise regenerate_recursive_inputs
 
+  # Compile all tests
+  compile
+}
+
+# The workspace's node_modules.
+function install {
   npm_install_deps
+}
 
+# The browser test app and the bb.js test harness, after install.
+function build_js {
+  echo_header "acir_tests build js"
   parallel --line-buffer --tag --halt now,fail=1 'cd {} && denoise "yarn build"' ::: browser-test-app bbjs-test
+}
+
+# Everything, through make, so that it is restored from the cache when it can be.
+function build {
+  make -C "$root" bb-acir
 }
 
 function test {
@@ -146,6 +142,7 @@ function test_cmds {
   local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof')
   local scripts=$(realpath --relative-to=$root scripts)
+  local tests_hash=${STEP_KEY:-disabled-cache}
 
   local sol_prefix="$tests_hash:ISOLATE=1"
   # Solidity tests. Isolate because anvil.
@@ -236,9 +233,6 @@ function bench {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo $tests_hash
     ;;
   *)
     default_cmd_handler "$@"

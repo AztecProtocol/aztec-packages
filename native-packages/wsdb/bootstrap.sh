@@ -10,11 +10,6 @@ WSDB_BINARY=aztec-wsdb
 # from once native-packages leaves aztec-packages.
 WSDB_SCHEMA="$ROOT/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc"
 
-# While wsdb lives in aztec-packages it builds against this checkout's barretenberg (the wsdb-ref
-# sources), ipc-runtime and ipc-codegen (see cpp/CMakeLists.txt), so the build follows their hashes.
-hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(../../barretenberg/cpp/bootstrap.sh hash) \
-  $(../../ipc-codegen/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
-
 IPC_CODEGEN_DIR="$ROOT/ipc-codegen"
 
 function generate_ts_package {
@@ -46,7 +41,9 @@ function build_cross {
   (cd cpp && cmake --preset "$platform" >/dev/null && cmake --build --preset "$platform")
 }
 
-function build {
+# Builds unconditionally: the wsdb make step restores the generated TS package (ts/) and the test and bench binaries
+# from the cache instead when it can.
+function build_package {
   echo_header "wsdb build"
   build_native
   generate_ts_package --package-native "$(arch)-$(os)=$PKG/cpp/build/bin/$WSDB_BINARY"
@@ -54,15 +51,21 @@ function build {
   yarn build
 }
 
-# Emit test commands for the CI test engine.
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" wsdb
+}
+
+# Emit test commands for the CI test engine, keyed by the wsdb-tests make step.
 function test_cmds {
-  echo "$hash:CPUS=8:TIMEOUT=600s native-packages/wsdb/cpp/build/bin/wsdb_tests"
+  echo "${STEP_KEY:-disabled-cache}:CPUS=8:TIMEOUT=600s native-packages/wsdb/cpp/build/bin/wsdb_tests"
 }
 
 # The tree benchmarks (cpp/src/benchmark), in the repo's bench-out/*.bench.json form. Every
 # family at 1024 leaves: about a minute, where the full sweep to 8192 runs over ten minutes.
 function bench_cmds {
-  echo "$hash:CPUS=8 native-packages/wsdb/bootstrap.sh bench"
+  # Keyed by the wsdb-benches make step.
+  echo "${STEP_KEY:-disabled-cache}:CPUS=8 native-packages/wsdb/bootstrap.sh bench"
 }
 
 function bench {
@@ -103,14 +106,11 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f generate_ts_package build_native build_cross build test_cmds test bench_cmds bench clean release
+export -f generate_ts_package build_native build_cross build_package build test_cmds test bench_cmds bench clean release
 
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

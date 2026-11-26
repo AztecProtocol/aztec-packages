@@ -174,10 +174,10 @@ rm -f "$(git -C "$fnd/labs" rev-parse --absolute-git-dir)/labs-patches.state"
 g -C "$fnd" add labs-patches; g -C "$fnd" commit -q -m "series with lock"
 ok "-diff files round-trip"
 
-# 11. test_cmds is root-relative whichever directory it runs from
-n=$(cd "$fnd/labs-patches" && ./bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
+# 11. test_cmds is root-relative whichever directory it runs from, keyed by the make step's key ($STEP_KEY)
+n=$(cd "$fnd/labs-patches" && STEP_KEY=0123456789abcdef ./bootstrap.sh test_cmds | grep -c '^0123456789abcdef labs-patches/')
 [ "$n" = 2 ] || fail "test_cmds from labs-patches/: $n commands"
-n=$(cd "$fnd" && labs-patches/bootstrap.sh test_cmds | grep -c '^[0-9a-f]\{16\} labs-patches/')
+n=$(cd "$fnd" && STEP_KEY=0123456789abcdef labs-patches/bootstrap.sh test_cmds | grep -c '^0123456789abcdef labs-patches/')
 [ "$n" = 2 ] || fail "test_cmds from root: $n commands"
 ok "test_cmds from any cwd"
 

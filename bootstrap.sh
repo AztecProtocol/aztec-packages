@@ -454,14 +454,23 @@ function prep {
   pull_submodules
 }
 
+# Prints what make would build and why, from the steps' cache keys (ci3/step_plan). Only informative: a
+# failure here never stops the build.
+function plan {
+  echo_header "plan"
+  step_plan "$1" || echo_stderr "Could not work out the build plan. Building anyway."
+}
+
 function build {
   prep
+  plan ${1:-fast}
   echo_header "build"
   make ${1:-fast}
 }
 
 function build_and_test {
   prep
+  plan $1
   echo_header "build and test"
 
   # Start the test engine.
@@ -532,14 +541,18 @@ function labs_bench_cmds {
   scripts/labs_test_cmds.sh ./bootstrap.sh bench_cmds
 }
 
+# The benchmark commands, from the make targets that list them (bench-cmds, or the targets given), each keyed by
+# its target. Never filtered by the test cache: the bench box runs them all.
 function bench_cmds {
-  if [ "$#" -eq 0 ]; then
-    set -- barretenberg/{ts,cpp,sol} native-packages/wsdb noir-projects/fnd/noir-protocol-circuits l1-contracts
-    parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
-    labs_bench_cmds
-    return
+  local file
+  file=$(mktemp)
+  if ! CI3_TEST_CMDS_FILE=$file USE_TEST_CACHE=0 make -s --no-print-directory "${@:-bench-cmds}" >&2; then
+    rm -f "$file"
+    return 1
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
+  cat "$file"
+  rm -f "$file"
+  [ "$#" -gt 0 ] || labs_bench_cmds
 }
 
 function bench_merge {
@@ -891,6 +904,11 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
+  "plan")
+    # ./bootstrap.sh plan [make goal]: what a build of it would restore, and what it would build and why.
+    pull_submodules
+    plan "${1:-fast}"
+  ;;
   "")
     install_hooks
     build
@@ -1081,7 +1099,7 @@ case "$cmd" in
     export AVM=0
     export AVM_TRANSPILER=0
     pull_submodules
-    noir/bootstrap.sh build_native  # Build nargo for acir_tests
+    noir/bootstrap.sh build  # Build nargo for acir_tests (through make, so cached)
     # barretenberg/ts compiles the generated @aztec-foundation/bb.js-api against ipc-runtime's built dest/, which
     # nothing under barretenberg/ builds.
     ipc-runtime/bootstrap.sh build

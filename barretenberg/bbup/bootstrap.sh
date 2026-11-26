@@ -2,12 +2,11 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export hash=$(cache_content_hash .rebuild_patterns)
-
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
-# We append the hash as a comment. This ensures the test harness and cache and skip future runs.
+# Each is prefixed with the bb-bbup-tests make step's key, under which the test engine caches its pass.
 function test_cmds {
+  local hash=${STEP_KEY:-disabled-cache}
   # 0.72.1 covers the pre-0.77.0 artifact naming, which was only published for amd64 linux.
   if [ $(arch) == "amd64" ]; then
     echo -e "$hash barretenberg/bbup/run_test.sh install 0.72.1"
@@ -23,9 +22,6 @@ function test {
 }
 
 case "$cmd" in
-  "hash")
-    echo $hash
-    ;;
   *)
     default_cmd_handler "$@"
     ;;

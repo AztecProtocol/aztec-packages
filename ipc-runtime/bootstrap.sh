@@ -16,11 +16,12 @@
 "$(git rev-parse --show-toplevel)/bootstrap.sh" init || exit 1
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(cache_content_hash .rebuild_patterns)
 
 BUILD_DIR=${BUILD_DIR:-cpp/build}
 
-function build {
+# Builds unconditionally: the ipc-runtime make step restores its outputs (the TS package's dest/ and build/, and the
+# C++ test binary) from the cache instead when it can.
+function build_native {
   echo_header "ipc-runtime build"
   cmake -B "$BUILD_DIR" -S cpp -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
   cmake --build "$BUILD_DIR" --target ipc_runtime ipc_runtime_tests
@@ -42,10 +43,17 @@ function build {
   fi
 }
 
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" ipc-runtime
+}
+
+# Keyed by the ipc-runtime-tests make step ($STEP_KEY).
 function test_cmds {
-  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/cpp/build/ipc_runtime_tests"
-  echo "$hash:CPUS=4:TIMEOUT=300s ipc-runtime/scripts/run_rust_tests.sh"
-  echo "$hash:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_ts_tests.sh"
+  local prefix=${STEP_KEY:-disabled-cache}
+  echo "$prefix:CPUS=1:TIMEOUT=120s ipc-runtime/cpp/build/ipc_runtime_tests"
+  echo "$prefix:CPUS=4:TIMEOUT=300s ipc-runtime/scripts/run_rust_tests.sh"
+  echo "$prefix:CPUS=1:TIMEOUT=120s ipc-runtime/scripts/run_ts_tests.sh"
 }
 
 function test {
@@ -58,10 +66,13 @@ function clean {
   rm -rf "$BUILD_DIR"
 }
 
+# Builds unconditionally, installing the addon into $STEP_OUT (ci3-out/ipc-runtime-cross-<arch>), where
+# stage_cross_addons reads it: the ipc-runtime-cross-<arch> make steps restore it from the cache instead when they can.
 function build_cross {
   local arch=$1
   echo_header "ipc-runtime build_cross $arch"
   (cd cpp && cmake --preset "$arch" && cmake --build --preset "$arch")
+  cp "cpp/build-$arch/lib/ipc_runtime_napi.node" "${STEP_OUT:?run through make: make ipc-runtime-cross-$arch}/"
 }
 
 # The Node-API addon's cross builds beside this machine's in ts/build/<arch>, where native_loader.ts finds them,
@@ -70,7 +81,7 @@ function stage_cross_addons {
   local arch f
   for arch in arm64-linux amd64-macos arm64-macos; do
     mkdir -p ts/build/$arch
-    cp cpp/build-$arch/lib/ipc_runtime_napi.node ts/build/$arch/
+    cp ci3-out/ipc-runtime-cross-$arch/ipc_runtime_napi.node ts/build/$arch/
   done
   llvm-strip-20 ts/build/*/*
   for arch in amd64-macos arm64-macos; do
@@ -129,9 +140,6 @@ function release {
 case "$cmd" in
   "")
     build
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"

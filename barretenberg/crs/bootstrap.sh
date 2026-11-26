@@ -110,7 +110,7 @@ function build {
 }
 
 case "$cmd" in
-  "")
+  ""|build)
     build
     ;;
   *)

@@ -3,6 +3,7 @@
 ^barretenberg/cpp/.*Dockerfile.*$
 ^barretenberg/cpp/src/barretenberg/avm/avm_schema\.json$
 ^barretenberg/cpp/src/barretenberg/cdb/cdb_schema\.json$
+^barretenberg/cpp/src/barretenberg/.*\.(tcc|json|jsonc|in)$
 ^barretenberg/cpp/scripts/
 ^barretenberg/cpp/bootstrap.sh
 ^barretenberg/cpp/CMakePresets.json

@@ -5,23 +5,9 @@ source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
 
 repo_root=$(git rev-parse --show-toplevel)
 
-# We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
-# We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-# Snippets under labs/ come from the aztec-node commit docs/aztec-node.json pins, which ^docs/ already keys.
-# shellcheck disable=SC2046 # the include paths and the directories split into words on purpose
-hash=$(
-  cache_content_hash \
-    .rebuild_patterns \
-    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs $([ -d lines ] && echo lines) -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
-      awk '{ gsub("^/", "", $3); if ($3 !~ /^labs\//) print "^" $3 }' | sort -u)
-)
-# Production serves neither the dev docs nor the lines, and a release build renders its own versions
-# and links this repository's files at DOCS_COMMIT: every variable that changes the output keys it.
-# cache_content_hash hashes blob ids without their names, so the docs tree id keys renamed pages.
-hash=$(hash_str "$hash" "$(git -C "$repo_root" rev-parse HEAD:docs)" \
-  "CONTEXT=${CONTEXT:-}" "COMMIT_TAG=${COMMIT_TAG:-}" "RELEASE_TYPE=${RELEASE_TYPE:-}" "DOCS_COMMIT=${DOCS_COMMIT:-}" \
-  "NIGHTLY_TAG=${NIGHTLY_TAG:-}" "DEVNET_TAG=${DEVNET_TAG:-}" "TESTNET_TAG=${TESTNET_TAG:-}" \
-  "MAINNET_TAG=${MAINNET_TAG:-}" "KEEP_DEVELOPER_VERSIONS=${KEEP_DEVELOPER_VERSIONS:-}")
+# The builds and tests are keyed and cached as make steps (docs, docs-examples, docs-tests and so on): the
+# Makefile names their inputs, from docs/.rebuild_patterns and scripts/include_code_patterns.sh, and the
+# variables that change the site.
 
 # Every function that reads aztec-node code fetches and checks the pinned checkout first, on a cache
 # hit too, since later steps read it (scripts/aztec_node.mts; a no-op without network when current).
@@ -34,21 +20,34 @@ function lines {
   node scripts/aztec_node.mts lines
 }
 
+# The site, into the make step's $STEP_OUT when it runs as one.
 function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == arm64 ]; then
     echo "Not building docs for arm64 in CI."
     return
   fi
   echo_header "build docs"
-  fetch_aztec_node
-  npm_install_deps
-  if cache_download "docs-$hash.tar.gz"; then
-    return
-  fi
+  prep
   # shellcheck source=scripts/node_options.sh
   source "$repo_root/docs/scripts/node_options.sh"
   denoise "yarn build"
-  cache_upload "docs-$hash.tar.gz" build
+  if [ -n "${STEP_OUT:-}" ]; then
+    mv build "$STEP_OUT/build"
+  fi
+}
+
+# What the build and the tests read whether or not the site comes from the cache: the pinned aztec-node
+# checkout and the npm dependencies. Each is a local check when already current.
+function prep {
+  fetch_aztec_node
+  npm_install_deps
+}
+
+# The docs target: the site, and the checks of what it publishes.
+function build {
+  build_docs
+  check_generated_refs
+  check_orphaned_urls
 }
 
 function check_generated_refs {
@@ -64,25 +63,23 @@ function check_generated_refs {
   done
 }
 
+# Keyed by the docs-tests step ($STEP_KEY). The examples' tests are docs-examples-tests'.
 function test_cmds {
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == arm64 ]; then
     # Not running docs tests for arm64 in CI.
     return
   fi
 
-  local test_hash=$hash
-  echo "$test_hash cd docs && yarn spellcheck"
-  echo "$test_hash cd docs && yarn test"
-  echo "$test_hash cd docs && yarn lint"
-
-  # Delegate to examples for their test commands
-  (cd examples && ./bootstrap.sh test_cmds)
+  local key=${STEP_KEY:-disabled-cache}
+  echo "$key cd docs && yarn spellcheck"
+  echo "$key cd docs && yarn test"
+  echo "$key cd docs && yarn lint"
 }
 
 function test {
   echo_header "docs test"
   (cd examples && ./bootstrap.sh pin_toolchains)
-  test_cmds | parallelize
+  { test_cmds; (cd examples && ./bootstrap.sh test_cmds); } | parallelize
 }
 
 function check_orphaned_urls {
@@ -169,27 +166,23 @@ function build_line_examples {
   done
 }
 
+# The docs-examples target: main's examples and each dev line's.
+function examples {
+  build_examples
+  build_line_examples
+}
+
 # shellcheck disable=SC2154 # set by ci3/source_bootstrap
 case "$cmd" in
   "ci")
-    build_examples
-    build_line_examples
-    build_docs
-    check_generated_refs
+    examples
+    build
     test
-    check_orphaned_urls
     check
     ;;
   "")
-    build_examples
-    build_line_examples
-    build_docs
-    check_generated_refs
-    check_orphaned_urls
-    check
-    ;;
-  "hash")
-    echo "$hash"
+    # Through make, so the steps are restored from the cache when they can be.
+    make -C "$repo_root" docs-examples docs docs-checks
     ;;
   "compile")
     build_examples compile "$@"

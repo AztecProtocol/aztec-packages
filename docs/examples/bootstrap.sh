@@ -62,9 +62,6 @@ else
   export DOCS_PATH=docs DOCS_ROOT=$REPO_ROOT/docs
 fi
 
-# The pin names the aztec-node commit and every toolchain version, so it keys the examples.
-hash=$(cache_content_hash .rebuild_patterns)
-
 # Fetches the pinned checkout, installs the pinned nargo, bb and aztec CLI, and exports NARGO, BB, AZTEC
 # and the versions. Each step is a local check when already current, so concurrent test commands only read.
 function pin_toolchain {
@@ -409,20 +406,23 @@ function pin_toolchains {
   done
 }
 
+# Keyed by the docs-examples-tests step ($STEP_KEY): .rebuild_patterns (the pin names the aztec-node commit and
+# every toolchain version) and the compiled examples. A test that reads more, a page or a line, adds it to its key.
 function test_cmds {
+  local key=${STEP_KEY:-disabled-cache}
   # 15m: with both halves at once under load, a green half took 294 to 421 s, and a half with a failing
   # example (five attempts) 449 s. Re-measure when an example is added, and rebalance the halves
   # (run.sh HALF_1, HALF_2) before raising a limit.
   # No ONLY_TERM_PARENT: run_compose_test is a child of bootstrap.sh, and only a timeout that signals
   # the whole group reaches it, so that its exit trap takes the compose project down.
-  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 1"
-  echo "$hash:TIMEOUT=15m docs/examples/bootstrap.sh execute 2"
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
+  echo "$key:TIMEOUT=15m docs/examples/bootstrap.sh execute 1"
+  echo "$key:TIMEOUT=15m docs/examples/bootstrap.sh execute 2"
+  echo "$key:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
+  echo "$key:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-webapp"
   # The fresh-folder and clone tests also render their pages with the site's preprocessing.
   local render=("^docs/src/" "^docs/developer_version_config.json" "^docs/release_names.json")
   local page="^docs/docs-developers/docs/tutorials/js_tutorials/first_full_project.md"
-  echo "$(cache_content_hash .rebuild_patterns "$page" "${render[@]}"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
+  echo "$(hash_str "$key" "$(cache_content_hash "$page" "${render[@]}")"):ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-first-project"
   # A clone block fetches its line's examples and Nargo.toml, and the aztec-node tag its page renders.
   # The pages come from docs/scripts/page_tests.mts, which its census test checks; a failed lookup
   # fails here rather than dropping commands.
@@ -430,32 +430,32 @@ function test_cmds {
   clone_pages=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-fresh-clone) || return 1
   lines=$("${aztec_node[@]}" lines) || return 1
   local clone=("^docs/scripts/fresh_clone_test.sh" "${render[@]}")
-  local clone_hash
-  clone_hash=$(cache_content_hash .rebuild_patterns ^docs/Nargo.toml "^docs/$tutorials/" "${clone[@]}")
+  local clone_key
+  clone_key=$(hash_str "$key" "$(cache_content_hash "^docs/$tutorials/" "${clone[@]}")")
   for page in $clone_pages; do
-    echo "$clone_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
+    echo "$clone_key:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh test-fresh-clone docs/$page"
   done
   # A transcript's reader runs in a session of its own, which the runner stops when the timeout
   # signals its group: no ONLY_TERM_PARENT.
   local transcripts transcript=("^docs/scripts/page_t" "${render[@]}")
   transcripts=$(node "$REPO_ROOT/docs/scripts/page_tests.mts" pages test-page-transcript) || return 1
   for page in $transcripts; do
-    echo "$(cache_content_hash .rebuild_patterns "^docs/$page" "${transcript[@]}"):TIMEOUT=15m docs/examples/bootstrap.sh test-page-transcript docs/$page"
+    echo "$(hash_str "$key" "$(cache_content_hash "^docs/$page" "${transcript[@]}")"):TIMEOUT=15m docs/examples/bootstrap.sh test-page-transcript docs/$page"
   done
   # A line's TXE needs a port of its own: the test commands run in parallel.
-  local line line_hash i=0
+  local line line_key i=0
   for line in $lines; do
-    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/")
-    echo "$line_hash:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
-    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${render[@]}")
-    echo "$line_hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
-    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${clone[@]}")
+    line_key=$(hash_str "$key" "$(cache_content_hash "^docs/lines/$line/")")
+    echo "$line_key:ONLY_TERM_PARENT=1:TXE_PORT=$((14746 + i)) docs/examples/bootstrap.sh --line $line test-contracts"
+    line_key=$(hash_str "$key" "$(cache_content_hash "^docs/lines/$line/" "${render[@]}")")
+    echo "$line_key:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh --line $line test-first-project"
+    line_key=$(hash_str "$key" "$(cache_content_hash "^docs/lines/$line/" "${clone[@]}")")
     for page in $clone_pages; do
-      echo "$line_hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
+      echo "$line_key:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-fresh-clone docs/lines/$line/$page"
     done
-    line_hash=$(cache_content_hash .rebuild_patterns "^docs/lines/$line/" "${transcript[@]}")
+    line_key=$(hash_str "$key" "$(cache_content_hash "^docs/lines/$line/" "${transcript[@]}")")
     for page in $transcripts; do
-      echo "$line_hash:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-page-transcript docs/lines/$line/$page"
+      echo "$line_key:TIMEOUT=15m docs/examples/bootstrap.sh --line $line test-page-transcript docs/lines/$line/$page"
     done
     i=$((i + 1))
   done
@@ -539,9 +539,6 @@ case "$cmd" in
         exit 1
       fi
     fi
-    ;;
-  "hash")
-    echo "$hash"
     ;;
   compile-circuits)
     compile-circuits

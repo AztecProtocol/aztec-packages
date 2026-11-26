@@ -5,7 +5,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 set -eou pipefail
 
 noir_commit=$(git -C noir-repo rev-parse HEAD)
-export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
 
 # Must be in dependency order for releasing.
 export js_projects="
@@ -63,14 +62,6 @@ function install_native_from_release {
     return 0
   fi
 
-  # Guard with our build cache before reaching out to GitHub. This key (noir-$hash, derived from the
-  # noir commit) is the same one CI populates from the source build, so a GitHub outage or a missing
-  # release asset can't block the build when the artifact is already cached.
-  if cache_download noir-$hash.tar.gz && [[ -x "$release_dir/nargo" ]]; then
-    echo "noir-from-release.flag set; restored nargo for $tag from the build cache (skipped GitHub)."
-    return 0
-  fi
-
   echo "noir-from-release.flag set and noir-repo is at release $tag; fetching released binaries via noirup."
 
   local nargo_home=$PWD/noir-repo/target/.noirup
@@ -97,7 +88,8 @@ function install_native_from_release {
   echo "Installed nargo $("$release_dir/nargo" --version | head -1) from release $tag."
 }
 
-# Builds the nargo, noir-execute and profiler binaries.
+# Builds the nargo, noir-execute and profiler binaries, unconditionally: the noir make step restores them from the
+# cache instead when it can (before reaching out to GitHub for a release's binaries, too).
 function build_native {
   set -euo pipefail
 
@@ -105,34 +97,25 @@ function build_native {
     return
   fi
 
-  if ! cache_download noir-$hash.tar.gz; then
-    # Serialize cargo operations to avoid race conditions with avm-transpiler
-    # which may run in parallel and share the same CARGO_HOME.
-    (
-      flock -x 200
-      cd noir-repo && cargo build --locked --release --target-dir target
-    ) 200>/tmp/rustup.lock
-    # noir-execute comes out of the same workspace build (tooling/artifact_cli is a
-    # default-member) and labs-aztec-toolchain symlinks it for native protocol-circuit
-    # execution, so it has to survive a cache round trip like the rest. The build also produces
-    # acvm, which nothing consumes since the labs node moved to noir-execute; it is left behind.
-    cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,noir-execute,noir-profiler}
-  fi
+  # Serialize cargo operations to avoid race conditions with avm-transpiler
+  # which may run in parallel and share the same CARGO_HOME.
+  (
+    flock -x 200
+    cd noir-repo && cargo build --locked --release --target-dir target
+  ) 200>/tmp/rustup.lock
+  # noir-execute comes out of the same workspace build (tooling/artifact_cli is a
+  # default-member) and labs-aztec-toolchain symlinks it for native protocol-circuit
+  # execution, so the noir step caches it with the rest. The build also produces
+  # acvm, which nothing consumes since the labs node moved to noir-execute; it is left behind.
 }
 
-# Builds js packages.
+# Builds js packages, unconditionally: the noir make step restores them from the cache instead when it can.
 function build_packages {
   set -euo pipefail
 
   # Workaround to not need to install wasm-opt.
   # It's cursed, llvm will use it without permission if it finds it in PATH.
   export PATH=$PWD/scripts:$PATH
-
-  if cache_download noir-packages-$hash.tar.gz; then
-    cd noir-repo
-    npm_install_deps
-    return
-  fi
 
   cd noir-repo
   npm_install_deps
@@ -154,16 +137,6 @@ function build_packages {
 
   # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec-foundation/noir-
   find packages -type f -exec sed -i 's|@noir-lang/|@aztec-foundation/noir-|g' {} \;
-
-  cache_upload noir-packages-$hash.tar.gz \
-    packages \
-    noir-repo/acvm-repo/acvm_js/nodejs \
-    noir-repo/acvm-repo/acvm_js/web \
-    noir-repo/tooling/noir_codegen/lib \
-    noir-repo/tooling/noir_js/lib \
-    noir-repo/tooling/noir_js_types/lib \
-    noir-repo/tooling/noirc_abi_wasm/nodejs \
-    noir-repo/tooling/noirc_abi_wasm/web
 }
 
 function install_deps {
@@ -183,37 +156,46 @@ function install_deps {
   ) 200>/tmp/rustup.lock
 }
 
-export -f noirup_install install_native_from_release build_native build_packages install_deps
-
-function build {
-  echo_header "noir build"
-
-  if semver check $REF_NAME; then
-    # REF_NAME matches semver meaning we are doing a release
-
-    git -C noir-repo fetch --tags
-    if ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
-      echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
-      exit 1
-    fi
-
-    # Check the pinned noir release can be installed the way users install it. Asserting which
-    # assets the release carries would restate what noirup already knows about noir's artifacts, and
-    # go stale the next time noir renames them; running noirup is the thing we actually care about.
-    local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
-    echo "Checking noir release $noir_tag installs with noirup..."
-    local probe_home=$PWD/noir-repo/target/.noirup-release-check
-    if ! noirup_install "$noir_tag" "$probe_home" || [[ ! -x "$probe_home/bin/nargo" ]]; then
-      echo_stderr "Error: noirup cannot install noir release '$noir_tag'; users would hit the same failure."
-      echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
-      exit 1
-    fi
-    echo "noirup installed $("$probe_home/bin/nargo" --version | head -1) from noir release $noir_tag."
-    rm -rf "$probe_home"
+# On a release, checks the pinned noir release installs the way users install it. Runs whether or not the noir step
+# is cached (the noir-release-check make target).
+function release_check {
+  if ! semver check $REF_NAME; then
+    return
   fi
 
+  git -C noir-repo fetch --tags
+  if ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
+    echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
+    exit 1
+  fi
+
+  # Check the pinned noir release can be installed the way users install it. Asserting which
+  # assets the release carries would restate what noirup already knows about noir's artifacts, and
+  # go stale the next time noir renames them; running noirup is the thing we actually care about.
+  local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
+  echo "Checking noir release $noir_tag installs with noirup..."
+  local probe_home=$PWD/noir-repo/target/.noirup-release-check
+  if ! noirup_install "$noir_tag" "$probe_home" || [[ ! -x "$probe_home/bin/nargo" ]]; then
+    echo_stderr "Error: noirup cannot install noir release '$noir_tag'; users would hit the same failure."
+    echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
+    exit 1
+  fi
+  echo "noirup installed $("$probe_home/bin/nargo" --version | head -1) from noir release $noir_tag."
+  rm -rf "$probe_home"
+}
+
+export -f noirup_install install_native_from_release build_native build_packages install_deps
+
+# Builds unconditionally: the noir make step restores the outputs from the cache instead when it can.
+function build_noir {
+  echo_header "noir build"
   denoise "retry install_deps"
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
+}
+
+# Through make, so the build is restored from the cache when it can be.
+function build {
+  make -C "$root" noir
 }
 
 function get_projects {
@@ -245,9 +227,6 @@ case "$cmd" in
     ;;
   "")
     build
-    ;;
-  "hash")
-    echo $hash
     ;;
   *)
     default_cmd_handler "$@"

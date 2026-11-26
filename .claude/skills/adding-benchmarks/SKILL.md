@@ -157,13 +157,20 @@ with open("bench-out/my-component.bench.json", "w") as f:
 
 ### Step 2: Register in bootstrap.sh
 
-Add to the package's `bench_cmds` function:
+Add to the package's `bench_cmds` function. The key comes from the package's `<target>-benches` make target (ci3
+`step_benches`, listed in `BENCH_CMDS` in the root Makefile), whose `INPUTS` and prerequisites must cover what the
+benchmark reads:
 
 ```bash
 function bench_cmds {
-  local hash=$(hash)
-  echo "$hash BENCH_OUTPUT=bench-out/my_component.bench.json yarn-project/scripts/run_test.sh <package>/src/my_bench.test.ts"
+  echo "${STEP_KEY:-disabled-cache} BENCH_OUTPUT=bench-out/my_component.bench.json yarn-project/scripts/run_test.sh <package>/src/my_bench.test.ts"
 }
+```
+
+```make
+my-component-benches: private INPUTS := ^my-component/
+my-component-benches: my-component
+	$(call step_benches,$@,my-component)
 ```
 
 **Options:** `:ISOLATE=1`, `:CPUS=8`, `:MEM=16g`, `:TIMEOUT=7200`
