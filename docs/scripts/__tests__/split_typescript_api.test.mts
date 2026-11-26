@@ -83,6 +83,7 @@ test("each served folder gets an index page listing the package files it holds, 
   t.mock.method(console, "log", () => {});
   const config = JSON.parse(fs.readFileSync(new URL("../../developer_version_config.json", import.meta.url), "utf8"));
   const folder = networkDocs.networkApiFolder(config, "mainnet");
+  assert.ok(folder, "developer_version_config.json maps no mainnet version");
   const build = fs.mkdtempSync(path.join(os.tmpdir(), "ts-folder-page-"));
   try {
     const dir = path.join(build, "typescript-api", folder);
