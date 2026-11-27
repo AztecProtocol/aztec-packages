@@ -137,6 +137,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
         add_executable(
             ${MODULE_NAME}_tests
             $<TARGET_OBJECTS:${MODULE_NAME}_test_objects>
+            $<TARGET_OBJECTS:low_memory_test_environment>
         )
         list(APPEND exe_targets ${MODULE_NAME}_tests)
 
@@ -182,6 +183,7 @@ function(barretenberg_module_with_sources MODULE_NAME)
             PRIVATE
             ${MODULE_LINK_NAME}
             ${MODULE_DEPENDENCIES}
+            common # for low_memory_test_environment
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main

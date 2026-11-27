@@ -28,6 +28,7 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/low_memory.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
@@ -38,7 +39,9 @@
 #include <atomic>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <mutex>
+#include <optional>
 
 namespace bb {
 
@@ -136,6 +139,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     app.require_subcommand(0, 1);
 
     API::Flags flags{};
+    bool slow_low_memory{ false };
+    std::string storage_budget;
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
@@ -305,16 +310,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_flag("--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).")
+            ->add_flag("--slow_low_memory",
+                       slow_low_memory,
+                       "Enable low memory mode (typically 10-20% slower; more under a tight memory cap).")
             ->group(advanced_group);
     };
 
     const auto add_storage_budget_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option("--storage_budget",
-                         flags.storage_budget,
-                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
-                         "back to RAM (requires --slow_low_memory).")
+                         storage_budget,
+                         "Storage budget for FileBackedMemory (e.g. '500m', '2g'). Proving fails when it is "
+                         "exceeded (requires --slow_low_memory).")
             ->group(advanced_group);
     };
 
@@ -839,11 +846,20 @@ int parse_and_run_cli_command(int argc, char* argv[])
     } else if (flags.verbose) {
         bb_log_level = LogLevel::VERBOSE;
     }
-    slow_low_memory = flags.slow_low_memory;
-#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
-    if (!flags.storage_budget.empty()) {
-        storage_budget = parse_size_string(flags.storage_budget);
+    // The flags add to what BB_SLOW_LOW_MEMORY and BB_STORAGE_BUDGET (applied in main) configured; the flag only ever
+    // turns the mode on.
+    if (slow_low_memory || !storage_budget.empty()) {
+        std::optional<size_t> budget;
+        if (!storage_budget.empty()) {
+            budget = low_memory::parse_size_string(storage_budget);
+        } else if (low_memory::storage_budget() != std::numeric_limits<size_t>::max()) {
+            budget = low_memory::storage_budget();
+        }
+        low_memory::configure(
+            { .mode = slow_low_memory || low_memory::enabled() ? low_memory::Mode::On : low_memory::Mode::Off,
+              .storage_budget = budget });
     }
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!memory_profile_out.empty()) {
         bb::detail::use_memory_profile = true;
         vinfo("Memory profiling enabled via --memory_profile_out");

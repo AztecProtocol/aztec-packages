@@ -669,6 +669,19 @@
     "Warmup": {
       "request": {},
       "response": {}
+    },
+    "LowMemoryConfigure": {
+      "request": {
+        "mode": "string",
+        "storage_budget": "u64?",
+        "storage_directory": "string?",
+        "automatic_threshold": "u64?"
+      },
+      "response": {
+        "enabled": "bool",
+        "file_backed_polynomials": "bool",
+        "heap_configured": "bool"
+      }
     }
   }
 }
