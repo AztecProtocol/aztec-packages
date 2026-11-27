@@ -159,13 +159,13 @@ function main {
   # several) only the first instance keeps BENCH_UPLOAD=1 — bootstrap_ec2_multi forces the
   # rest to 0 so they bench inline as a breakage check without racing the upload. The bench
   # box publishes to its run's dashboard section (CI_DASHBOARD: next, prs, ...).
-  # The private repo builds code that is not public, so none of it may reach the shared build cache
-  # or its logs, which anyone can read: both go to the private cache, which only its build instances
-  # (CI3_INSTANCE_PROFILE_NAME=ci3-private-build-instance-profile) can write. Nor does it publish
-  # benches, which would mean a bench box its build instances cannot launch.
+  # The private repo builds code that is not public, so none of it may reach the shared build cache,
+  # which anyone can read: it uses the private cache, which only its build instances
+  # (CI3_INSTANCE_PROFILE_NAME=ci3-private-build-instance-profile) can write. Its logs go with every
+  # other log, which only the dashboard serves. Nor does it publish benches, which would mean a bench
+  # box its build instances cannot launch.
   if [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
     echo "CI3_CACHE_BUCKET=aztec-ci-private-cache" >> $GITHUB_ENV
-    echo "CI_LOGS_S3_LOCATION=s3://aztec-ci-private-cache/logs" >> $GITHUB_ENV
   elif [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
     echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   fi
