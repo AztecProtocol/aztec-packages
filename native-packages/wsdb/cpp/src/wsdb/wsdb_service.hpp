@@ -4,9 +4,8 @@
  * @brief The wsdb service without a transport: the world state, the dispatch pool, the per-fork scheduler and the
  * generated async handler over them.
  *
- * The IPC server feeds the handler from its reactor; the in-process FFI entry (wsdb_ffi_service.cpp) feeds it from the
- * caller's thread. Both build it from the same WsdbConfig, which the `msgpack run` CLI and the FFI open call parse
- * with the same options.
+ * The IPC server feeds the handler from its reactor; `call` runs it in-process. The service opens no stores until
+ * Init, which carries the genesis; the data directory, map sizes and threads come from the config.
  */
 #include "common/thread_pool.hpp"
 #include "world_state/world_state.hpp"
@@ -16,7 +15,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace CLI {
 class App;
@@ -28,18 +29,9 @@ class WsdbScheduler;
 
 struct WsdbConfig {
     std::string data_dir;
-    // Maps as "{treeId:value,...}".
-    std::string tree_heights_json;
-    std::string tree_prefill_json;
-    // LMDB map sizes in KB.
+    // LMDB map sizes in KB, as "{treeId:value,...}".
     std::string map_sizes_json;
     uint32_t threads = 16;
-    uint32_t initial_header_generator_point = 0;
-    // [["slot_hex","value_hex"],...]
-    std::string prefilled_public_data_json;
-    // ["nullifier_hex",...]
-    std::string prefilled_nullifiers_json;
-    uint64_t genesis_timestamp = 0;
 };
 
 /** Registers the WsdbConfig options on a CLI (sub)command. */
@@ -63,7 +55,11 @@ class WsdbService {
      *  must come from one thread at a time. */
     AsyncDispatchHandler& handler() { return handler_; }
 
+    /** Runs one request in-process and waits for its response. Calls must come from one thread at a time. */
+    std::vector<uint8_t> call(std::span<const uint8_t> request);
+
   private:
+    WsdbConfig config_;
     std::unique_ptr<world_state::WorldState> world_state_;
     // Distinct from WorldState's own pool: mutating handlers enqueue subtasks there and wait on them, so dispatching
     // them onto the same blocking, non-work-stealing pool could deadlock.

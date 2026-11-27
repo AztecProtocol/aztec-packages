@@ -56,14 +56,13 @@ add_subdirectory(${foundation}/ipc-runtime/cpp ${deps}/ipc-runtime)
 # implementation).
 set(wsdb_schema "${foundation}/barretenberg/cpp/src/barretenberg/wsdb_ref/wsdb_schema.jsonc")
 
-# The generated server dispatch, wire types, in-process FFI entry (wsdb_labs_ipc_ffi_entry; its symbols
-# carry this implementation's name, as wsdb-ref's carry wsdb_ref) and typed client from that schema, and
+# The generated server dispatch, wire types and typed client from that schema, and
 # the protocol constants from @aztec-foundation/constants-codegen at the pinned version; both are
 # regenerated whenever configure runs, which their inputs below trigger.
 execute_process(
     COMMAND node --experimental-strip-types --no-warnings ${foundation}/ipc-codegen/src/generate.ts
             --schema ${wsdb_schema} --lang cpp --out ${CMAKE_CURRENT_SOURCE_DIR}/src/wsdb/generated
-            --server --client --ffi --ffi-name wsdb_labs --cpp-namespace azteclabs::wsdb
+            --server --client --cpp-namespace azteclabs::wsdb
             --cpp-include-dir wsdb/generated
     COMMAND_ERROR_IS_FATAL ANY)
 execute_process(
