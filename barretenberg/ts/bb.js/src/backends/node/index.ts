@@ -18,6 +18,9 @@ const SHM_RING_SIZE = 1024 * 1024 * 4;
  */
 const BB_PROCESS_LIFETIME = { unref: true };
 
+/** The in-process backend when none is named and no process is used: bb's wasm module. */
+export const IN_PROCESS_BACKEND: BackendType = BackendType.Wasm;
+
 /**
  * Create backend of specific type (no fallback). Everything here is bb's choice of options over
  * @aztec-foundation/bb.js-api's backends: thread defaults, ring sizes, artifact overrides.

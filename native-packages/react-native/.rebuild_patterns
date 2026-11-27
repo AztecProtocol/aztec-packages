@@ -1,0 +1,7 @@
+^native-packages/react-native/
+^ipc-runtime/cpp/jsi/
+^native-packages/kv-sqlite/kv_schema\.jsonc$
+^native-packages/kv-sqlite/cpp/src/kv/
+^ipc-codegen/src/
+^ipc-codegen/templates/cpp/
+^noir/noir-repo/tooling/noirc_abi_wasm/test/shared/

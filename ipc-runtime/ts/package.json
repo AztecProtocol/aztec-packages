@@ -31,6 +31,10 @@
     "./registry": {
       "types": "./dest/backend_registry.d.ts",
       "default": "./dest/backend_registry.js"
+    },
+    "./react-native": {
+      "types": "./dest/react_native.d.ts",
+      "default": "./dest/react_native.js"
     }
   },
   "scripts": {

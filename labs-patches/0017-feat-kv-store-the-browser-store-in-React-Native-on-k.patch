@@ -1,0 +1,287 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Thu, 19 Nov 2026 16:10:39 +0000
+Subject: [PATCH] feat(kv-store): the browser store in React Native, on
+ kv-sqlite linked into the app
+
+`@aztec-labs/kv-store/sqlite-opfs` gains a react-native export condition: the
+same API (AztecSQLiteOPFSStore.open, listStores, deleteStore, ...) over
+AztecKvSqliteStore, whose Kv service is the library @aztec-foundation/react-native
+links into the app, reached through JSI. Each store is a database file in the
+app's data directory, in the per-store directory layout the browser uses in
+OPFS, and one open store holds a directory at a time (SqlitePoolBusyError), as
+in the browser. So the PXE and the embedded wallet open their stores unchanged.
+
+The package imports (#msgpackr, #ordered-binary) get react-native targets that
+are files of the package, which is all Metro resolves them to.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/kv-store/package.json b/yarn-project/kv-store/package.json
+index 262759d080bd6da4873f8e5ff218404809d6ca60..aff30df334984a5c46c3a6841991fad68ddda40b 100644
+--- a/yarn-project/kv-store/package.json
++++ b/yarn-project/kv-store/package.json
+@@ -9,15 +9,20 @@
+     "./lmdb-v2": "./dest/lmdb-v2/index.js",
+     "./deprecated/indexeddb": "./dest/deprecated/indexeddb/index.js",
+     "./kv-sqlite": "./dest/kv-sqlite/index.js",
+-    "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
++    "./sqlite-opfs": {
++      "react-native": "./dest/sqlite-opfs/react_native.js",
++      "default": "./dest/sqlite-opfs/index.js"
++    },
+     "./stores": "./dest/stores/index.js"
+   },
+   "imports": {
+     "#msgpackr": {
++      "react-native": "./dest/sqlite-opfs/internal/msgpackr-no-eval.js",
+       "browser": "msgpackr/index-no-eval",
+       "default": "msgpackr"
+     },
+     "#ordered-binary": {
++      "react-native": "./dest/sqlite-opfs/internal/ordered-binary-browser.js",
+       "browser": "./dest/sqlite-opfs/internal/ordered-binary-browser.js",
+       "default": "ordered-binary"
+     }
+diff --git a/yarn-project/kv-store/src/kv-sqlite/react_native.test.ts b/yarn-project/kv-store/src/kv-sqlite/react_native.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9abfa49b75cd7167d73156c4ec1f8843993b6fa
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/react_native.test.ts
+@@ -0,0 +1,64 @@
++import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'fs';
++import { tmpdir } from 'os';
++import { join } from 'path';
++
++import { describeAztecMap } from '../interfaces/map_test_suite.js';
++import { mockLogger } from '../interfaces/utils.js';
++import {
++  AztecSQLiteOPFSStore,
++  SqliteEncryptionError,
++  SqlitePoolBusyError,
++  deleteStore,
++  listStores,
++  openTmpStore,
++  storePoolDirectory,
++} from '../sqlite-opfs/react_native.js';
++
++// The browser store's React Native form, with the app's files (which @aztec-foundation/react-native installs) over
++// Node's; the Kv service runs on its node backend here, on the library linked into the app there.
++describe('AztecSQLiteOPFSStore (React Native)', () => {
++  let dataDir: string;
++  beforeEach(() => {
++    dataDir = mkdtempSync(join(tmpdir(), 'kv-store-rn-'));
++    (globalThis as any).__aztecReactNative = {
++      dataDir,
++      isDirectory: (path: string) => existsSync(path) && statSync(path).isDirectory(),
++      listDirectory: (path: string) => readdirSync(path),
++      removeDirectory: (path: string) => rmSync(path, { recursive: true, force: true }),
++    };
++  });
++  afterEach(() => {
++    delete (globalThis as any).__aztecReactNative;
++    rmSync(dataDir, { recursive: true, force: true });
++  });
++
++  describeAztecMap('AztecMap', () => openTmpStore(true));
++
++  const key = () => new Uint8Array(32).fill(3);
++  const open = (name: string, encryptionKey?: Uint8Array) =>
++    AztecSQLiteOPFSStore.open(mockLogger, name, false, storePoolDirectory(name), encryptionKey);
++
++  it('keeps a store in the data directory, encrypted, and lists and deletes it as the browser does', async () => {
++    const a = await open('pxe_data_1', key());
++    await a.openMap<string, string>('m').set('k', 'v');
++    await expect(open('pxe_data_1', key())).rejects.toBeInstanceOf(SqlitePoolBusyError);
++    await a.close();
++
++    expect(existsSync(join(dataDir, 'kv-store', '.aztec-kv-pxe_data_1', 'pxe_data_1'))).toBe(true);
++    expect(await listStores()).toEqual(['pxe_data_1']);
++    await expect(open('pxe_data_1', new Uint8Array(32).fill(4))).rejects.toBeInstanceOf(SqliteEncryptionError);
++
++    const b = await open('pxe_data_1', key());
++    expect(await b.openMap<string, string>('m').getAsync('k')).toBe('v');
++    await expect(deleteStore('pxe_data_1')).rejects.toBeInstanceOf(SqlitePoolBusyError);
++    await b.close();
++
++    await deleteStore('pxe_data_1');
++    expect(await listStores()).toEqual([]);
++  });
++
++  it('says what is missing when the app has not imported @aztec-foundation/react-native', async () => {
++    delete (globalThis as any).__aztecReactNative;
++    await expect(open('x')).rejects.toThrow(/@aztec-foundation\/react-native/);
++  });
++});
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/internal/msgpackr-no-eval.js b/yarn-project/kv-store/src/sqlite-opfs/internal/msgpackr-no-eval.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..598b635774857042fc6d73a67417f4b94f54e8b9
+--- /dev/null
++++ b/yarn-project/kv-store/src/sqlite-opfs/internal/msgpackr-no-eval.js
+@@ -0,0 +1,4 @@
++/* eslint-disable */
++// msgpackr without its eval-based record decoder, as a file: Metro (React Native) resolves package "imports"
++// only to files of this package.
++export * from 'msgpackr/index-no-eval';
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/react_native.ts b/yarn-project/kv-store/src/sqlite-opfs/react_native.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ffcb8126f4fc5e861d25f28c2649f72851f9008
+--- /dev/null
++++ b/yarn-project/kv-store/src/sqlite-opfs/react_native.ts
+@@ -0,0 +1,155 @@
++import { type Logger, createLogger } from '@aztec-labs/foundation/log';
++import { KvService } from '@aztec-labs/kv-sqlite';
++
++import { AztecKvSqliteStore, initStore, validateEncryption } from '../kv-sqlite/store.js';
++import { SqlitePoolBusyError } from './errors.js';
++
++export {
++  SqliteCorruptionError,
++  SqliteEncryptionError,
++  SqlitePoolBusyError,
++  SqliteWebLocksUnavailableError,
++} from './errors.js';
++export type { SqliteEncryptionErrorCode } from './errors.js';
++
++/**
++ * The app's files, as @aztec-foundation/react-native installs them on the JavaScript runtime. The store needs the app
++ * to have imported that package, which links the Kv service's library into the app.
++ */
++interface ReactNativeFiles {
++  dataDir: string;
++  isDirectory(path: string): boolean;
++  listDirectory(path: string): string[];
++  removeDirectory(path: string): void;
++}
++
++function files(): ReactNativeFiles {
++  const native = (globalThis as { __aztecReactNative?: ReactNativeFiles }).__aztecReactNative;
++  if (!native) {
++    throw new Error("The store needs @aztec-foundation/react-native: import it first in the app's entry file");
++  }
++  return native;
++}
++
++/** Prefix for the per-store directories, as the browser names its OPFS pool directories. */
++export const OPFS_POOL_DIR_PREFIX = '.aztec-kv-';
++
++/** Where the stores live: a directory of the app's data directory. */
++function storesRoot(): string {
++  return `${files().dataDir}/kv-store`;
++}
++
++/** The directory holding a store's database, by the store's effective name. */
++export function storePoolDirectory(effectiveName: string): string {
++  return `${OPFS_POOL_DIR_PREFIX}${effectiveName}`;
++}
++
++function normalizePoolDirectory(poolDirectory: string): string {
++  const normalized = poolDirectory.replace(/^\/+|\/+$/g, '');
++  if (!normalized || normalized.split('/').some(part => part === '.' || part === '..')) {
++    throw new Error(`Invalid store directory "${poolDirectory}"`);
++  }
++  return normalized;
++}
++
++/** The directories of the stores open in this app: one store holds a directory at a time, as in the browser. */
++const openDirectories = new Set<string>();
++
++/**
++ * The browser's sqlite-opfs store in a React Native app: the Kv service's library linked into the app, reached
++ * through JSI, and its database a file in the app's data directory (`<data dir>/kv-store/<pool directory>/<name>`).
++ * The API is the browser's, so the PXE and the embedded wallet open it unchanged.
++ */
++export class AztecSQLiteOPFSStore extends AztecKvSqliteStore {
++  private constructor(
++    kv: KvService,
++    log: Logger,
++    isEphemeral: boolean,
++    private readonly directory?: string,
++  ) {
++    super(kv, log, isEphemeral);
++  }
++
++  /**
++   * Opens (or creates) a store, as the browser's does: `ephemeral` keeps it in memory; `poolDirectory` is the
++   * directory holding its database, which one open store holds at a time (another open of it fails with
++   * `SqlitePoolBusyError`); `encryptionKey` (32 bytes) encrypts it at rest.
++   */
++  static async open(
++    log: Logger,
++    name?: string,
++    ephemeral: boolean = false,
++    poolDirectory?: string,
++    encryptionKey?: Uint8Array,
++  ): Promise<AztecSQLiteOPFSStore> {
++    validateEncryption(encryptionKey, ephemeral);
++    const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
++    const directory = ephemeral ? undefined : normalizePoolDirectory(poolDirectory ?? storePoolDirectory(dbName));
++    if (directory && openDirectories.has(directory)) {
++      throw new SqlitePoolBusyError(directory);
++    }
++    const path = directory ? `${storesRoot()}/${directory}/${dbName.replace(/^\/+/, '')}` : undefined;
++    log.debug(`Opening SQLite ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`);
++    if (directory) {
++      openDirectories.add(directory);
++    }
++    try {
++      const kv = await KvService.create();
++      try {
++        await initStore(kv, path, encryptionKey);
++      } catch (err) {
++        await kv.destroy().catch(() => {});
++        throw err;
++      }
++      return new AztecSQLiteOPFSStore(kv, log, ephemeral, directory);
++    } catch (err) {
++      if (directory) {
++        openDirectories.delete(directory);
++      }
++      throw err;
++    }
++  }
++
++  protected override async release(): Promise<void> {
++    try {
++      await super.release();
++    } finally {
++      if (this.directory) {
++        openDirectories.delete(this.directory);
++      }
++    }
++  }
++}
++
++/** The effective names of the stores in the app's data directory, as the browser's lists those in its origin. */
++export function listStores(): Promise<string[]> {
++  const root = storesRoot();
++  const names = files().isDirectory(root) ? files().listDirectory(root) : [];
++  return Promise.resolve(
++    names.filter(name => name.startsWith(OPFS_POOL_DIR_PREFIX)).map(name => name.slice(OPFS_POOL_DIR_PREFIX.length)),
++  );
++}
++
++/** Permanently deletes a store by effective name. The store must be closed. */
++export function deleteStore(effectiveName: string): Promise<void> {
++  return deletePoolDirectory(storePoolDirectory(effectiveName));
++}
++
++/** Permanently deletes a store's directory. Its store must be closed. */
++export function deletePoolDirectory(poolDirectory: string): Promise<void> {
++  const directory = normalizePoolDirectory(poolDirectory);
++  if (openDirectories.has(directory)) {
++    return Promise.reject(new SqlitePoolBusyError(directory));
++  }
++  files().removeDirectory(`${storesRoot()}/${directory}`);
++  return Promise.resolve();
++}
++
++export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {
++  return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite'), undefined, ephemeral);
++}
++
++/** An encrypted store, in a directory of its own. The key must be 32 bytes. */
++export function openEncryptedStore(encryptionKey: Uint8Array, name?: string, poolDirectory?: string) {
++  return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite'), name, false, poolDirectory, encryptionKey);
++}

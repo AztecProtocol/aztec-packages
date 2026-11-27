@@ -813,15 +813,50 @@ ${this.serviceClasses({ process: false, wasm: true, napi: false })}`;
    * a backend object.
    */
   generateReactNativeIndex(): string {
-    const { prefix, packageName } = this.opts;
+    const { prefix, packageName, ffiName } = this.opts;
     const svc = className(prefix);
+    // A package with a native library reaches it over JSI when no backend is registered; one without
+    // (a process-only service) has only what is registered or passed.
+    const jsi = this.napi;
+    const jsiOption = jsi
+      ? `  /** The library over JSI, when no backend is registered: its file and the services its host calls reach. */
+  jsi?: Omit<JsiFfiOptions, 'ffiName'>;
+`
+      : "";
+    const fallback = (kind: "async" | "sync") =>
+      jsi
+        ? `  const registered = findRegisteredBackend('${prefix}', '${kind}');
+  if (registered) {
+    return await registered();
+  }
+  if (jsiAvailable()) {
+    return ${kind === "async" ? "createJsiFfiBackend" : "createJsiFfiBackendSync"}({ ffiName: '${ffiName}'${this.opts.napiLibrary ? `, library: '${this.opts.napiLibrary}'` : ""}, ...options.jsi });
+  }
+  return await registeredBackend('${prefix}', '${kind}', '${packageName}')();`
+        : `  return await registeredBackend('${prefix}', '${kind}', '${packageName}')();`;
+    const runtimeImports = [
+      "registerBackend as register",
+      "registeredBackend",
+      "SERVICE_BACKEND",
+      ...(jsi
+        ? [
+            "findRegisteredBackend",
+            "jsiAvailable",
+            "createJsiFfiBackend",
+            "createJsiFfiBackendSync",
+            "type JsiFfiOptions",
+          ]
+        : []),
+    ];
 
-    return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime/registry';
-import { registerBackend as register, registeredBackend } from '@aztec-foundation/ipc-runtime/registry';
+    return `import type { IpcClientAsync, IpcClientSync } from '@aztec-foundation/ipc-runtime/react-native';
+import {
+  ${runtimeImports.join(",\n  ")},
+} from '@aztec-foundation/ipc-runtime/react-native';
 import { AsyncApi } from './generated/async.js';
 import { SyncApi } from './generated/sync.js';
 
-${this.initImport()}${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/registry';
+${this.initImport()}${this.generatedExports()}export type { RegisteredBackends } from '@aztec-foundation/ipc-runtime/react-native';
 ${this.startType()}
 /** Make these the backends for ${prefix} in this app; a native backend package calls it on import. */
 export function registerBackend(factories: Parameters<typeof register>[1]): void {
@@ -829,20 +864,26 @@ export function registerBackend(factories: Parameters<typeof register>[1]): void
 }
 
 export interface ${prefix}CreateOptions {
-  /** A backend object (anything with call()/destroy()); default: the one a native package registered. */
+  /** A backend object (anything with call()/destroy()); default: ${jsi ? "the one a native package registered, else the linked library over JSI" : "the one a native package registered"}. */
   backend?: IpcClientAsync;
-}
+${jsiOption}}
 
 export interface ${prefix}CreateSyncOptions {
   backend?: IpcClientSync;
-}
+${jsiOption}}
 
 export async function createBackend(options: ${prefix}CreateOptions = {}): Promise<IpcClientAsync> {
-  return options.backend ?? (await registeredBackend('${prefix}', 'async', '${packageName}')());
+  if (options.backend) {
+    return options.backend;
+  }
+${fallback("async")}
 }
 
 export async function createBackendSync(options: ${prefix}CreateSyncOptions = {}): Promise<IpcClientSync> {
-  return options.backend ?? (await registeredBackend('${prefix}', 'sync', '${packageName}')());
+  if (options.backend) {
+    return options.backend;
+  }
+${fallback("sync")}
 }
 
 export class ${svc} extends AsyncApi {
@@ -853,7 +894,12 @@ export class ${svc} extends AsyncApi {
   static async create(options: ${prefix}CreateOptions${this.start()} = {}): Promise<${svc}> {
     return ${this.construct(svc, "await createBackend(options)")};
   }
-${this.startedMethod(svc, false)}}
+${this.startedMethod(svc, false)}
+  /** The backend behind this service, so the service can be bound as another's host-call target. */
+  get [SERVICE_BACKEND](): IpcClientAsync {
+    return this.backend;
+  }
+}
 
 export class ${svc}Sync extends SyncApi {
   private constructor(backend: IpcClientSync) {
@@ -863,7 +909,12 @@ export class ${svc}Sync extends SyncApi {
   static async create(options: ${prefix}CreateSyncOptions${this.start()} = {}): Promise<${svc}Sync> {
     return ${this.construct(svc + "Sync", "await createBackendSync(options)")};
   }
-${this.startedMethod(svc + "Sync", true)}}
+${this.startedMethod(svc + "Sync", true)}
+  /** The backend behind this service, so the service can be bound as another's host-call target. */
+  get [SERVICE_BACKEND](): IpcClientSync {
+    return this.backend;
+  }
+}
 `;
   }
 

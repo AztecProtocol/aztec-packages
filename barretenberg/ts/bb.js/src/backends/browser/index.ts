@@ -8,6 +8,9 @@ export function findBbBinary(_customPath?: string): string | null {
   throw new Error('findBbBinary is not available in a browser.');
 }
 
+/** The in-process backend when none is named and no process is used: bb's wasm module. */
+export const IN_PROCESS_BACKEND: BackendType = BackendType.Wasm;
+
 /**
  * Create backend of specific type (no fallback)
  */

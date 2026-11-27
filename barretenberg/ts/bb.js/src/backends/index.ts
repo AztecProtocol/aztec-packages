@@ -16,6 +16,12 @@ export enum BackendType {
    * (BarretenbergSync) or on a native thread of its own (Barretenberg). No process is spawned.
    */
   Napi = 'Napi',
+  /**
+   * bb's library linked into a React Native app, through JSI (React Native only, where it is the default): an
+   * instance of bb of its own, on the calling thread (BarretenbergSync) or on a native thread of its own
+   * (Barretenberg).
+   */
+  Jsi = 'Jsi',
 }
 
 export type BackendOptions = {

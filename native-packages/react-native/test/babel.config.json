@@ -1,0 +1,1 @@
+{ "presets": [["@react-native/babel-preset", { "enableBabelRuntime": false, "disableImportExportTransform": true }]] }
