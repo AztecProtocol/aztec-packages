@@ -8,8 +8,11 @@ set(CVC5_INCLUDE "${CVC5_BUILD}/include")
 set(CVC5_STABLE_COMMIT "5fcdb48eb26dee9385e0d0e6377fcc7e4afee85a")
 
 # We need to go through some hoops to do a shallow clone of a fixed commit (as opposed to a tag).
+# cvc5 downloads GMP and CoCoA from github.com/cvc5/cvc5-deps/blob/...?raw=true, a github.com page
+# that redirects to raw.githubusercontent.com and that github.com answers with 503 from CI instances.
+# Point them at raw.githubusercontent.com directly; cvc5 still checks each archive's SHA256.
 set(CVC5_DOWNLOAD_COMMAND
-    sh -c "mkdir -p ${CVC5_PREFIX}/src/cvc5 && cd ${CVC5_PREFIX}/src/cvc5 && git init . && (git remote add origin https://github.com/cvc5/cvc5.git || true) && git fetch --depth 1 origin ${CVC5_STABLE_COMMIT} && git checkout FETCH_HEAD"
+    sh -c "mkdir -p ${CVC5_PREFIX}/src/cvc5 && cd ${CVC5_PREFIX}/src/cvc5 && git init . && (git remote add origin https://github.com/cvc5/cvc5.git || true) && git fetch --depth 1 origin ${CVC5_STABLE_COMMIT} && git checkout FETCH_HEAD && sed -i -e 's|https://github.com/cvc5/cvc5-deps/blob/main/|https://raw.githubusercontent.com/cvc5/cvc5-deps/main/|' -e 's|?raw=true||' cmake/FindGMP.cmake cmake/FindCoCoA.cmake"
 )
 
 if(ENABLE_ASAN)
