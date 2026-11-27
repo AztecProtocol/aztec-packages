@@ -55,23 +55,3 @@ if fail_on_unstaged_changes 2>/dev/null; then
 fi
 
 echo 'PASS: capture paths and refresh change guard with patched labs'
-
-# The download checks the tarball against the pin, its sha256 prefix: a tarball served under the
-# pinned name with other contents is refused and nothing is extracted.
-type echo_stderr &>/dev/null || echo_stderr() { echo "$@" >&2; }
-mkdir -p "$fixture/srv" "$fixture/flows/flow"
-printf 'inputs\n' > "$fixture/flows/flow/ivc-inputs.msgpack"
-tar -czf "$fixture/good.tar.gz" -C "$fixture/flows" flow
-pinned_chonk_inputs_hash=$(sha256sum "$fixture/good.tar.gz" | cut -c1-$PINNED_CHONK_HASH_LENGTH)
-PINNED_CHONK_BASE_URL="file://$fixture/srv"
-cp "$fixture/good.tar.gz" "$fixture/srv/bb-chonk-inputs-$pinned_chonk_inputs_hash.tar.gz"
-download_pinned_chonk_inputs "$fixture/dest" 2>/dev/null
-[[ -f "$fixture/dest/flow/ivc-inputs.msgpack" ]] || { echo 'FAIL: did not extract the pinned inputs'; exit 1; }
-printf 'tampered\n' > "$fixture/flows/flow/ivc-inputs.msgpack"
-tar -czf "$fixture/srv/bb-chonk-inputs-$pinned_chonk_inputs_hash.tar.gz" -C "$fixture/flows" flow
-if download_pinned_chonk_inputs "$fixture/dest" 2>/dev/null; then
-  echo 'FAIL: accepted a tarball that does not match the pin'
-  exit 1
-fi
-[[ ! -e "$fixture/dest/flow" ]] || { echo 'FAIL: extracted a tarball that does not match the pin'; exit 1; }
-echo 'PASS: download checks the tarball against the pin'

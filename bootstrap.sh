@@ -712,6 +712,7 @@ function publish {
   fi
   local dir
   dir=$(mktemp -d)
+  # This runs on a GitHub runner, with no instance profile for ci3 to take the bucket from.
   source $ci3/source_cache_bucket aztec-ci-release-cache
   cache_download "release-$REF_NAME.tar.gz" "$dir"
   dir=$dir/release-out
@@ -1042,17 +1043,6 @@ case "$cmd" in
     #     exit 1
     #   fi
     # fi
-
-    # Never the shared build cache, which any CI build can write and anyone can read: a release in
-    # the private repo builds in the private cache (which its CI already uses, see
-    # ci3_labels_to_env.sh), any other in the release cache, through which it also hands its bundle
-    # to the publish job.
-    if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
-       [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
-      source $ci3/source_cache_bucket aztec-ci-private-cache
-    else
-      source $ci3/source_cache_bucket aztec-ci-release-cache
-    fi
 
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
