@@ -16,17 +16,14 @@ export {
   SpawnedProcessBackend,
   SpawnedProcessBackendSync,
   type SpawnedProcessBackendOptions,
-  type SpawnedTransport,
 } from "./spawned_backend.js";
 export { UdsIpcClient, type UdsIpcClientConnectOptions } from "./uds_client.js";
 export { UdsIpcServer, type IpcServerHandler } from "./uds_server.js";
+export type { ProcessHostCallTargets } from "./process_host_calls.js";
 export {
   NapiShmSyncClient,
-  NapiShmAsyncClient,
   createNapiShmSyncClient,
-  createNapiShmAsyncClient,
   type NapiMsgpackClientSync,
-  type NapiMsgpackClientAsync,
 } from "./shm_client.js";
 export {
   findIpcRuntimeNapi,
@@ -39,9 +36,9 @@ export {
   type NapiInstanceOptions,
   NapiFfiBackend,
   NapiFfiBackendSync,
-  NapiInstanceBackend,
-  NapiInstanceBackendSync,
   NapiServiceThread,
+  createNapiFfiBackend,
+  createNapiFfiBackendSync,
   loadNapiFfiLibrary,
 } from "./napi_ffi.js";
 export {

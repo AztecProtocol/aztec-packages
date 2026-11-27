@@ -7,7 +7,6 @@
  */
 #include "barretenberg/bb/deps/cli11.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/wsdb_ref/wsdb_ref_handlers.hpp"
 
 #include "barretenberg/wsdb_ref/generated/wsdb_ipc_server.hpp"
 
@@ -24,8 +23,7 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
 
     try {
-        bb::wsdb_ref::WsdbRefContext ctx;
-        bb::wsdb_ref::serve(input_path, ctx);
+        bb::wsdb_ref::serve(input_path);
     } catch (const std::exception& e) {
         info("Error: ", e.what());
         return 1;

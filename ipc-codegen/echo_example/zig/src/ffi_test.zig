@@ -1,5 +1,5 @@
 //! In-process round trip (Zig): the generated Client over the generated
-//! FfiBackend, calling this binary's own generated FFI entry, no process
+//! FfiBackend, an instance of this binary's own generated FFI service, no process
 //! involved. The requests the typed client cannot make (an unknown command,
 //! malformed bytes) go through the backend's raw call(). Instances made with
 //! create() answer the same.
@@ -35,7 +35,8 @@ fn isErrorWith(backend: *FfiBackend, request: []const u8, expected: []const u8) 
 }
 
 pub fn main() !void {
-    var backend = FfiBackend{};
+    var backend = try FfiBackend.init();
+    defer backend.destroy();
     var client = echo_client.Client(FfiBackend).init(&backend);
 
     const data = [_]u8{ 0xde, 0xad, 0xbe, 0xef, 0x42 };

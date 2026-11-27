@@ -8,23 +8,19 @@ describe('wasm backends', () => {
   const input = Buffer.from('hello bb.js-api');
   const expected = createHash('blake2s256').update(input).digest();
 
-  it.each([BackendType.Wasm, BackendType.WasmWorker])(
-    '%s hashes with 4 threads',
-    async backend => {
-      const api = await Barretenberg.new({ backend, threads: 4, skipSrsInit: true });
-      try {
-        const { hash } = await api.blake2s({ data: input });
-        expect(Buffer.from(hash)).toEqual(expected);
-      } finally {
-        await api.destroy();
-      }
-    },
-    60000,
-  );
+  it('hashes with 4 threads', async () => {
+    const api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 4, skipSrsInit: true });
+    try {
+      const { hash } = await api.blake2s({ data: input });
+      expect(Buffer.from(hash)).toEqual(expected);
+    } finally {
+      await api.destroy();
+    }
+  }, 60000);
 
   it('runs bb Warmup on request and keeps answering', async () => {
     const api = await Barretenberg.new({
-      backend: BackendType.WasmWorker,
+      backend: BackendType.Wasm,
       threads: 4,
       skipSrsInit: true,
       warmup: true,
@@ -62,7 +58,7 @@ describe('wasm backends', () => {
   }, 60000);
 
   it('surfaces bb errors as exceptions asynchronously', async () => {
-    const api = await Barretenberg.new({ backend: BackendType.WasmWorker, threads: 1, skipSrsInit: true });
+    const api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true });
     try {
       await expect(
         api.srsInitSrs({ numPoints: 100, pointsBuf: new Uint8Array(10), g2Point: new Uint8Array(10) }),

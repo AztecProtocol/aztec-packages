@@ -68,7 +68,7 @@ ipc-runtime/
       index.ts            # re-exports of the surface below
       uds_client.ts       # UdsIpcClient (Node net.Socket)
       uds_server.ts       # UdsIpcServer
-      shm_client.ts       # NapiShmSyncClient / NapiShmAsyncClient (NAPI bridge)
+      shm_client.ts       # NapiShmSyncClient (NAPI bridge)
       types.ts            # IpcClientSync / IpcClientAsync interfaces
     package.json
   zig/
@@ -204,25 +204,33 @@ linker hook for downstream Cargo users.
 
 ### TypeScript (`ts/`, published as `@aztec-foundation/ipc-runtime`)
 
-Two transport-specific clients:
+One client per form of call:
 
 | Class                | Transport                  | Sync / Async                                                 |
 |----------------------|----------------------------|--------------------------------------------------------------|
 | `UdsIpcClient`       | Node `net.Socket`          | async; pipelines, pairs responses to callers by request id   |
 | `NapiShmSyncClient`  | MPSC-SHM via NAPI bridge   | sync (one in flight)                                         |
-| `NapiShmAsyncClient` | MPSC-SHM via NAPI bridge   | async (C++ poll thread + ThreadSafeFunction bridge); pipelines, pairs by request id |
+
+Shared memory is the synchronous transport: the calling thread spins briefly,
+then sleeps, until the answer is in the ring. It has no asynchronous client,
+because the event loop cannot wait on a ring without a thread polling it and
+waking the loop for each answer. Asynchronous callers use a unix socket, which
+the event loop waits on directly, or run the service in-process: a napi or wasm
+instance on a `ServiceThread`.
 
 `UdsIpcServer` is provided for in-process tests; production servers are in
 C++.
 
 The `@aztec-foundation/ipc-runtime/wasm` entry (node and `browser` export
 conditions) runs a service compiled to a wasi reactor in-process, through the
-FFI entry of the ipc-codegen contract (`<svc>_ipc_ffi_entry` / `_alloc` /
-`_free`, found by suffix when not named; see `ipc-codegen/SCHEMA_SPEC.md`):
+FFI of the ipc-codegen contract (`<svc>_ipc_ffi_create` / `_call` / `_alloc` /
+`_free`, found by the `_call` suffix when `ffiName` is not given; see
+`ipc-codegen/SCHEMA_SPEC.md`). Each backend's main instance makes one instance
+of the service on its first call:
 
 | Export                        | Role                                                                                     |
 |-------------------------------|------------------------------------------------------------------------------------------|
-| `WasmFfiBackend`              | async `IpcClientAsync`; main instance in a worker by default, wasi threads on further workers |
+| `WasmFfiBackend`              | async `IpcClientAsync`; main instance on a worker of its own or a given `ServiceThread`, wasi threads on further workers |
 | `WasmFfiBackendSync`          | sync `IpcClientSync`; one thread on the calling thread                                    |
 | `createWasmFfiBackend(Sync)`  | the above bound to this platform's worker scripts                                         |
 | `ServiceThread`, `createServiceThread` | a worker thread several service instances share (`worker: <ServiceThread>`), wasm modules or instances of services' shared libraries, so each can reach another directly |
@@ -243,16 +251,16 @@ each target name the module calls to another module's backend, any backend or
 generated service, or a function from request bytes to response bytes, which
 may answer asynchronously.
 
-An asynchronous backend's wasm module (`WasmFfiBackend`, on a service thread
-or on the calling thread) waits for an asynchronous answer through JSPI
-(`WebAssembly.Suspending`/`promising`): the module's stack is suspended until
-the answer settles, with no worker, `SharedArrayBuffer` or cross-origin
-isolation needed. JSPI suspends on every host call, so only a module that
-imports `host_call` is run that way; calls into one module are queued, since
-one suspended mid-call must not be entered again. An engine without JSPI
-fails such a module's load. A napi instance calls its host from a native
-stack, which JSPI can't suspend: on a service thread, the thread waits on a
-shared buffer (`Atomics.wait`) for the owner's answer instead.
+An asynchronous backend never runs on the calling thread; to run there, use
+the synchronous one. Its wasm module (`WasmFfiBackend`, on its worker) waits for
+an asynchronous answer through JSPI (`WebAssembly.Suspending`/`promising`): the
+module's stack is suspended until the answer settles, with no
+`SharedArrayBuffer` or cross-origin isolation needed. JSPI suspends on every
+host call, so only a module that imports `host_call` is run that way; calls
+into one module are queued, since one suspended mid-call must not be entered
+again. An engine without JSPI fails such a module's load. A napi instance calls
+its host from a native stack, which JSPI can't suspend: its native thread
+blocks until the owner's answer arrives instead.
 
 A backend on the same `ServiceThread` is called directly from the thread, with
 no message passing; anything else is called on the thread that created the
@@ -262,12 +270,12 @@ handler on the owning thread must not wait on an instance of the same thread,
 which cannot run until the handler answers. `WasmFfiBackendSync` and napi
 instances on the calling thread take only synchronous answers.
 
-`NapiFfiBackend` and `NapiFfiBackendSync` (main entry, node only) run a
-service's shared library, loaded by this package's Node-API addon
-(`loadNapiFfiLibrary`). A library that exports instances (`_create`, `_call`,
-`_destroy`, `_set_host_call`; see the FFI section of `SCHEMA_SPEC.md`) gets one
-instance per backend through `instance()`, which takes the same `worker` and
-`hostCall` options as a wasm module. The async backend's instance runs on a
+`createNapiFfiBackend` and `createNapiFfiBackendSync` (main entry, node only)
+run an instance of a service's shared library, loaded by this package's
+Node-API addon (`loadNapiFfiLibrary`; the library exports `_create`, `_call`,
+`_destroy`, `_alloc`, `_free` and `_set_host_call`, see the FFI section of
+`SCHEMA_SPEC.md`). Each backend gets an instance of its own, and takes the same
+`worker` and `hostCall` options as a wasm module. The async backend's instance runs on a
 native thread, `NapiServiceThread`: its own, or the one a `ServiceThread`
 keeps beside its wasm worker for napi instances. No JS runs there, so a call
 costs one wake of that thread and one of the event loop, and calls in flight
@@ -276,8 +284,7 @@ other directly; any other host call is answered on the event loop while the
 native thread blocks. `IPC_NAPI_SPIN_US` makes the thread spin that long for
 the next call before it sleeps, saving a wake for calls made back to back at
 the cost of that CPU time. The sync backend's instance runs on the calling
-thread. A library without instances has one process wide context, called on
-the libuv pool.
+thread.
 
 ### Zig (`zig/`)
 
@@ -335,6 +342,9 @@ The `cpp/ipc_runtime/grind_ipc.sh` script and `ipc_runtime_tests` stress the
 SHM implementation; benchmark harnesses can reuse the same runtime APIs.
 
 ## Threading model
+
+Which thread runs a service in each placement (process, napi, wasm) is drawn in
+[`ipc-codegen/docs/where-a-service-runs.html`](../ipc-codegen/docs/where-a-service-runs.html).
 
 - **UDS server**: single-threaded event loop with `epoll`. Concurrent
   clients are interleaved; handlers run on the loop thread, so heavy work

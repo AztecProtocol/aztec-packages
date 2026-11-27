@@ -24,7 +24,7 @@ file(GLOB_RECURSE IPC_CODEGEN_SRC
     ${IPC_CODEGEN_DIR}/src/*.ts
     ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
 )
-# --ffi emits the in-process entry (bb_ipc_ffi_entry) bb.js's wasm backend and barretenberg-rs call.
+# --ffi emits the in-process FFI (bb_ipc_ffi_create/_call/...) bb.js's wasm backend and barretenberg-rs call.
 add_custom_command(
     OUTPUT ${BB_GEN_OUTPUTS}
     COMMAND node --experimental-strip-types --no-warnings
@@ -38,7 +38,7 @@ add_custom_command(
             --cpp-include-dir barretenberg/bbapi/generated
             --strip-method-prefix
     DEPENDS ${BB_SCHEMA} ${IPC_CODEGEN_SRC}
-    COMMENT "Generating BB IPC wire types + server dispatch + FFI entry from bb_schema.json"
+    COMMENT "Generating BB IPC wire types + server dispatch + FFI from bb_schema.json"
     VERBATIM
 )
 add_custom_target(bb_ipc_generated DEPENDS ${BB_GEN_OUTPUTS})
@@ -55,7 +55,7 @@ barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_comm
 target_include_directories(bbapi_objects PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_dependencies(bbapi_objects bb_ipc_generated)
-# The module's source glob covers only the source tree, so the generated FFI entry is listed here.
+# The module's source glob covers only the source tree, so the generated FFI is listed here.
 target_sources(bbapi_objects PRIVATE ${BB_GEN_DIR}/bb_ffi.cpp)
 
 # bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references

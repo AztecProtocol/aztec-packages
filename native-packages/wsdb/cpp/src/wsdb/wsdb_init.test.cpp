@@ -10,11 +10,14 @@
 #include "world_state/test_genesis.hpp"
 #include "wsdb/generated/wsdb_client.hpp"
 #include "wsdb/generated/wsdb_types.hpp"
+#include "wsdb/wsdb_test_options.hpp"
 
 #include <gtest/gtest.h>
 
 #include <filesystem>
 #include <functional>
+#include <map>
+#include <optional>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -43,7 +46,7 @@ template <typename W = wire::Fr> W wire_fr(const fr& value)
     return w;
 }
 
-wire::WsdbInit genesis_init()
+wire::WsdbInit genesis_init(std::optional<std::vector<uint8_t>> options)
 {
     wire::WsdbInit init{ .treeHeights = { { .treeId = 0, .height = NULLIFIER_TREE_HEIGHT },
                                           { .treeId = 1, .height = NOTE_HASH_TREE_HEIGHT },
@@ -59,6 +62,7 @@ wire::WsdbInit genesis_init()
     for (const auto& nullifier : world_state::test_genesis_nullifiers()) {
         init.prefilledNullifiers.push_back(wire_fr(nullifier));
     }
+    init.options = std::move(options);
     return init;
 }
 
@@ -73,13 +77,16 @@ class WsdbInitTest : public ::testing::Test {
     }
     void TearDown() override { std::filesystem::remove_all(root_); }
 
-    /** Stores in their own directory under this test's. */
-    WsdbConfig config(const std::string& name) const
+    /** A directory of its own under this test's. */
+    std::string dir(const std::string& name) const
     {
-        auto dir = root_ / name;
-        std::filesystem::create_directories(dir);
-        return WsdbConfig{ .data_dir = dir.string(), .threads = 2 };
+        auto path = root_ / name;
+        std::filesystem::create_directories(path);
+        return path.string();
     }
+
+    /** Init options with the stores in their own directory under this test's. */
+    std::vector<uint8_t> options(const std::string& name) const { return test_support::wsdb_options(dir(name), 2); }
 
   private:
     std::filesystem::path root_;
@@ -99,24 +106,46 @@ void expect_error_containing(const std::function<void()>& call, const std::strin
 
 TEST_F(WsdbInitTest, RefusesCommandsBeforeInit)
 {
-    WsdbService service(config("service"), []() { return false; });
+    WsdbService service;
     Api api{ ServiceBackend(&service) };
 
     expect_error_containing([&] { api.get_initial_state_reference(); }, "send Init first");
     wire::WorldStateRevision latest{ .forkId = 0, .blockNumber = 0, .includeUncommitted = false };
     expect_error_containing([&] { api.get_tree_info({ .treeId = 0, .revision = latest }); }, "send Init first");
 
-    api.init(genesis_init());
+    api.init(genesis_init(options("service")));
     api.get_initial_state_reference();
 }
 
 TEST_F(WsdbInitTest, InitIsSentOnce)
 {
-    WsdbService service(config("service"), []() { return false; });
+    WsdbService service;
     Api api{ ServiceBackend(&service) };
-    api.init(genesis_init());
+    api.init(genesis_init(options("service")));
     auto genesis = api.get_initial_state_reference();
 
-    expect_error_containing([&] { api.init(genesis_init()); }, "already has a world state");
+    expect_error_containing([&] { api.init(genesis_init(options("service"))); }, "already has a world state");
     EXPECT_EQ(api.get_initial_state_reference(), genesis);
+}
+
+TEST_F(WsdbInitTest, RefusesOptionsItCannotRead)
+{
+    WsdbService service;
+    Api api{ ServiceBackend(&service) };
+
+    expect_error_containing([&] { api.init(genesis_init(std::nullopt)); }, "needs Init options");
+    expect_error_containing([&] { api.init(genesis_init(std::vector<uint8_t>{ 0xc1 })); }, "not msgpack");
+    msgpack::sbuffer unknown;
+    msgpack::packer<msgpack::sbuffer>(unknown).pack(std::map<std::string, uint32_t>{ { "cacheSize", 4 } });
+    expect_error_containing(
+        [&] { api.init(genesis_init(std::vector<uint8_t>(unknown.data(), unknown.data() + unknown.size()))); },
+        "unknown option cacheSize");
+    expect_error_containing([&] { api.init(genesis_init(test_support::wsdb_options("", 2))); }, "dataDir");
+    expect_error_containing([&] { api.init(genesis_init(test_support::wsdb_options(dir("stores"), 0))); },
+                            "threads must be positive");
+    expect_error_containing([&] { api.get_initial_state_reference(); }, "send Init first");
+
+    // A refused Init leaves nothing behind: the next one opens the stores.
+    api.init(genesis_init(options("stores")));
+    api.get_initial_state_reference();
 }

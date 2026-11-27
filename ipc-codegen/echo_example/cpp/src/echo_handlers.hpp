@@ -1,6 +1,6 @@
 // Echo service handlers: the template specializations the header-only generated
 // dispatch calls, shared by the socket server (echo_server.cpp) and the
-// in-process FFI entry (echo_ffi.cpp). Declared here so every translation unit
+// in-process FFI (echo_service.cpp). Declared here so every translation unit
 // that instantiates make_echo_handler() sees them first.
 #pragma once
 

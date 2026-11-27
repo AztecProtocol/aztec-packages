@@ -1,21 +1,14 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace bb::avm {
 
 /**
- * @brief Start the bb-avm-sim IPC server.
- *
- * Connects to WSDB and CDB as IPC clients, then runs the server loop
- * dispatching incoming simulation commands. Without either path it serves
- * SimulateWithHints alone, which reads neither.
- *
- * @param input_path IPC path for TS client connections.
- * @param wsdb_path IPC path to the running WSDB server, or empty.
- * @param cdb_path IPC path to the running CDB server, or empty.
- * @return 0 on success, non-zero on error.
+ * Serves the AVM on input_path until a shutdown signal.
+ * @param host_calls `name=path` for each host-call target: Simulate reaches "wsdb" and "cdb".
  */
-int execute_avm_server(const std::string& input_path, const std::string& wsdb_path, const std::string& cdb_path);
+int execute_avm_server(const std::string& input_path, const std::vector<std::string>& host_calls);
 
 } // namespace bb::avm

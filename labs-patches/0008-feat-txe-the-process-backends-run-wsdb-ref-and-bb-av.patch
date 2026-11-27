@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 20:53:08 +0000
+Subject: [PATCH] feat(txe): the process backends run wsdb-ref and bb-avm-sim
+ as processes
+
+Every backend now runs the same services: bb, wsdb-ref and bb-avm-sim, as wasm
+modules, in-process libraries, or processes. The process backends spawned aztec-wsdb
+instead of wsdb-ref; they now spawn wsdb-ref, reached over a unix socket, and one
+bb-avm-sim process that reaches it and the contract DB over theirs.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/txe/src/state_machine/synchronizer.ts b/yarn-project/txe/src/state_machine/synchronizer.ts
+index 0dba24eb6fe2d192fbf4a1b09cbc881a4632be53..141b949efd8619d25e41f2eeb4a666811a66cef9 100644
+--- a/yarn-project/txe/src/state_machine/synchronizer.ts
++++ b/yarn-project/txe/src/state_machine/synchronizer.ts
+@@ -27,14 +27,15 @@ export class TXESynchronizer implements WorldStateSynchronizer {
+   constructor(public nativeWorldStateService: NativeWorldStateService) {}
+ 
+   /**
+-   * With `wasm` or `napi` backends, the world state is wsdb-ref and the AVM bb-avm-sim, both in memory on one worker of
+-   * their own (as wasm modules, or as instances of their shared libraries): the AVM reaches the world state there as a
+-   * synchronous call, and the contract DB on this thread through its host. With `process` backends they are an
+-   * aztec-wsdb process and a bb-avm-sim process.
++   * The world state is wsdb-ref and the AVM bb-avm-sim, whichever the backends. With `wasm` or `napi` backends both are
++   * in memory on one worker of their own (as wasm modules, or as instances of their shared libraries): the AVM reaches
++   * the world state there as a synchronous call, and the contract DB on this thread through its host. With `process`
++   * backends each is a process: this thread reaches wsdb-ref over a unix socket, and bb-avm-sim reaches wsdb-ref and
++   * the contract DB over theirs.
+    */
+   static async create(backends: TXEBackends) {
+     if (backends === 'process') {
+-      return this.createNative();
++      return this.createProcesses();
+     }
+     const backend = backends;
+     const worker = createServiceThread();
+@@ -66,14 +67,14 @@ export class TXESynchronizer implements WorldStateSynchronizer {
+     return synchronizer;
+   }
+ 
+-  private static async createNative() {
+-    const nativeWorldStateService = await NativeWorldStateService.ephemeral();
++  private static async createProcesses() {
++    const wsdb = await WsdbService.create({ backend: 'process' });
++    const nativeWorldStateService = await NativeWorldStateService.fromService(wsdb);
+ 
+     const synchronizer = new this(nativeWorldStateService);
+ 
+-    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
+-      wsdbIpcPath: nativeWorldStateService.getIpcPath(),
+-    });
++    // One simulation at a time, as with the in-memory backends.
++    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({ maxSize: 1, wsdbIpcPath: wsdb.getIpcPath() });
+ 
+     return synchronizer;
+   }

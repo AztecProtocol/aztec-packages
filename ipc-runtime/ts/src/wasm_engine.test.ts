@@ -33,27 +33,32 @@ function moduleBytes(opts: {
     ...body,
   ];
   const I32 = 0x7f;
-  // Function indices: 0 is the imported thread-spawn, then the four defined below.
-  const [SPAWN, ENTRY, ALLOC, FREE] = [1, 2, 3, 4];
+  // Function indices: 0 is the imported thread-spawn, then the five defined below.
+  const [SPAWN, CALL, ALLOC, FREE, CREATE] = [1, 2, 3, 4, 5];
 
   const types = section(1, [
-    3,
+    4,
     0x60,
     1,
     I32,
     1,
     I32, // (i32) -> i32          alloc, spawn_thread
     0x60,
-    4,
+    5,
     I32,
     I32,
     I32,
     I32,
-    0, // (i32 x4) -> ()   entry
+    I32,
+    0, // (i32 x5) -> ()   call
     0x60,
     1,
     I32,
     0, // (i32) -> ()                     free
+    0x60,
+    0,
+    1,
+    I32, // () -> i32                     create
   ]);
   const limits = [opts.shared ? 0x03 : 0x01, ...leb(opts.min), ...leb(opts.max)];
   const imports = section(2, [
@@ -66,18 +71,21 @@ function moduleBytes(opts: {
     0,
   ]);
   const memories = opts.ownMemory ? section(5, [1, ...limits]) : [];
-  const functions = section(3, [4, 0, 1, 0, 2]);
-  // The bump allocator's next free offset, past the page the entry never touches.
+  const functions = section(3, [5, 0, 1, 0, 2, 3]);
+  // The bump allocator's next free offset, past the page the call never touches.
   const globals = section(6, [1, I32, 0x01, 0x41, ...leb(4096), 0x0b]);
   const exports = section(7, [
-    opts.ownMemory ? 5 : 4,
+    opts.ownMemory ? 6 : 5,
     ...(opts.ownMemory ? [...str("memory"), 0x02, 0] : []),
     ...str("spawn_thread"),
     0x00,
     SPAWN,
-    ...str("ipc_ffi_entry"),
+    ...str("ipc_ffi_create"),
     0x00,
-    ENTRY,
+    CREATE,
+    ...str("ipc_ffi_call"),
+    0x00,
+    CALL,
     ...str("ipc_ffi_alloc"),
     0x00,
     ALLOC,
@@ -91,36 +99,36 @@ function moduleBytes(opts: {
   };
   const STORE = [0x36, 0x02, 0x00]; // i32.store, natural alignment, no offset
   const code = section(10, [
-    4,
+    5,
     // spawn_thread(arg) = thread-spawn(arg)
     ...body([0], [0x20, 0, 0x10, 0]),
-    // entry(in, len, outPtr, outLenPtr): out = alloc(len); *outPtr = out; *outLenPtr = len;
+    // call(instance, in, len, outPtr, outLenPtr): out = alloc(len); *outPtr = out; *outLenPtr = len;
     // copy the request into it, so a caller sees its own bytes come back.
     ...body(
       [1, 1, I32],
       [
         0x20,
-        1,
+        2,
         0x10,
         ALLOC,
         0x21,
-        4, // local 4 = alloc(len)
-        0x20,
-        2,
-        0x20,
-        4,
-        ...STORE,
+        5, // local 5 = alloc(len)
         0x20,
         3,
         0x20,
-        1,
+        5,
         ...STORE,
         0x20,
         4,
         0x20,
-        0,
+        2,
+        ...STORE,
+        0x20,
+        5,
         0x20,
         1,
+        0x20,
+        2,
         0xfc,
         0x0a,
         0x00,
@@ -131,6 +139,8 @@ function moduleBytes(opts: {
     ...body([0], [0x23, 0, 0x23, 0, 0x20, 0, 0x6a, 0x24, 0]),
     // free(p): nothing to do.
     ...body([0], []),
+    // create(): the one instance there is, any non-null handle.
+    ...body([0], [0x41, 1]),
   ]);
 
   return new Uint8Array([
@@ -420,11 +430,12 @@ function buildAbortingModule(message: string): WebAssembly.Module {
   }
 
   const types = section(1, [
-    4,
+    5,
     0x60, 4, I32, I32, I32, I32, 1, I32, // fd_write
     0x60, 1, I32, 0, // proc_exit, free
-    0x60, 4, I32, I32, I32, I32, 0, // entry
+    0x60, 5, I32, I32, I32, I32, I32, 0, // call
     0x60, 1, I32, 1, I32, // alloc
+    0x60, 0, 1, I32, // create
   ]);
   const imports = section(2, [
     3,
@@ -432,18 +443,19 @@ function buildAbortingModule(message: string): WebAssembly.Module {
     ...str(WASI), ...str("fd_write"), 0x00, 0,
     ...str(WASI), ...str("proc_exit"), 0x00, 1,
   ]);
-  const functions = section(3, [3, 2, 3, 1]);
+  const functions = section(3, [4, 2, 3, 1, 4]);
   const globals = section(6, [1, I32, 0x01, 0x41, ...leb(4096), 0x0b]);
   const exports = section(7, [
-    3,
-    ...str("ipc_ffi_entry"), 0x00, 2,
+    4,
+    ...str("ipc_ffi_call"), 0x00, 2,
     ...str("ipc_ffi_alloc"), 0x00, 3,
     ...str("ipc_ffi_free"), 0x00, 4,
+    ...str("ipc_ffi_create"), 0x00, 5,
   ]);
   const STORE = [0x36, 0x02, 0x00];
   const code = section(10, [
-    3,
-    // entry: write the message to stderr, then exit non-zero without touching the out slots.
+    4,
+    // call: write the message to stderr, then exit non-zero without touching the out slots.
     ...body(
       [0],
       [
@@ -455,6 +467,7 @@ function buildAbortingModule(message: string): WebAssembly.Module {
     ),
     ...body([0], [0x23, 0, 0x23, 0, 0x20, 0, 0x6a, 0x24, 0]),
     ...body([0], []),
+    ...body([0], [0x41, 1]),
   ]);
   const data = section(11, [1, 0x00, 0x41, MSG, 0x0b, ...leb(text.length), ...text]);
 

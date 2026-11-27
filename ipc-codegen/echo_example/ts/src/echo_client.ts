@@ -1,7 +1,8 @@
 /**
- * Echo IPC client (TypeScript) — uses the GENERATED AsyncApi client over the
- * @aztec-foundation/ipc-runtime transport. Defaults to UDS; pass `--transport shm` to
- * drive the bundled NAPI SHM client (`createNapiShmAsyncClient`) instead.
+ * Echo IPC client (TypeScript) — uses the GENERATED client over the
+ * @aztec-foundation/ipc-runtime transport. Defaults to the AsyncApi over UDS;
+ * `--transport shm` drives the SyncApi over the bundled NAPI SHM client
+ * (`createNapiShmSyncClient`), shared memory being the synchronous transport.
  * Path suffix follows the same convention as ipc::make_client on the C++
  * side: `.sock` for UDS, `.shm` for MPSC-SHM rings.
  *
@@ -9,11 +10,11 @@
  * Exits 0 on success, 1 on failure.
  */
 import {
-  createNapiShmAsyncClient,
+  createNapiShmSyncClient,
   UdsIpcClient,
-  type IpcClientAsync,
 } from "@aztec-foundation/ipc-runtime";
 import { AsyncApi } from "./generated/async.js";
+import { SyncApi } from "./generated/sync.js";
 
 const args = process.argv.slice(2);
 const socketIdx = args.indexOf("--socket");
@@ -49,12 +50,12 @@ function assertBytes(actual: Uint8Array, expected: Uint8Array, label: string) {
 
 async function run() {
   // SHM clients identify the shared-memory base name without the `.shm`
-  // suffix — match ipc::make_client's behaviour on the C++ side.
-  const client: IpcClientAsync =
+  // suffix — match ipc::make_client's behaviour on the C++ side. Awaiting the
+  // SyncApi's plain return values lets the tests below serve both forms.
+  const api: AsyncApi | SyncApi =
     transport === "shm"
-      ? createNapiShmAsyncClient(socketPath!.replace(/\.shm$/, ""))
-      : await UdsIpcClient.connect(socketPath!);
-  const api = new AsyncApi(client);
+      ? new SyncApi(createNapiShmSyncClient(socketPath!.replace(/\.shm$/, "")))
+      : new AsyncApi(await UdsIpcClient.connect(socketPath!));
 
   // Test 1: EchoBytes
   const testData = Uint8Array.from([0xde, 0xad, 0xbe, 0xef, 0x42]);

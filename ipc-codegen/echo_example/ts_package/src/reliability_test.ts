@@ -74,9 +74,8 @@ async function testSlowStartup(): Promise<void> {
     "slow_echo_server",
     `#!/bin/sh\nsleep 2\nexec "${realBinary}" "$@"\n`,
   );
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: slow,
-    transport: "uds",
   });
   try {
     const data = Uint8Array.from([1, 2, 3]);
@@ -95,7 +94,7 @@ async function testDiesBeforeListen(): Promise<void> {
   const started = Date.now();
   let failure: Error | undefined;
   try {
-    await EchoService.spawn({ binaryPath: dying, transport: "uds" });
+    await EchoService.process({ binaryPath: dying });
   } catch (err) {
     failure = err as Error;
   }
@@ -123,9 +122,8 @@ async function testWedgedServerIsKilled(): Promise<void> {
   );
   let failure: Error | undefined;
   try {
-    await EchoService.spawn({
+    await EchoService.process({
       binaryPath: wedged,
-      transport: "uds",
       connectTimeoutMs: 1_000,
     });
   } catch (err) {
@@ -147,9 +145,8 @@ async function testWedgedServerIsKilled(): Promise<void> {
 async function testMissingBinaryNotRetryable(): Promise<void> {
   let failure: (Error & { retry?: boolean }) | undefined;
   try {
-    await EchoService.spawn({
+    await EchoService.process({
       binaryPath: join(scratch, "no_such_binary"),
-      transport: "uds",
     });
   } catch (err) {
     failure = err as Error;
@@ -167,9 +164,8 @@ async function testMissingBinaryNotRetryable(): Promise<void> {
 // against a fresh service.
 async function testDeathWithoutRespawnIsRetryable(): Promise<void> {
   const realBinary = findEchoBinary()!;
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: realBinary,
-    transport: "uds",
   });
   try {
     await service.bytes({ data: Uint8Array.from([1]) });
@@ -197,9 +193,8 @@ async function testDeathWithoutRespawnIsRetryable(): Promise<void> {
 // surface never sees process lifecycle.
 async function testRespawnRecreatesProcess(): Promise<void> {
   const realBinary = findEchoBinary()!;
-  const service = await EchoService.spawn({
+  const service = await EchoService.process({
     binaryPath: realBinary,
-    transport: "uds",
     respawn: true,
   });
   try {

@@ -33,13 +33,24 @@ struct WsdbRequest {
         return *state;
     }
 
-    // Set by `init` when Init arrives.
+    /**
+     * Where handlers submit their work, via the schedule_read / schedule_write helpers in wsdb_schedule.hpp. A
+     * command that arrives before Init is answered with an error.
+     */
+    WsdbScheduler& scheduler() const
+    {
+        auto* scheduler = scheduler_.load(std::memory_order_acquire);
+        if (scheduler == nullptr) {
+            throw std::runtime_error("aztec-wsdb has no world state yet: send Init first");
+        }
+        return *scheduler;
+    }
+
+    // Both set by `init` when Init arrives.
     std::atomic<world_state::WorldState*> world_state_{ nullptr };
-    // Creates the world state at Init's genesis; throws if the service already has one.
+    std::atomic<WsdbScheduler*> scheduler_{ nullptr };
+    // Creates the world state at Init's genesis and options; throws if the service already has one.
     std::function<void(wire::WsdbInit&&)> init;
-    // Set once before serving; handlers submit their work through it via the
-    // schedule_read / schedule_write helpers in wsdb_schedule.hpp.
-    WsdbScheduler* scheduler = nullptr;
 };
 
 } // namespace azteclabs::wsdb

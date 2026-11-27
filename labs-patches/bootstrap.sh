@@ -306,7 +306,11 @@ function check_staged {
   # In a shallow clone the old gitlink may be unreachable; then judge the staged commit itself.
   local commits
   commits=$(git_labs rev-list "${old:+$old..}$staged" 2>/dev/null) || commits=$staged
-  if git_labs log --no-walk --format=%ce $commits 2>/dev/null | grep -q "^$GIT_COMMITTER_EMAIL\$"; then
+  # Captured before matching: piping git log into grep -q fails open under pipefail, since grep
+  # exits on the first match and git log can then die of SIGPIPE.
+  local committers
+  committers=$(git_labs log --no-walk --format=%ce $commits 2>/dev/null || true)
+  if grep -qx "$GIT_COMMITTER_EMAIL" <<<"$committers"; then
     die "the staged labs gitlink $staged includes commits made by labs-patches, which do not exist upstream. Unstage it (git restore --staged labs) and bump with labs-patches/bootstrap.sh bump <ref>."
   fi
 }

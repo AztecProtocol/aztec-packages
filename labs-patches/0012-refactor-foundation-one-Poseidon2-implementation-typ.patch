@@ -1,0 +1,367 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 06:24:19 +0000
+Subject: [PATCH] refactor(foundation): one Poseidon2 implementation, typed on
+ Fr[]
+
+The asynchronous poseidon module's synchronous branch duplicated crypto/sync. Now
+both modules have the same two layers: functions on Fr[] (poseidon2HashFields,
+poseidon2PermutationFields, poseidon2AbsorbChain) and the Fieldable wrappers over
+them. The asynchronous module's synchronous branch calls the sync module's
+functions; only its asynchronous branch has code of its own. The byte chunking and
+the absorb-chain command, shared by both, move to poseidon/encoding.ts. A test
+checks that every function hashes the same synchronously and asynchronously.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015HXzMEGRnmFYs5yXRcAWCb
+
+diff --git a/yarn-project/foundation/src/crypto/poseidon/encoding.ts b/yarn-project/foundation/src/crypto/poseidon/encoding.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..941c8babbb3b76120a5890f86674a0297cdd3e2f
+--- /dev/null
++++ b/yarn-project/foundation/src/crypto/poseidon/encoding.ts
+@@ -0,0 +1,28 @@
++import { Buffer } from 'buffer';
++
++import { Fr } from '../../curves/bn254/field.js';
++
++/** Bytes as the fields Noir hashes them as: 31-byte chunks, each read little-endian. */
++export function bytesToPoseidonFields(input: Buffer): Fr[] {
++  const fields: Fr[] = [];
++  for (let i = 0; i < input.length; i += 31) {
++    const fieldBytes = Buffer.alloc(32, 0);
++    input.slice(i, i + 31).copy(fieldBytes);
++    fieldBytes.reverse();
++    fields.push(Fr.fromBuffer(fieldBytes));
++  }
++  return fields;
++}
++
++/** bb's Poseidon2AbsorbChain command: the state, and the inputs as one flat buffer of 32 bytes per field. */
++export function absorbChainCommand(state: Fr[], inputs: Fr[]) {
++  const flat = Buffer.allocUnsafe(inputs.length * 32);
++  for (let i = 0; i < inputs.length; i++) {
++    flat.set(inputs[i].toBuffer(), i * 32);
++  }
++  return { state: state.map(s => s.toBuffer()), inputs: flat };
++}
++
++export function fieldsFromBuffers(buffers: Uint8Array[]): Fr[] {
++  return buffers.map(b => Fr.fromBuffer(Buffer.from(b)));
++}
+diff --git a/yarn-project/foundation/src/crypto/poseidon/index.test.ts b/yarn-project/foundation/src/crypto/poseidon/index.test.ts
+index 6c3e5479343936a81aedcee4af54b1cc06c95a63..5fe64694a58f94ab463449e4ca9b8ba462e48d6a 100644
+--- a/yarn-project/foundation/src/crypto/poseidon/index.test.ts
++++ b/yarn-project/foundation/src/crypto/poseidon/index.test.ts
+@@ -1,7 +1,15 @@
+ import { BarretenbergSync } from '@aztec-foundation/bb.js';
+ 
+ import { Fr } from '../../curves/bn254/field.js';
+-import { poseidon2Permutation } from './index.js';
++import {
++  poseidon2AbsorbChain,
++  poseidon2HashBytes,
++  poseidon2HashFields,
++  poseidon2HashWithSeparator,
++  poseidon2Permutation,
++  poseidon2PermutationFields,
++  setPoseidonSynchronous,
++} from './index.js';
+ 
+ describe('poseidon2Permutation', () => {
+   beforeAll(async () => {
+@@ -28,3 +36,28 @@ describe('poseidon2Permutation', () => {
+     ]);
+   });
+ });
++
++describe('setPoseidonSynchronous', () => {
++  const fields = [new Fr(1n), new Fr(2n), new Fr(3n)];
++  const state = [new Fr(0n), new Fr(1n), new Fr(2n), new Fr(3n)];
++  const bytes = Buffer.from('a few bytes to hash, longer than one 31-byte chunk');
++
++  async function hashes() {
++    return {
++      hash: await poseidon2HashFields(fields),
++      separated: await poseidon2HashWithSeparator(fields, 7),
++      permutation: await poseidon2PermutationFields(state),
++      absorbed: await poseidon2AbsorbChain(state, fields),
++      bytes: await poseidon2HashBytes(bytes),
++    };
++  }
++
++  afterEach(() => setPoseidonSynchronous(false));
++
++  it('hashes the same on the synchronous and the asynchronous singletons', async () => {
++    setPoseidonSynchronous(false);
++    const asynchronous = await hashes();
++    setPoseidonSynchronous(true);
++    await expect(hashes()).resolves.toEqual(asynchronous);
++  });
++});
+diff --git a/yarn-project/foundation/src/crypto/poseidon/index.ts b/yarn-project/foundation/src/crypto/poseidon/index.ts
+index 0ff6741d2bacd3f333b87927d203bf6a78e4ccef..a5161784e8de426a04b0bc6f4ee741baa40811ab 100644
+--- a/yarn-project/foundation/src/crypto/poseidon/index.ts
++++ b/yarn-project/foundation/src/crypto/poseidon/index.ts
+@@ -4,6 +4,8 @@ import { Buffer } from 'buffer';
+ 
+ import { Fr } from '../../curves/bn254/field.js';
+ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
++import * as sync from '../sync/poseidon/index.js';
++import { absorbChainCommand, bytesToPoseidonFields, fieldsFromBuffers } from './encoding.js';
+ 
+ const IS_BROWSER = typeof self !== 'undefined';
+ 
+@@ -20,22 +22,51 @@ export function setPoseidonSynchronous(value: boolean) {
+   synchronous = value || IS_BROWSER;
+ }
+ 
+-async function poseidon2HashFields(inputFields: Fr[]): Promise<Fr> {
++/**
++ * The Poseidon2 hash of `fields`: on the BarretenbergSync singleton if hashing is synchronous (see
++ * setPoseidonSynchronous), else on the asynchronous Barretenberg singleton.
++ * @param fields - The fields to hash.
++ * @returns The hash.
++ */
++export async function poseidon2HashFields(fields: Fr[]): Promise<Fr> {
++  if (synchronous) {
++    await BarretenbergSync.initSingleton();
++    return sync.poseidon2HashFields(fields);
++  }
++  await Barretenberg.initSingleton();
++  const response = await Barretenberg.getSingleton().poseidon2Hash({ inputs: fields.map(f => f.toBuffer()) });
++  return Fr.fromBuffer(Buffer.from(response.hash));
++}
++
++/**
++ * The Poseidon2 permutation of `state` (size 4), on the singleton poseidon2HashFields would use.
++ * @param state - The input state.
++ * @returns The output state.
++ */
++export async function poseidon2PermutationFields(state: Fr[]): Promise<Fr[]> {
++  if (synchronous) {
++    await BarretenbergSync.initSingleton();
++    return sync.poseidon2PermutationFields(state);
++  }
++  await Barretenberg.initSingleton();
++  const response = await Barretenberg.getSingleton().poseidon2Permutation({ inputs: state.map(f => f.toBuffer()) });
++  return fieldsFromBuffers(response.outputs);
++}
++
++/**
++ * Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks in a single API call.
++ * @param state - The sponge state, size 4.
++ * @param inputs - The fields to absorb; length must be a multiple of 3.
++ * @returns the output state, size 4.
++ */
++export async function poseidon2AbsorbChain(state: Fr[], inputs: Fr[]): Promise<Fr[]> {
+   if (synchronous) {
+     await BarretenbergSync.initSingleton();
+-    const api = BarretenbergSync.getSingleton();
+-    const response = api.poseidon2Hash({
+-      inputs: inputFields.map(i => i.toBuffer()),
+-    });
+-    return Fr.fromBuffer(Buffer.from(response.hash));
+-  } else {
+-    await Barretenberg.initSingleton();
+-    const api = Barretenberg.getSingleton();
+-    const response = await api.poseidon2Hash({
+-      inputs: inputFields.map(i => i.toBuffer()),
+-    });
+-    return Fr.fromBuffer(Buffer.from(response.hash));
++    return sync.poseidon2AbsorbChain(state, inputs);
+   }
++  await Barretenberg.initSingleton();
++  const response = await Barretenberg.getSingleton().poseidon2AbsorbChain(absorbChainCommand(state, inputs));
++  return fieldsFromBuffers(response.state);
+ }
+ 
+ /**
+@@ -54,9 +85,7 @@ export function poseidon2Hash(input: Fieldable[]): Promise<Fr> {
+  * @returns The poseidon hash.
+  */
+ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Promise<Fr> {
+-  const inputFields = serializeToFields(input);
+-  inputFields.unshift(new Fr(separator));
+-  return poseidon2HashFields(inputFields);
++  return poseidon2HashFields([new Fr(separator), ...serializeToFields(input)]);
+ }
+ 
+ /**
+@@ -64,64 +93,10 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
+  * @param input the input state. Expected to be of size 4.
+  * @returns the output state, size 4.
+  */
+-export async function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
+-  const inputFields = serializeToFields(input);
+-  if (synchronous) {
+-    await BarretenbergSync.initSingleton();
+-    const api = BarretenbergSync.getSingleton();
+-    const response = api.poseidon2Permutation({
+-      inputs: inputFields.map(i => i.toBuffer()),
+-    });
+-    return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
+-  } else {
+-    await Barretenberg.initSingleton();
+-    const api = Barretenberg.getSingleton();
+-    const response = await api.poseidon2Permutation({
+-      inputs: inputFields.map(i => i.toBuffer()),
+-    });
+-    return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
+-  }
+-}
+-
+-/**
+- * Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks in a single API call.
+- * @param state - The sponge state, size 4.
+- * @param inputs - The fields to absorb; length must be a multiple of 3.
+- * @returns the output state, size 4.
+- */
+-export async function poseidon2AbsorbChain(state: Fr[], inputs: Fr[]): Promise<Fr[]> {
+-  // The fields travel as one flat 32-byte-per-field buffer
+-  const flat = Buffer.allocUnsafe(inputs.length * 32);
+-  for (let i = 0; i < inputs.length; i++) {
+-    flat.set(inputs[i].toBuffer(), i * 32);
+-  }
+-  const command = {
+-    state: state.map(s => s.toBuffer()),
+-    inputs: flat,
+-  };
+-  if (synchronous) {
+-    await BarretenbergSync.initSingleton();
+-    const api = BarretenbergSync.getSingleton();
+-    const response = api.poseidon2AbsorbChain(command);
+-    return response.state.map(o => Fr.fromBuffer(Buffer.from(o)));
+-  } else {
+-    await Barretenberg.initSingleton();
+-    const api = Barretenberg.getSingleton();
+-    const response = await api.poseidon2AbsorbChain(command);
+-    return response.state.map(o => Fr.fromBuffer(Buffer.from(o)));
+-  }
++export function poseidon2Permutation(input: Fieldable[]): Promise<Fr[]> {
++  return poseidon2PermutationFields(serializeToFields(input));
+ }
+ 
+ export function poseidon2HashBytes(input: Buffer): Promise<Fr> {
+-  const inputFields = [];
+-  for (let i = 0; i < input.length; i += 31) {
+-    const fieldBytes = Buffer.alloc(32, 0);
+-    input.slice(i, i + 31).copy(fieldBytes);
+-
+-    // Noir builds the bytes as little-endian, so we need to reverse them.
+-    fieldBytes.reverse();
+-    inputFields.push(Fr.fromBuffer(fieldBytes));
+-  }
+-
+-  return poseidon2HashFields(inputFields);
++  return poseidon2HashFields(bytesToPoseidonFields(input));
+ }
+diff --git a/yarn-project/foundation/src/crypto/sync/poseidon/index.ts b/yarn-project/foundation/src/crypto/sync/poseidon/index.ts
+index f114b9697ac3c242c36834306ce75a72271ecc12..8cf0938ca8ebcefb3094bac23e4959bf6c6fa917 100644
+--- a/yarn-project/foundation/src/crypto/sync/poseidon/index.ts
++++ b/yarn-project/foundation/src/crypto/sync/poseidon/index.ts
+@@ -4,6 +4,38 @@ import { Buffer } from 'buffer';
+ 
+ import { Fr } from '../../../curves/bn254/field.js';
+ import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
++import { absorbChainCommand, bytesToPoseidonFields, fieldsFromBuffers } from '../../poseidon/encoding.js';
++
++/**
++ * The Poseidon2 hash of `fields`, on the BarretenbergSync singleton, which must already exist.
++ * @param fields - The fields to hash.
++ * @returns The hash.
++ */
++export function poseidon2HashFields(fields: Fr[]): Fr {
++  const response = BarretenbergSync.getSingleton().poseidon2Hash({ inputs: fields.map(f => f.toBuffer()) });
++  return Fr.fromBuffer(Buffer.from(response.hash));
++}
++
++/**
++ * The Poseidon2 permutation of `state` (size 4), on the BarretenbergSync singleton, which must already exist.
++ * @param state - The input state.
++ * @returns The output state.
++ */
++export function poseidon2PermutationFields(state: Fr[]): Fr[] {
++  const response = BarretenbergSync.getSingleton().poseidon2Permutation({ inputs: state.map(f => f.toBuffer()) });
++  return fieldsFromBuffers(response.outputs);
++}
++
++/**
++ * Compute chain of Poseidon2 permutation rounds over chunks of 3-field blocks in a single API call.
++ * @param state - The sponge state, size 4.
++ * @param inputs - The fields to absorb; length must be a multiple of 3.
++ * @returns the output state, size 4.
++ */
++export function poseidon2AbsorbChain(state: Fr[], inputs: Fr[]): Fr[] {
++  const response = BarretenbergSync.getSingleton().poseidon2AbsorbChain(absorbChainCommand(state, inputs));
++  return fieldsFromBuffers(response.state);
++}
+ 
+ /**
+  * Create a poseidon hash (field) from an array of input fields.
+@@ -11,12 +43,7 @@ import { type Fieldable, serializeToFields } from '../../../serialize/serialize.
+  * @returns The poseidon hash.
+  */
+ export function poseidon2Hash(input: Fieldable[]): Fr {
+-  const inputFields = serializeToFields(input);
+-  const api = BarretenbergSync.getSingleton();
+-  const response = api.poseidon2Hash({
+-    inputs: inputFields.map(i => i.toBuffer()),
+-  });
+-  return Fr.fromBuffer(Buffer.from(response.hash));
++  return poseidon2HashFields(serializeToFields(input));
+ }
+ 
+ /**
+@@ -26,14 +53,7 @@ export function poseidon2Hash(input: Fieldable[]): Fr {
+  * @returns The poseidon hash.
+  */
+ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number): Fr {
+-  const inputFields = serializeToFields(input);
+-  inputFields.unshift(new Fr(separator));
+-
+-  const api = BarretenbergSync.getSingleton();
+-  const response = api.poseidon2Hash({
+-    inputs: inputFields.map(i => i.toBuffer()),
+-  });
+-  return Fr.fromBuffer(Buffer.from(response.hash));
++  return poseidon2HashFields([new Fr(separator), ...serializeToFields(input)]);
+ }
+ 
+ /**
+@@ -42,33 +62,9 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
+  * @returns the output state, size 4.
+  */
+ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
+-  const inputFields = serializeToFields(input);
+-  // We'd like this assertion but it's not possible to use it in the browser.
+-  // assert(input.length === 4, 'Input state must be of size 4');
+-  const api = BarretenbergSync.getSingleton();
+-  const response = api.poseidon2Permutation({
+-    inputs: inputFields.map(i => i.toBuffer()),
+-  });
+-  // We'd like this assertion but it's not possible to use it in the browser.
+-  // assert(response.outputs.length === 4, 'Output state must be of size 4');
+-  return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
++  return poseidon2PermutationFields(serializeToFields(input));
+ }
+ 
+ export function poseidon2HashBytes(input: Buffer): Fr {
+-  const inputFields = [];
+-  for (let i = 0; i < input.length; i += 31) {
+-    const fieldBytes = Buffer.alloc(32, 0);
+-    input.slice(i, i + 31).copy(fieldBytes);
+-
+-    // Noir builds the bytes as little-endian, so we need to reverse them.
+-    fieldBytes.reverse();
+-    inputFields.push(Fr.fromBuffer(fieldBytes));
+-  }
+-
+-  const api = BarretenbergSync.getSingleton();
+-  const response = api.poseidon2Hash({
+-    inputs: inputFields.map(i => i.toBuffer()),
+-  });
+-
+-  return Fr.fromBuffer(Buffer.from(response.hash));
++  return poseidon2HashFields(bytesToPoseidonFields(input));
+ }

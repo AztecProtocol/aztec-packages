@@ -26,10 +26,10 @@ int process_msgpack_commands(std::istream& input_stream)
     std::cout.rdbuf(std::cerr.rdbuf());
     std::ostream stdout_stream(original_cout_buf);
 
-    // BBApiRequest lives across calls so IVC state (loaded circuit,
+    // One instance across the calls, so IVC state (loaded circuit,
     // accumulator, etc.) persists between Chonk* invocations.
-    bb::bbapi::BBApiRequest request;
-    auto handler = bb::bbapi::make_bb_handler(request);
+    auto service = bb::bbapi::make_service();
+    auto& handler = service->dispatcher();
 
     while (!input_stream.eof()) {
         uint32_t length = 0;
@@ -100,10 +100,10 @@ int execute_msgpack_run(const std::string& msgpack_input_file,
         }
         std::cerr << "bb msgpack serving " << input_path << '\n';
 
-        // One request context for the whole serve so stateful command
-        // sequences (ChonkStart/Load/Accumulate/Prove) share IVC state.
-        bb::bbapi::BBApiRequest request;
-        auto handler = bb::bbapi::make_bb_handler(request);
+        // One instance for the whole serve, so stateful command sequences
+        // (ChonkStart/Load/Accumulate/Prove) share IVC state.
+        auto service = bb::bbapi::make_service();
+        auto& handler = service->dispatcher();
         // Every bb handler responds before it returns, so serve with the serial run() loop rather than run_reactor:
         // the request stays a zero-copy span into the ring and the response is sent straight back, with none of the
         // reactor's per-request copy, completion queue and cross-thread wake, which only a deferring handler needs.

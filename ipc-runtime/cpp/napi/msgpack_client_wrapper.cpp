@@ -4,7 +4,9 @@
 #include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string>
 
@@ -51,7 +53,7 @@ MsgpackClientWrapper::~MsgpackClientWrapper()
     }
 }
 
-Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
+std::span<const uint8_t> MsgpackClientWrapper::round_trip(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
@@ -84,11 +86,30 @@ Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
                                                : env.Null());
         throw err;
     }
-    std::span<const uint8_t> response = result.response;
+    return result.response;
+}
 
-    auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, response.data(), response.size());
+Napi::Value MsgpackClientWrapper::call(const Napi::CallbackInfo& info)
+{
+    std::span<const uint8_t> response = round_trip(info);
+    auto js_buffer = Napi::Buffer<uint8_t>::Copy(info.Env(), response.data(), response.size());
     client_->release(response.size());
     return js_buffer;
+}
+
+Napi::Value MsgpackClientWrapper::call_transient(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+    std::span<const uint8_t> response = round_trip(info);
+    if (scratch_.IsEmpty() || scratch_.Value().ByteLength() < response.size()) {
+        size_t capacity = scratch_.IsEmpty() ? 0 : scratch_.Value().ByteLength();
+        capacity = std::max({ capacity * 2, response.size(), size_t{ 64 * 1024 } });
+        scratch_ = Napi::Persistent(Napi::ArrayBuffer::New(env, capacity));
+    }
+    Napi::ArrayBuffer scratch = scratch_.Value();
+    std::memcpy(scratch.Data(), response.data(), response.size());
+    client_->release(response.size());
+    return Napi::Uint8Array::New(env, response.size(), scratch, 0);
 }
 
 Napi::Value MsgpackClientWrapper::close(const Napi::CallbackInfo& info)
@@ -106,6 +127,7 @@ Napi::Function MsgpackClientWrapper::get_class(Napi::Env env)
                        "MsgpackClient",
                        {
                            MsgpackClientWrapper::InstanceMethod("call", &MsgpackClientWrapper::call),
+                           MsgpackClientWrapper::InstanceMethod("callTransient", &MsgpackClientWrapper::call_transient),
                            MsgpackClientWrapper::InstanceMethod("close", &MsgpackClientWrapper::close),
                        });
 }

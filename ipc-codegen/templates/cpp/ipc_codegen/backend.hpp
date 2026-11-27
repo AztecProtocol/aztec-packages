@@ -7,7 +7,7 @@
  *   - ipc_codegen::IpcBackend (ipc_backend.hpp): UDS / MPSC-SHM transport from
  * ipc-runtime
  *   - <ns>::FfiBackend (<service>_ffi_backend.hpp, --client --ffi): the
- * service's in-process FFI entry, linked into the binary or any type of your
+ * service's in-process FFI, linked into the binary or any type of your
  * own with the same call(). Resources are released by the backend's destructor.
  *
  * Every service's generated directory carries its own copy of this header, so

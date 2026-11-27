@@ -2,7 +2,6 @@
 // ipc-runtime's socket/shared-memory server.
 // Usage: echo_server --socket /tmp/echo.sock
 
-#include "echo_handlers.hpp"
 #include "generated/echo_ipc_server.hpp"
 
 #include <iostream>
@@ -19,7 +18,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  echo::EchoCtx ctx;
-  echo::serve(socket_path, ctx);
+  echo::serve(socket_path);
   return 0;
 }

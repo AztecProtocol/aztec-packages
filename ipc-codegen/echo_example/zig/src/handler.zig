@@ -1,5 +1,5 @@
 //! The echo handlers, shared by the socket server (echo_server.zig) and the
-//! in-process FFI entry (ffi_test.zig).
+//! in-process FFI (ffi_test.zig).
 const types = @import("generated/echo_types.zig");
 const echo_server = @import("generated/echo_server.zig");
 

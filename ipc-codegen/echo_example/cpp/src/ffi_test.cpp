@@ -1,5 +1,5 @@
 // In-process round trip (C++): the generated EchoApi over the generated
-// FfiBackend, calling this example's own FFI entry (echo_ffi), no process
+// FfiBackend, calling this example's own FFI exports (echo_ffi), no process
 // involved. The requests the typed API cannot make (an unknown command,
 // malformed bytes) go through the backend's raw call().
 //

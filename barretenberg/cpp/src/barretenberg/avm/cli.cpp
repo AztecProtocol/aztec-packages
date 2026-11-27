@@ -1,10 +1,10 @@
 #include "barretenberg/avm/cli.hpp"
-#include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <string>
+#include <vector>
 
 namespace bb::avm {
 
@@ -24,11 +24,11 @@ int parse_and_run_avm(int argc, char* argv[])
     std::string input_path;
     msgpack_run_command->add_option("-i,--input", input_path, "IPC socket/shm path (.sock or .shm)")->required();
 
-    std::string wsdb_path;
-    msgpack_run_command->add_option("--wsdb", wsdb_path, "WSDB server IPC path (Simulate needs it)");
-
-    std::string cdb_path;
-    msgpack_run_command->add_option("--cdb", cdb_path, "CDB server IPC path (Simulate needs it)");
+    std::vector<std::string> host_calls;
+    msgpack_run_command->add_option(
+        "--host-call",
+        host_calls,
+        "name=path: where a host-call target is served (Simulate needs wsdb=<path> and cdb=<path>); repeatable");
 
     // Parse CLI
     try {
@@ -39,7 +39,7 @@ int parse_and_run_avm(int argc, char* argv[])
 
     try {
         if (msgpack_run_command->parsed()) {
-            return execute_avm_server(input_path, wsdb_path, cdb_path);
+            return execute_avm_server(input_path, host_calls);
         }
     } catch (const std::exception& e) {
         info("Error: ", e.what());
