@@ -19,12 +19,6 @@ hash=$(hash_str \
   $(cache_content_hash .rebuild_patterns) \
   $(semver check $REF_NAME && echo 1 || echo 0))
 
-# The workspaces resolve @aztec-foundation/ipc-runtime through a portal into
-# ipc-runtime/ts, so what node_modules ends up containing depends on that
-# package's manifest. Include it in the node-modules cache key; without it a
-# change there leaves a stale tree cached.
-IPC_RUNTIME_PKG="^ipc-runtime/ts/package\.json$"
-
 function generate_bb_avm_sim_package {
   node --experimental-strip-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
@@ -139,7 +133,7 @@ function generate_packages {
 # and compiled together: in CI an install replaces node_modules wholesale, so a build installs once, never once per
 # package (and never while something else runs out of node_modules).
 function install_and_compile_packages {
-  npm_install_deps "$IPC_RUNTIME_PKG"
+  npm_install_deps
   yarn workspaces foreach -A -p -t \
     --include "$BB_JS_API_PACKAGE" --include "$BB_AVM_SIM_PACKAGE" \
     --include "$CDB_PACKAGE" --include "$WSDB_REF_PACKAGE" run build
