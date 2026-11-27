@@ -136,6 +136,14 @@ function download_pinned_chonk_inputs {
     rm -rf "$state_dir"
     return 1
   fi
+  # The pin is the tarball's sha256 prefix, so it says what to expect, not only where to look.
+  local actual
+  actual=$(sha256sum "$tarball" | cut -c1-$PINNED_CHONK_HASH_LENGTH)
+  if [[ "$actual" != "$pinned_chonk_inputs_hash" ]]; then
+    echo_stderr "ERROR: pinned chonk inputs from $url have sha256 prefix $actual, not the pinned ${pinned_chonk_inputs_hash}"
+    rm -rf "$state_dir"
+    return 1
+  fi
   if ! tar -xzf "$tarball" -C "$dest"; then
     echo_stderr "ERROR: failed to extract pinned chonk inputs tarball"
     rm -rf "$state_dir"

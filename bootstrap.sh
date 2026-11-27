@@ -712,6 +712,8 @@ function publish {
   fi
   local dir
   dir=$(mktemp -d)
+  # This runs on a GitHub runner, with no instance profile for ci3 to take the bucket from.
+  source $ci3/source_cache_bucket aztec-ci-release-cache
   cache_download "release-$REF_NAME.tar.gz" "$dir"
   dir=$dir/release-out
 
