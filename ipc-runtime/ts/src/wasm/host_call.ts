@@ -51,6 +51,34 @@ export function unwrapTarget(
   return target;
 }
 
+/** A synchronous backend's host calls: an asynchronous answer fails the call, saying why. */
+export function synchronousAnswers(
+  answer: HostCallAnswer | undefined,
+): ((target: string, request: Uint8Array) => Uint8Array) | undefined {
+  return (
+    answer &&
+    ((target, request) => {
+      const response = answer(target, request);
+      if (isThenable(response)) {
+        // Nothing can settle it: the instance holds this thread until it returns.
+        void Promise.resolve(response).catch(() => {});
+        throw new Error(
+          `host call "${target}" answered asynchronously; a synchronous backend needs synchronous answers`,
+        );
+      }
+      return response;
+    })
+  );
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
 /**
  * Host calls answered on the thread the module runs on, each target by its function or its backend
  * (`callerOf` picks a backend's synchronous caller where it has one, so a synchronous module can
@@ -87,3 +115,4 @@ export function hostCallOn(
     return call(request);
   };
 }
+

@@ -8,14 +8,14 @@ export interface MainWorkerOptions {
 }
 
 /**
- * Body of the worker hosting modules' main instances (see `WasmWorker`): create an engine per
+ * Body of the worker hosting wasm modules (see `ServiceThread`): a module's main instance per
  * `load`, serve `call` requests, tear down on `unload` and `destroy`. Calls run to completion on
  * this worker's thread; the parent's event loop stays free.
  *
- * A module's host calls are answered here: a sibling module is called directly, and anything else
- * is asked of the parent, the module suspended (JSPI) until the parent answers. Calls run one at a
- * time across the worker's modules: while one is suspended, a call into any of them could re-enter
- * a module mid-call through a sibling.
+ * A module's host calls are answered here: a sibling is called directly, and anything else is asked
+ * of the parent, the module waiting for the answer suspended (JSPI). Calls run one at a time across
+ * the worker's modules: while one is suspended, a call into any of them could re-enter a module
+ * mid-call through a sibling.
  */
 export function runMainWorker(
   side: WorkerSide,
@@ -99,10 +99,9 @@ export function runMainWorker(
       case "load": {
         const slot: number = msg.slot;
         try {
+          const targets = msg.hostCall ?? {};
           const o = msg.options ?? {};
-          engines.set(
-            slot,
-            await WasmFfiEngine.create(
+          const engine = await WasmFfiEngine.create(
               {
                 module: msg.module,
                 threads: o.threads,
@@ -112,12 +111,12 @@ export function runMainWorker(
                 entry: o.entry,
                 logger: (message) =>
                   side.postMessage({ type: "log", slot, message }),
-                hostCall: hostCallFor(slot, msg.hostCall ?? {}),
+                hostCall: hostCallFor(slot, targets),
                 suspending: true,
               },
               binding,
-            ),
-          );
+            );
+          engines.set(slot, engine);
           side.postMessage({ type: "loaded", slot });
         } catch (e) {
           side.postMessage({

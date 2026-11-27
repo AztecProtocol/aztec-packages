@@ -1,10 +1,13 @@
-# bb-avm-sim: the AVM simulator as a service over avm_schema.json. Two artifacts carry it to
+# bb-avm-sim: the AVM simulator as a service over avm_schema.json. Three artifacts carry it to
 # @aztec-foundation/bb-avm-sim (barretenberg/ts/bb-avm-sim):
 #   - the bb-avm-sim binary (native builds), served over IPC, reaching world state and contract
 #     data through its wsdb and cdb IPC clients;
 #   - bb-avm-sim.wasm, a WASI reactor (wasm builds) exporting the generated FFI entry
 #     (avm_ipc_ffi_entry), reaching world state and contract data through the same clients over
-#     its host's ipc_runtime.host_call import (targets "wsdb" and "cdb").
+#     its host's ipc_runtime.host_call import (targets "wsdb" and "cdb");
+#   - libbb_avm_sim.so (native builds), the same FFI entry as a plain shared library for the
+#     package's napi transport, whose host calls go to the function its loader sets
+#     (avm_ipc_ffi_set_host_call; ipc-runtime's addon answers them in JS).
 set(AVM_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/avm_schema.json)
 # Generated code is per build tree (each preset generates its own, so presets building at once never
 # share a file). Remove the copy older checkouts generated into the source tree: it would shadow this one.
@@ -121,4 +124,20 @@ if(ENABLE_STACKTRACES)
         PRIVATE
         -ldw -lelf
     )
+endif()
+
+# The FFI entry as a plain shared library, for the napi transport, built like wsdb-ref's (see
+# wsdb_ref/CMakeLists.txt): ipc-runtime's Node-API addon loads it, and it exports only the FFI symbols.
+add_library(bb_avm_sim_ffi SHARED $<TARGET_OBJECTS:avm_ffi_objects>)
+target_link_libraries(bb_avm_sim_ffi PRIVATE vm2_sim wsdb_ipc_merkle_db cdb_ipc_client)
+set_target_properties(bb_avm_sim_ffi PROPERTIES
+    PREFIX "lib"
+    SUFFIX ".so"
+    OUTPUT_NAME bb_avm_sim
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+if(NOT APPLE)
+    set(BB_AVM_SIM_FFI_VERSION_SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/bb_avm_sim_ffi.map)
+    file(WRITE ${BB_AVM_SIM_FFI_VERSION_SCRIPT} "{ global: avm_ipc_ffi_*; local: *; };\n")
+    target_link_options(bb_avm_sim_ffi PRIVATE "LINKER:--version-script,${BB_AVM_SIM_FFI_VERSION_SCRIPT}")
+    set_property(TARGET bb_avm_sim_ffi APPEND PROPERTY LINK_DEPENDS ${BB_AVM_SIM_FFI_VERSION_SCRIPT})
 endif()
