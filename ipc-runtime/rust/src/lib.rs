@@ -7,6 +7,8 @@
 //! - [`error`]: the error type generated clients return.
 //! - [`host_call_backend`]: a blocking call to a service the host provides.
 //! - [`async_host`]: asynchronous instances, whose handlers await their host calls.
+//! - [`guard`]: answers a request whose handler panicked or dropped its responder, so neither
+//!   unwinds through an FFI entry point nor leaves its caller waiting.
 //!
 //! With the `sockets` feature (on by default), which compiles the C++ runtime:
 //! - `IpcServer` and `IpcClient`, picking the transport from the path's suffix (`.sock` → UDS,
@@ -20,6 +22,7 @@
 pub mod async_host;
 pub mod backend;
 pub mod error;
+pub mod guard;
 pub mod host_call_backend;
 
 #[cfg(feature = "sockets")]

@@ -20,22 +20,17 @@ set(WSDB_REF_GEN_OUTPUTS
     ${WSDB_REF_GEN_DIR}/wsdb_ffi.hpp
     ${WSDB_REF_GEN_DIR}/wsdb_ipc_server.hpp
     ${WSDB_REF_GEN_DIR}/wsdb_types.hpp
-    ${WSDB_REF_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${WSDB_REF_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-    ${WSDB_REF_GEN_DIR}/ipc_codegen/throw.hpp
 )
 set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
-file(GLOB_RECURSE IPC_CODEGEN_SRC ${IPC_CODEGEN_DIR}/src/*.ts ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp)
+file(GLOB_RECURSE IPC_CODEGEN_SRC ${IPC_CODEGEN_DIR}/src/*.ts)
 add_custom_command(
     OUTPUT ${WSDB_REF_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${WSDB_REF_SCHEMA}
             --lang cpp
             --out ${WSDB_REF_GEN_DIR}
             --server
-            --ffi
-            --ffi-name wsdb_ref
+            --ffi=wsdb_ref
             --cpp-namespace bb::wsdb_ref
             --cpp-include-dir barretenberg/wsdb_ref/generated
     DEPENDS ${WSDB_REF_SCHEMA} ${IPC_CODEGEN_SRC}

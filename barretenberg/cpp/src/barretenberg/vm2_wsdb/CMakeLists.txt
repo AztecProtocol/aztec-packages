@@ -13,23 +13,14 @@ if(TARGET vm2_sim)
     set(WSDB_GEN_OUTPUTS
         ${WSDB_GEN_DIR}/wsdb_client.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/any_backend.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/backend.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/host_call_backend.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-        ${WSDB_GEN_DIR}/ipc_codegen/throw.hpp
     )
     set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
     file(GLOB_RECURSE IPC_CODEGEN_SRC
         ${IPC_CODEGEN_DIR}/src/*.ts
-        ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
     )
     add_custom_command(
         OUTPUT ${WSDB_GEN_OUTPUTS}
-        COMMAND node --experimental-strip-types --no-warnings
-                ${IPC_CODEGEN_DIR}/src/generate.ts
+        COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
                 --schema ${WSDB_SCHEMA}
                 --lang cpp
                 --out ${WSDB_GEN_DIR}

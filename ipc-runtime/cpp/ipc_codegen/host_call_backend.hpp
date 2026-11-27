@@ -29,14 +29,11 @@
  * HostCallBackend they never use still link. A test can define the symbol to stand in for the
  * host; the file defining it defines IPC_CODEGEN_HOST_CALL_DEFINED first, which leaves only the
  * declaration here.
- *
- * Every service's generated directory carries its own copy of this header, so
- * it is guarded by a fixed macro rather than #pragma once: two services in one
- * binary see one definition.
  */
 #ifndef IPC_CODEGEN_HOST_CALL_BACKEND_HPP
 #define IPC_CODEGEN_HOST_CALL_BACKEND_HPP
 
+#include "ipc_runtime/ffi_abi.h"
 #include "throw.hpp"
 
 #include <atomic>
@@ -65,9 +62,7 @@ extern "C" int32_t ipc_runtime_host_call(const uint8_t *target,
 #else
 namespace ipc_codegen {
 /** The host-call contract above, as a function a native library's host provides. */
-using HostCallFn = int32_t (*)(const uint8_t *target, size_t target_len,
-                               const uint8_t *request, size_t request_len,
-                               uint8_t **response, size_t *response_len);
+using HostCallFn = ipc_ffi_host_call_fn;
 
 /** This library's host-call function, set by <service>_ipc_ffi_set_host_call. */
 inline std::atomic<HostCallFn> &native_host_call() {

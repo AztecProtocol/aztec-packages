@@ -5,7 +5,6 @@
 ^native-packages/acvm/rust/
 ^native-packages/acvm/scripts/
 ^ipc-codegen/src/
-^ipc-codegen/templates/
 ^ipc-runtime/rust/
 ^ipc-runtime/cpp/
 ^noir/noir-repo/acvm-repo/

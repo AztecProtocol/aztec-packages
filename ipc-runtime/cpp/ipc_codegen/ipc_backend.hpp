@@ -5,10 +5,6 @@
  * The transport is chosen by the path suffix: ".sock" → UDS, ".shm" → MPSC-SHM.
  * Calls block until the response arrives. Needs the ipc_runtime library, which
  * FFI-only consumers never include.
- *
- * Every service's generated directory carries its own copy of this header, so
- * it is guarded by a fixed macro rather than #pragma once: two services in one
- * binary see one definition.
  */
 #ifndef IPC_CODEGEN_IPC_BACKEND_HPP
 #define IPC_CODEGEN_IPC_BACKEND_HPP

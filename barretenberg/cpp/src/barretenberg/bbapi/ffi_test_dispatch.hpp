@@ -6,8 +6,8 @@
  */
 #include "barretenberg/bbapi/generated/bb_ffi.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_adaptor.hpp"
-#include "barretenberg/bbapi/generated/ipc_codegen/msgpack_include.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
+#include "ipc_codegen/msgpack_include.hpp"
 #include <stdexcept>
 #include <string>
 

@@ -52,7 +52,9 @@ function test_cmds {
   local script="ipc-codegen/echo_example/scripts/run_cross_language_test.sh"
 
   # Generator unit tests (schema validation).
-  echo "$prefix node --experimental-strip-types --no-warnings ipc-codegen/test/schema_visitor.test.ts"
+  echo "$prefix node ipc-codegen/test/schema_visitor.test.ts"
+  # The published package runs from node_modules, where Node will not strip types.
+  echo "$prefix ipc-codegen/scripts/pack_test.sh"
 
   # The generator itself must load under type stripping alone (no transform step).
   echo "$prefix ipc-codegen/scripts/strip_only_test.sh"
@@ -66,6 +68,7 @@ function test_cmds {
   # The generated FFI exports, driven in-process through the generated client
   # over its FFI backend (the Rust equivalent runs as a cargo test during build()).
   echo "$prefix ipc-codegen/echo_example/cpp/build/bin/ffi_test"
+  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/responder_test"
   echo "$prefix ipc-codegen/echo_example/zig/zig-out/bin/ffi_test"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh uds"
   echo "$prefix ipc-codegen/echo_example/ts_package/test.sh shm"

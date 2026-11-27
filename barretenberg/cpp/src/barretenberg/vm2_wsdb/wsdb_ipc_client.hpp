@@ -1,7 +1,7 @@
 #pragma once
 
-#include "barretenberg/vm2_wsdb/generated/ipc_codegen/any_backend.hpp"
 #include "barretenberg/vm2_wsdb/generated/wsdb_client.hpp"
+#include "ipc_codegen/any_backend.hpp"
 
 namespace bb::wsdb {
 

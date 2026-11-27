@@ -11,7 +11,7 @@
 #include "barretenberg/avm/avm_simulate.hpp"
 #include "barretenberg/avm/avm_simulate_with_hints.hpp"
 #include "barretenberg/avm/generated/avm_dispatch.hpp"
-#include "barretenberg/vm2_wsdb/generated/ipc_codegen/host_call_backend.hpp"
+#include "ipc_codegen/host_call_backend.hpp"
 
 #include <memory>
 

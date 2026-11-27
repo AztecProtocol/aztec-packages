@@ -58,7 +58,7 @@ int main() {
     std::string message;
     try {
       api.fail({.message = "boom"});
-    } catch (const std::exception &e) {
+    } catch (const ipc_codegen::ServiceError &e) {
       message = e.what();
     }
     check(message.find("boom") != std::string::npos,

@@ -31,6 +31,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "ipc_runtime/ffi_abi.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -101,21 +103,14 @@ typedef void (*ipc_server_handler_fn)(
 
 void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* ctx);
 
-/* A service's asynchronous FFI (<svc>_ipc_ffi_create_async, _submit,
- * _deliver, _destroy_async). Its callbacks may be called on any thread. */
-typedef void (*ipc_async_respond_fn)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
-typedef void (*ipc_async_call_fn)(void* host_ctx,
-                                  uint64_t call_id,
-                                  const uint8_t* target,
-                                  size_t target_len,
-                                  const uint8_t* request,
-                                  size_t request_len);
-typedef struct {
-    void* (*create)(void* host_ctx, ipc_async_respond_fn respond, ipc_async_call_fn call);
-    void (*submit)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len);
-    void (*deliver)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t response_len);
-    void (*destroy)(void* instance);
-} ipc_async_service_t;
+/* What ipc_server_run sends in place of a response larger than the transport
+ * carries (half a shared-memory ring): `make` writes it, from the oversized
+ * response's size and the limit, into a buffer it owns, as a handler does.
+ * Without one, such a response is a fatal error for the loop. */
+typedef void (*ipc_oversized_response_fn)(
+    size_t size, size_t limit, uint8_t** resp_out, size_t* resp_len_out, void* ctx);
+
+void ipc_server_set_oversized_response(ipc_server_t* server, ipc_oversized_response_fn make, void* ctx);
 
 /* A host-call target: the name a handler calls and the socket it reaches. */
 typedef struct {

@@ -23,7 +23,7 @@ fn ffi_roundtrip() {
     );
 
     assert!(
-        api.fail("boom".to_string()).is_err(),
+        matches!(api.fail("boom".to_string()), Err(ipc_runtime::error::IpcError::Service(m)) if m == "boom"),
         "EchoFail must surface as an error"
     );
 }

@@ -53,6 +53,14 @@ mod sys {
         ctx: *mut c_void,
     );
 
+    pub type ipc_oversized_response_fn = unsafe extern "C" fn(
+        size: usize,
+        limit: usize,
+        resp_out: *mut *mut u8,
+        resp_len_out: *mut usize,
+        ctx: *mut c_void,
+    );
+
     extern "C" {
 
         pub fn ipc_make_server(
@@ -69,6 +77,11 @@ mod sys {
             ctx: *mut c_void,
         );
         pub fn ipc_install_default_signal_handlers(server: *mut ipc_server);
+        pub fn ipc_server_set_oversized_response(
+            server: *mut ipc_server,
+            make: Option<ipc_oversized_response_fn>,
+            ctx: *mut c_void,
+        );
         pub fn ipc_server_serve_async(
             server: *mut ipc_server,
             service: *const super::AsyncService,
@@ -176,6 +189,39 @@ impl IpcServer {
         unsafe { sys::ipc_install_default_signal_handlers(self.inner.as_ptr()) };
     }
 
+    /// What [`run`](Self::run) sends in place of a response larger than the transport carries
+    /// (half a shared-memory ring), made from its size and the limit: a service passes the
+    /// generated `<service>_server::oversized_response`, so the caller gets an error response
+    /// rather than the loop ending.
+    pub fn set_oversized_response(&mut self, make: fn(usize, usize) -> Vec<u8>) {
+        thread_local! {
+            static SCRATCH: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
+        }
+        unsafe extern "C" fn shim(
+            size: usize,
+            limit: usize,
+            resp_out: *mut *mut u8,
+            resp_len_out: *mut usize,
+            ctx: *mut c_void,
+        ) {
+            // SAFETY: ctx is the fn pointer set_oversized_response passed.
+            let make: fn(usize, usize) -> Vec<u8> = unsafe { std::mem::transmute(ctx) };
+            let response = crate::guard::catch(|| make(size, limit)).unwrap_or_default();
+            // The runtime copies the response before the loop's next call.
+            SCRATCH.with(|scratch| {
+                let mut scratch = scratch.borrow_mut();
+                *scratch = response;
+                unsafe {
+                    *resp_out = scratch.as_mut_ptr();
+                    *resp_len_out = scratch.len();
+                }
+            });
+        }
+        unsafe {
+            sys::ipc_server_set_oversized_response(self.inner.as_ptr(), Some(shim), make as *const () as *mut c_void);
+        }
+    }
+
     /// Run the event loop. The handler is called for each incoming request
     /// with the client id and request bytes; it returns the response bytes.
     /// Blocks until shutdown is requested.
@@ -214,7 +260,9 @@ impl IpcServer {
             } else {
                 std::slice::from_raw_parts(req, req_len)
             };
-            let response = (ctx.handler)(client_id, req_slice);
+            // A panic must not unwind into the C++ loop; the generated handle_request answers its
+            // handler's panics itself, so this only catches a handler of the caller's own.
+            let response = crate::guard::catch(|| (ctx.handler)(client_id, req_slice)).unwrap_or_default();
             ctx.scratch = response;
             *resp_out = ctx.scratch.as_mut_ptr();
             *resp_len_out = ctx.scratch.len();
@@ -232,7 +280,8 @@ impl IpcServer {
 
 /// A service's asynchronous FFI (`<svc>_ipc_ffi_create_async`, `_submit`, `_deliver`,
 /// `_destroy_async`), which [`IpcServer::serve_async`] drives. Its callbacks may be called on any
-/// thread.
+/// thread. Mirrors `ipc_async_service_t` in `ipc-runtime/cpp/ipc_runtime/ffi_abi.h`, which defines
+/// the contract.
 #[repr(C)]
 pub struct AsyncService {
     pub create: unsafe extern "C" fn(
@@ -317,11 +366,14 @@ pub struct IpcClient {
 
 unsafe impl Send for IpcClient {}
 
+/// The MPSC-SHM client id that claims a free slot (C++ `ipc::kAutoClientId`).
+pub const AUTO_CLIENT_ID: usize = usize::MAX;
+
 impl IpcClient {
-    /// Construct a client and connect. ".sock" → UDS, ".shm" → MPSC-SHM
-    /// (with `shm_client_id` slot).
+    /// Construct a client and connect. ".sock" → UDS, ".shm" → MPSC-SHM, claiming a free client
+    /// slot so that any number of clients can share one server.
     pub fn from_path(path: &str) -> Result<Self> {
-        Self::from_path_with_id(path, 0)
+        Self::from_path_with_id(path, AUTO_CLIENT_ID)
     }
 
     /// Construct a client over an already-open fd pair, for talking to a child
@@ -340,6 +392,9 @@ impl IpcClient {
         Ok(client)
     }
 
+    /// Like [`IpcClient::from_path`], but pins MPSC-SHM slot `shm_client_id` without claiming it,
+    /// or claims a free one for [`AUTO_CLIENT_ID`]. Two clients pinned to one slot corrupt each
+    /// other's requests. Ignored for UDS.
     pub fn from_path_with_id(path: &str, shm_client_id: usize) -> Result<Self> {
         let c_path = CString::new(path).map_err(|_| Error::InvalidPath(path.to_string()))?;
         let raw = unsafe { sys::ipc_make_client(c_path.as_ptr(), shm_client_id) };
@@ -473,6 +528,56 @@ mod tests {
         assert!(resp.is_empty());
 
         drop(client);
+        shutdown_server(raw, handle);
+    }
+
+    #[test]
+    fn shm_oversized_response_is_replaced_and_the_server_keeps_serving() {
+        let path = format!("/ipc_rust_test_big_{}.shm", std::process::id());
+        let mut server = IpcServer::from_path(&path).expect("make server");
+        server.listen().expect("listen");
+        server.set_oversized_response(|size, limit| format!("too big: {size} > {limit}").into_bytes());
+        let raw = server.inner.as_ptr() as usize;
+        let handle = std::thread::spawn(move || {
+            // Larger than half the default ring.
+            server.run(|_client_id, req| if req == b"big" { vec![0xAB; 4 << 20] } else { req.to_vec() });
+        });
+
+        let mut client = IpcClient::from_path(&path).expect("connect");
+        let resp = String::from_utf8(client.call(b"big").expect("an answer")).unwrap();
+        assert!(resp.starts_with(&format!("too big: {} > ", 4 << 20)), "{resp}");
+        assert_eq!(client.call(b"small").expect("still serving"), b"small");
+
+        drop(client);
+        shutdown_server(raw, handle);
+    }
+
+    #[test]
+    fn shm_clients_from_path_each_claim_their_own_slot() {
+        let path = format!("/ipc_rust_test_slots_{}.shm", std::process::id());
+        let mut server = IpcServer::from_path(&path).expect("make server");
+        server.listen().expect("listen");
+        let raw = server.inner.as_ptr() as usize;
+        let handle = std::thread::spawn(move || {
+            server.run(|_client_id, req| req.to_vec());
+        });
+
+        let clients: Vec<_> = (0..2u8)
+            .map(|t| {
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    let mut client = IpcClient::from_path(&path).expect("connect");
+                    for i in 0..200u32 {
+                        let req = [&[t][..], &i.to_le_bytes()[..]].concat();
+                        assert_eq!(client.call(&req).expect("an answer"), req);
+                    }
+                })
+            })
+            .collect();
+        for client in clients {
+            client.join().expect("each client gets its own answers");
+        }
+
         shutdown_server(raw, handle);
     }
 }

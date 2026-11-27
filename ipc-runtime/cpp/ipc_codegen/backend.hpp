@@ -9,10 +9,6 @@
  *   - <ns>::FfiBackend (<service>_ffi_backend.hpp, --client --ffi): the
  * service's in-process FFI, linked into the binary or any type of your
  * own with the same call(). Resources are released by the backend's destructor.
- *
- * Every service's generated directory carries its own copy of this header, so
- * it is guarded by a fixed macro rather than #pragma once: two services in one
- * binary see one definition.
  */
 #ifndef IPC_CODEGEN_BACKEND_HPP
 #define IPC_CODEGEN_BACKEND_HPP
@@ -20,9 +16,22 @@
 #include <concepts>
 #include <cstdint>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace ipc_codegen {
+
+/**
+ * Thrown by a generated <Service>Api when the service answers a command with its
+ * error response: the request arrived and was refused. what() is the service's
+ * message. Any other exception from the Api is a fault on the way there or back.
+ */
+class ServiceError : public std::runtime_error {
+public:
+  explicit ServiceError(const std::string &message)
+      : std::runtime_error(message) {}
+};
 
 template <typename B>
 concept Backend = requires(B &backend, std::span<const uint8_t> request) {

@@ -8,9 +8,9 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2_wsdb/generated/ipc_codegen/host_call_backend.hpp"
 #include "barretenberg/vm2_wsdb/wsdb_ipc_client.hpp"
 #include "barretenberg/vm2_wsdb/wsdb_wire.hpp"
+#include "ipc_codegen/host_call_backend.hpp"
 
 #include <gtest/gtest.h>
 

@@ -19,19 +19,14 @@ set(AVM_GEN_OUTPUTS
     ${AVM_GEN_DIR}/avm_ffi.hpp
     ${AVM_GEN_DIR}/avm_ipc_server.hpp
     ${AVM_GEN_DIR}/avm_types.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-    ${AVM_GEN_DIR}/ipc_codegen/throw.hpp
 )
 set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
 file(GLOB_RECURSE IPC_CODEGEN_SRC
     ${IPC_CODEGEN_DIR}/src/*.ts
-    ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
 )
 add_custom_command(
     OUTPUT ${AVM_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${AVM_SCHEMA}
             --lang cpp
             --out ${AVM_GEN_DIR}
@@ -39,8 +34,6 @@ add_custom_command(
             --ffi
             --cpp-namespace bb::avm
             --cpp-include-dir barretenberg/avm/generated
-            --prefix Avm
-            --strip-method-prefix
     DEPENDS ${AVM_SCHEMA} ${IPC_CODEGEN_SRC}
     COMMENT "Generating the AVM IPC server and FFI from avm_schema.json"
     VERBATIM

@@ -1,6 +1,6 @@
 /**
  * Schema validation tests. Run with:
- *   node --experimental-strip-types --no-warnings test/schema_visitor.test.ts
+ *   node test/schema_visitor.test.ts
  * Exits non-zero on failure.
  */
 import {

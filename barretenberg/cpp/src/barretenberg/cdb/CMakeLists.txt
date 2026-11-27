@@ -6,31 +6,20 @@ set(CDB_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 set(CDB_GEN_OUTPUTS
     ${CDB_GEN_DIR}/cdb_client.hpp
     ${CDB_GEN_DIR}/cdb_types.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/any_backend.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/backend.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/host_call_backend.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/ipc_backend.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/msgpack_adaptor.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/msgpack_include.hpp
-    ${CDB_GEN_DIR}/ipc_codegen/throw.hpp
 )
 set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)
 file(GLOB_RECURSE IPC_CODEGEN_SRC
     ${IPC_CODEGEN_DIR}/src/*.ts
-    ${IPC_CODEGEN_DIR}/templates/cpp/*.hpp
 )
 add_custom_command(
     OUTPUT ${CDB_GEN_OUTPUTS}
-    COMMAND node --experimental-strip-types --no-warnings
-            ${IPC_CODEGEN_DIR}/src/generate.ts
+    COMMAND ${IPC_CODEGEN_DIR}/bin/ipc-codegen.mjs
             --schema ${CDB_SCHEMA}
             --lang cpp
             --out ${CDB_GEN_DIR}
             --client
             --cpp-namespace bb::cdb
             --cpp-include-dir barretenberg/cdb/generated
-            --prefix Cdb
-            --strip-method-prefix
     DEPENDS ${CDB_SCHEMA} ${IPC_CODEGEN_SRC}
     COMMENT "Generating CDB IPC client from cdb_schema.json"
     VERBATIM

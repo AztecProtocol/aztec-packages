@@ -109,12 +109,19 @@ impl Driver {
                     id,
                     woken: self.woken.clone(),
                 }));
-                if task
-                    .as_mut()
-                    .poll(&mut Context::from_waker(&waker))
-                    .is_pending()
-                {
-                    self.tasks.borrow_mut().insert(id, task);
+                let polled = crate::guard::catch_keeping_message(|| {
+                    task.as_mut().poll(&mut Context::from_waker(&waker))
+                });
+                match polled {
+                    Some(Poll::Pending) => {
+                        self.tasks.borrow_mut().insert(id, task);
+                    }
+                    Some(Poll::Ready(())) => {}
+                    // A task that panicked is dropped, and its responder answers with the panic.
+                    None => {
+                        drop(task);
+                        crate::guard::forget_panic();
+                    }
                 }
             }
         }
@@ -275,8 +282,10 @@ impl<H> AsyncInstance<H> {
         let _enter = Enter::new(&self.driver);
         let host = self.driver.host.clone();
         let respond: RawRespond = Box::new(move |response| host.respond(request_id, &response));
-        (self.dispatch)(&mut self.handler, request, respond);
-        self.driver.run();
+        // The generated dispatch answers a handler's panic itself; this keeps any other panic from
+        // unwinding out through the host's call.
+        crate::guard::catch(|| (self.dispatch)(&mut self.handler, request, respond));
+        crate::guard::catch(|| self.driver.run());
     }
 
     /// The host's answer to call `call_id`: 0 and the service's response, or non-zero and the
@@ -299,7 +308,7 @@ impl<H> AsyncInstance<H> {
         if let Some(waker) = slot.waker.borrow_mut().take() {
             waker.wake();
         }
-        self.driver.run();
+        crate::guard::catch(|| self.driver.run());
     }
 }
 

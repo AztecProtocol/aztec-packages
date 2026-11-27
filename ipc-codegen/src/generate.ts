@@ -24,13 +24,11 @@ import {
   writeFileSync,
   renameSync,
   mkdirSync,
-  cpSync,
   rmSync,
   rmdirSync,
 } from "fs";
 import { execSync } from "child_process";
 import { basename, dirname, join, relative, resolve } from "path";
-import { fileURLToPath } from "url";
 import {
   SchemaVisitor,
   friendlyToPositional,
@@ -53,9 +51,6 @@ import { toSnakeCase } from "./naming.ts";
 import { readMemoryImport } from "./wasm_memory.ts";
 import type { PackageWasmModule } from "./typescript_package_codegen.ts";
 
-// @ts-ignore
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 /** Records what the last run produced, so this one can remove what it no longer emits. */
 const MANIFEST = ".ipc-codegen-manifest";
 
@@ -67,7 +62,6 @@ interface Args {
   schema: string;
   lang: string;
   out: string;
-  prefix: string;
   server: boolean;
   client: boolean;
   packageDir: string;
@@ -86,11 +80,9 @@ interface Args {
   packageEveryPlatform: boolean;
   ipcRuntimeDependency: string;
   cppNamespace: string;
-  cppWireNamespace: string;
   cppIncludeDir: string;
   ffi: boolean;
   ffiName: string;
-  stripMethodPrefix: boolean;
   stripTypePrefix: boolean;
 }
 
@@ -147,21 +139,17 @@ Optional:
                            (default: <LIBRARY_STEM>_NAPI_PATH)
   --ipc-runtime-dependency <spec>
                            package.json dependency spec for @aztec-foundation/ipc-runtime
-  --prefix <str>           Type prefix (auto-detected when >= 2 commands share one)
-  --strip-method-prefix    Strip the prefix from generated method names in all
-                           languages (e.g. BbCircuitProve -> circuitProve)
-  --strip-type-prefix      Strip the prefix from generated type and converter
-                           names too (e.g. BbCircuitProve -> CircuitProve).
+  --strip-type-prefix      Strip the service prefix from generated type and converter
+                           names (e.g. BbCircuitProve -> CircuitProve; rust and ts).
                            Wire tags always keep the full schema name.
-  --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
+  --ffi, --ffi=<name>      In-process FFI (rust, zig, cpp). With --client: the FFI
                            client backend. With --server: the exported FFI
-                           (<service>_ipc_ffi_create/_call/...) over the dispatch
-  --ffi-name <name>        The name the FFI symbols carry (<name>_ipc_ffi_call, and the
-                           wasm export a TS package's wasm transport calls). Defaults
-                           to the schema's service in snake_case; set it when several
-                           implementations serve one schema, so each exports its own
+                           (<name>_ipc_ffi_create/_call/...) over the dispatch. <name>
+                           defaults to the schema's service in snake_case; give it when
+                           several implementations serve one schema, so each exports its
+                           own. For a ts package, --ffi=<name> names the symbols its napi
+                           and wasm transports call
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
-  --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
 `);
   process.exit(1);
@@ -172,7 +160,6 @@ function parseArgs(argv: string[]): Args {
     schema: "",
     lang: "",
     out: "",
-    prefix: "",
     server: false,
     client: false,
     packageDir: "",
@@ -180,7 +167,7 @@ function parseArgs(argv: string[]): Args {
     binaryName: "",
     binaryEnvVar: "",
     packageTransports: "uds",
-    packageIpcPathArgs: "--socket,{path}",
+    packageIpcPathArgs: "msgpack,run,--input,{path}",
     packageWasmModule: "",
     packageNapiLibrary: "",
     packageNapiLibraryEnvVar: "",
@@ -191,11 +178,9 @@ function parseArgs(argv: string[]): Args {
     packageEveryPlatform: false,
     ipcRuntimeDependency: "@aztec-foundation/ipc-runtime",
     cppNamespace: "",
-    cppWireNamespace: "wire",
     cppIncludeDir: "",
     ffi: false,
     ffiName: "",
-    stripMethodPrefix: false,
     stripTypePrefix: false,
   };
 
@@ -203,7 +188,7 @@ function parseArgs(argv: string[]): Args {
     const flag = argv[i];
     const takeValue = (): string => {
       const value = argv[++i];
-      if (value === undefined || value.startsWith("--")) {
+      if (value === undefined) {
         console.error(`Flag ${flag} requires a value`);
         process.exit(1);
       }
@@ -218,9 +203,6 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--out":
         args.out = takeValue();
-        break;
-      case "--prefix":
-        args.prefix = takeValue();
         break;
       case "--server":
         args.server = true;
@@ -276,9 +258,6 @@ function parseArgs(argv: string[]): Args {
       case "--cpp-namespace":
         args.cppNamespace = takeValue();
         break;
-      case "--cpp-wire-namespace":
-        args.cppWireNamespace = takeValue();
-        break;
       case "--cpp-include-dir":
         args.cppIncludeDir = takeValue();
         break;
@@ -286,16 +265,19 @@ function parseArgs(argv: string[]): Args {
       case "--ffi":
         args.ffi = true;
         break;
-      case "--ffi-name":
-        args.ffiName = takeValue();
-        break;
-      case "--strip-method-prefix":
-        args.stripMethodPrefix = true;
-        break;
       case "--strip-type-prefix":
         args.stripTypePrefix = true;
         break;
       default:
+        if (flag.startsWith("--ffi=")) {
+          args.ffi = true;
+          args.ffiName = flag.slice("--ffi=".length);
+          if (!args.ffiName) {
+            console.error(`--ffi=<name> requires a name`);
+            process.exit(1);
+          }
+          break;
+        }
         console.error(`Unknown flag: ${flag}`);
         process.exit(1);
     }
@@ -320,10 +302,14 @@ function parseArgs(argv: string[]): Args {
     console.error(`--package is only supported for --lang ts`);
     process.exit(1);
   }
+  if (args.lang === "ts" && args.ffi && args.ffiName && args.packageDir) {
+    // A ts package only needs the name its napi and wasm transports call.
+    args.ffi = false;
+  }
   if (args.ffi && !["rust", "zig", "cpp"].includes(args.lang)) {
     console.error(
-      `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module ` +
-        `through the wasm transport (--package-transports wasm)`,
+      `--ffi applies to rust, zig and cpp; a ts package reaches an FFI module through its ` +
+        `napi and wasm transports, and takes --ffi=<name> only to name their symbols`,
     );
     process.exit(1);
   }
@@ -348,52 +334,29 @@ function computeSchemaHash(schemaJson: string): string {
 function loadSchema(schemaPath: string): {
   compiled: CompiledSchema;
   schemaHash: string;
-  service?: string;
+  service: string;
 } {
   const rawJson = readFileSync(schemaPath, "utf-8").trim();
   const parsed = JSON.parse(stripJsonc(rawJson));
   let commandsUnion: any;
   let responsesUnion: any;
-  let service: string | undefined;
-  if (isFriendlySchema(parsed)) {
-    ({
-      commands: commandsUnion,
-      responses: responsesUnion,
-      service,
-    } = friendlyToPositional(parsed));
-  } else {
-    commandsUnion = parsed.commands;
-    responsesUnion = parsed.responses;
+  let service: string;
+  if (!isFriendlySchema(parsed)) {
+    console.error(
+      `${schemaPath}: a schema declares its service, types and commands (see SCHEMA_SPEC.md); ` +
+        `scripts/convert_schema.ts converts one in the positional form`,
+    );
+    process.exit(1);
   }
+  ({
+    commands: commandsUnion,
+    responses: responsesUnion,
+    service,
+  } = friendlyToPositional(parsed));
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(commandsUnion, responsesUnion);
   const schemaHash = computeSchemaHash(rawJson);
   return { compiled, schemaHash, service };
-}
-
-/** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
-function detectPrefix(compiled: CompiledSchema): string {
-  const names = compiled.commands.map((c) => c.name);
-  // With a single command the longest common prefix is the entire name and
-  // stripping it would erase the method name; require an explicit --prefix.
-  if (names.length < 2) return "";
-  let prefix = names[0];
-  for (const name of names.slice(1)) {
-    while (prefix && !name.startsWith(prefix)) {
-      prefix = prefix.slice(0, -1);
-    }
-  }
-  const words = prefix.match(/[A-Z][a-z]*/g) || [];
-  let result = "";
-  for (const word of words) {
-    const candidate = result + word;
-    if (names.every((n) => n.startsWith(candidate))) {
-      result = candidate;
-    } else {
-      break;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -441,15 +404,6 @@ function pruneStale(root: string) {
     }
   }
   writeFileSync(manifestPath, current.join("\n") + "\n");
-}
-
-function copyTemplateDir(lang: string, dirname: string, outDir: string) {
-  const templatePath = join(__dirname, "..", "templates", lang, dirname);
-  const destPath = join(outDir, dirname);
-  rmSync(destPath, { recursive: true, force: true });
-  cpSync(templatePath, destPath, { recursive: true });
-  written.push(destPath);
-  console.log(`  ${destPath} (template)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -572,11 +526,8 @@ function generate(args: Args) {
   mkdirSync(absOut, { recursive: true });
 
   const { compiled, schemaHash, service } = loadSchema(absSchema);
-  // Friendly schemas fold the type prefix and method-prefix stripping into
-  // `service`: generated type names are `service + command`, method names are
-  // the bare command. Positional schemas keep the legacy --prefix/--strip flags.
-  const prefix = service || args.prefix || detectPrefix(compiled);
-  const stripMethodPrefix = service ? true : args.stripMethodPrefix;
+  // Generated type names are `service + command`; method names are the bare command.
+  const prefix = service;
   // The schema's service names the wire protocol (it prefixes every tag), so it is shared by every
   // implementation of the schema. The FFI symbols name one implementation.
   const ffiName = args.ffiName || toSnakeCase(prefix);
@@ -608,7 +559,7 @@ function generate(args: Args) {
       // package: no spawned binary, so no client APIs or arch packages.
       const serverPackage = !!args.packageDir && args.server && !args.client;
       const gen = new TypeScriptCodegen({
-        stripMethodPrefix: stripMethodPrefix ? prefix : undefined,
+        stripMethodPrefix: prefix,
         stripTypePrefix: args.stripTypePrefix ? prefix : undefined,
       });
       writeFile("api_types.ts", gen.generateTypes(compiled, schemaHash));
@@ -817,7 +768,7 @@ function generate(args: Args) {
       const gen = new RustCodegen({
         prefix,
         ffiName,
-        stripMethodPrefix: stripMethodPrefix,
+        stripMethodPrefix: true,
         stripTypePrefix: args.stripTypePrefix,
       });
       writeFile(
@@ -853,7 +804,7 @@ function generate(args: Args) {
         prefix,
         ffiName,
         clientName: `${prefix}Client`,
-        stripMethodPrefix: stripMethodPrefix,
+        stripMethodPrefix: true,
       });
       writeFile(
         `${toSnakeCase(prefix)}_types.zig`,
@@ -885,14 +836,14 @@ function generate(args: Args) {
     }
     case "cpp": {
       const ns = args.cppNamespace || prefix.toLowerCase();
-      const wireNs = args.cppWireNamespace;
+      const wireNs = "wire";
       const gen = new CppCodegen({
         namespace: ns,
         prefix,
         ffiName,
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
-        stripMethodPrefix: stripMethodPrefix,
+        stripMethodPrefix: true,
       });
 
       cppFiles.push(
@@ -901,7 +852,6 @@ function generate(args: Args) {
           gen.generateStandaloneTypes(compiled),
         ),
       );
-      copyTemplateDir("cpp", "ipc_codegen", absOut);
       if (args.server) {
         cppFiles.push(
           writeFile(

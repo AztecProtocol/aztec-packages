@@ -18,6 +18,7 @@
  * that is not a socket.
  */
 
+#include "ipc_runtime/ffi_abi.h"
 #include "ipc_runtime/ipc_server.hpp"
 
 #include <cstddef>
@@ -27,20 +28,15 @@
 
 namespace ipc {
 
-/** A service's asynchronous FFI. Its callbacks may be called on any thread. */
+/** A service's asynchronous FFI, as ipc_runtime/ffi_abi.h defines it. Its callbacks may be called on any thread. */
 struct AsyncService {
-    using Respond = void (*)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
-    using Call = void (*)(void* host_ctx,
-                          uint64_t call_id,
-                          const uint8_t* target,
-                          size_t target_len,
-                          const uint8_t* request,
-                          size_t request_len);
+    using Respond = ipc_async_respond_fn;
+    using Call = ipc_async_call_fn;
 
-    void* (*create)(void* host_ctx, Respond respond, Call call);
-    void (*submit)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len);
-    void (*deliver)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t response_len);
-    void (*destroy)(void* instance);
+    ipc_ffi_create_async_fn create;
+    ipc_ffi_submit_fn submit;
+    ipc_ffi_deliver_fn deliver;
+    ipc_ffi_destroy_fn destroy;
 };
 
 /** A host-call target: the name a handler calls, and the socket of the service it reaches. */

@@ -18,8 +18,7 @@ hash=$(hash_str $(../lmdblib/bootstrap.sh hash) $(../../barretenberg/cpp/bootstr
 IPC_CODEGEN_DIR="$ROOT/ipc-codegen"
 
 function generate_ts_package {
-  node --experimental-strip-types --no-warnings \
-    "$IPC_CODEGEN_DIR/src/generate.ts" \
+  "$IPC_CODEGEN_DIR/bin/ipc-codegen.mjs" \
     --schema "$WSDB_SCHEMA" \
     --lang ts \
     --client \
@@ -28,7 +27,6 @@ function generate_ts_package {
     --package-name @aztec-labs/wsdb \
     --binary-name "$WSDB_BINARY" \
     --package-transports uds,shm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     "$@"
 }
 

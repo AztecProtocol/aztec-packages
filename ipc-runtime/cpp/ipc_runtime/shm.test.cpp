@@ -1,4 +1,5 @@
 #include "ipc_runtime/blocking_call.hpp"
+#include "ipc_runtime/c_abi.h"
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/shm/futex.hpp"
@@ -17,11 +18,14 @@
 #include <cstring>
 #include <fcntl.h>
 #include <functional>
+#include <future>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <random>
+#include <set>
 #include <sstream>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -235,6 +239,33 @@ TEST(ShmTest, ConnectRefusesSizedButUninitialisedSegments)
     }
     shm_unlink((base + "_doorbell").c_str());
     SpscShm::unlink(base + "_ring_0");
+}
+
+// A C++ exception must not cross the C ABI: a Rust or Zig caller aborts on a foreign exception.
+TEST(ShmTest, CAbiReportsACorruptRequestInsteadOfThrowing)
+{
+    std::string name = "shm_cabi_corrupt_" + std::to_string(getpid());
+    ipc_server_t* server = ipc_server_create_mpsc_shm(name.c_str(), 1, 1 << 16, 1 << 16);
+    ASSERT_NE(server, nullptr);
+    ASSERT_TRUE(ipc_server_listen(server));
+    {
+        // A length prefix shorter than the request-id field, as the server sees from two clients
+        // writing into one slot.
+        MpscProducer producer = MpscProducer::connect(name + "_req", 0);
+        uint32_t frame[2] = { 4, 7 };
+        std::memcpy(producer.claim(sizeof(frame), 1'000'000'000ULL), frame, sizeof(frame));
+        producer.publish(sizeof(frame));
+
+        ASSERT_EQ(ipc_server_wait_for_data(server, 1'000'000'000ULL), 0);
+        uint64_t request_id = 0;
+        const uint8_t* data = nullptr;
+        size_t len = 0;
+        ipc_status_t status = IPC_OK;
+        EXPECT_NO_THROW(status = ipc_server_receive(server, 0, &request_id, &data, &len));
+        EXPECT_EQ(status, IPC_ERR_RECV);
+    }
+    ipc_server_close(server);
+    ipc_server_destroy(server);
 }
 
 TEST(ShmTest, ZeroLengthResponseRoundTrip)
@@ -1061,6 +1092,58 @@ TEST(ShmTest, SerialClientSkipsStaleFrameFromPreviousOccupant)
     server->close();
 }
 
+// A deferred request can wait on a later one (a nested call back into this server): after a shutdown
+// request the reactor must keep reading requests until every deferred response is given, rather than
+// waiting for responses that can only come from requests it no longer reads.
+TEST(ShmTest, MpscReactorKeepsServingAfterShutdownUntilDeferredResponsesAreGiven)
+{
+    std::string base_name = "shm_mpsc_quiesce_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, 1, 1 << 16, 1 << 16);
+    ASSERT_TRUE(server->listen());
+
+    std::optional<IpcServer::Respond> outer;
+    std::atomic<bool> outer_waiting{ false };
+    auto served = std::async(std::launch::async, [&] {
+        server->run_reactor([&](int, std::span<const uint8_t> req, IpcServer::Respond respond) {
+            if (req[0] == 1) {
+                outer = std::move(respond);
+                outer_waiting.store(true);
+                return;
+            }
+            respond({ 2 });
+            (*outer)({ 1 });
+        });
+    });
+
+    auto client = IpcClient::create_mpsc_shm(base_name);
+    ASSERT_TRUE(client->connect());
+    uint8_t outer_req = 1;
+    ASSERT_TRUE(client->send(1, &outer_req, 1, 1'000'000'000ULL));
+    while (!outer_waiting.load()) {
+        std::this_thread::yield();
+    }
+    server->request_shutdown();
+    // Let the reactor leave its serving loop first, as when the signal lands before the nested call.
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    uint8_t nested_req = 2;
+    ASSERT_TRUE(client->send(2, &nested_req, 1, 1'000'000'000ULL));
+
+    std::set<uint64_t> answered;
+    for (int i = 0; i < 2; i++) {
+        uint64_t rid = 0;
+        auto resp = client->receive(2'000'000'000ULL, rid);
+        ASSERT_EQ(resp.size(), 1U) << "response " << i << " never came";
+        EXPECT_EQ(resp[0], rid);
+        answered.insert(rid);
+        client->release(resp.size());
+    }
+    EXPECT_EQ(answered, (std::set<uint64_t>{ 1, 2 }));
+    ASSERT_EQ(served.wait_for(std::chrono::seconds(2)), std::future_status::ready)
+        << "run_reactor did not return once every deferred response was given";
+    client->close();
+    server->close();
+}
+
 TEST(ShmTest, MpscReactorMultiClientResponseRouting)
 {
     constexpr uint32_t NUM_CLIENTS = 4;
@@ -1416,6 +1499,72 @@ TEST(BlockingCallTest, RejectsARequestTooLargeForTheRing)
     client->close();
     ::kill(pid, SIGKILL);
     ::waitpid(pid, nullptr, 0);
+}
+
+} // namespace
+
+namespace {
+
+/**
+ * A response too large for the shared-memory ring is replaced by what set_oversized_response()
+ * makes of its size, so the caller gets an answer and the server keeps serving; under both run()
+ * and run_reactor().
+ */
+void oversized_response_is_answered(bool reactor)
+{
+    constexpr size_t RING_SIZE = 4UL * 1024;
+    std::string base_name = std::string("shm_big_") + (reactor ? "r" : "s") + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, 1, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen());
+    EXPECT_LT(server->max_response_size(), RING_SIZE / 2);
+    std::vector<size_t> refused;
+    server->set_oversized_response([&refused](size_t size, size_t limit) {
+        refused.push_back(size);
+        return std::vector<uint8_t>{ 0xEE, static_cast<uint8_t>(limit > 0) };
+    });
+
+    auto answer = [](std::span<const uint8_t> request) {
+        return request[0] == 1 ? std::vector<uint8_t>(3000, 0xAB) : std::vector<uint8_t>{ 7 };
+    };
+    std::thread server_thread([&] {
+        if (reactor) {
+            server->run_reactor(
+                [&](int, std::span<const uint8_t> request, IpcServer::Respond respond) { respond(answer(request)); });
+        } else {
+            server->run([&](int, std::span<const uint8_t> request) { return answer(request); });
+        }
+    });
+
+    auto client = IpcClient::create_mpsc_shm(base_name);
+    ASSERT_TRUE(client->connect());
+    auto call = [&](uint8_t byte) {
+        EXPECT_TRUE(client->send(&byte, 1, 1'000'000'000ULL));
+        std::span<const uint8_t> resp;
+        for (int i = 0; i < 50 && resp.data() == nullptr; i++) {
+            resp = client->receive(100'000'000ULL);
+        }
+        std::vector<uint8_t> out(resp.begin(), resp.end());
+        client->release(resp.size());
+        return out;
+    };
+    EXPECT_EQ(call(1), (std::vector<uint8_t>{ 0xEE, 1 }));
+    EXPECT_EQ(call(2), (std::vector<uint8_t>{ 7 }));
+
+    client->close();
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+    EXPECT_EQ(refused, (std::vector<size_t>{ 3000 }));
+}
+
+TEST(ShmTest, OversizedResponseIsAnsweredUnderRun)
+{
+    oversized_response_is_answered(false);
+}
+
+TEST(ShmTest, OversizedResponseIsAnsweredUnderRunReactor)
+{
+    oversized_response_is_answered(true);
 }
 
 } // namespace

@@ -5,5 +5,4 @@
 ^native-packages/kv-sqlite/cpp/
 ^native-packages/kv-sqlite/scripts/
 ^ipc-codegen/src/
-^ipc-codegen/templates/
 ^ipc-runtime/cpp/

@@ -42,11 +42,11 @@ add_subdirectory(${foundation}/ipc-runtime/cpp ${CMAKE_BINARY_DIR}/_deps/ipc-run
 # --- Generated code -----------------------------------------------------------------------------
 # The Kv server dispatch and FFI; regenerated whenever configure runs, which its inputs below trigger.
 execute_process(
-    COMMAND node --experimental-strip-types --no-warnings ${foundation}/ipc-codegen/src/generate.ts
+    COMMAND ${foundation}/ipc-codegen/bin/ipc-codegen.mjs
             --schema ${pkg}/kv_schema.jsonc --lang cpp --out ${gen}/generated
-            --server --cpp-namespace aztec::kv --cpp-include-dir generated --ffi --ffi-name kv_sqlite
+            --server --cpp-namespace aztec::kv --cpp-include-dir generated --ffi=kv_sqlite
     COMMAND_ERROR_IS_FATAL ANY OUTPUT_QUIET)
-file(GLOB_RECURSE ipc_codegen_sources ${foundation}/ipc-codegen/src/*.ts ${foundation}/ipc-codegen/templates/cpp/*)
+file(GLOB_RECURSE ipc_codegen_sources ${foundation}/ipc-codegen/src/*.ts)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${pkg}/kv_schema.jsonc ${ipc_codegen_sources})
 

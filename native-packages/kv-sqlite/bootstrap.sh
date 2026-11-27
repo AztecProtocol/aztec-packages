@@ -12,7 +12,7 @@ KV_LIBRARY=libkv_sqlite.so
 hash=$(cache_content_hash .rebuild_patterns)
 
 function ipc_codegen {
-  node --experimental-strip-types --no-warnings "$ROOT/ipc-codegen/src/generate.ts" "$@"
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" "$@"
 }
 
 # The TS package: the Kv client over the binary (uds) and the library (napi), and the service's server bindings
@@ -23,14 +23,10 @@ function generate_ts {
     --package "$PKG/ts" \
     --package-name @aztec-labs/kv-sqlite \
     --binary-name "$KV_BINARY" \
-    --prefix Kv \
-    --ffi-name kv_sqlite \
-    --strip-method-prefix \
+    --ffi=kv_sqlite \
     --client --server \
     --package-transports uds,napi \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-napi-library "$KV_LIBRARY" \
-    --package-napi-library-env-var KV_SQLITE_NAPI_PATH \
     "$@"
 }
 

@@ -14,7 +14,7 @@ WASM_TARGET=wasm32-wasip1
 hash=$(cache_content_hash .rebuild_patterns)
 
 function ipc_codegen {
-  node --experimental-strip-types --no-warnings "$ROOT/ipc-codegen/src/generate.ts" "$@"
+  "$ROOT/ipc-codegen/bin/ipc-codegen.mjs" "$@"
 }
 
 function generate_rust {
@@ -35,10 +35,7 @@ function generate_ts {
     --package "$PKG/ts" \
     --package-name @aztec-labs/acvm \
     --binary-name "$ACVM_BINARY" \
-    --prefix Acvm \
-    --strip-method-prefix \
     --package-transports uds,napi,wasm \
-    --package-ipc-path-args 'msgpack,run,--input,{path}' \
     --package-napi-library "$ACVM_LIBRARY" \
     --package-napi-library-env-var ACVM_NAPI_PATH \
     --package-wasm-module "acvm.wasm=$PKG/rust/target/$WASM_TARGET/release/aztec_acvm.wasm" \

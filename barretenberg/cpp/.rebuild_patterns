@@ -7,6 +7,6 @@
 ^barretenberg/cpp/bootstrap.sh
 ^barretenberg/cpp/CMakePresets.json
 ^ipc-codegen/src/.*\.ts$
-^ipc-codegen/templates/cpp/
+^ipc-runtime/cpp/ipc_codegen/
 ^protocol/constants-codegen/
 ^noir-projects/fnd/noir-protocol-circuits/crates/types/src/constants\.nr$

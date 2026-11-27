@@ -563,8 +563,8 @@ ${this.generateResponseUnion(schema)}
             defer alloc.free(response_bytes);
             const resp_name, const resp_payload = try Self.decode(response_bytes);
             if (std.mem.eql(u8, resp_name, "${this.errorTypeName}")) {
-                self.last_server_error = extractErrorMessage(resp_payload);
-                return error.ServerError;
+                self.last_service_error = extractErrorMessage(resp_payload);
+                return error.ServiceError;
             }
             return try types.${zigRespName}.fromPayload(resp_payload);
         }`;
@@ -593,9 +593,9 @@ pub fn Client(comptime BackendType: type) type {
         const Self = @This();
         backend: *BackendType,
         /// Message from the most recent server error response. Zig errors
-        /// carry no payload, so error.ServerError callers read this for the
+        /// carry no payload, so error.ServiceError callers read this for the
         /// server's diagnostic. Valid until the next call on this client.
-        last_server_error: ?[]const u8 = null,
+        last_service_error: ?[]const u8 = null,
 
         pub fn init(backend: *BackendType) Self {
             return .{ .backend = backend };

@@ -79,13 +79,13 @@ fn main() -> Result<()> {
 
     // Test 8: EchoFail — server error surfaces with its message
     match client.fail("deliberate failure".to_string()) {
-        Err(IpcError::Backend(message)) => {
+        Err(IpcError::Service(message)) => {
             assert!(
                 message.contains("deliberate failure"),
                 "EchoFail message mismatch: {message}"
             );
         }
-        other => panic!("EchoFail expected backend error, got {other:?}"),
+        other => panic!("EchoFail expected a service error, got {other:?}"),
     }
     eprintln!("echo_client(rust): EchoFail OK");
 
