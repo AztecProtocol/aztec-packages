@@ -620,8 +620,7 @@ function release {
   # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
   # We ensure there is a github release for our REF_NAME.
   # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
-  echo_header "release all"
-  set -x
+  echo_header "stage release artifacts"
 
   # A private release publishes only our npm packages to the internal GCP Artifact Registry — see
   # private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in the private repo;
@@ -666,7 +665,7 @@ function release {
   )
 
   for project in "${projects[@]}"; do
-    $project/bootstrap.sh release
+    denoise "$project/bootstrap.sh release"
   done
 
   # Keyed by the release tag and force-uploaded so a re-run of the release refreshes the bundle.
@@ -772,13 +771,12 @@ function private_release {
     echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
   } > "$npmrc")
   export NPM_CONFIG_GLOBALCONFIG="$npmrc"
-  set -x
 
   # Publish for real, in dependency order: the ipc-codegen-generated @aztec-labs/wsdb has a runtime
   # dependency on @aztec-foundation/ipc-runtime, so ipc-runtime must precede wsdb.
   local publish=(barretenberg/ts noir ipc-runtime ipc-codegen native-packages/wsdb protocol/constants-codegen protocol/genesis l1-contracts noir-projects/fnd)
   for project in "${publish[@]}"; do
-    $project/bootstrap.sh release
+    denoise "$project/bootstrap.sh release"
   done
 }
 
