@@ -1,0 +1,2836 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Charlie <5764343+charlielye@users.noreply.github.com>
+Date: Thu, 19 Nov 2026 10:57:09 +0000
+Subject: [PATCH] feat(kv-store): run the browser store on the Kv service, and
+ the same store anywhere
+
+kv-store's containers (map, multimap, array, set, singleton) call the Kv service's generated
+client (@aztec-labs/kv-sqlite) instead of writing SQL, in AztecKvSqliteStore
+(@aztec-labs/kv-store/kv-sqlite), which takes any backend of the service: its native library or
+process in node, the library through JSI in React Native, or a backend object.
+
+AztecSQLiteOPFSStore keeps its API, Web Lock and quarantine. Its worker serves the Kv contract
+itself, in TypeScript (sqlite-opfs/kv_handler.ts, on the package's server bindings), over the
+sqlite3mc wasm build and SQLite's own opfs-sahpool VFS, as the browser store always ran; the main
+thread posts the client's command bytes to it. The handler writes exactly the rows the native
+store does, so a database opens in either: the container suites run against both in node, and
+databases one writes are read and matched by value by the other, encrypted ones included.
+
+The service identifies a value within its key by the SHA-256 of its bytes, where the browser store hashed the JS
+value with ohash, so it does not match multimap values a browser store wrote. PXE_DATA_SCHEMA_VERSION goes to 17,
+which names a fresh browser store: an upgraded PXE never reads the old one, and an older PXE still opens its own,
+untouched. The wallet DB holds only maps, which are read by key, so it opens as it is.
+
+Arrays may now hold a value more than once. The browser and IndexedDB stores put the value's ohash under a unique
+index, so pushing a value already in the array threw; IndexedDB entries now carry their position in the hash too.
+
+diff --git a/labs-aztec-toolchain/pins.mjs b/labs-aztec-toolchain/pins.mjs
+index 6936d5345f75b3c39a372026d63933db2a532899..d30dd90caa65668558b54b30d483dd7829b11e11 100755
+--- a/labs-aztec-toolchain/pins.mjs
++++ b/labs-aztec-toolchain/pins.mjs
+@@ -84,6 +84,15 @@ const LOCAL_PACKAGES = {
+     "portal:barretenberg/ts/wsdb-ref/packages/wsdb-ref-linux-arm64",
+   "@aztec-foundation/wsdb-ref-linux-x64":
+     "portal:barretenberg/ts/wsdb-ref/packages/wsdb-ref-linux-x64",
++  "@aztec-labs/kv-sqlite": "portal:native-packages/kv-sqlite/ts",
++  "@aztec-labs/kv-sqlite-darwin-arm64":
++    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-darwin-arm64",
++  "@aztec-labs/kv-sqlite-darwin-x64":
++    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-darwin-x64",
++  "@aztec-labs/kv-sqlite-linux-arm64":
++    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-linux-arm64",
++  "@aztec-labs/kv-sqlite-linux-x64":
++    "portal:native-packages/kv-sqlite/ts/packages/kv-sqlite-linux-x64",
+   "@aztec-labs/kvdb": "portal:native-packages/kvdb/ts",
+   "@aztec-labs/kvdb-darwin-arm64":
+     "portal:native-packages/kvdb/ts/packages/kvdb-darwin-arm64",
+diff --git a/yarn-project/kv-store/README.md b/yarn-project/kv-store/README.md
+index d4b9389fa5a3f05f9ffd2217308b42bda23be331..1a1bf801e0462e3d02f91e579ec400e77f5c2c27 100644
+--- a/yarn-project/kv-store/README.md
++++ b/yarn-project/kv-store/README.md
+@@ -15,5 +15,6 @@ The backend is selected at import time, you import `createStore` (and friends) f
+ 
+ - `@aztec-labs/kv-store/lmdb-v2`: server / Node. The current default for node components.
+ - `@aztec-labs/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
+-- `@aztec-labs/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS).
++- `@aztec-labs/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS): the Kv service on a worker, in TypeScript over the sqlite3mc wasm build and SQLite's own OPFS VFS.
++- `@aztec-labs/kv-store/kv-sqlite`: the same store over `@aztec-labs/kv-sqlite`'s native service (its library or process in node, the library through JSI in React Native), so a database has one format everywhere.
+ - `@aztec-labs/kv-store/deprecated/indexeddb`: **deprecated** browser backend, backed by IndexedDB. New browser code must use `@aztec-labs/kv-store/sqlite-opfs`, as this backend is on its way to being fully deprecated.
+diff --git a/yarn-project/kv-store/bootstrap.sh b/yarn-project/kv-store/bootstrap.sh
+index e76ed71ee8a1e86a8bc08eef297bb412da44f1c6..f29c6ea6fb5ac15fcc178af0ac71c8d9ed0d1100 100755
+--- a/yarn-project/kv-store/bootstrap.sh
++++ b/yarn-project/kv-store/bootstrap.sh
+@@ -10,7 +10,7 @@ hash=$(../bootstrap.sh hash)
+ # silently until the CI timeout kills it. test_cmds therefore refuses to emit
+ # anything it cannot classify.
+ browser_dirs="src/deprecated/indexeddb src/sqlite-opfs"
+-node_dirs="src/interfaces src/lmdb src/lmdb-v2 src/stores"
++node_dirs="src/interfaces src/kv-sqlite src/lmdb src/lmdb-v2 src/stores"
+ # Benchmarks self-skip unless VITE_BENCH=1, so there is nothing for CI to run.
+ unscheduled_dirs="src/bench"
+ 
+diff --git a/yarn-project/kv-store/package.json b/yarn-project/kv-store/package.json
+index 2bb75f5d62973cf8af100736e4f02598756af2c8..6d6933e5e082d522258f1d02ad8f36337109e550 100644
+--- a/yarn-project/kv-store/package.json
++++ b/yarn-project/kv-store/package.json
+@@ -8,6 +8,7 @@
+     "./lmdb": "./dest/lmdb/index.js",
+     "./lmdb-v2": "./dest/lmdb-v2/index.js",
+     "./deprecated/indexeddb": "./dest/deprecated/indexeddb/index.js",
++    "./kv-sqlite": "./dest/kv-sqlite/index.js",
+     "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
+     "./stores": "./dest/stores/index.js"
+   },
+@@ -37,9 +38,11 @@
+   ],
+   "dependencies": {
+     "@aztec-labs/foundation": "workspace:^",
++    "@aztec-labs/kv-sqlite": "0.1.0-dummy",
+     "@aztec-labs/native": "workspace:^",
+     "@aztec-labs/sqlite3mc-wasm": "workspace:^",
+     "@aztec-labs/stdlib": "workspace:^",
++    "@noble/hashes": "^1.6.1",
+     "buffer": "^6.0.3",
+     "idb": "^8.0.0",
+     "lmdb": "^3.2.0",
+diff --git a/yarn-project/kv-store/src/deprecated/indexeddb/array.ts b/yarn-project/kv-store/src/deprecated/indexeddb/array.ts
+index ad36056408cf63c56ed88cc031a44a2528aa781e..758c121c849d6c971f7733b411ee0f31a02782e9 100644
+--- a/yarn-project/kv-store/src/deprecated/indexeddb/array.ts
++++ b/yarn-project/kv-store/src/deprecated/indexeddb/array.ts
+@@ -41,7 +41,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T>
+     for (const val of vals) {
+       await this.db.put({
+         value: val,
+-        hash: hash(val),
++        hash: positionalHash(val, length),
+         container: this.#container,
+         key: [this.#name],
+         keyCount: length + 1,
+@@ -89,7 +89,7 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T>
+ 
+     await this.db.put({
+       value: val,
+-      hash: hash(val),
++      hash: positionalHash(val, index),
+       container: this.#container,
+       key: [this.#name],
+       keyCount: index + 1,
+@@ -120,3 +120,11 @@ export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T>
+     return `array:${this.#name}:slot:${index}`;
+   }
+ }
++
++/**
++ * The store's (container, key, hash) index is unique, and an array may hold a value more than once, so an entry's
++ * hash names its position too. Entries written before carry the bare hash, which never equals a suffixed one.
++ */
++function positionalHash(val: unknown, position: number): string {
++  return `${hash(val)}#${position + 1}`;
++}
+diff --git a/yarn-project/kv-store/src/interfaces/array_test_suite.ts b/yarn-project/kv-store/src/interfaces/array_test_suite.ts
+index ae6d27e4275c94a910bdbb2ebf6ce2b240a82509..598ab0b04fc0bea012db19adafeb18db44d0d6e3 100644
+--- a/yarn-project/kv-store/src/interfaces/array_test_suite.ts
++++ b/yarn-project/kv-store/src/interfaces/array_test_suite.ts
+@@ -59,6 +59,17 @@ export function describeAztecArray(
+       expect(await arr.pop()).toBe(undefined);
+     });
+ 
++    it('holds the same value more than once', async () => {
++      await arr.push(7, 7);
++      await arr.push(7);
++      await arr.setAt(0, 8);
++      await arr.setAt(1, 7);
++
++      expect(await values()).toEqual([8, 7, 7]);
++      expect(await arr.pop()).toBe(7);
++      expect(await values()).toEqual([8, 7]);
++    });
++
+     it('should be able to get values by index', async () => {
+       await arr.push(1);
+       await arr.push(2);
+diff --git a/yarn-project/kv-store/src/kv-sqlite/array.ts b/yarn-project/kv-store/src/kv-sqlite/array.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..4214de7ea940de134420f5db314755861fff175b
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/array.ts
+@@ -0,0 +1,95 @@
++import { Encoder } from '#msgpackr';
++import { toBufferKey } from '#ordered-binary';
++import type { Buffer } from 'buffer';
++
++import type { AztecAsyncArray } from '../interfaces/array.js';
++import type { Value } from '../interfaces/common.js';
++import type { AztecKvSqliteStore } from './store.js';
++
++/**
++ * A persistent array over the Kv service: one key (the array's name) in the container `array:<name>`, whose entry
++ * indices are the positions, from 1.
++ */
++export class KvSqliteAztecArray<T extends Value> implements AztecAsyncArray<T> {
++  readonly #container: string;
++  readonly #key: Buffer;
++  readonly #encoder = new Encoder();
++
++  constructor(
++    private readonly store: AztecKvSqliteStore,
++    name: string,
++  ) {
++    this.#container = `array:${name}`;
++    this.#key = toBufferKey([name]);
++  }
++
++  async lengthAsync(): Promise<number> {
++    return Number((await this.store.run(kv => kv.count({ container: this.#container, key: this.#key }))).count);
++  }
++
++  async push(...vals: T[]): Promise<number> {
++    if (vals.length === 0) {
++      return this.lengthAsync();
++    }
++    const { count } = await this.store.run(kv =>
++      kv.append({
++        container: this.#container,
++        key: this.#key,
++        values: vals.map(val => this.#encoder.pack(val)),
++        unique: false,
++      }),
++    );
++    return Number(count);
++  }
++
++  async pop(): Promise<T | undefined> {
++    const { value } = await this.store.run(kv => kv.pop({ container: this.#container, key: this.#key }));
++    return value == null ? undefined : (this.#encoder.unpack(value) as T);
++  }
++
++  async atAsync(index: number): Promise<T | undefined> {
++    const position = index < 0 ? (await this.lengthAsync()) + index : index;
++    if (position < 0) {
++      return undefined;
++    }
++    const { value } = await this.store.run(kv =>
++      kv.getAt({ container: this.#container, key: this.#key, index: position + 1 }),
++    );
++    return value == null ? undefined : (this.#encoder.unpack(value) as T);
++  }
++
++  async setAt(index: number, val: T): Promise<boolean> {
++    return await this.store.transactionAsync(async () => {
++      const position = index < 0 ? (await this.lengthAsync()) + index : index;
++      if (position < 0) {
++        return false;
++      }
++      const { set } = await this.store.run(kv =>
++        kv.setAt({
++          container: this.#container,
++          key: this.#key,
++          index: position + 1,
++          value: this.#encoder.pack(val),
++        }),
++      );
++      return set;
++    });
++  }
++
++  async *entriesAsync(): AsyncIterableIterator<[number, T]> {
++    const { values } = await this.store.run(kv => kv.values({ container: this.#container, key: this.#key }));
++    for (const [position, value] of values.entries()) {
++      yield [position, this.#encoder.unpack(value) as T];
++    }
++  }
++
++  async *valuesAsync(): AsyncIterableIterator<T> {
++    for await (const [, val] of this.entriesAsync()) {
++      yield val;
++    }
++  }
++
++  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
++    return this.valuesAsync();
++  }
++}
+diff --git a/yarn-project/kv-store/src/kv-sqlite/errors.ts b/yarn-project/kv-store/src/kv-sqlite/errors.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..647d208f15f7086918ce340af9750bf8613f8f6a
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/errors.ts
+@@ -0,0 +1,78 @@
++/**
++ * Typed error surface for sqlite3mc-backed page-level encryption failures.
++ *
++ * Three concrete failure modes are surfaced:
++ *
++ *   - `invalid_key_length`: caller-side pre-flight (key not 32 bytes).
++ *   - `encryption_not_supported_for_ephemeral`: caller-side pre-flight (encryption was requested on an ephemeral
++ *     `:memory:` store, which sqlite3mc does not support).
++ *   - `decrypt_failed`: runtime failure raised when sqlite3mc cannot decode page 1 of an existing database. Covers
++ *     both "wrong key supplied" and "no key supplied to an encrypted DB".
++ */
++export type SqliteEncryptionErrorCode =
++  | 'invalid_key_length'
++  | 'encryption_not_supported_for_ephemeral'
++  | 'decrypt_failed';
++
++/**
++ * Error thrown by a kv-sqlite store when an encryption operation fails.
++ **/
++export class SqliteEncryptionError extends Error {
++  readonly code: SqliteEncryptionErrorCode;
++
++  constructor(code: SqliteEncryptionErrorCode, message: string, opts?: { cause?: unknown }) {
++    super(message, opts?.cause !== undefined ? { cause: opts.cause } : undefined);
++    this.name = 'SqliteEncryptionError';
++    this.code = code;
++  }
++}
++
++/**
++ * Strings raised by sqlite3mc when page 1 cannot be decoded.
++ **/
++const SQLITE3MC_DECRYPT_ERROR_PATTERNS: readonly RegExp[] = [
++  /file is not a database/i,
++  /file is encrypted or is not a database/i,
++];
++
++/**
++ * Returns `true` if `message` matches one of the known sqlite3mc decrypt-failure
++ * strings.
++ **/
++export function isDecryptFailureMessage(message: string): boolean {
++  return SQLITE3MC_DECRYPT_ERROR_PATTERNS.some(p => p.test(message));
++}
++
++/**
++ * Error thrown by a kv-sqlite store when the on-disk database image is corrupt
++ * (`SQLITE_CORRUPT`, result code 11 — "database disk image is malformed").
++ *
++ * Distinct from {@link SqliteEncryptionError}: no key recovers a corrupt image,
++ * so there is nothing to retry. The only escape is to delete the store and start
++ * fresh, so consumers pattern-match on `instanceof SqliteCorruptionError` to wipe
++ * and reopen rather than surfacing a dead-end error.
++ **/
++export class SqliteCorruptionError extends Error {
++  constructor(message: string, opts?: { cause?: unknown }) {
++    super(message, opts?.cause !== undefined ? { cause: opts.cause } : undefined);
++    this.name = 'SqliteCorruptionError';
++  }
++}
++
++/**
++ * Strings/codes raised by SQLite when a database image is corrupt. Kept disjoint
++ * from {@link SQLITE3MC_DECRYPT_ERROR_PATTERNS}: "file is not a database"
++ * (SQLITE_NOTADB) is the decrypt signal, whereas a malformed image is the
++ * genuinely-unrecoverable SQLITE_CORRUPT.
++ **/
++const SQLITE_CORRUPTION_ERROR_PATTERNS: readonly RegExp[] = [
++  /database disk image is malformed/i,
++  /\bSQLITE_CORRUPT\b/i,
++];
++
++/**
++ * Returns `true` if `message` matches one of the known SQLite corruption strings.
++ **/
++export function isCorruptionMessage(message: string): boolean {
++  return SQLITE_CORRUPTION_ERROR_PATTERNS.some(p => p.test(message));
++}
+diff --git a/yarn-project/kv-store/src/kv-sqlite/index.ts b/yarn-project/kv-store/src/kv-sqlite/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..9926aa5550e9d86a3a127309cb2d6ec6aa8e3106
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/index.ts
+@@ -0,0 +1,11 @@
++import { createLogger } from '@aztec-labs/foundation/log';
++
++import { AztecKvSqliteStore } from './store.js';
++
++export { AztecKvSqliteStore, type KvClient, type KvSqliteStoreOptions } from './store.js';
++export { SqliteCorruptionError, SqliteEncryptionError, type SqliteEncryptionErrorCode } from './errors.js';
++
++/** An ephemeral store, in memory, on the platform's default Kv backend. */
++export function openTmpStore(): Promise<AztecKvSqliteStore> {
++  return AztecKvSqliteStore.create(createLogger('kv-store:kv-sqlite'));
++}
+diff --git a/yarn-project/kv-store/src/kv-sqlite/map.ts b/yarn-project/kv-store/src/kv-sqlite/map.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..76d4c27e23cd096cec51f5cf7cd93866338eb27b
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/map.ts
+@@ -0,0 +1,133 @@
++import { Encoder } from '#msgpackr';
++import { fromBufferKey, toBufferKey } from '#ordered-binary';
++import { Buffer } from 'buffer';
++
++import type { Key, Range, Value } from '../interfaces/common.js';
++import type { AztecAsyncMap } from '../interfaces/map.js';
++import type { AztecKvSqliteStore } from './store.js';
++
++/** A map over the Kv service: one entry per key, in the container `map:<name>`. */
++export class KvSqliteAztecMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
++  protected readonly container: string;
++  protected readonly encoder = new Encoder();
++
++  constructor(
++    protected readonly store: AztecKvSqliteStore,
++    mapName: string,
++  ) {
++    this.container = `map:${mapName}`;
++  }
++
++  async getAsync(key: K): Promise<V | undefined> {
++    return (await this.getManyAsync([key]))[0];
++  }
++
++  /** Reads every key in one command, preserving input order and missing entries. */
++  async getManyAsync(keys: K[]): Promise<(V | undefined)[]> {
++    if (keys.length === 0) {
++      return [];
++    }
++    const { values } = await this.store.run(kv =>
++      kv.get({ container: this.container, keys: keys.map(key => this.encodedKey(key)) }),
++    );
++    return values.map(({ value }) => (value == null ? undefined : this.decodeValue(value)));
++  }
++
++  async hasAsync(key: K): Promise<boolean> {
++    return (await this.store.run(kv => kv.has({ container: this.container, key: this.encodedKey(key) }))).has;
++  }
++
++  async sizeAsync(): Promise<number> {
++    return Number((await this.store.run(kv => kv.count({ container: this.container, key: null }))).count);
++  }
++
++  async set(key: K, val: V): Promise<void> {
++    await this.store.run(kv =>
++      kv.put({ container: this.container, key: this.encodedKey(key), value: this.encoder.pack(val) }),
++    );
++  }
++
++  async setMany(entries: { key: K; value: V }[]): Promise<void> {
++    if (entries.length === 0) {
++      return;
++    }
++    await this.store.run(kv =>
++      kv.putMany({
++        container: this.container,
++        entries: entries.map(({ key, value }) => ({ key: this.encodedKey(key), value: this.encoder.pack(value) })),
++      }),
++    );
++  }
++
++  swap(_key: K, _fn: (val: V | undefined) => V): Promise<void> {
++    throw new Error('Not implemented');
++  }
++
++  async setIfNotExists(key: K, val: V): Promise<boolean> {
++    return await this.store.transactionAsync(async () => {
++      if (await this.hasAsync(key)) {
++        return false;
++      }
++      await this.set(key, val);
++      return true;
++    });
++  }
++
++  async delete(key: K): Promise<void> {
++    await this.store.run(kv => kv.delete({ container: this.container, key: this.encodedKey(key) }));
++  }
++
++  async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
++    // Inclusivity flips with direction to match the IndexedDB backend:
++    //   forward: [start, end)     reverse: (start, end]
++    // Tests pin the exact inclusivity at boundaries; the Kv service's Range has the same.
++    const { entries } = await this.store.run(kv =>
++      kv.range({
++        container: this.container,
++        start: range.start === undefined ? null : this.encodedKey(range.start),
++        end: range.end === undefined ? null : this.encodedKey(range.end),
++        reverse: !!range.reverse,
++        limit: range.limit ?? null,
++      }),
++    );
++    for (const { key, value } of entries) {
++      yield [this.decodeKey(key), this.decodeValue(value)];
++    }
++  }
++
++  async *valuesAsync(range: Range<K> = {}): AsyncIterableIterator<V> {
++    for await (const [, value] of this.entriesAsync(range)) {
++      yield value;
++    }
++  }
++
++  async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
++    for await (const [key] of this.entriesAsync(range)) {
++      yield key;
++    }
++  }
++
++  protected decodeValue(val: Uint8Array): V {
++    const unpacked = this.encoder.unpack(val);
++    // msgpackr returns plain Uint8Array in browsers for packed Buffers. Callers that
++    // stored Buffers (walletDB uses Buffer.from(...).toString('utf8') round-trips)
++    // rely on Buffer-flavored behavior — re-wrap at the storage boundary, mirroring
++    // IndexedDBAztecMap.restoreBuffers.
++    if (unpacked instanceof Uint8Array && !Buffer.isBuffer(unpacked)) {
++      return Buffer.from(unpacked) as V;
++    }
++    return unpacked as V;
++  }
++
++  protected decodeKey(raw: Uint8Array): K {
++    const parsed = fromBufferKey(Buffer.from(raw));
++    if (Array.isArray(parsed)) {
++      return (parsed.length > 1 ? parsed : parsed[0]) as K;
++    }
++    return parsed as K;
++  }
++
++  protected encodedKey(key: Key): Buffer {
++    return toBufferKey(Array.isArray(key) ? key : [key]);
++  }
++}
+diff --git a/yarn-project/kv-store/src/kv-sqlite/multi_map.ts b/yarn-project/kv-store/src/kv-sqlite/multi_map.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..477982864626f19d0bf21d607156774ccccff673
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/multi_map.ts
+@@ -0,0 +1,43 @@
++import type { Key, Value } from '../interfaces/common.js';
++import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
++import { KvSqliteAztecMap } from './map.js';
++
++/**
++ * A multimap over the Kv service: each value is appended at its key's next index, which always increments, so an
++ * index is never reused across deletions — matching the IndexedDB backend's sparse multimap. A value the key already
++ * holds is not added again.
++ */
++export class KvSqliteAztecMultiMap<K extends Key, V extends Value>
++  extends KvSqliteAztecMap<K, V>
++  implements AztecAsyncMultiMap<K, V>
++{
++  override async set(key: K, val: V): Promise<void> {
++    await this.store.run(kv =>
++      kv.append({
++        container: this.container,
++        key: this.encodedKey(key),
++        values: [this.encoder.pack(val)],
++        unique: true,
++      }),
++    );
++  }
++
++  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
++    const { values } = await this.store.run(kv => kv.values({ container: this.container, key: this.encodedKey(key) }));
++    for (const value of values) {
++      yield this.decodeValue(value);
++    }
++  }
++
++  async getValueCountAsync(key: K): Promise<number> {
++    return Number(
++      (await this.store.run(kv => kv.count({ container: this.container, key: this.encodedKey(key) }))).count,
++    );
++  }
++
++  async deleteValue(key: K, val: V): Promise<void> {
++    await this.store.run(kv =>
++      kv.deleteValue({ container: this.container, key: this.encodedKey(key), value: this.encoder.pack(val) }),
++    );
++  }
++}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/set.ts b/yarn-project/kv-store/src/kv-sqlite/set.ts
+similarity index 53%
+rename from yarn-project/kv-store/src/sqlite-opfs/set.ts
+rename to yarn-project/kv-store/src/kv-sqlite/set.ts
+index 2dfdb1d350abaefe0202de1d200fd9405a3cbb0f..4d14733a12e6885deaf782706ed15a6a72dbaa7e 100644
+--- a/yarn-project/kv-store/src/sqlite-opfs/set.ts
++++ b/yarn-project/kv-store/src/kv-sqlite/set.ts
+@@ -1,14 +1,14 @@
+ import type { Key, Range } from '../interfaces/common.js';
+ import type { AztecAsyncSet } from '../interfaces/set.js';
+-import { SQLiteOPFSAztecMap } from './map.js';
+-import type { AztecSQLiteOPFSStore } from './store.js';
++import { KvSqliteAztecMap } from './map.js';
++import type { AztecKvSqliteStore } from './store.js';
+ 
+-/** Set backed by SQLite. Composes a Map<K, true>. */
+-export class SQLiteOPFSAztecSet<K extends Key> implements AztecAsyncSet<K> {
+-  readonly #map: SQLiteOPFSAztecMap<K, boolean>;
++/** A set over the Kv service: a Map<K, true>. */
++export class KvSqliteAztecSet<K extends Key> implements AztecAsyncSet<K> {
++  readonly #map: KvSqliteAztecMap<K, boolean>;
+ 
+-  constructor(store: AztecSQLiteOPFSStore, name: string) {
+-    this.#map = new SQLiteOPFSAztecMap<K, boolean>(store, name);
++  constructor(store: AztecKvSqliteStore, name: string) {
++    this.#map = new KvSqliteAztecMap<K, boolean>(store, name);
+   }
+ 
+   hasAsync(key: K): Promise<boolean> {
+diff --git a/yarn-project/kv-store/src/kv-sqlite/singleton.ts b/yarn-project/kv-store/src/kv-sqlite/singleton.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f205629003a09b97cc69041ae09bc573e5925854
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/singleton.ts
+@@ -0,0 +1,39 @@
++import { Encoder } from '#msgpackr';
++import { toBufferKey } from '#ordered-binary';
++import type { Buffer } from 'buffer';
++
++import type { Value } from '../interfaces/common.js';
++import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
++import type { AztecKvSqliteStore } from './store.js';
++
++/** A single value over the Kv service, in the container `singleton:<name>`. */
++export class KvSqliteAztecSingleton<T extends Value> implements AztecAsyncSingleton<T> {
++  readonly #container: string;
++  // The key the browser store has always written a singleton under.
++  readonly #key: Buffer;
++  readonly #encoder = new Encoder();
++
++  constructor(
++    private readonly store: AztecKvSqliteStore,
++    name: string,
++  ) {
++    this.#container = `singleton:${name}`;
++    this.#key = toBufferKey([`singleton:${name}:value`]);
++  }
++
++  async getAsync(): Promise<T | undefined> {
++    const { values } = await this.store.run(kv => kv.get({ container: this.#container, keys: [this.#key] }));
++    const value = values[0]?.value;
++    return value == null ? undefined : (this.#encoder.unpack(value) as T);
++  }
++
++  async set(val: T): Promise<boolean> {
++    await this.store.run(kv => kv.put({ container: this.#container, key: this.#key, value: this.#encoder.pack(val) }));
++    return true;
++  }
++
++  async delete(): Promise<boolean> {
++    await this.store.run(kv => kv.delete({ container: this.#container, key: this.#key }));
++    return true;
++  }
++}
+diff --git a/yarn-project/kv-store/src/kv-sqlite/store.test.ts b/yarn-project/kv-store/src/kv-sqlite/store.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c347a3d170902ac6b31c3c4233f4455a3a7de31b
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/store.test.ts
+@@ -0,0 +1,193 @@
++import { handleRequestSync } from '@aztec-labs/kv-sqlite/server';
++import sqlite3InitModule, { type Database, SQLITE3_WASM_URL, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
++import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
++import { tmpdir } from 'os';
++import { join } from 'path';
++
++import { describeAztecArray } from '../interfaces/array_test_suite.js';
++import { describeAztecMap } from '../interfaces/map_test_suite.js';
++import { describeAztecMultiMap } from '../interfaces/multi_map_test_suite.js';
++import { describeAztecSet } from '../interfaces/set_test_suite.js';
++import { describeAztecSingleton } from '../interfaces/singleton_test_suite.js';
++import { mockLogger } from '../interfaces/utils.js';
++import { SqliteKvHandler } from '../sqlite-opfs/kv_handler.js';
++import { SqliteEncryptionError } from './errors.js';
++import { AztecKvSqliteStore, type KvSqliteStoreOptions } from './store.js';
++
++let sqlite3: Promise<Sqlite3Static> | undefined;
++
++function loadSqlite3(): Promise<Sqlite3Static> {
++  return (sqlite3 ??= readFile(SQLITE3_WASM_URL).then(wasm => sqlite3InitModule({ wasmBinary: new Uint8Array(wasm) })));
++}
++
++/**
++ * The browser store's Kv service (sqlite-opfs/kv_handler.ts) as a backend object, over the sqlite3mc wasm build. Node
++ * has no OPFS, so a path names a file in the module's in-memory file system, but every command runs through the same
++ * handler as in a browser.
++ */
++async function typescriptBackend(): Promise<NonNullable<KvSqliteStoreOptions['backend']>> {
++  const s = await loadSqlite3();
++  let db: Database | undefined;
++  const handler = new SqliteKvHandler({
++    open: path => (db = new s.oo1.DB(path ?? ':memory:', 'c')),
++    export: () => s.capi.sqlite3_js_db_export(db!.pointer!),
++    remove: () => {},
++  });
++  return {
++    call: request => Promise.resolve(handleRequestSync(handler, request)),
++    destroy: () => Promise.resolve(handler.close()),
++  };
++}
++
++// The same containers over each implementation of the Kv service: the native one through each node backend, and the
++// browser store's in TypeScript.
++for (const backend of ['process', 'napi', 'typescript'] as const) {
++  describe(`AztecKvSqliteStore (${backend})`, () => {
++    const open = async () =>
++      AztecKvSqliteStore.create(mockLogger, {
++        backend: backend === 'typescript' ? await typescriptBackend() : backend,
++      });
++    describeAztecMap('AztecMap', open);
++    describeAztecMultiMap('AztecMultiMap', open);
++    describeAztecArray('AztecArray', open);
++    describeAztecSet('AztecSet', open);
++    describeAztecSingleton('AztecSingleton', open);
++  });
++}
++
++/** Writes entries whose rows depend on how values are hashed: multimap values and array entries, repeated. */
++async function writeEntries(store: AztecKvSqliteStore) {
++  await store.openMap<string, string>('m').set('k', 'v');
++  const multi = store.openMultiMap<string, string>('mm');
++  await multi.set('k', 'x');
++  await multi.set('k', 'y');
++  await store.openArray<string>('a').push('p', 'p');
++}
++
++/** Reads them back, and matches the multimap's values by value: what breaks if the two hash a value differently. */
++async function checkEntries(store: AztecKvSqliteStore) {
++  expect(await store.openMap<string, string>('m').getAsync('k')).toBe('v');
++  const multi = store.openMultiMap<string, string>('mm');
++  await multi.set('k', 'x');
++  expect(await multi.getValueCountAsync('k')).toBe(2);
++  await multi.deleteValue('k', 'y');
++  expect(await toArray(multi.getValuesAsync('k'))).toEqual(['x']);
++  const array = store.openArray<string>('a');
++  expect(await array.lengthAsync()).toBe(2);
++  expect(await array.atAsync(1)).toBe('p');
++}
++
++async function toArray<T>(values: AsyncIterable<T>): Promise<T[]> {
++  const out: T[] = [];
++  for await (const value of values) {
++    out.push(value);
++  }
++  return out;
++}
++
++describe('AztecKvSqliteStore across implementations', () => {
++  let dir: string;
++  beforeEach(async () => {
++    dir = await mkdtemp(join(tmpdir(), 'kv-sqlite-across-'));
++  });
++  afterEach(async () => {
++    await rm(dir, { recursive: true, force: true });
++  });
++
++  it.each([
++    ['plain', undefined],
++    ['encrypted', 7],
++  ])('a %s database the native service writes, the browser store reads and writes', async (_, keyByte) => {
++    const key = () => (keyByte === undefined ? undefined : new Uint8Array(32).fill(keyByte));
++    const path = join(dir, 'native.sqlite');
++    const native = await AztecKvSqliteStore.create(mockLogger, { path, encryptionKey: key(), backend: 'napi' });
++    await writeEntries(native);
++    await native.close();
++
++    const s = await loadSqlite3();
++    const wasmPath = `/native-${keyByte ?? 'plain'}.sqlite`;
++    s.capi.sqlite3_js_posix_create_file(wasmPath, new Uint8Array(await readFile(path)));
++    const browser = await AztecKvSqliteStore.create(mockLogger, {
++      path: wasmPath,
++      encryptionKey: key(),
++      backend: await typescriptBackend(),
++    });
++    await checkEntries(browser);
++    await browser.close();
++  });
++
++  it('a database the browser store writes, the native service reads and writes', async () => {
++    const browser = await AztecKvSqliteStore.create(mockLogger, {
++      path: '/browser.sqlite',
++      backend: await typescriptBackend(),
++    });
++    await writeEntries(browser);
++    const path = join(dir, 'browser.sqlite');
++    await writeFile(path, await browser.exportDb());
++    await browser.close();
++
++    const native = await AztecKvSqliteStore.create(mockLogger, { path, backend: 'napi' });
++    await checkEntries(native);
++    await native.close();
++  });
++});
++
++describe('AztecKvSqliteStore on disk', () => {
++  let dir: string;
++  beforeEach(async () => {
++    dir = await mkdtemp(join(tmpdir(), 'kv-sqlite-store-'));
++  });
++  afterEach(async () => {
++    await rm(dir, { recursive: true, force: true });
++  });
++
++  it('reopens with its data, and is encrypted only with the key it was written with', async () => {
++    const path = join(dir, 'store.sqlite');
++    const key = () => new Uint8Array(32).fill(5);
++    const a = await AztecKvSqliteStore.create(mockLogger, { path, encryptionKey: key() });
++    await a.openMap<string, string>('m').set('k', 'v');
++    await a.openMultiMap<string, string>('mm').set('k', 'x');
++    await a.close();
++
++    await expect(AztecKvSqliteStore.create(mockLogger, { path })).rejects.toMatchObject({
++      name: 'SqliteEncryptionError',
++      code: 'decrypt_failed',
++    });
++    await expect(
++      AztecKvSqliteStore.create(mockLogger, { path, encryptionKey: new Uint8Array(32).fill(6) }),
++    ).rejects.toBeInstanceOf(SqliteEncryptionError);
++
++    const b = await AztecKvSqliteStore.create(mockLogger, { path, encryptionKey: key() });
++    expect(await b.openMap<string, string>('m').getAsync('k')).toBe('v');
++    await b.openMultiMap<string, string>('mm').set('k', 'x');
++    expect(await b.openMultiMap<string, string>('mm').getValueCountAsync('k')).toBe(1);
++    await b.delete();
++  });
++
++  it('rolls back a failed transaction', async () => {
++    const store = await AztecKvSqliteStore.create(mockLogger, { path: join(dir, 'tx.sqlite') });
++    const map = store.openMap<string, number>('m');
++    await map.set('a', 1);
++    await expect(
++      store.transactionAsync(async () => {
++        await map.set('a', 2);
++        await map.set('b', 2);
++        throw new Error('abort');
++      }),
++    ).rejects.toThrow('abort');
++    expect(await map.getAsync('a')).toBe(1);
++    expect(await map.hasAsync('b')).toBe(false);
++    const exported = await store.exportDb();
++    expect(new TextDecoder().decode(exported.subarray(0, 15))).toBe('SQLite format 3');
++    await store.close();
++  });
++
++  it('rejects a key it cannot use before opening anything', async () => {
++    await expect(
++      AztecKvSqliteStore.create(mockLogger, { path: join(dir, 'x.sqlite'), encryptionKey: new Uint8Array(16) }),
++    ).rejects.toMatchObject({ code: 'invalid_key_length' });
++    await expect(AztecKvSqliteStore.create(mockLogger, { encryptionKey: new Uint8Array(32) })).rejects.toMatchObject({
++      code: 'encryption_not_supported_for_ephemeral',
++    });
++  });
++});
+diff --git a/yarn-project/kv-store/src/kv-sqlite/store.ts b/yarn-project/kv-store/src/kv-sqlite/store.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..2bc73fafad7726d2051eaf013f2f8778e11418df
+--- /dev/null
++++ b/yarn-project/kv-store/src/kv-sqlite/store.ts
+@@ -0,0 +1,249 @@
++import type { Logger } from '@aztec-labs/foundation/log';
++import { SerialQueue } from '@aztec-labs/foundation/queue';
++import { type AsyncApi, type KvCreateOptions, KvService } from '@aztec-labs/kv-sqlite';
++
++import type { AztecAsyncArray } from '../interfaces/array.js';
++import type { Key, StoreSize, Value } from '../interfaces/common.js';
++import type { AztecAsyncCounter } from '../interfaces/counter.js';
++import type { AztecAsyncMap } from '../interfaces/map.js';
++import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
++import type { AztecAsyncSet } from '../interfaces/set.js';
++import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
++import type { AztecAsyncKVStore } from '../interfaces/store.js';
++import { KvSqliteAztecArray } from './array.js';
++import {
++  SqliteCorruptionError,
++  SqliteEncryptionError,
++  isCorruptionMessage,
++  isDecryptFailureMessage,
++} from './errors.js';
++import { KvSqliteAztecMap } from './map.js';
++import { KvSqliteAztecMultiMap } from './multi_map.js';
++import { KvSqliteAztecSet } from './set.js';
++import { KvSqliteAztecSingleton } from './singleton.js';
++
++/** The Kv service a store runs its commands on: the generated client over any of its backends. */
++export type KvClient = AsyncApi;
++
++/** Options for {@link AztecKvSqliteStore.create}. */
++export interface KvSqliteStoreOptions {
++  /** The database file; without one the store lives in memory and ends when it closes. */
++  path?: string;
++  /** 32 bytes: the database is encrypted at rest (sqlite3mc's ChaCha20). Persistent stores only. */
++  encryptionKey?: Uint8Array;
++  /**
++   * The Kv service's backend: one of @aztec-labs/kv-sqlite's ('process' or 'napi' in node, 'jsi' in React Native),
++   * or a backend object, as the browser store's worker is. Default: the package's own choice for the platform.
++   */
++  backend?: KvCreateOptions['backend'];
++}
++
++/**
++ * A key-value store over the Kv service (@aztec-labs/kv-sqlite): SQLite3 Multiple Ciphers, in whichever form the
++ * platform runs it (natively a library or process, the library through JSI in React Native, and in a browser the
++ * service in TypeScript over the sqlite3mc wasm build, sqlite-opfs/). Every container is rows of the service's one
++ * table, so a database opens the same in each.
++ *
++ * Commands are ordered by a `SerialQueue`: outside a `transactionAsync` block each command takes the queue for its
++ * own auto-commit; inside one, the block holds the queue and its commands bypass it.
++ */
++export class AztecKvSqliteStore implements AztecAsyncKVStore {
++  readonly #txQueue = new SerialQueue();
++  #inTx = false;
++  #closed = false;
++
++  protected constructor(
++    protected readonly kv: KvClient,
++    protected readonly log: Logger,
++    public readonly isEphemeral: boolean,
++  ) {
++    this.#txQueue.start();
++  }
++
++  /**
++   * Opens (or creates) the store at `options.path`, or an ephemeral one in memory. Throws
++   * {@link SqliteEncryptionError} for a key that is not 32 bytes, a key on an ephemeral store, or a database that
++   * the key (or no key) does not decrypt.
++   */
++  static async create(log: Logger, options: KvSqliteStoreOptions = {}): Promise<AztecKvSqliteStore> {
++    validateEncryption(options.encryptionKey, !options.path);
++    const kv = await KvService.create({ backend: options.backend });
++    try {
++      await initStore(kv, options.path, options.encryptionKey);
++    } catch (err) {
++      await kv.destroy().catch(() => {});
++      throw err;
++    }
++    return new AztecKvSqliteStore(kv, log, !options.path);
++  }
++
++  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
++    return new KvSqliteAztecMap<K, V>(this, name);
++  }
++
++  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
++    return new KvSqliteAztecSet<K>(this, name);
++  }
++
++  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
++    return new KvSqliteAztecMultiMap<K, V>(this, name);
++  }
++
++  openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
++    throw new Error('Method not implemented.');
++  }
++
++  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
++    return new KvSqliteAztecArray<T>(this, name);
++  }
++
++  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
++    return new KvSqliteAztecSingleton<T>(this, name);
++  }
++
++  transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
++    // Nested calls join the outer transaction — SQLite does not support nested BEGIN,
++    // and re-acquiring the SerialQueue while the outer call holds it would deadlock.
++    // Errors in the nested callback propagate to the outer catch, which rolls back the
++    // whole thing (the standard "nested tx = savepoint-free join" semantic).
++    if (this.#inTx) {
++      return callback();
++    }
++    return this.#txQueue.put(async () => {
++      this.#inTx = true;
++      await this.#call(kv => kv.begin({}));
++      try {
++        const result = await callback();
++        await this.#call(kv => kv.commit({}));
++        return result;
++      } catch (err) {
++        await this.#call(kv => kv.rollback({})).catch(rollbackErr =>
++          this.log.warn(`SQLite ROLLBACK failed: ${rollbackErr instanceof Error ? rollbackErr.message : rollbackErr}`),
++        );
++        throw err;
++      } finally {
++        this.#inTx = false;
++      }
++    });
++  }
++
++  /**
++   * Runs `command` on the Kv service: in the current transaction inside a `transactionAsync` block, otherwise in
++   * its own auto-commit, after every command queued before it.
++   */
++  run<T>(command: (kv: KvClient) => Promise<T>): Promise<T> {
++    return this.#inTx ? this.#call(command) : this.#txQueue.put(() => this.#call(command));
++  }
++
++  async clear(): Promise<void> {
++    await this.run(kv => kv.clear({}));
++  }
++
++  async delete(): Promise<void> {
++    if (this.#closed) {
++      return;
++    }
++    this.#closed = true;
++    try {
++      await this.#txQueue.end();
++      await this.#call(kv => kv.deleteStore({})).catch(err =>
++        this.log.warn(`SQLite deleteStore failed: ${err instanceof Error ? err.message : err}`),
++      );
++    } finally {
++      await this.release();
++    }
++  }
++
++  /**
++   * Placeholder — returns zeros to mirror the IndexedDB backend. All current consumers tolerate zeros; the Kv
++   * service would need a command to report real numbers.
++   */
++  estimateSize(): Promise<StoreSize> {
++    return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
++  }
++
++  async close(): Promise<void> {
++    if (this.#closed) {
++      return;
++    }
++    this.#closed = true;
++    try {
++      await this.#txQueue.end();
++    } finally {
++      await this.release();
++    }
++  }
++
++  backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
++    throw new Error('Method not implemented.');
++  }
++
++  /**
++   * Returns a raw SQLite image (bytes suitable for writing as a `.sqlite` file and opening in any SQLite tool).
++   * Works only for persistent stores. Useful for inspection/debugging.
++   */
++  async exportDb(): Promise<Uint8Array> {
++    return (await this.run(kv => kv.export({}))).bytes;
++  }
++
++  /** Ends the Kv service, and with it everything the store holds. */
++  protected async release(): Promise<void> {
++    await this.kv.destroy().catch(err => this.log.warn(`Kv service shutdown failed: ${err?.message ?? err}`));
++  }
++
++  async #call<T>(command: (kv: KvClient) => Promise<T>): Promise<T> {
++    try {
++      return await command(this.kv);
++    } catch (err) {
++      throw typedError(err);
++    }
++  }
++}
++
++/** Throws the {@link SqliteEncryptionError} a key that can't be used is, before any service sees it. */
++export function validateEncryption(encryptionKey: Uint8Array | undefined, ephemeral: boolean): void {
++  if (encryptionKey !== undefined && encryptionKey.length !== 32) {
++    throw new SqliteEncryptionError(
++      'invalid_key_length',
++      `encryptionKey must be 32 bytes (got ${encryptionKey.length})`,
++    );
++  }
++  if (encryptionKey !== undefined && ephemeral) {
++    throw new SqliteEncryptionError(
++      'encryption_not_supported_for_ephemeral',
++      'encryptionKey is not supported for ephemeral (:memory:) stores',
++    );
++  }
++}
++
++/**
++ * Opens the service's store. A database the key does not decrypt — the wrong key, or none for an encrypted one —
++ * reads as SQLITE_NOTADB, which is the typed `decrypt_failed`.
++ */
++export async function initStore(
++  kv: { init: KvClient['init'] },
++  path: string | undefined,
++  encryptionKey: Uint8Array | undefined,
++): Promise<void> {
++  try {
++    await kv.init({ path: path ?? null, encryptionKey: encryptionKey ?? null });
++  } catch (err) {
++    throw typedInitError(err);
++  }
++}
++
++/** A failed Init as the typed error its message says it is. */
++export function typedInitError(err: unknown): unknown {
++  const message = err instanceof Error ? err.message : String(err);
++  if (isDecryptFailureMessage(message)) {
++    return new SqliteEncryptionError('decrypt_failed', message, { cause: err });
++  }
++  return typedError(err);
++}
++
++function typedError(err: unknown): unknown {
++  if (err instanceof Error && isCorruptionMessage(err.message)) {
++    return new SqliteCorruptionError(err.message, { cause: err });
++  }
++  return err;
++}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/array.ts b/yarn-project/kv-store/src/sqlite-opfs/array.ts
+deleted file mode 100644
+index 8f88660451161750b63f182ee9499ef5648b6cbc..0000000000000000000000000000000000000000
+--- a/yarn-project/kv-store/src/sqlite-opfs/array.ts
++++ /dev/null
+@@ -1,124 +0,0 @@
+-import { Encoder } from '#msgpackr';
+-import { toBufferKey } from '#ordered-binary';
+-import { hash } from 'ohash';
+-
+-import type { AztecAsyncArray } from '../interfaces/array.js';
+-import type { Value } from '../interfaces/common.js';
+-import type { AztecSQLiteOPFSStore } from './store.js';
+-
+-/**
+- * Persistent array backed by SQLite. Entries share a common `key` (the array name)
+- * and are ordered by `key_count`, which doubles as the 1-indexed slot number.
+- */
+-export class SQLiteOPFSAztecArray<T extends Value> implements AztecAsyncArray<T> {
+-  readonly #name: string;
+-  readonly #container: string;
+-  readonly #encoder = new Encoder();
+-
+-  constructor(
+-    private readonly store: AztecSQLiteOPFSStore,
+-    name: string,
+-  ) {
+-    this.#name = name;
+-    this.#container = `array:${name}`;
+-  }
+-
+-  async lengthAsync(): Promise<number> {
+-    const rows = await this.store.allAsync('SELECT COUNT(*) FROM data WHERE container = ? AND key = ?', [
+-      this.#container,
+-      this.#encodedKey(),
+-    ]);
+-    return Number(rows[0]?.[0] ?? 0);
+-  }
+-
+-  async push(...vals: T[]): Promise<number> {
+-    if (vals.length === 0) {
+-      return this.lengthAsync();
+-    }
+-    return await this.store.transactionAsync(async () => {
+-      let length = await this.lengthAsync();
+-      for (const val of vals) {
+-        await this.store.runAsync(
+-          `INSERT INTO data (slot, container, key, key_count, hash, value)
+-           VALUES (?, ?, ?, ?, ?, ?)`,
+-          [this.#slot(length), this.#container, this.#encodedKey(), length + 1, hash(val), this.#encoder.pack(val)],
+-        );
+-        length += 1;
+-      }
+-      return length;
+-    });
+-  }
+-
+-  async pop(): Promise<T | undefined> {
+-    return await this.store.transactionAsync(async () => {
+-      const length = await this.lengthAsync();
+-      if (length === 0) {
+-        return undefined;
+-      }
+-      const slot = this.#slot(length - 1);
+-      const rows = await this.store.allAsync('SELECT value FROM data WHERE slot = ? LIMIT 1', [slot]);
+-      await this.store.runAsync('DELETE FROM data WHERE slot = ?', [slot]);
+-      const raw = rows[0]?.[0];
+-      return raw instanceof Uint8Array ? (this.#encoder.unpack(raw) as T) : undefined;
+-    });
+-  }
+-
+-  async atAsync(index: number): Promise<T | undefined> {
+-    const length = await this.lengthAsync();
+-    const resolved = index < 0 ? length + index : index;
+-    if (resolved < 0 || resolved >= length) {
+-      return undefined;
+-    }
+-    const rows = await this.store.allAsync('SELECT value FROM data WHERE slot = ? LIMIT 1', [this.#slot(resolved)]);
+-    const raw = rows[0]?.[0];
+-    return raw instanceof Uint8Array ? (this.#encoder.unpack(raw) as T) : undefined;
+-  }
+-
+-  async setAt(index: number, val: T): Promise<boolean> {
+-    return await this.store.transactionAsync(async () => {
+-      const length = await this.lengthAsync();
+-      const resolved = index < 0 ? length + index : index;
+-      if (resolved < 0 || resolved >= length) {
+-        return false;
+-      }
+-      await this.store.runAsync(
+-        `INSERT OR REPLACE INTO data (slot, container, key, key_count, hash, value)
+-         VALUES (?, ?, ?, ?, ?, ?)`,
+-        [this.#slot(resolved), this.#container, this.#encodedKey(), resolved + 1, hash(val), this.#encoder.pack(val)],
+-      );
+-      return true;
+-    });
+-  }
+-
+-  async *entriesAsync(): AsyncIterableIterator<[number, T]> {
+-    const rows = await this.store.allAsync(
+-      'SELECT key_count, value FROM data WHERE container = ? AND key = ? ORDER BY key_count ASC',
+-      [this.#container, this.#encodedKey()],
+-    );
+-    for (const row of rows) {
+-      const keyCount = Number(row[0]);
+-      const raw = row[1];
+-      if (raw instanceof Uint8Array) {
+-        yield [keyCount - 1, this.#encoder.unpack(raw) as T];
+-      }
+-    }
+-  }
+-
+-  async *valuesAsync(): AsyncIterableIterator<T> {
+-    for await (const [, val] of this.entriesAsync()) {
+-      yield val;
+-    }
+-  }
+-
+-  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
+-    return this.valuesAsync();
+-  }
+-
+-  #encodedKey(): Buffer {
+-    return toBufferKey([this.#name]);
+-  }
+-
+-  #slot(index: number): string {
+-    return `array:${this.#name}:slot:${index}`;
+-  }
+-}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/errors.ts b/yarn-project/kv-store/src/sqlite-opfs/errors.ts
+index 6ab64a4e7f5fb5a15bc1963b3d2aaa49284f0f09..13909417b79742705740e5ecfefd814b645c0fd3 100644
+--- a/yarn-project/kv-store/src/sqlite-opfs/errors.ts
++++ b/yarn-project/kv-store/src/sqlite-opfs/errors.ts
+@@ -1,63 +1,10 @@
+-/**
+- * Typed error surface for sqlite3mc-backed page-level encryption failures.
+- *
+- * Three concrete failure modes are surfaced:
+- *
+- *   - `invalid_key_length`: caller-side pre-flight (key not 32 bytes).
+- *   - `encryption_not_supported_for_ephemeral`: caller-side pre-flight (encryption was requested on an ephemeral
+- *     `:memory:` store, which sqlite3mc does not support).
+- *   - `decrypt_failed`: runtime failure raised when sqlite3mc cannot decode page 1 of an existing database. Covers
+- *     both "wrong key supplied" and "no key supplied to an encrypted DB".
+- */
+-export type SqliteEncryptionErrorCode =
+-  | 'invalid_key_length'
+-  | 'encryption_not_supported_for_ephemeral'
+-  | 'decrypt_failed';
+-
+-/**
+- * Error thrown by sqlite-opfs when an encryption operation fails.
+- **/
+-export class SqliteEncryptionError extends Error {
+-  readonly code: SqliteEncryptionErrorCode;
+-
+-  constructor(code: SqliteEncryptionErrorCode, message: string, opts?: { cause?: unknown }) {
+-    super(message, opts?.cause !== undefined ? { cause: opts.cause } : undefined);
+-    this.name = 'SqliteEncryptionError';
+-    this.code = code;
+-  }
+-}
+-
+-/**
+- * Strings raised by sqlite3mc when page 1 cannot be decoded.
+- **/
+-const SQLITE3MC_DECRYPT_ERROR_PATTERNS: readonly RegExp[] = [
+-  /file is not a database/i,
+-  /file is encrypted or is not a database/i,
+-];
+-
+-/**
+- * Returns `true` if `message` matches one of the known sqlite3mc decrypt-failure
+- * strings.
+- **/
+-export function isDecryptFailureMessage(message: string): boolean {
+-  return SQLITE3MC_DECRYPT_ERROR_PATTERNS.some(p => p.test(message));
+-}
+-
+-/**
+- * Error thrown by sqlite-opfs when the on-disk database image is corrupt
+- * (`SQLITE_CORRUPT`, result code 11 — "database disk image is malformed").
+- *
+- * Distinct from {@link SqliteEncryptionError}: no key recovers a corrupt image,
+- * so there is nothing to retry. The only escape is to delete the store and start
+- * fresh, so consumers pattern-match on `instanceof SqliteCorruptionError` to wipe
+- * and reopen rather than surfacing a dead-end error.
+- **/
+-export class SqliteCorruptionError extends Error {
+-  constructor(message: string, opts?: { cause?: unknown }) {
+-    super(message, opts?.cause !== undefined ? { cause: opts.cause } : undefined);
+-    this.name = 'SqliteCorruptionError';
+-  }
+-}
++export {
++  SqliteCorruptionError,
++  SqliteEncryptionError,
++  type SqliteEncryptionErrorCode,
++  isCorruptionMessage,
++  isDecryptFailureMessage,
++} from '../kv-sqlite/errors.js';
+ 
+ /** Error thrown when another browser context already owns a store's OPFS pool. */
+ export class SqlitePoolBusyError extends Error {
+@@ -74,21 +21,3 @@ export class SqliteWebLocksUnavailableError extends Error {
+     this.name = 'SqliteWebLocksUnavailableError';
+   }
+ }
+-
+-/**
+- * Strings/codes raised by SQLite when a database image is corrupt. Kept disjoint
+- * from {@link SQLITE3MC_DECRYPT_ERROR_PATTERNS}: "file is not a database"
+- * (SQLITE_NOTADB) is the decrypt signal, whereas a malformed image is the
+- * genuinely-unrecoverable SQLITE_CORRUPT.
+- **/
+-const SQLITE_CORRUPTION_ERROR_PATTERNS: readonly RegExp[] = [
+-  /database disk image is malformed/i,
+-  /\bSQLITE_CORRUPT\b/i,
+-];
+-
+-/**
+- * Returns `true` if `message` matches one of the known SQLite corruption strings.
+- **/
+-export function isCorruptionMessage(message: string): boolean {
+-  return SQLITE_CORRUPTION_ERROR_PATTERNS.some(p => p.test(message));
+-}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts b/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ccca9b47acb4966d34016c7ae0a556ffd21ebe0f
+--- /dev/null
++++ b/yarn-project/kv-store/src/sqlite-opfs/kv_handler.ts
+@@ -0,0 +1,328 @@
++import type * as Kv from '@aztec-labs/kv-sqlite/server';
++import type { Database } from '@aztec-labs/sqlite3mc-wasm';
++import { sha256 } from '@noble/hashes/sha2';
++import { bytesToHex } from '@noble/hashes/utils';
++
++/**
++ * Where a {@link SqliteKvHandler} keeps its database: opening it (SQLite's own VFS does the I/O), and what the store
++ * does to whole files.
++ */
++export interface SqliteKvFiles {
++  /** Opens the database at `path`, or one in memory without a path; with `encryptionKey`, through sqlite3mc's cipher. */
++  open(path: string | undefined, encrypted: boolean): Database;
++  /** The database file's bytes as stored. */
++  export(path: string): Uint8Array;
++  /** Removes the file if it exists. */
++  remove(path: string): void;
++}
++
++/** A value SQLite binds or hands back. */
++type SqlValue = string | number | bigint | Uint8Array | null;
++
++const SCHEMA_SQL = `
++  CREATE TABLE IF NOT EXISTS data (
++    slot TEXT NOT NULL PRIMARY KEY,
++    container TEXT NOT NULL,
++    key BLOB NOT NULL,
++    key_count INTEGER NOT NULL,
++    hash TEXT NOT NULL,
++    value BLOB
++  ) WITHOUT ROWID;
++
++  CREATE INDEX IF NOT EXISTS idx_container_key ON data(container, key);
++  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_count ON data(container, key, key_count);
++  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
++`;
++
++/**
++ * The Kv service (@aztec-labs/kv-sqlite's contract) over the sqlite3mc wasm build, for a browser, which has no build of
++ * the native service. It writes the database exactly as the native store does (native-packages/kv-sqlite/cpp/src/kv/
++ * store.cpp in aztec-packages): the same table, slots, indices and value hashes, so a database opens in either and
++ * kv-store's containers behave the same over both.
++ */
++export class SqliteKvHandler implements Kv.SyncHandler {
++  #db: Database | undefined;
++  #path: string | undefined;
++
++  constructor(private readonly files: SqliteKvFiles) {}
++
++  init({ path, encryptionKey }: Kv.KvInit): Kv.KvInitResponse {
++    if (this.#db) {
++      throw new Error('the store is already open');
++    }
++    if (encryptionKey && encryptionKey.length !== 32) {
++      throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
++    }
++    if (encryptionKey && !path) {
++      throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
++    }
++    const db = this.files.open(path ?? undefined, !!encryptionKey);
++    try {
++      if (encryptionKey) {
++        db.exec(`PRAGMA cipher = 'chacha20'`);
++        db.exec(`PRAGMA key = "x'${bytesToHex(encryptionKey)}'"`);
++      }
++      db.exec(SCHEMA_SQL);
++    } catch (err) {
++      db.close();
++      throw err;
++    } finally {
++      encryptionKey?.fill(0);
++    }
++    this.#db = db;
++    this.#path = path ?? undefined;
++    return {};
++  }
++
++  /** Closes the database, if open. */
++  close(): void {
++    try {
++      this.#db?.close();
++    } finally {
++      this.#db = undefined;
++    }
++  }
++
++  clear(): Kv.KvClearResponse {
++    this.#exec('DELETE FROM data');
++    return {};
++  }
++
++  export(): Kv.KvExportResponse {
++    this.#open();
++    if (!this.#path) {
++      throw new Error('an ephemeral store has no file to export');
++    }
++    return { bytes: this.files.export(this.#path) };
++  }
++
++  deleteStore(): Kv.KvDeleteStoreResponse {
++    this.#open();
++    this.close();
++    if (this.#path) {
++      this.files.remove(this.#path);
++      this.files.remove(`${this.#path}-journal`);
++    }
++    return {};
++  }
++
++  begin(): Kv.KvBeginResponse {
++    this.#exec('BEGIN');
++    return {};
++  }
++
++  commit(): Kv.KvCommitResponse {
++    this.#exec('COMMIT');
++    return {};
++  }
++
++  rollback(): Kv.KvRollbackResponse {
++    this.#exec('ROLLBACK');
++    return {};
++  }
++
++  get({ container, keys }: Kv.KvGet): Kv.KvGetResponse {
++    return {
++      values: keys.map(key => ({
++        value: this.#first<Uint8Array | null>(
++          'SELECT value FROM data WHERE container = ? AND key = ? AND key_count = 1',
++          [container, key],
++        ),
++      })),
++    };
++  }
++
++  has({ container, key }: Kv.KvHas): Kv.KvHasResponse {
++    return {
++      has: this.#rows('SELECT 1 FROM data WHERE container = ? AND key = ? LIMIT 1', [container, key]).length > 0,
++    };
++  }
++
++  count({ container, key }: Kv.KvCount): Kv.KvCountResponse {
++    const count = key
++      ? this.#first<number>('SELECT COUNT(*) FROM data WHERE container = ? AND key = ?', [container, key])
++      : this.#first<number>('SELECT COUNT(*) FROM data WHERE container = ?', [container]);
++    return { count: count ?? 0 };
++  }
++
++  range({ container, start, end, reverse, limit }: Kv.KvRange): Kv.KvRangeResponse {
++    // Forward [start, end); reverse (start, end]. No limit is -1, which SQLite reads as none.
++    let sql = 'SELECT key, value FROM data WHERE container = ?1';
++    if (start) {
++      sql += reverse ? ' AND key > ?2' : ' AND key >= ?2';
++    }
++    if (end) {
++      sql += reverse ? ' AND key <= ?3' : ' AND key < ?3';
++    }
++    sql += reverse ? ' ORDER BY key DESC, key_count DESC LIMIT ?4' : ' ORDER BY key ASC, key_count ASC LIMIT ?4';
++    const bind: Record<string, SqlValue> = { '?1': container, '?4': limit ?? -1 };
++    if (start) {
++      bind['?2'] = start;
++    }
++    if (end) {
++      bind['?3'] = end;
++    }
++    return {
++      entries: this.#rows(sql, bind).map(([key, value]) => ({ key: blob(key), value: blob(value) })),
++    };
++  }
++
++  put({ container, key, value }: Kv.KvPut): Kv.KvPutResponse {
++    this.#insert(container, key, 1, valueHash(value), value);
++    return {};
++  }
++
++  putMany({ container, entries }: Kv.KvPutMany): Kv.KvPutManyResponse {
++    this.#atomically(() => {
++      for (const { key, value } of entries) {
++        this.#insert(container, key, 1, valueHash(value), value);
++      }
++    });
++    return {};
++  }
++
++  delete({ container, key }: Kv.KvDelete): Kv.KvDeleteResponse {
++    this.#exec('DELETE FROM data WHERE container = ? AND key = ?', [container, key]);
++    return {};
++  }
++
++  append({ container, key, values, unique }: Kv.KvAppend): Kv.KvAppendResponse {
++    return this.#atomically(() => {
++      let last =
++        this.#first<number>('SELECT COALESCE(MAX(key_count), 0) FROM data WHERE container = ? AND key = ?', [
++          container,
++          key,
++        ]) ?? 0;
++      for (const value of values) {
++        let hash = valueHash(value);
++        if (unique) {
++          if (
++            this.#rows('SELECT 1 FROM data WHERE container = ? AND key = ? AND hash = ? LIMIT 1', [
++              container,
++              key,
++              hash,
++            ]).length > 0
++          ) {
++            continue;
++          }
++        } else {
++          hash += `#${last + 1}`;
++        }
++        this.#insert(container, key, ++last, hash, value);
++      }
++      return this.count({ container, key });
++    });
++  }
++
++  values({ container, key }: Kv.KvValues): Kv.KvValuesResponse {
++    return {
++      values: this.#rows('SELECT value FROM data WHERE container = ? AND key = ? ORDER BY key_count ASC', [
++        container,
++        key,
++      ]).map(([value]) => blob(value)),
++    };
++  }
++
++  deleteValue({ container, key, value }: Kv.KvDeleteValue): Kv.KvDeleteValueResponse {
++    this.#exec('DELETE FROM data WHERE container = ? AND key = ? AND hash = ?', [container, key, valueHash(value)]);
++    return {};
++  }
++
++  getAt({ container, key, index }: Kv.KvGetAt): Kv.KvGetAtResponse {
++    return {
++      value: this.#first<Uint8Array | null>(
++        'SELECT value FROM data WHERE container = ? AND key = ? AND key_count = ?',
++        [container, key, index],
++      ),
++    };
++  }
++
++  setAt({ container, key, index, value }: Kv.KvSetAt): Kv.KvSetAtResponse {
++    this.#exec('UPDATE data SET value = ?, hash = ? WHERE container = ? AND key = ? AND key_count = ?', [
++      value,
++      `${valueHash(value)}#${index}`,
++      container,
++      key,
++      index,
++    ]);
++    return { set: this.#open().changes() > 0 };
++  }
++
++  pop({ container, key }: Kv.KvPop): Kv.KvPopResponse {
++    return this.#atomically(() => {
++      const [last] = this.#rows(
++        'SELECT key_count, value FROM data WHERE container = ? AND key = ? ORDER BY key_count DESC LIMIT 1',
++        [container, key],
++      );
++      if (!last) {
++        return { value: null };
++      }
++      const [index, value] = last;
++      this.#exec('DELETE FROM data WHERE container = ? AND key = ? AND key_count = ?', [container, key, index]);
++      return { value: value === null ? null : blob(value) };
++    });
++  }
++
++  #open(): Database {
++    if (!this.#db) {
++      throw new Error('the store is not open: Init opens it');
++    }
++    return this.#db;
++  }
++
++  #exec(sql: string, bind?: SqlValue[] | Record<string, SqlValue>): void {
++    this.#open().exec({ sql, bind });
++  }
++
++  #rows(sql: string, bind: SqlValue[] | Record<string, SqlValue>): SqlValue[][] {
++    const rows: SqlValue[][] = [];
++    this.#open().exec({ sql, bind, rowMode: 'array', resultRows: rows });
++    return rows;
++  }
++
++  /** The first column of the first row, or null with no row. */
++  #first<T extends SqlValue>(sql: string, bind: SqlValue[]): T | null {
++    const [row] = this.#rows(sql, bind);
++    return row ? (row[0] as T) : null;
++  }
++
++  // OR REPLACE: the entry at (container, key, index) is replaced whatever its slot, so one an older browser store
++  // wrote (under its own slot string) is replaced too.
++  #insert(container: string, key: Uint8Array, index: number, hash: string, value: Uint8Array): void {
++    this.#exec('INSERT OR REPLACE INTO data (slot, container, key, key_count, hash, value) VALUES (?, ?, ?, ?, ?, ?)', [
++      `${container}:${bytesToHex(key)}:${index}`,
++      container,
++      key,
++      index,
++      hash,
++      value,
++    ]);
++  }
++
++  #atomically<T>(body: () => T): T {
++    const db = this.#open();
++    db.exec('SAVEPOINT kv_op');
++    try {
++      const result = body();
++      db.exec('RELEASE kv_op');
++      return result;
++    } catch (err) {
++      try {
++        db.exec('ROLLBACK TO kv_op; RELEASE kv_op');
++      } catch {
++        // The body's error is the one to report.
++      }
++      throw err;
++    }
++  }
++}
++
++/** The value's digest as the `hash` column holds it: SHA-256, lowercase hex. */
++function valueHash(value: Uint8Array): string {
++  return bytesToHex(sha256(value));
++}
++
++/** A blob column's bytes; SQLite hands back NULL as null, which the native store reads as no bytes. */
++function blob(value: SqlValue): Uint8Array {
++  return value instanceof Uint8Array ? value : new Uint8Array();
++}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/map.ts b/yarn-project/kv-store/src/sqlite-opfs/map.ts
+deleted file mode 100644
+index 6bffd8ccb34a46a9b63a9d390ae1e39b462ac956..0000000000000000000000000000000000000000
+--- a/yarn-project/kv-store/src/sqlite-opfs/map.ts
++++ /dev/null
+@@ -1,186 +0,0 @@
+-import { Encoder } from '#msgpackr';
+-import { fromBufferKey, toBufferKey } from '#ordered-binary';
+-import { unique } from '@aztec-labs/foundation/collection';
+-import { Buffer } from 'buffer';
+-import { hash } from 'ohash';
+-
+-import type { Key, Range, Value } from '../interfaces/common.js';
+-import type { AztecAsyncMap } from '../interfaces/map.js';
+-import type { SqlValue } from './messages.js';
+-import type { AztecSQLiteOPFSStore } from './store.js';
+-
+-/** A map backed by SQLite in OPFS. Mirrors `IndexedDBAztecMap`. */
+-export class SQLiteOPFSAztecMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
+-  protected readonly name: string;
+-  protected readonly container: string;
+-  protected readonly encoder = new Encoder();
+-
+-  constructor(
+-    protected readonly store: AztecSQLiteOPFSStore,
+-    mapName: string,
+-  ) {
+-    this.name = mapName;
+-    this.container = `map:${mapName}`;
+-  }
+-
+-  async getAsync(key: K): Promise<V | undefined> {
+-    const rows = await this.store.allAsync('SELECT value FROM data WHERE slot = ? LIMIT 1', [this.slot(key)]);
+-    if (rows.length === 0) {
+-      return undefined;
+-    }
+-    const raw = rows[0][0];
+-    return raw == null ? undefined : this.decodeValue(raw);
+-  }
+-
+-  /** Reads keys in bounded SQL batches, preserving input order and missing entries. */
+-  async getManyAsync(keys: K[]): Promise<(V | undefined)[]> {
+-    const slots = keys.map(key => this.slot(key));
+-    const uniqueSlots = unique(slots);
+-    const values = new Map<string, V>();
+-    // Stay below SQLite's host-parameter limit, including builds with the legacy 999 limit.
+-    const batchSize = 100;
+-    for (let offset = 0; offset < uniqueSlots.length; offset += batchSize) {
+-      const batch = uniqueSlots.slice(offset, offset + batchSize);
+-      const rows = await this.store.allAsync(
+-        `SELECT slot, value FROM data WHERE slot IN (${batch.map(() => '?').join(',')})`,
+-        batch,
+-      );
+-      for (const [slot, value] of rows) {
+-        if (typeof slot === 'string' && value != null) {
+-          values.set(slot, this.decodeValue(value));
+-        }
+-      }
+-    }
+-    return slots.map(slot => values.get(slot));
+-  }
+-
+-  async hasAsync(key: K): Promise<boolean> {
+-    const rows = await this.store.allAsync('SELECT 1 FROM data WHERE slot = ? LIMIT 1', [this.slot(key)]);
+-    return rows.length > 0;
+-  }
+-
+-  async sizeAsync(): Promise<number> {
+-    const rows = await this.store.allAsync('SELECT COUNT(*) FROM data WHERE container = ?', [this.container]);
+-    return Number(rows[0]?.[0] ?? 0);
+-  }
+-
+-  async set(key: K, val: V): Promise<void> {
+-    await this.store.runAsync(
+-      `INSERT OR REPLACE INTO data (slot, container, key, key_count, hash, value)
+-       VALUES (?, ?, ?, ?, ?, ?)`,
+-      [this.slot(key), this.container, this.encodedKey(key), 1, hash(val), this.encoder.pack(val)],
+-    );
+-  }
+-
+-  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+-    if (entries.length === 0) {
+-      return;
+-    }
+-    await this.store.transactionAsync(async () => {
+-      for (const { key, value } of entries) {
+-        await this.set(key, value);
+-      }
+-    });
+-  }
+-
+-  swap(_key: K, _fn: (val: V | undefined) => V): Promise<void> {
+-    throw new Error('Not implemented');
+-  }
+-
+-  async setIfNotExists(key: K, val: V): Promise<boolean> {
+-    return await this.store.transactionAsync(async () => {
+-      if (await this.hasAsync(key)) {
+-        return false;
+-      }
+-      await this.set(key, val);
+-      return true;
+-    });
+-  }
+-
+-  async delete(key: K): Promise<void> {
+-    await this.store.runAsync('DELETE FROM data WHERE slot = ?', [this.slot(key)]);
+-  }
+-
+-  async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
+-    const rows = await this.rangeQuery(range);
+-    for (const row of rows) {
+-      const [_slot, keyBlob, value] = row;
+-      if (keyBlob == null || value == null) {
+-        continue;
+-      }
+-      yield [this.decodeKey(keyBlob), this.decodeValue(value)];
+-    }
+-  }
+-
+-  async *valuesAsync(range: Range<K> = {}): AsyncIterableIterator<V> {
+-    for await (const [, value] of this.entriesAsync(range)) {
+-      yield value;
+-    }
+-  }
+-
+-  async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
+-    for await (const [key] of this.entriesAsync(range)) {
+-      yield key;
+-    }
+-  }
+-
+-  protected async rangeQuery(range: Range<K>): Promise<Array<[string, Uint8Array, Uint8Array | null]>> {
+-    // Inclusivity flips with direction to match the IndexedDB backend:
+-    //   forward: [start, end)     reverse: (start, end]
+-    // That asymmetry is load-bearing — tests pin the exact inclusivity at boundaries.
+-    const reverse = !!range.reverse;
+-    const parts: string[] = ['container = ?'];
+-    const bind: SqlValue[] = [this.container];
+-    if (range.start !== undefined) {
+-      parts.push(reverse ? 'key > ?' : 'key >= ?');
+-      bind.push(this.encodedKey(range.start));
+-    }
+-    if (range.end !== undefined) {
+-      parts.push(reverse ? 'key <= ?' : 'key < ?');
+-      bind.push(this.encodedKey(range.end));
+-    }
+-    const order = reverse ? 'DESC' : 'ASC';
+-    let sql = `SELECT slot, key, value FROM data WHERE ${parts.join(' AND ')} ORDER BY key ${order}, key_count ${order}`;
+-    if (range.limit !== undefined) {
+-      sql += ' LIMIT ?';
+-      bind.push(range.limit);
+-    }
+-    const rows = await this.store.allAsync(sql, bind);
+-    return rows.map(r => [String(r[0]), r[1] as Uint8Array, r[2] as Uint8Array | null]);
+-  }
+-
+-  protected decodeValue(val: SqlValue): V {
+-    if (!(val instanceof Uint8Array)) {
+-      return val as V;
+-    }
+-    const unpacked = this.encoder.unpack(val);
+-    // msgpackr returns plain Uint8Array in browsers for packed Buffers. Callers that
+-    // stored Buffers (walletDB uses Buffer.from(...).toString('utf8') round-trips)
+-    // rely on Buffer-flavored behavior — re-wrap at the storage boundary, mirroring
+-    // IndexedDBAztecMap.restoreBuffers.
+-    if (unpacked instanceof Uint8Array && !Buffer.isBuffer(unpacked)) {
+-      return Buffer.from(unpacked) as V;
+-    }
+-    return unpacked as V;
+-  }
+-
+-  protected decodeKey(raw: Uint8Array): K {
+-    const parsed = fromBufferKey(Buffer.from(raw));
+-    if (Array.isArray(parsed)) {
+-      return (parsed.length > 1 ? parsed : parsed[0]) as K;
+-    }
+-    return parsed as K;
+-  }
+-
+-  protected encodedKey(key: Key): Buffer {
+-    return toBufferKey(this.normalizeKey(key));
+-  }
+-
+-  protected normalizeKey(key: Key): (string | number | Uint8Array)[] {
+-    return Array.isArray(key) ? key : [key];
+-  }
+-
+-  protected slot(key: K, index: number = 0): string {
+-    return `map:${this.name}:slot:${this.normalizeKey(key)}:${index}`;
+-  }
+-}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/messages.ts b/yarn-project/kv-store/src/sqlite-opfs/messages.ts
+index 68de2ef1374f248679d7993be8fe4f91ccf8d6aa..dd585cadb399859cc36495c76c650d2ca1e2154e 100644
+--- a/yarn-project/kv-store/src/sqlite-opfs/messages.ts
++++ b/yarn-project/kv-store/src/sqlite-opfs/messages.ts
+@@ -1,39 +1,19 @@
+ /**
+- * RPC protocol between the main thread and the SQLite worker.
+- * All requests carry a unique `id`; responses echo the same id so the main thread
+- * can resolve the right pending promise.
++ * Protocol between the main thread and the store's worker, which runs the Kv service. Every request carries a unique
++ * `id`, which its response echoes.
+  */
+-import type { SqliteEncryptionErrorCode } from './errors.js';
+-
+-/** Matches `@sqlite.org/sqlite-wasm`'s internal SqlValue type. Boolean is not a native SQLite type. */
+-export type SqlValue = string | number | bigint | null | Uint8Array;
+-
+-/** A row returned in 'array' rowMode — one value per column, in select order. */
+-export type ResultRow = SqlValue[];
+-
+ export type WorkerRequest =
+-  | { type: 'init'; id: number; dbName: string; ephemeral: boolean; poolDirectory?: string; encryptionKey?: Uint8Array }
+-  | { type: 'close'; id: number }
+-  | { type: 'deleteDb'; id: number; dbName: string }
+-  | { type: 'run'; id: number; sql: string; bind?: SqlValue[] }
+-  | { type: 'all'; id: number; sql: string; bind?: SqlValue[] }
+-  | { type: 'export'; id: number }
+-  | { type: 'begin'; id: number }
+-  | { type: 'commit'; id: number }
+-  | { type: 'rollback'; id: number };
++  /**
++   * Starts the service and opens its store: the database `path` in the OPFS pool at `poolDirectory`, or in memory
++   * without one. The worker sends the service's Init itself, so a key transferred here never returns to the main
++   * thread.
++   */
++  | { type: 'open'; id: number; path?: string; poolDirectory?: string; encryptionKey?: Uint8Array }
++  /** One Kv command, as the generated client encodes it; the response is the service's answer, as bytes. */
++  | { type: 'call'; id: number; bytes: Uint8Array }
++  /** Ends the service and releases the pool's handles. */
++  | { type: 'close'; id: number };
+ 
+ export type WorkerResponse =
+-  | { type: 'ok'; id: number; rows?: ResultRow[]; changes?: number; bytes?: Uint8Array }
+-  | {
+-      type: 'err';
+-      id: number;
+-      message: string;
+-      /**
+-       * Set when the worker detected an encryption-shaped failure. The main thread
+-       * uses this to re-throw the error as a {@link SqliteEncryptionError} with the
+-       * matching code. Absent on non-encryption failures (untyped paths preserved).
+-       */
+-      encryptionCode?: SqliteEncryptionErrorCode;
+-    };
+-
+-export type WorkerRequestType = WorkerRequest['type'];
++  | { type: 'ok'; id: number; bytes?: Uint8Array }
++  | { type: 'err'; id: number; message: string };
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/multi_map.ts b/yarn-project/kv-store/src/sqlite-opfs/multi_map.ts
+deleted file mode 100644
+index 87716172d991d746b947b50a131ac494315c9af8..0000000000000000000000000000000000000000
+--- a/yarn-project/kv-store/src/sqlite-opfs/multi_map.ts
++++ /dev/null
+@@ -1,74 +0,0 @@
+-import { hash } from 'ohash';
+-
+-import type { Key, Value } from '../interfaces/common.js';
+-import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
+-import { SQLiteOPFSAztecMap } from './map.js';
+-
+-/**
+- * Multi-map backed by SQLite. Extends the base map with always-incrementing
+- * `key_count` per-key so the same slot is never reused across deletions — this
+- * matches the IndexedDB backend's sparse-multi-map semantics.
+- */
+-export class SQLiteOPFSAztecMultiMap<K extends Key, V extends Value>
+-  extends SQLiteOPFSAztecMap<K, V>
+-  implements AztecAsyncMultiMap<K, V>
+-{
+-  override async set(key: K, val: V): Promise<void> {
+-    const valueHash = hash(val);
+-    await this.store.transactionAsync(async () => {
+-      const exists = await this.store.allAsync(
+-        'SELECT 1 FROM data WHERE container = ? AND key = ? AND hash = ? LIMIT 1',
+-        [this.container, this.encodedKey(key), valueHash],
+-      );
+-      if (exists.length > 0) {
+-        return;
+-      }
+-      const maxRow = await this.store.allAsync('SELECT MAX(key_count) FROM data WHERE container = ? AND key = ?', [
+-        this.container,
+-        this.encodedKey(key),
+-      ]);
+-      const count = Number(maxRow[0]?.[0] ?? 0);
+-      await this.store.runAsync(
+-        `INSERT INTO data (slot, container, key, key_count, hash, value)
+-         VALUES (?, ?, ?, ?, ?, ?)`,
+-        [this.slot(key, count), this.container, this.encodedKey(key), count + 1, valueHash, this.encoder.pack(val)],
+-      );
+-    });
+-  }
+-
+-  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
+-    const rows = await this.store.allAsync(
+-      'SELECT value FROM data WHERE container = ? AND key = ? ORDER BY key_count ASC',
+-      [this.container, this.encodedKey(key)],
+-    );
+-    for (const row of rows) {
+-      const raw = row[0];
+-      if (raw instanceof Uint8Array) {
+-        yield this.decodeValue(raw);
+-      }
+-    }
+-  }
+-
+-  async getValueCountAsync(key: K): Promise<number> {
+-    const rows = await this.store.allAsync('SELECT COUNT(*) FROM data WHERE container = ? AND key = ?', [
+-      this.container,
+-      this.encodedKey(key),
+-    ]);
+-    return Number(rows[0]?.[0] ?? 0);
+-  }
+-
+-  async deleteValue(key: K, val: V): Promise<void> {
+-    await this.store.runAsync('DELETE FROM data WHERE container = ? AND key = ? AND hash = ?', [
+-      this.container,
+-      this.encodedKey(key),
+-      hash(val),
+-    ]);
+-  }
+-
+-  override async delete(key: K): Promise<void> {
+-    await this.store.runAsync('DELETE FROM data WHERE container = ? AND key = ?', [
+-      this.container,
+-      this.encodedKey(key),
+-    ]);
+-  }
+-}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/singleton.ts b/yarn-project/kv-store/src/sqlite-opfs/singleton.ts
+deleted file mode 100644
+index 4aa52c78213f0f901a4025d978c188840f265172..0000000000000000000000000000000000000000
+--- a/yarn-project/kv-store/src/sqlite-opfs/singleton.ts
++++ /dev/null
+@@ -1,48 +0,0 @@
+-import { Encoder } from '#msgpackr';
+-import { toBufferKey } from '#ordered-binary';
+-import { hash } from 'ohash';
+-
+-import type { Value } from '../interfaces/common.js';
+-import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+-import type { AztecSQLiteOPFSStore } from './store.js';
+-
+-/** Stores a single value identified by `name`. */
+-export class SQLiteOPFSAztecSingleton<T extends Value> implements AztecAsyncSingleton<T> {
+-  readonly #container: string;
+-  readonly #slot: string;
+-  readonly #encoder = new Encoder();
+-
+-  constructor(
+-    private readonly store: AztecSQLiteOPFSStore,
+-    name: string,
+-  ) {
+-    this.#container = `singleton:${name}`;
+-    this.#slot = `singleton:${name}:value`;
+-  }
+-
+-  async getAsync(): Promise<T | undefined> {
+-    const rows = await this.store.allAsync('SELECT value FROM data WHERE slot = ? LIMIT 1', [this.#slot]);
+-    if (rows.length === 0) {
+-      return undefined;
+-    }
+-    const raw = rows[0][0];
+-    if (raw instanceof Uint8Array) {
+-      return this.#encoder.unpack(raw) as T;
+-    }
+-    return undefined;
+-  }
+-
+-  async set(val: T): Promise<boolean> {
+-    const { changes } = await this.store.runAsync(
+-      `INSERT OR REPLACE INTO data (slot, container, key, key_count, hash, value)
+-       VALUES (?, ?, ?, ?, ?, ?)`,
+-      [this.#slot, this.#container, toBufferKey([this.#slot]), 1, hash(val), this.#encoder.pack(val)],
+-    );
+-    return changes > 0;
+-  }
+-
+-  async delete(): Promise<boolean> {
+-    await this.store.runAsync('DELETE FROM data WHERE slot = ?', [this.#slot]);
+-    return true;
+-  }
+-}
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/store.ts b/yarn-project/kv-store/src/sqlite-opfs/store.ts
+index 9fcd3da7160ce771f9863e58dc36337cc42b7ac6..8b8db46c65689ec47ff495fc7bd37071523c8f87 100644
+--- a/yarn-project/kv-store/src/sqlite-opfs/store.ts
++++ b/yarn-project/kv-store/src/sqlite-opfs/store.ts
+@@ -1,91 +1,43 @@
+ import type { Logger } from '@aztec-labs/foundation/log';
+-import { SerialQueue } from '@aztec-labs/foundation/queue';
++import { AsyncApi, type KvCreateOptions } from '@aztec-labs/kv-sqlite';
+ 
+-import type { AztecAsyncArray } from '../interfaces/array.js';
+-import type { Key, StoreSize, Value } from '../interfaces/common.js';
+-import type { AztecAsyncCounter } from '../interfaces/counter.js';
+-import type { AztecAsyncMap } from '../interfaces/map.js';
+-import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
+-import type { AztecAsyncSet } from '../interfaces/set.js';
+-import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+-import type { AztecAsyncKVStore } from '../interfaces/store.js';
+-import { SQLiteOPFSAztecArray } from './array.js';
+-import { SqliteCorruptionError, SqliteEncryptionError, isCorruptionMessage } from './errors.js';
+-import { SQLiteOPFSAztecMap } from './map.js';
+-import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
+-import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
++import { AztecKvSqliteStore, typedInitError, validateEncryption } from '../kv-sqlite/store.js';
++import type { WorkerRequest, WorkerResponse } from './messages.js';
+ import { quarantineDuplicatePool } from './pool_integrity.js';
+ import { type PoolLockLease, acquirePoolLock, normalizePoolDirectory } from './pool_lock.js';
+-import { SQLiteOPFSAztecSet } from './set.js';
+-import { SQLiteOPFSAztecSingleton } from './singleton.js';
++
++type KvBackend = Exclude<KvCreateOptions['backend'], string | undefined>;
+ 
+ /**
+- * Main-thread handle for a SQLite database persisted to OPFS via the `opfs-sahpool`
+- * VFS. Owns a dedicated Web Worker (the SAH Pool VFS requires Worker context) and
+- * routes every SQL op through it via typed postMessage RPC.
+- *
+- * Transaction ordering is guaranteed by a `SerialQueue` on the main thread combined
+- * with an `#inTx` flag: outside a `transactionAsync` block, each op acquires the
+- * queue for its own auto-commit; inside a block, the outer call holds the queue and
+- * nested ops bypass it to avoid deadlock.
++ * Main-thread handle for a store persisted to OPFS: the Kv service runs on a dedicated Web Worker (OPFS sync access
++ * handles exist only there), in TypeScript over the sqlite3mc wasm build, its database in an SAH pool directory
++ * through SQLite's own opfs-sahpool VFS, so stores written before open unchanged. Every command is the generated
++ * client's bytes, posted to the worker.
+  */
+-export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
+-  readonly #worker: Worker;
+-  readonly #pending = new Map<number, { resolve: (r: WorkerResponse) => void; reject: (err: Error) => void }>();
+-  readonly #txQueue = new SerialQueue();
+-  readonly #name: string;
+-  readonly #log: Logger;
+-  #nextId = 0;
+-  #inTx = false;
+-  #closed = false;
+-  #workerFailed = false;
+-
++export class AztecSQLiteOPFSStore extends AztecKvSqliteStore {
+   private constructor(
+-    worker: Worker,
+-    name: string,
++    backend: WorkerBackend,
+     log: Logger,
+-    public readonly isEphemeral: boolean,
++    isEphemeral: boolean,
+     private readonly poolLock?: PoolLockLease,
+   ) {
+-    this.#worker = worker;
+-    this.#name = name;
+-    this.#log = log;
+-    this.#worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
+-      const { id } = ev.data;
+-      const handler = this.#pending.get(id);
+-      if (!handler) {
+-        this.#log.warn(`SQLite worker: no pending handler for id ${id}`);
+-        return;
+-      }
+-      this.#pending.delete(id);
+-      handler.resolve(ev.data);
+-    };
+-    this.#worker.onerror = ev => {
+-      this.#workerFailed = true;
+-      this.#log.error(`SQLite worker crashed: ${ev.message}`);
+-      this.#rejectPending(`SQLite worker crashed: ${ev.message}`);
+-    };
+-    this.#txQueue.start();
++    super(new AsyncApi(backend), log, isEphemeral);
+   }
+ 
+   /**
+-   * Opens (or creates) a SQLite database stored in the OPFS SAH Pool. When `ephemeral`
+-   * is true the database lives only in memory and is lost when the worker terminates.
+-   * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
+-   * required when multiple stores coexist in the same tab, because the SAH Pool holds
+-   * an exclusive lock on its directory.
++   * Opens (or creates) a store in the OPFS SAH pool. When `ephemeral` is true the database lives only in memory and
++   * is lost when the worker terminates. Pass `poolDirectory` to place the SAH pool in a non-default OPFS
++   * subdirectory — required when multiple stores coexist in the same tab, because a pool's files are held by one
++   * store at a time.
+    *
+-   * Persistent stores hold an origin-wide Web Lock for the pool directory until close
+-   * or delete. If another store instance already owns it, open fails immediately with
+-   * `SqlitePoolBusyError`.
++   * Persistent stores hold an origin-wide Web Lock for the pool directory until close or delete. If another store
++   * instance already owns it, open fails immediately with `SqlitePoolBusyError`.
+    *
+-   * Pass `encryptionKey` (exactly 32 bytes) to enable at-rest encryption via sqlite3mc's
+-   * ChaCha20 page cipher. The key buffer is **transferred** to the worker — its
+-   * ArrayBuffer detaches on the caller side after `postMessage`. This is intentional:
+-   * the API encodes a one-key-one-owner invariant. A caller that wants to use the same
+-   * key for multiple stores must explicitly clone it per call (e.g.
+-   * `new Uint8Array(savedKey)`), making the duplication a visible, deliberate decision
+-   * rather than a silent structured-clone operation. The default path (one `.open()`,
++   * Pass `encryptionKey` (exactly 32 bytes) to enable at-rest encryption via sqlite3mc's ChaCha20 page cipher. The
++   * key buffer is **transferred** to the worker — its ArrayBuffer detaches on the caller side after `postMessage`.
++   * This is intentional: the API encodes a one-key-one-owner invariant. A caller that wants to use the same key for
++   * multiple stores must explicitly clone it per call (e.g. `new Uint8Array(savedKey)`), making the duplication a
++   * visible, deliberate decision rather than a silent structured-clone operation. The default path (one `.open()`,
+    * one consumption of the key) leaves zero key bytes on the main thread after the call.
+    */
+   static async open(
+@@ -95,25 +47,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
+     poolDirectory?: string,
+     encryptionKey?: Uint8Array,
+   ): Promise<AztecSQLiteOPFSStore> {
+-    if (encryptionKey !== undefined && encryptionKey.length !== 32) {
+-      throw new SqliteEncryptionError(
+-        'invalid_key_length',
+-        `encryptionKey must be 32 bytes (got ${encryptionKey.length})`,
+-      );
+-    }
+-    if (encryptionKey !== undefined && ephemeral) {
+-      throw new SqliteEncryptionError(
+-        'encryption_not_supported_for_ephemeral',
+-        'encryptionKey is not supported for ephemeral (:memory:) stores',
+-      );
+-    }
++    validateEncryption(encryptionKey, ephemeral);
+     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
+     log.debug(
+       `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
+     );
+     const effectivePoolDirectory = ephemeral ? undefined : normalizePoolDirectory(poolDirectory);
+     const poolLock = effectivePoolDirectory ? await acquirePoolLock(effectivePoolDirectory) : undefined;
+-    let worker: Worker | undefined;
++    let backend: WorkerBackend | undefined;
+     try {
+       if (effectivePoolDirectory) {
+         const quarantine = await quarantineDuplicatePool(effectivePoolDirectory);
+@@ -122,210 +63,114 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
+         }
+       }
+       // @dependency ./worker.ts
+-      worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+-      const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral, poolLock);
+-      // Transfer (not clone) the key buffer to the worker so we don't leave a
+-      // second copy on the main thread. Caveat: this detaches the caller's
+-      // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
+-      const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
+-      await store.#sendRequest(
+-        { type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory: effectivePoolDirectory, encryptionKey },
+-        transfer,
+-      );
+-      return store;
++      backend = new WorkerBackend(new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }), log);
++      await backend
++        .request(
++          {
++            type: 'open',
++            id: 0,
++            path: ephemeral ? undefined : normalizeDbPath(dbName),
++            poolDirectory: effectivePoolDirectory,
++            encryptionKey,
++          },
++          // Transfer (not clone) the key buffer to the worker so we don't leave a second copy on the main thread.
++          encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined,
++        )
++        .catch(err => {
++          throw typedInitError(err);
++        });
++      return new AztecSQLiteOPFSStore(backend, log, ephemeral, poolLock);
+     } catch (err) {
+-      worker?.terminate();
++      backend?.terminate();
+       await poolLock?.release();
+       throw err;
+     }
+   }
+ 
+-  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
+-    return new SQLiteOPFSAztecMap<K, V>(this, name);
+-  }
+-
+-  openSet<K extends Key>(name: string): AztecAsyncSet<K> {
+-    return new SQLiteOPFSAztecSet<K>(this, name);
+-  }
+-
+-  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
+-    return new SQLiteOPFSAztecMultiMap<K, V>(this, name);
+-  }
+-
+-  openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
+-    throw new Error('Method not implemented.');
+-  }
+-
+-  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
+-    return new SQLiteOPFSAztecArray<T>(this, name);
+-  }
+-
+-  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
+-    return new SQLiteOPFSAztecSingleton<T>(this, name);
+-  }
+-
+-  transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+-    // Nested calls join the outer transaction — SQLite does not support nested BEGIN,
+-    // and re-acquiring the SerialQueue while the outer call holds it would deadlock.
+-    // Errors in the nested callback propagate to the outer catch, which rolls back the
+-    // whole thing (the standard "nested tx = savepoint-free join" semantic).
+-    if (this.#inTx) {
+-      return callback();
+-    }
+-    return this.#txQueue.put(async () => {
+-      this.#inTx = true;
+-      await this.#sendRequest({ type: 'begin', id: this.#allocId() });
+-      try {
+-        const result = await callback();
+-        await this.#sendRequest({ type: 'commit', id: this.#allocId() });
+-        return result;
+-      } catch (err) {
+-        await this.#sendRequest({ type: 'rollback', id: this.#allocId() }).catch(rollbackErr =>
+-          this.#log.warn(`SQLite ROLLBACK failed: ${rollbackErr instanceof Error ? rollbackErr.message : rollbackErr}`),
+-        );
+-        throw err;
+-      } finally {
+-        this.#inTx = false;
+-      }
+-    });
+-  }
+-
+-  async clear(): Promise<void> {
+-    await this.runAsync('DELETE FROM data');
+-  }
+-
+-  async delete(): Promise<void> {
+-    if (this.#closed) {
+-      return;
+-    }
+-    this.#closed = true;
++  protected override async release(): Promise<void> {
+     try {
+-      await this.#txQueue.end();
+-      await this.#sendRequest({ type: 'deleteDb', id: this.#allocId(), dbName: this.#name }).catch(err =>
+-        this.#log.warn(`SQLite deleteDb failed: ${err instanceof Error ? err.message : err}`),
+-      );
++      await super.release();
+     } finally {
+-      this.#worker.terminate();
+-      this.#rejectPending('SQLite store deleted');
+       await this.poolLock?.release();
+     }
+   }
++}
+ 
+-  /**
+-   * Placeholder — returns zeros to mirror the IndexedDB backend. SQLite exposes real
+-   * numbers cheaply via `PRAGMA page_count` / `page_size` / `freelist_count` and
+-   * `SELECT COUNT(*) FROM data`, which would populate `physicalFileSize`, `actualSize`,
+-   * and `numItems` meaningfully (`mappingSize` stays 0 — it's an LMDB mmap concept).
+-   * Upgrade when any caller actually consumes these values; all current consumers
+-   * tolerate zeros.
+-   */
+-  estimateSize(): Promise<StoreSize> {
+-    return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
+-  }
++/** The Kv service's backend on the store's worker: each call posts the command's bytes and awaits the answer's. */
++class WorkerBackend implements KvBackend {
++  readonly #pending = new Map<number, { resolve: (bytes: Uint8Array) => void; reject: (err: Error) => void }>();
++  #nextId = 0;
++  #failed: string | undefined;
+ 
+-  async close(): Promise<void> {
+-    if (this.#closed) {
+-      return;
+-    }
+-    this.#closed = true;
+-    try {
+-      await this.#txQueue.end();
+-      await this.#sendRequest({ type: 'close', id: this.#allocId() }).catch(() => {});
+-    } finally {
+-      this.#worker.terminate();
+-      this.#rejectPending('SQLite store closed');
+-      await this.poolLock?.release();
+-    }
++  constructor(
++    private readonly worker: Worker,
++    private readonly log: Logger,
++  ) {
++    worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
++      const resp = ev.data;
++      const handler = this.#pending.get(resp.id);
++      if (!handler) {
++        this.log.warn(`SQLite worker: no pending handler for id ${resp.id}`);
++        return;
++      }
++      this.#pending.delete(resp.id);
++      if (resp.type === 'err') {
++        handler.reject(new Error(resp.message));
++      } else {
++        handler.resolve(resp.bytes ?? new Uint8Array());
++      }
++    };
++    worker.onerror = ev => {
++      this.#failed = `SQLite worker crashed: ${ev.message}`;
++      this.log.error(this.#failed);
++      this.#rejectPending(this.#failed);
++    };
+   }
+ 
+-  backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
+-    throw new Error('Method not implemented.');
++  call(bytes: Uint8Array): Promise<Uint8Array> {
++    return this.request({ type: 'call', id: 0, bytes });
+   }
+ 
+-  /**
+-   * Returns a raw SQLite image (bytes suitable for writing as a `.sqlite` file and
+-   * opening in any SQLite tool). Works only for non-ephemeral DBs because the OPFS
+-   * SAH Pool has to be initialized. Useful for inspection/debugging.
+-   */
+-  async exportDb(): Promise<Uint8Array> {
+-    const resp = await this.#sendRequest({ type: 'export', id: this.#allocId() });
+-    if (!('bytes' in resp) || !resp.bytes) {
+-      throw new Error('exportDb: worker returned no bytes');
++  /** Ends the service (releasing the pool's handles before it answers), then the worker. */
++  async destroy(): Promise<void> {
++    try {
++      if (!this.#failed) {
++        await this.request({ type: 'close', id: 0 }).catch(() => {});
++      }
++    } finally {
++      this.terminate();
+     }
+-    return resp.bytes;
+-  }
+-
+-  /**
+-   * Runs a write statement (INSERT/UPDATE/DELETE/DDL). If called inside a
+-   * `transactionAsync` block, bypasses the queue; otherwise acquires it so the
+-   * op runs in its own auto-commit.
+-   */
+-  runAsync(sql: string, bind?: SqlValue[]): Promise<{ changes: number }> {
+-    const send = () =>
+-      this.#sendRequest({ type: 'run', id: this.#allocId(), sql, bind }).then(r => ({
+-        changes: 'changes' in r ? (r.changes ?? 0) : 0,
+-      }));
+-    return this.#inTx ? send() : this.#txQueue.put(send);
+   }
+ 
+-  /** Runs a SELECT statement and returns rows in array row-mode. */
+-  allAsync(sql: string, bind?: SqlValue[]): Promise<ResultRow[]> {
+-    const send = () =>
+-      this.#sendRequest({ type: 'all', id: this.#allocId(), sql, bind }).then(r => ('rows' in r ? (r.rows ?? []) : []));
+-    return this.#inTx ? send() : this.#txQueue.put(send);
++  terminate(): void {
++    this.worker.terminate();
++    this.#failed ??= 'SQLite store closed';
++    this.#rejectPending(this.#failed);
+   }
+ 
+-  #allocId(): number {
+-    return ++this.#nextId;
++  request(req: WorkerRequest, transfer?: Transferable[]): Promise<Uint8Array> {
++    if (this.#failed) {
++      return Promise.reject(new Error(this.#failed));
++    }
++    const id = ++this.#nextId;
++    return new Promise<Uint8Array>((resolve, reject) => {
++      this.#pending.set(id, { resolve, reject });
++      this.worker.postMessage({ ...req, id }, transfer ?? []);
++    });
+   }
+ 
+   /**
+-   * Reject any in-flight requests with `reason`, so callers awaiting a response to a
+-   * request sent to a now-terminated worker don't hang forever. Called from
+-   * close()/delete() and from the worker.onerror handler.
++   * Rejects every in-flight request with `reason`, so callers awaiting a worker that has ended don't hang forever.
+    */
+   #rejectPending(reason: string): void {
+-    if (this.#pending.size === 0) {
+-      return;
+-    }
+     const err = new Error(reason);
+     for (const { reject } of this.#pending.values()) {
+       reject(err);
+     }
+     this.#pending.clear();
+   }
++}
+ 
+-  #sendRequest(req: WorkerRequest, transfer?: Transferable[]): Promise<WorkerResponse> {
+-    if (this.#workerFailed) {
+-      return Promise.reject(new Error('SQLite worker has crashed'));
+-    }
+-    return new Promise<WorkerResponse>((resolve, reject) => {
+-      this.#pending.set(req.id, {
+-        resolve: resp => {
+-          if (resp.type === 'err') {
+-            // Re-hydrate typed errors so consumers can pattern-match on
+-            // `instanceof`. Encryption is tagged on the wire (some cases are
+-            // pre-flight throws with no message to match); corruption is a
+-            // single unambiguous message, so we classify it here rather than
+-            // adding a redundant wire field. Everything else stays a plain Error.
+-            if (resp.encryptionCode !== undefined) {
+-              reject(new SqliteEncryptionError(resp.encryptionCode, resp.message));
+-            } else if (isCorruptionMessage(resp.message)) {
+-              reject(new SqliteCorruptionError(resp.message));
+-            } else {
+-              reject(new Error(resp.message));
+-            }
+-          } else {
+-            resolve(resp);
+-          }
+-        },
+-        reject,
+-      });
+-      if (transfer && transfer.length > 0) {
+-        this.#worker.postMessage(req, transfer);
+-      } else {
+-        this.#worker.postMessage(req);
+-      }
+-    });
+-  }
++function normalizeDbPath(dbName: string): string {
++  return dbName.startsWith('/') ? dbName : `/${dbName}`;
+ }
+diff --git a/yarn-project/kv-store/src/sqlite-opfs/worker.ts b/yarn-project/kv-store/src/sqlite-opfs/worker.ts
+index 34aecfaa58c82aa80af136d0b53fe8660874f4d2..805fdebc95720b90171f441f73bf58482129b950 100644
+--- a/yarn-project/kv-store/src/sqlite-opfs/worker.ts
++++ b/yarn-project/kv-store/src/sqlite-opfs/worker.ts
+@@ -1,218 +1,106 @@
+ /// <reference lib="webworker" />
+-import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
++import { handleRequestSync } from '@aztec-labs/kv-sqlite/server';
++import sqlite3InitModule, { type SAHPoolUtil, type Sqlite3Static } from '@aztec-labs/sqlite3mc-wasm';
+ 
+-import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
+-import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
+-import { DEFAULT_SAH_POOL_DIRECTORY } from './pool_lock.js';
+-
+-const SCHEMA_SQL = `
+-  CREATE TABLE IF NOT EXISTS data (
+-    slot TEXT NOT NULL PRIMARY KEY,
+-    container TEXT NOT NULL,
+-    key BLOB NOT NULL,
+-    key_count INTEGER NOT NULL,
+-    hash TEXT NOT NULL,
+-    value BLOB
+-  ) WITHOUT ROWID;
+-
+-  CREATE INDEX IF NOT EXISTS idx_container_key ON data(container, key);
+-  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_count ON data(container, key, key_count);
+-  CREATE UNIQUE INDEX IF NOT EXISTS idx_container_key_hash ON data(container, key, hash);
+-`;
++import { SqliteKvHandler } from './kv_handler.js';
++import type { WorkerRequest, WorkerResponse } from './messages.js';
+ 
++// The Kv service on this worker's thread, in TypeScript over the sqlite3mc wasm build, its database in OPFS through
++// SQLite's own opfs-sahpool VFS (sync access handles exist only in a dedicated worker). Each command runs to
++// completion before the next message is taken.
+ const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
+ const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
+ 
+ let sqlite3: Sqlite3Static | undefined;
+ let pool: SAHPoolUtil | undefined;
+-let db: Database | undefined;
+-let dbPath: string | undefined;
+-
+-async function ensurePool(directory: string): Promise<SAHPoolUtil> {
+-  const s = (sqlite3 ??= await sqlite3InitModule());
+-  if (!pool) {
+-    pool = await s.installOpfsSAHPoolVfs({
+-      name: SAH_POOL_VFS_NAME,
+-      directory,
+-      initialCapacity: 8,
+-    });
+-    // initialCapacity only fills an empty pool. A first open cut short by a navigation leaves fewer files, which
+-    // fails every later open with SQLITE_CANTOPEN once the journal finds no free slot.
+-    await pool.reserveMinimumCapacity(8);
+-    // Register a sqlite3mc-wrapped VFS pointing at our SAH Pool VFS.
+-    // Encrypted DBs must be opened through this wrapper so sqlite3mc can
+-    // intercept file I/O; plain DBs continue using the SAH Pool VFS directly.
+-    // The wrapper name is `multipleciphers-<underlying>`.
+-    (s.capi as unknown as { sqlite3mc_vfs_create(name: string, makeDefault: number): number }).sqlite3mc_vfs_create(
+-      SAH_POOL_VFS_NAME,
+-      0,
+-    );
+-  }
+-  return pool!;
++let handler: SqliteKvHandler | undefined;
++
++async function installPool(s: Sqlite3Static, directory: string): Promise<SAHPoolUtil> {
++  const installed = await s.installOpfsSAHPoolVfs({ name: SAH_POOL_VFS_NAME, directory, initialCapacity: 8 });
++  // initialCapacity only fills an empty pool. A first open cut short by a navigation leaves fewer files, which fails
++  // every later open with SQLITE_CANTOPEN once the journal finds no free slot.
++  await installed.reserveMinimumCapacity(8);
++  // Encrypted databases open through sqlite3mc's wrapper of the pool VFS (`multipleciphers-<underlying>`), so it can
++  // intercept their I/O; plain ones use the pool VFS directly.
++  (s.capi as unknown as { sqlite3mc_vfs_create(name: string, makeDefault: number): number }).sqlite3mc_vfs_create(
++    SAH_POOL_VFS_NAME,
++    0,
++  );
++  return installed;
+ }
+ 
+-/**
+- * Applies sqlite3mc's ChaCha20 page cipher using a pre-derived 32-byte key.
+- * The PRAGMAs must run before any schema DDL so sqlite3mc can decrypt existing
+- * pages and encrypt new ones. Zeroes the caller-held key array after the PRAGMA
+- * completes to minimize residency of the raw key bytes outside sqlite3mc's heap.
+- */
+-function applyEncryptionKey(conn: Database, key: Uint8Array): void {
+-  const hex = Array.from(key, b => b.toString(16).padStart(2, '0')).join('');
+-  conn.exec(`PRAGMA cipher = 'chacha20'`);
+-  conn.exec(`PRAGMA key = "x'${hex}'"`);
+-  key.fill(0);
+-}
+-
+-async function handleInit(
+-  dbName: string,
+-  ephemeral: boolean,
+-  directory?: string,
+-  encryptionKey?: Uint8Array,
+-): Promise<void> {
+-  const s = (sqlite3 ??= await sqlite3InitModule());
+-  if (encryptionKey !== undefined && ephemeral) {
+-    throw new SqliteEncryptionError(
+-      'encryption_not_supported_for_ephemeral',
+-      'encryptionKey is not supported for ephemeral (:memory:) stores',
+-    );
+-  }
+-  if (ephemeral) {
+-    db = new s.oo1.DB(':memory:', 'c');
+-  } else {
+-    const activePool = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
+-    dbPath = normalizeDbPath(dbName);
+-    if (encryptionKey !== undefined) {
+-      const conn = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
+-      db = conn;
+-      applyEncryptionKey(conn, encryptionKey);
+-    } else {
+-      db = new activePool.OpfsSAHPoolDb(dbPath);
+-    }
++async function open(path: string | undefined, poolDirectory: string | undefined, encryptionKey?: Uint8Array) {
++  if (handler) {
++    throw new Error('SQLite worker: a store is already open');
+   }
+-  runSql(SCHEMA_SQL);
+-}
+-
+-function handleClose(): void {
+   try {
+-    db?.close();
++    const s = (sqlite3 ??= await sqlite3InitModule());
++    const files = poolDirectory ? (pool = await installPool(s, poolDirectory)) : undefined;
++    handler = new SqliteKvHandler({
++      open: (dbPath, encrypted) => {
++        if (!dbPath) {
++          return new s.oo1.DB(':memory:', 'c');
++        }
++        if (!files) {
++          throw new Error('SQLite worker: a persistent store needs a pool directory');
++        }
++        return encrypted
++          ? new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME })
++          : new files.OpfsSAHPoolDb(dbPath);
++      },
++      // Synchronous, whatever the declarations say: the pool reads its file through a sync access handle.
++      export: dbPath => files!.exportFile(dbPath) as unknown as Uint8Array,
++      remove: dbPath => {
++        files?.unlink(dbPath);
++      },
++    });
++    handler.init({ path: path ?? null, encryptionKey: encryptionKey ?? null });
++  } catch (err) {
++    close();
++    throw err;
+   } finally {
+-    db = undefined;
+-    dbPath = undefined;
+-    releasePool();
++    encryptionKey?.fill(0);
+   }
+ }
+ 
+ /**
+- * Releases the SAH pool's OPFS sync access handles before the terminal RPC is acked. Worker
+- * termination releases them only asynchronously, so without this a caller that deletes or reopens
+- * the store directory right after close()/delete() resolves races Chromium's cleanup
+- * (NoModificationAllowedError from removeEntry, or a hang installing a new pool on the directory).
+- * pauseVfs releases the handles without touching file contents; the worker is terminated right
+- * after, so the pool is never resumed.
++ * Closes the store and releases the pool's sync access handles before the request is acked. Worker termination
++ * releases them only asynchronously, so without this a caller that deletes or reopens the store directory right after
++ * close()/delete() resolves races Chromium's cleanup (NoModificationAllowedError from removeEntry, or a hang installing
++ * a new pool on the directory). pauseVfs releases the handles without touching file contents; the worker is
++ * terminated right after, so the pool is never resumed.
+  */
+-function releasePool(): void {
+-  pool?.pauseVfs();
+-  pool = undefined;
+-}
+-
+-async function handleExport(): Promise<Uint8Array> {
+-  if (!db || !dbPath) {
+-    throw new Error('SQLite worker: no database open to export');
+-  }
+-  if (!pool) {
+-    throw new Error('SQLite worker: no SAH Pool available (ephemeral DBs cannot be exported)');
+-  }
+-  return await pool.exportFile(dbPath);
+-}
+-
+-function handleDeleteDb(dbName: string): void {
+-  const path = normalizeDbPath(dbName);
+-  if (db && dbPath === path) {
+-    db.close();
+-    db = undefined;
+-    dbPath = undefined;
+-  }
+-  // Ephemeral :memory: DBs never back a file — skip installing a pool just to unlink
+-  // nothing. installOpfsSAHPoolVfs acquires an exclusive lock on the OPFS SAH
+-  // directory, and under heavy test churn that can contend with workers from
+-  // previous tests whose OPFS handles Chromium hasn't yet released, hanging the RPC
+-  // and then the whole test run.
+-  if (!pool) {
+-    return;
+-  }
++function close() {
+   try {
+-    pool.unlink(path);
+-  } catch {
+-    // File may not exist; ignore.
+-  }
+-  // Guarded because pauseVfs refuses (SQLITE_MISUSE) while any file is open through the VFS.
+-  if (!db) {
+-    releasePool();
+-  }
+-}
+-
+-function requireDb(): Database {
+-  if (!db) {
+-    throw new Error('SQLite worker: no database open');
++    handler?.close();
++  } finally {
++    handler = undefined;
++    pool?.pauseVfs();
++    pool = undefined;
+   }
+-  return db;
+-}
+-
+-function runSql(sql: string, bind?: SqlValue[]): { changes: number } {
+-  const conn = requireDb();
+-  conn.exec({ sql, bind });
+-  return { changes: conn.changes() };
+-}
+-
+-function selectAll(sql: string, bind?: SqlValue[]): ResultRow[] {
+-  const conn = requireDb();
+-  const rows: ResultRow[] = [];
+-  conn.exec({ sql, bind, rowMode: 'array', resultRows: rows });
+-  return rows;
+ }
+ 
+-function normalizeDbPath(dbName: string): string {
+-  return dbName.startsWith('/') ? dbName : `/${dbName}`;
+-}
+-
+-function respond(msg: WorkerResponse): void {
+-  (self as DedicatedWorkerGlobalScope).postMessage(msg);
++function respond(msg: WorkerResponse, transfer: Transferable[] = []): void {
++  (self as DedicatedWorkerGlobalScope).postMessage(msg, transfer);
+ }
+ 
+ (self as DedicatedWorkerGlobalScope).onmessage = async (ev: MessageEvent<WorkerRequest>) => {
+   const req = ev.data;
+   try {
+     switch (req.type) {
+-      case 'init':
+-        await handleInit(req.dbName, req.ephemeral, req.poolDirectory, req.encryptionKey);
+-        return respond({ type: 'ok', id: req.id });
+-      case 'close':
+-        handleClose();
+-        return respond({ type: 'ok', id: req.id });
+-      case 'deleteDb':
+-        handleDeleteDb(req.dbName);
++      case 'open':
++        await open(req.path, req.poolDirectory, req.encryptionKey);
+         return respond({ type: 'ok', id: req.id });
+-      case 'run': {
+-        const { changes } = runSql(req.sql, req.bind);
+-        return respond({ type: 'ok', id: req.id, changes });
+-      }
+-      case 'all': {
+-        const rows = selectAll(req.sql, req.bind);
+-        return respond({ type: 'ok', id: req.id, rows });
++      case 'call': {
++        if (!handler) {
++          throw new Error('SQLite worker: no store open');
++        }
++        // A copy: the encoder's answer may be a view of the buffer it reuses, which must not be transferred away.
++        const bytes = handleRequestSync(handler, req.bytes).slice();
++        return respond({ type: 'ok', id: req.id, bytes }, [bytes.buffer as ArrayBuffer]);
+       }
+-      case 'export': {
+-        const bytes = await handleExport();
+-        return respond({ type: 'ok', id: req.id, bytes });
+-      }
+-      case 'begin':
+-        runSql('BEGIN');
+-        return respond({ type: 'ok', id: req.id });
+-      case 'commit':
+-        runSql('COMMIT');
+-        return respond({ type: 'ok', id: req.id });
+-      case 'rollback':
+-        runSql('ROLLBACK');
++      case 'close':
++        close();
+         return respond({ type: 'ok', id: req.id });
+       default: {
+         const _exhaustive: never = req;
+@@ -220,43 +108,6 @@ function respond(msg: WorkerResponse): void {
+       }
+     }
+   } catch (err) {
+-    const message = err instanceof Error ? err.message : String(err);
+-    const encryptionCode = detectEncryptionCode(req, err, message);
+-    if (req.type === 'init') {
+-      try {
+-        handleClose();
+-      } catch {
+-        // The main thread terminates this worker after a failed init, which releases any remaining OPFS handles.
+-      }
+-    }
+-    respond({ type: 'err', id: req.id, message, encryptionCode });
++    respond({ type: 'err', id: req.id, message: err instanceof Error ? err.message : String(err) });
+   }
+ };
+-
+-/**
+- * Maps a thrown error during request handling to a typed encryption code, so the
+- * main thread can re-hydrate it as a {@link SqliteEncryptionError}. Returns
+- * `undefined` for non-encryption errors (preserves the existing untyped path).
+- *
+- * Two sources:
+- *   - The error was already a `SqliteEncryptionError` (pre-flight throws inside
+- *     this worker — e.g. ephemeral + encryptionKey). Forward its code as-is.
+- *   - The error came from SQLite/sqlite3mc with a known decrypt-failure message
+- *     during an `init` request. Both "wrong key supplied" and "no key supplied
+- *     to an encrypted DB" surface as SQLITE_NOTADB ("file is not a database") —
+- *     we don't constrain on `req.encryptionKey` because the no-key-on-encrypted-DB
+- *     case is exactly when the caller most needs the typed signal.
+- */
+-function detectEncryptionCode(
+-  req: WorkerRequest,
+-  err: unknown,
+-  message: string,
+-): SqliteEncryptionErrorCode | undefined {
+-  if (err instanceof SqliteEncryptionError) {
+-    return err.code;
+-  }
+-  if (req.type === 'init' && isDecryptFailureMessage(message)) {
+-    return 'decrypt_failed';
+-  }
+-  return undefined;
+-}
+diff --git a/yarn-project/kv-store/vitest.config.ts b/yarn-project/kv-store/vitest.config.ts
+index 22ac1889da29d787290b41c2b89b745885bc12d3..efa74426fe7ca05bff99e96bf9d1ca08da33ffe2 100644
+--- a/yarn-project/kv-store/vitest.config.ts
++++ b/yarn-project/kv-store/vitest.config.ts
+@@ -57,6 +57,7 @@ export default defineConfig({
+           environment: 'node',
+           include: [
+             './src/lmdb/**/*.test.ts',
++            './src/kv-sqlite/**/*.test.ts',
+             './src/lmdb-v2/**/*.test.ts',
+             './src/stores/**/*.test.ts',
+             './src/interfaces/**/*.test.ts',
+diff --git a/yarn-project/package.json b/yarn-project/package.json
+index fe7fdb2fb9e4d3e7f87aa0ea84b76d837d4d5317..f58692b26b73391913440efcad8b0965a0f83066 100644
+--- a/yarn-project/package.json
++++ b/yarn-project/package.json
+@@ -118,6 +118,11 @@
+     "@aztec-labs/kvdb-darwin-x64": "7.0.0-nightly.20261110",
+     "@aztec-labs/kvdb-linux-arm64": "7.0.0-nightly.20261110",
+     "@aztec-labs/kvdb-linux-x64": "7.0.0-nightly.20261110",
++    "@aztec-labs/kv-sqlite": "7.0.0-nightly.20261110",
++    "@aztec-labs/kv-sqlite-darwin-arm64": "7.0.0-nightly.20261110",
++    "@aztec-labs/kv-sqlite-darwin-x64": "7.0.0-nightly.20261110",
++    "@aztec-labs/kv-sqlite-linux-arm64": "7.0.0-nightly.20261110",
++    "@aztec-labs/kv-sqlite-linux-x64": "7.0.0-nightly.20261110",
+     "@aztec-foundation/noir-acvm_js": "7.0.0-nightly.20261110",
+     "@aztec-foundation/noir-types": "7.0.0-nightly.20261110",
+     "@aztec-foundation/noir-noirc_abi": "7.0.0-nightly.20261110",
+diff --git a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
+index 2f40e62cb0c5a9aaf197acdd506d27ba72fbebc7..c1169431961d41427c80488f6f43f4c1d1c8def5 100644
+--- a/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
++++ b/yarn-project/pxe/src/storage/backwards_compatibility_tests/__snapshots__/opened_stores.json
+@@ -1,5 +1,5 @@
+ {
+-  "schemaVersion": 16,
++  "schemaVersion": 17,
+   "stores": [
+     {
+       "name": "capsules",
+diff --git a/yarn-project/pxe/src/storage/metadata.ts b/yarn-project/pxe/src/storage/metadata.ts
+index 3d285d99b6fce598be55988f63a3b0d50fdd87a3..b94dfea0a4d960abe1ab03a1af36832cd81c76b6 100644
+--- a/yarn-project/pxe/src/storage/metadata.ts
++++ b/yarn-project/pxe/src/storage/metadata.ts
+@@ -1 +1 @@
+-export const PXE_DATA_SCHEMA_VERSION = 16;
++export const PXE_DATA_SCHEMA_VERSION = 17;

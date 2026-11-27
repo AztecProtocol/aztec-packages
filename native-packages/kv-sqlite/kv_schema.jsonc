@@ -1,0 +1,152 @@
+// An ordered key-value store: named containers of byte keys and byte values, the operations
+// @aztec-labs/kv-store's maps, multimaps, sets, arrays and singletons are built from. Served over
+// SQLite3 Multiple Ciphers natively (cpp/: a binary and a library) and in TypeScript in a browser
+// (kv-store's OPFS worker), behind the generated @aztec-labs/kv-sqlite client; nothing here is
+// specific to SQLite.
+//
+// A container holds entries keyed by (key, index). A map, set or singleton has one entry per key,
+// at index 1. A multimap appends entries to a key, each at the next index. An array is one key
+// whose indices are its positions, from 1. Keys sort as bytes (memcmp), then by index.
+//
+// An instance is one store, opened by Init and closed when the instance ends. Commands outside
+// Begin/Commit run in a transaction of their own.
+{
+  "service": "Kv",
+
+  "types": {
+    "KvEntry": {
+      "key": "bytes",
+      "value": "bytes"
+    },
+    "KvMaybeValue": {
+      "value": "bytes?"
+    }
+  },
+
+  "error": { "message": "string" },
+
+  "commands": {
+    // Opens the store. Without a path it lives in memory and ends with the instance. The path is
+    // the database file's.
+    "Init": {
+      "request": {
+        "path": "string?",
+        // 32 bytes: the store is encrypted at rest (ChaCha20). A store written with a key opens
+        // only with that key.
+        "encryptionKey": "bytes?"
+      },
+      "response": {}
+    },
+
+    // Every entry of every container is removed.
+    "Clear": { "request": {}, "response": {} },
+
+    // The store's database file as it stands (a persistent store only).
+    "Export": { "request": {}, "response": { "bytes": "bytes" } },
+
+    // Closes the store and removes its files; the instance then serves nothing.
+    "DeleteStore": { "request": {}, "response": {} },
+
+    // A transaction over the commands that follow, until Commit or Rollback. Transactions do not
+    // nest.
+    "Begin": { "request": {}, "response": {} },
+    "Commit": { "request": {}, "response": {} },
+    "Rollback": { "request": {}, "response": {} },
+
+    // The value at index 1 of each key, in order, absent for a key with none.
+    "Get": {
+      "request": { "container": "string", "keys": "bytes[]" },
+      "response": { "values": "KvMaybeValue[]" }
+    },
+
+    "Has": {
+      "request": { "container": "string", "key": "bytes" },
+      "response": { "has": "bool" }
+    },
+
+    // The container's entries, or the key's when one is given.
+    "Count": {
+      "request": { "container": "string", "key": "bytes?" },
+      "response": { "count": "u64" }
+    },
+
+    // Entries in key order, then index order: forward from `start` (inclusive) to `end`
+    // (exclusive), or in reverse from `end` (inclusive) down to `start` (exclusive). At most
+    // `limit` entries.
+    "Range": {
+      "request": {
+        "container": "string",
+        "start": "bytes?",
+        "end": "bytes?",
+        "reverse": "bool",
+        "limit": "u32?"
+      },
+      "response": { "entries": "KvEntry[]" }
+    },
+
+    // Sets the key's value at index 1.
+    "Put": {
+      "request": { "container": "string", "key": "bytes", "value": "bytes" },
+      "response": {}
+    },
+
+    // Puts every entry, atomically.
+    "PutMany": {
+      "request": { "container": "string", "entries": "KvEntry[]" },
+      "response": {}
+    },
+
+    // Removes the key and all its entries.
+    "Delete": {
+      "request": { "container": "string", "key": "bytes" },
+      "response": {}
+    },
+
+    // Appends the value at the key's next index (one past its highest). With `unique`, a value the
+    // key already holds is not appended again. Returns the key's entry count after.
+    "Append": {
+      "request": {
+        "container": "string",
+        "key": "bytes",
+        "values": "bytes[]",
+        "unique": "bool"
+      },
+      "response": { "count": "u64" }
+    },
+
+    // The key's values in index order.
+    "Values": {
+      "request": { "container": "string", "key": "bytes" },
+      "response": { "values": "bytes[]" }
+    },
+
+    // Removes the key's entries holding this value.
+    "DeleteValue": {
+      "request": { "container": "string", "key": "bytes", "value": "bytes" },
+      "response": {}
+    },
+
+    // The value at the key's index (from 1).
+    "GetAt": {
+      "request": { "container": "string", "key": "bytes", "index": "u64" },
+      "response": { "value": "bytes?" }
+    },
+
+    // Replaces the value at the key's index, if the key has an entry there.
+    "SetAt": {
+      "request": {
+        "container": "string",
+        "key": "bytes",
+        "index": "u64",
+        "value": "bytes"
+      },
+      "response": { "set": "bool" }
+    },
+
+    // Removes and returns the key's entry at its highest index.
+    "Pop": {
+      "request": { "container": "string", "key": "bytes" },
+      "response": { "value": "bytes?" }
+    }
+  }
+}
