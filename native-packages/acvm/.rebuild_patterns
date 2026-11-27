@@ -1,0 +1,15 @@
+^native-packages/acvm/bootstrap\.sh$
+^native-packages/acvm/package\.json$
+^native-packages/acvm/\.rebuild_patterns$
+^native-packages/acvm/[a-z_]+_schema\.jsonc$
+^native-packages/acvm/rust/
+^native-packages/acvm/scripts/
+^ipc-codegen/src/
+^ipc-codegen/templates/
+^ipc-runtime/rust/
+^ipc-runtime/cpp/
+^noir/noir-repo/acvm-repo/
+^noir/noir-repo/tooling/noirc_abi/
+^noir/noir-repo/tooling/noirc_printable_type/
+^noir/noir-repo/utils/
+^noir/noir-repo/Cargo\.toml$

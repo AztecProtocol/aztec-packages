@@ -5,7 +5,8 @@
 # Bumping Noir touches several tracked artifacts that must move together, or the
 # resulting tree is inconsistent and downstream builds / CI break:
 #   1. the noir/noir-repo submodule pointer
-#   2. avm-transpiler/Cargo.lock  (the transpiler depends on noir crates by path)
+#   2. the Cargo.lock of every crate that depends on noir crates by path:
+#      avm-transpiler and native-packages/acvm
 #   3. noir-projects formatting   (a compiler bump can change formatter output)
 #
 # Usage:
@@ -63,29 +64,34 @@ NEW_COMMIT="$(git -C "$SUBMODULE" rev-parse HEAD)"
 # The expected noir crate version for the sanity check below lives in the submodule.
 EXPECTED_VERSION="$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' "$SUBMODULE/.release-please-manifest.json" 2>/dev/null || true)"
 
-# --- 2. avm-transpiler/Cargo.lock ---------------------------------------------
-echo "==> Refreshing avm-transpiler/Cargo.lock"
+# --- 2. Cargo.lock of the crates on noir's path crates ------------------------
 # Update ONLY the noir-repo path packages, per the repo's lockfile-discipline
 # rule (never bulk-update Cargo.lock -- `cargo update` without -p would drag in
-# unrelated transitive bumps). Keep this list current with the noir crates the
-# transpiler pulls in by path.
+# unrelated transitive bumps). Keep this list current with the noir crates these
+# crates pull in by path; each lock is updated for the ones it contains.
 NOIR_CARGO_PACKAGES=(
   acir acir_field acvm acvm_blackbox_solver bn254_blackbox_solver
-  brillig brillig_vm fm iter-extended noirc_abi noirc_arena
-  noirc_artifacts noirc_errors noirc_evaluator noirc_frontend
-  noirc_printable_type noirc_span
+  brillig brillig_vm fm iter-extended msgpack_tagged msgpack_tagged_derive
+  noirc_abi noirc_arena noirc_artifacts noirc_errors noirc_evaluator
+  noirc_frontend noirc_printable_type noirc_span
 )
-CARGO_PKG_ARGS=()
-for pkg in "${NOIR_CARGO_PACKAGES[@]}"; do CARGO_PKG_ARGS+=(-p "$pkg"); done
-cargo update --manifest-path avm-transpiler/Cargo.toml "${CARGO_PKG_ARGS[@]}" \
-  || echo "warning: 'cargo update' on avm-transpiler failed; Cargo.lock may be partially updated" >&2
-# If the transpiler no longer builds after this, the fix belongs in
-# avm-transpiler (its Cargo.lock, or import statements for changed noir exports).
-# DO NOT edit noir/noir-repo to make the transpiler build.
-if [[ -n "$EXPECTED_VERSION" ]]; then
-  grep -q "$EXPECTED_VERSION" avm-transpiler/Cargo.lock \
-    || echo "warning: avm-transpiler/Cargo.lock does not mention expected noir version $EXPECTED_VERSION; check the update." >&2
-fi
+NOIR_PATH_CRATES=(avm-transpiler native-packages/acvm/rust)
+for crate in "${NOIR_PATH_CRATES[@]}"; do
+  echo "==> Refreshing $crate/Cargo.lock"
+  CARGO_PKG_ARGS=()
+  for pkg in "${NOIR_CARGO_PACKAGES[@]}"; do
+    grep -qx "name = \"$pkg\"" "$crate/Cargo.lock" && CARGO_PKG_ARGS+=(-p "$pkg")
+  done
+  cargo update --manifest-path "$crate/Cargo.toml" "${CARGO_PKG_ARGS[@]}" \
+    || echo "warning: 'cargo update' on $crate failed; its Cargo.lock may be partially updated" >&2
+  # If a crate no longer builds after this, the fix belongs in that crate (its
+  # Cargo.lock, or import statements for changed noir exports).
+  # DO NOT edit noir/noir-repo to make it build.
+  if [[ -n "$EXPECTED_VERSION" ]]; then
+    grep -q "$EXPECTED_VERSION" "$crate/Cargo.lock" \
+      || echo "warning: $crate/Cargo.lock does not mention expected noir version $EXPECTED_VERSION; check the update." >&2
+  fi
+done
 
 # --- 3. noir-projects formatting ----------------------------------------------
 echo "==> Formatting noir-projects"
@@ -96,7 +102,7 @@ echo "==> Formatting noir-projects"
   || echo "warning: noir-projects/fnd format failed (is nargo built?); run '(cd noir-projects/fnd && ./bootstrap.sh format)' before committing, or CI will fail." >&2
 
 echo "==> Staging changes"
-git add "$SUBMODULE" avm-transpiler/Cargo.lock noir-projects
+git add "$SUBMODULE" avm-transpiler/Cargo.lock native-packages/acvm/rust/Cargo.lock noir-projects
 
 cat <<EOF
 

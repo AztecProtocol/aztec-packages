@@ -1,0 +1,113 @@
+// The ACVM execution service: runs compiled Noir (ACIR) programs to a solved witness, and encodes and
+// decodes their inputs and outputs by their ABI, as acvm_js and noirc_abi_wasm do. Served by the
+// Rust crate in rust/ as a native binary (aztec-acvm), a native library and a wasm module, behind the
+// generated @aztec-labs/acvm client. Oracles (Brillig foreign calls) are answered by the Oracle service
+// (oracle_schema.jsonc), which the caller provides.
+{
+  "service": "Acvm",
+
+  // A field element, 32 bytes big-endian.
+  "aliases": {
+    "Fr": "bin32"
+  },
+
+  "types": {
+    // One solved (or initial) witness: its index and value. A witness map crosses the wire as an
+    // array of these.
+    "WitnessEntry": {
+      "index": "u32",
+      "value": "Fr"
+    },
+
+    // An assertion's payload as the circuit raised it, for the caller to decode against the ABI:
+    // the error selector (decimal u64) and the data (0x-hex fields), the shape acvm_js reports.
+    "RawAssertionPayload": {
+      "selector": "string",
+      "data": "string[]"
+    },
+
+    // One function's witness in a witness stack.
+    "WitnessStackItem": {
+      "index": "u32",
+      "witness": "WitnessEntry[]"
+    },
+
+    // The program failed to solve: an assertion or a Brillig trap. This is the program's outcome, not
+    // the service's error: it comes back on the response, so the caller can rebuild acvm_js's
+    // ExecutionError (message, call stack, payload, function ids) and map it to source.
+    "ExecutionFailure": {
+      "message": "string",
+      // Opcode locations of the failure, outermost first, each as acvm's OpcodeLocation displays it
+      // ("12", or "3.5" inside a Brillig call).
+      "callStack": "string[]?",
+      "rawAssertionPayload": "RawAssertionPayload?",
+      "acirFunctionId": "u32?",
+      "brilligFunctionId": "u32?"
+    }
+  },
+
+  "error": { "message": "string" },
+
+  "commands": {
+    // Solve a program from its main function's initial witness. Oracles go to the Oracle service,
+    // tagged with `executionId` so one Oracle server can answer several callers' executions.
+    "ExecuteProgram": {
+      "request": {
+        "executionId": "u64",
+        // The program as Program::serialize_program writes it (a compiled artifact's bytecode,
+        // base64-decoded).
+        "bytecode": "bytes",
+        "initialWitness": "WitnessEntry[]",
+        // Return the main function's solved witness (it can run to millions of entries).
+        "returnWitnessMap": "bool",
+        // Return the witness stack in the form bb takes as a prover's witness: msgpack, uncompressed.
+        "returnWitnessStack": "bool"
+      },
+      "response": {
+        // The main function's return values: its solved witness at the circuit's return indices.
+        "returnWitness": "WitnessEntry[]",
+        // When asked for, the main function's solved witness.
+        "witness": "WitnessEntry[]",
+        // When asked for, every function's solved witness, as bb takes it.
+        "witnessStack": "bytes?",
+        // Set when the program failed to solve; the witnesses are then empty.
+        "failure": "ExecutionFailure?"
+      }
+    },
+
+    // The ABI commands take an ABI (a compiled artifact's `abi`) and values as JSON text: the JSON
+    // noirc_abi_wasm's bindings move through serde_json, fields as 0x-hex strings.
+
+    // A main function's initial witness from its inputs (a JSON object by parameter name) and, when
+    // given, its return value.
+    "AbiEncode": {
+      "request": {
+        "abiJson": "string",
+        "inputsJson": "string",
+        "returnValueJson": "string?"
+      },
+      "response": { "witness": "WitnessEntry[]" }
+    },
+    // A solved witness's inputs and return value, as the JSON { inputs, return_value }.
+    "AbiDecode": {
+      "request": { "abiJson": "string", "witness": "WitnessEntry[]" },
+      "response": { "json": "string" }
+    },
+    // An assertion's payload as the error type the ABI gives its selector: a string for a string or
+    // format-string error, else the decoded value, as JSON.
+    "DecodeAssertionPayload": {
+      "request": { "abiJson": "string", "payload": "RawAssertionPayload" },
+      "response": { "json": "string" }
+    },
+    // A witness stack as WitnessStack::serialize writes it (gzipped), the form nargo writes and
+    // acvm_js's compressWitnessStack returns; and back.
+    "CompressWitnessStack": {
+      "request": { "stack": "WitnessStackItem[]" },
+      "response": { "bytes": "bytes" }
+    },
+    "DecompressWitnessStack": {
+      "request": { "bytes": "bytes" },
+      "response": { "stack": "WitnessStackItem[]" }
+    }
+  }
+}

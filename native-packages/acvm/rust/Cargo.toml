@@ -1,0 +1,50 @@
+[package]
+name = "aztec-acvm"
+version = "0.1.0"
+edition = "2021"
+description = "The ACVM as an ipc-codegen service: a native binary, a native library and a wasm module solving ACIR programs, with oracles answered by the caller."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+name = "aztec_acvm"
+# cdylib: the wasm module and the native library (each exports acvm_ipc_ffi_*). rlib: the binary and the tests.
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "aztec-acvm"
+path = "src/main.rs"
+required-features = ["ipc-runtime"]
+
+[features]
+default = ["ipc-runtime"]
+# The native server, reaching its host-call targets over the sockets --host-call names: ipc-runtime's
+# transport, which compiles its C++. The library and the wasm module need only its pure Rust part.
+ipc-runtime = ["ipc-runtime/sockets"]
+# The FFI exports of the wasm module and of the native library. Built with
+# --no-default-features --features ffi.
+ffi = ["dep:libc"]
+
+[dependencies]
+# This tree's noir (noir/noir-repo), the noir that compiles the programs run here. noirc_abi is not
+# published, so every noir crate comes by path, at one version.
+acir = { path = "../../../noir/noir-repo/acvm-repo/acir" }
+acvm = { path = "../../../noir/noir-repo/acvm-repo/acvm", features = ["bn254"] }
+bn254_blackbox_solver = { path = "../../../noir/noir-repo/acvm-repo/bn254_blackbox_solver" }
+noirc_abi = { path = "../../../noir/noir-repo/tooling/noirc_abi", features = ["bn254"] }
+iter-extended = { path = "../../../noir/noir-repo/utils/iter-extended" }
+serde_json = "1.0"
+ipc-runtime = { path = "../../../ipc-runtime/rust", default-features = false }
+libc = { version = "0.2", optional = true }
+rmp-serde = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+
+[profile.release]
+lto = true
+
+[dev-dependencies]
+base64 = "0.22"
+flate2 = "1.0"
+ipc-runtime = { path = "../../../ipc-runtime/rust" }
+serde_json = "1.0"
