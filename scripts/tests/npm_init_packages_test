@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Tests scripts/npm_init_packages against fake npm and curl commands: it publishes placeholders only
+# for packages the registry does not have, treats a placeholder still being processed as published,
+# and trusts every package not already trusting the workflow.
+set -euo pipefail
+script="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/npm_init_packages"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+fail() { echo "FAIL: $1" >&2; cat "$work/calls" >&2; exit 1; }
+
+# The registry: one line per package that exists. npm calls are recorded in $work/calls.
+mkdir -p "$work/bin"
+cat > "$work/bin/curl" <<EOF
+#!/usr/bin/env bash
+url=\${@: -1}; pkg=\${url#https://registry.npmjs.org/}; pkg=\${pkg/\%2f//}
+grep -qx "\$pkg" "$work/registry" || exit 22
+echo '{"versions":{"0.0.0-init":{}}}'
+EOF
+cat > "$work/bin/npm" <<EOF
+#!/usr/bin/env bash
+echo "\$*" >> "$work/calls"
+case "\$1" in
+  whoami) echo tester ;;
+  publish)
+    name=\$(jq -r .name package.json)
+    if grep -qx "\$name" "$work/processing"; then
+      while [ "\$1" != --logs-dir ]; do shift; done
+      mkdir -p "\$2" && echo "403 You cannot publish over the previously published versions: 0.0.0-init." > "\$2/x-debug-0.log"
+      exit 1
+    fi
+    echo "\$name" >> "$work/registry" ;;
+  trust)
+    [ "\$2" = list ] && { grep -qx "\$3" "$work/trusted" && echo "github ci3.yml"; exit 0; }
+    echo "\$3" >> "$work/trusted" ;;
+esac
+EOF
+chmod +x "$work/bin/"*
+printf '%s\n' @t/exists @t/trusted > "$work/registry"
+echo @t/trusted > "$work/trusted"
+echo @t/processing > "$work/processing"
+touch "$work/calls"
+
+# sleep is a no-op so the test does not wait on the pauses between calls.
+PATH="$work/bin:$PATH" bash -c 'sleep() { :; }; export -f sleep; "$@"' _ \
+  "$script" @t/new @t/exists @t/trusted @t/processing > "$work/out" 2>&1 &
+pid=$!
+# @t/processing never appears on the fake registry: let it, so the wait ends.
+for _ in $(seq 50); do grep -q "waiting for @t/processing" "$work/out" && break; sleep 0.1; done
+echo @t/processing >> "$work/registry"
+wait $pid || fail "exited non-zero: $(cat "$work/out")"
+
+[ "$(grep -c '^publish' "$work/calls")" = 2 ] || fail "should publish only @t/new and @t/processing"
+grep -q "already published by an earlier run" "$work/out" || fail "processing placeholder not treated as published"
+for p in @t/new @t/exists @t/processing; do
+  grep -qx "trust github $p --repo AztecProtocol/aztec-packages --file ci3.yml --env master --allow-publish -y" "$work/calls" \
+    || fail "$p not trusted"
+done
+grep -q "^trust github @t/trusted" "$work/calls" && fail "re-trusted a package that already trusts ci3.yml"
+echo "PASS: npm_init_packages"
