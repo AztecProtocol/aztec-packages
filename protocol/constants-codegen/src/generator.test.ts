@@ -219,3 +219,25 @@ test('the CLI does not fall back to the embedded inputs when --input is given', 
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('skips inline modules such as the tests at the end of constants.nr', t => {
+  const warnings: string[] = [];
+  t.mock.method(console, 'warn', (msg: string) => warnings.push(msg));
+  const { constantsExpressions } = parseNoirFile(`${noirFixture}
+mod test {
+    use crate::constants::{
+        ARCHIVE_HEIGHT, MAX_FIELD_VALUE,
+    };
+
+    #[test]
+    fn archive_height_fits() {
+        let height = ARCHIVE_HEIGHT;
+        assert(height < 64);
+    }
+}
+pub global AFTER_MODULE: u32 = 7;
+`);
+  assert.deepEqual(warnings, []);
+  assert.deepEqual(constantsExpressions.at(-1), ['AFTER_MODULE', '7']);
+  assert.equal(constantsExpressions.filter(([name]) => name === 'height').length, 0);
+});

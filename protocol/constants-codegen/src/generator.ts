@@ -240,10 +240,17 @@ export function parseNoirFile(fileContent: string): ParsedExpressions {
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
+  // Brace depth inside an inline module (such as the tests at the end of constants.nr), whose lines are not constants.
+  let moduleDepth = 0;
   fileContent.split('\n').forEach(l => {
     // Line comments are stripped so they never leak into expressions, where they would swallow
     // the rest of the expression when it is later evaluated as JavaScript.
     const line = l.replace(/\/\/.*$/, '').trim();
+
+    if (moduleDepth > 0 || (!expression.name && line.match(/^(pub(\(\w+\))?\s+)?mod\s+\w+\s*\{/))) {
+      moduleDepth += (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
+      return;
+    }
 
     if (!line) {
       // Empty line.
