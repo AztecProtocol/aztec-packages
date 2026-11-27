@@ -57,8 +57,13 @@ A focused single-purpose tool for checking whether a given attester address has 
 **[aztec-providers.01.ro](https://aztec-providers.01.ro)**
 A provider-side indexer, useful as a cross-check for provider-side reward routing.
 
+**[quadrant.staker.space](https://quadrant.staker.space)**
+A staking app for delegators. Useful to operators as the view a delegator has of them: each provider's page shows its duties and blocks over the last 30 days, slashes, commission changes and how it pays its delegators. It also tracks the entry queue, rewards per rollup, and stake left behind on older rollup versions with the steps to recover it. The read-only API behind it is public and documented at [quadrant-api.staker.space/docs](https://quadrant-api.staker.space/docs).
+
 **[citizenweb3/chain-data-indexer (aztec branch)](https://github.com/citizenweb3/chain-data-indexer/tree/aztec)**
 A self-hostable Aztec L2 indexer (Chicmoz-based, MIT): a listener that ingests proposed and proven blocks, transactions, and chain info, plus an explorer REST API. Useful if you want your own chain/explorer data feed rather than relying on a hosted explorer. For staking-specific data, the dashboard's [`atp-indexer`](https://github.com/AztecProtocol/staking-dashboard/tree/main/atp-indexer) (above) is the closer fit.
+
+
 
 ### Scripts and installers
 
