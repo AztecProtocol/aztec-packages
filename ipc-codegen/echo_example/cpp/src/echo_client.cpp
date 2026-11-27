@@ -7,6 +7,7 @@
 #include <array>
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 // Explicit check (not assert): verification must survive NDEBUG builds.
 #define CHECK(cond, label)                                                     \
@@ -128,6 +129,12 @@ int main(int argc, char **argv) {
     CHECK(message.find("deliberate failure") != std::string::npos,
           "EchoFail message");
     std::cerr << "echo_client(cpp): EchoFail OK\n";
+  }
+
+  {
+    auto resp = client.relay({.data = {9}, .hops = 0});
+    CHECK(resp.data == std::vector<uint8_t>{9}, "EchoRelay data");
+    std::cerr << "echo_client(cpp): EchoRelay OK\n";
   }
 
   std::cerr << "echo_client(cpp): all tests passed\n";

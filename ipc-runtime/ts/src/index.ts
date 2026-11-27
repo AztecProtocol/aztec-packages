@@ -1,5 +1,10 @@
 export type { IpcClientAsync, IpcClientSync } from "./types.js";
 export {
+  AsyncInstanceBackend,
+  type AsyncInstanceEvents,
+  type AsyncInstancePort,
+} from "./async_instance.js";
+export {
   MAX_FRAME_SIZE,
   CONNECT_RETRY_BUDGET_MS,
   DEFAULT_RING_SIZE,

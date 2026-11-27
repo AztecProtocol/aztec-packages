@@ -8,8 +8,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(hash_str $(cache_content_hash .rebuild_patterns))
 
 # Generate the Rust client from the checked-in bb schema via ipc-codegen.
-# --ffi also emits the Backend trait, error type and FFI backend, so the
-# generated client never depends on hand-maintained copies of them.
+# --ffi also emits the FFI backend. The Backend trait and error type come from
+# the ipc-runtime crate, so the client never depends on hand-maintained copies.
 function generate {
   local root=$(git rev-parse --show-toplevel)
   (cd barretenberg-rs && node --experimental-strip-types --no-warnings \

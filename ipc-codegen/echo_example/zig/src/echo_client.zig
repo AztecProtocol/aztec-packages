@@ -183,5 +183,15 @@ pub fn main() !void {
         std.debug.print("echo_client(zig): EchoFail OK\n", .{});
     }
 
+    // Test 9: EchoRelay — with no hops, no host call
+    {
+        const resp = try client.relay(.{ .data = &[_]u8{9}, .hops = 0 });
+        if (!std.mem.eql(u8, resp.data, &[_]u8{9})) {
+            std.debug.print("echo_client(zig): EchoRelay FAIL: {any}\n", .{resp.data});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoRelay OK\n", .{});
+    }
+
     std.debug.print("echo_client(zig): all tests passed\n", .{});
 }

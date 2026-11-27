@@ -51,6 +51,17 @@ class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
     using CallInstance =
         void (*)(void* instance, const uint8_t* input, size_t input_len, uint8_t** output, size_t* output_len);
     using Destroy = void (*)(void* instance);
+    using AsyncRespond = void (*)(void* host_ctx, uint64_t request_id, const uint8_t* response, size_t len);
+    using AsyncCall = void (*)(void* host_ctx,
+                               uint64_t call_id,
+                               const uint8_t* target,
+                               size_t target_len,
+                               const uint8_t* request,
+                               size_t request_len);
+    using CreateAsync = void* (*)(void* host_ctx, AsyncRespond respond, AsyncCall call);
+    using Submit = void (*)(void* instance, uint64_t request_id, const uint8_t* input, size_t input_len);
+    using Deliver =
+        void (*)(void* instance, uint64_t call_id, int32_t status, const uint8_t* response, size_t response_len);
 
     /** One per loaded library, shared by every FfiLibrary over it. */
     struct Loaded {
@@ -59,6 +70,11 @@ class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
         Destroy destroy = nullptr;
         Alloc alloc = nullptr;
         Free free = nullptr;
+        /** The asynchronous instances, when the library has them (all four, or none). */
+        CreateAsync create_async = nullptr;
+        Submit submit = nullptr;
+        Deliver deliver = nullptr;
+        Destroy destroy_async = nullptr;
     };
 
     FfiLibrary(const Napi::CallbackInfo& info);
@@ -66,6 +82,8 @@ class FfiLibrary : public Napi::ObjectWrap<FfiLibrary> {
     Napi::Value create_instance(const Napi::CallbackInfo& info);
     Napi::Value call_instance(const Napi::CallbackInfo& info);
     Napi::Value destroy_instance(const Napi::CallbackInfo& info);
+    /** Whether the library exports asynchronous instances (<ffiName>_ipc_ffi_create_async and the rest). */
+    Napi::Value has_async_instances(const Napi::CallbackInfo& info);
 
     static Napi::Function get_class(Napi::Env env);
 

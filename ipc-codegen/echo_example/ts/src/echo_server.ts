@@ -19,6 +19,8 @@ import type {
   EchoFieldsResponse,
   EchoNested,
   EchoNestedResponse,
+  EchoRelay,
+  EchoRelayResponse,
 } from "./generated/api_types.js";
 
 const args = process.argv.slice(2);
@@ -52,6 +54,13 @@ const handler: Handler = {
   },
   async fail(cmd: EchoFail): Promise<EchoFailResponse> {
     throw new Error(cmd.message);
+  },
+  // This server makes no host calls; only a relay of no hops answers.
+  async relay(cmd: EchoRelay): Promise<EchoRelayResponse> {
+    if (cmd.hops !== 0) {
+      throw new Error("relay: the TS echo server makes no host calls");
+    }
+    return { data: cmd.data };
   },
 };
 

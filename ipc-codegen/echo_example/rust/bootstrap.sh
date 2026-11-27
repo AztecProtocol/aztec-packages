@@ -10,11 +10,11 @@ $NODE "$CODEGEN/src/generate.ts" \
   --lang rust \
   --server \
   --client \
-  --uds \
   --ffi \
   --out "$DIR/src/generated"
 
-(cd "$DIR" && cargo build --locked --quiet)
+# With the FFI exports, so the shared library is the one the TS package's napi transport loads.
+(cd "$DIR" && cargo build --locked --quiet --features ffi)
 # The generated FFI exports and the FFI client backend, linked into one crate: the
 # client calls the service in-process (tests/ffi_roundtrip.rs).
 (cd "$DIR" && cargo test --locked --quiet --features ffi)

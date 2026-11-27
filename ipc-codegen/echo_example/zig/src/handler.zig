@@ -40,4 +40,11 @@ pub const EchoHandler = struct {
         _ = self;
         respond.err(cmd.message);
     }
+
+    /// The Zig bindings have no host calls, so a relay of any hops fails; one of none answers.
+    pub fn relay(self: *EchoHandler, cmd: types.EchoRelay, respond: *echo_server.Responder(types.EchoRelayResponse)) void {
+        _ = self;
+        if (cmd.hops != 0) return respond.err("relay: the Zig echo server makes no host calls");
+        respond.ok(.{ .data = cmd.data });
+    }
 };

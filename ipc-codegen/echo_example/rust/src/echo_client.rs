@@ -4,7 +4,7 @@
 
 use echo_wire_compat::generated::echo_client::EchoApi;
 use echo_wire_compat::generated::echo_types::{EchoInner, Fr};
-use echo_wire_compat::generated::error::{IpcError, Result};
+use ipc_runtime::error::{IpcError, Result};
 use ipc_runtime::IpcClient;
 
 fn main() -> Result<()> {
@@ -88,6 +88,11 @@ fn main() -> Result<()> {
         other => panic!("EchoFail expected backend error, got {other:?}"),
     }
     eprintln!("echo_client(rust): EchoFail OK");
+
+    // Test 9: EchoRelay — with no hops, no host call
+    let resp = client.relay(&[9], 0)?;
+    assert_eq!(resp.data, vec![9], "EchoRelay data mismatch");
+    eprintln!("echo_client(rust): EchoRelay OK");
 
     eprintln!("echo_client(rust): all tests passed");
     Ok(())

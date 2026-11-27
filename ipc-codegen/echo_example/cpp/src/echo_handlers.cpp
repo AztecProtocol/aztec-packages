@@ -49,4 +49,14 @@ void handle_fail(EchoCtx & /*ctx*/, wire::EchoFail &&cmd,
   throw std::runtime_error(cmd.message);
 }
 
+template <>
+void handle_relay(EchoCtx & /*ctx*/, wire::EchoRelay &&cmd,
+                  Responder<wire::EchoRelayResponse> respond) {
+  // This server makes no host calls; only a relay of no hops answers.
+  if (cmd.hops != 0) {
+    throw std::runtime_error("relay: the C++ echo server makes no host calls");
+  }
+  respond.ok({.data = std::move(cmd.data)});
+}
+
 } // namespace echo

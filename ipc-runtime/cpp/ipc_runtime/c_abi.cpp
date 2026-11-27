@@ -2,11 +2,13 @@
 
 #include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_async.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 
 #include <unistd.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -178,6 +180,35 @@ void ipc_server_run(ipc_server_t* server, ipc_server_handler_fn handler, void* c
         }
         return std::vector<uint8_t>(resp_ptr, resp_ptr + resp_len);
     });
+}
+
+char* ipc_server_serve_async(ipc_server_t* server,
+                             const ipc_async_service_t* service,
+                             const ipc_host_call_target_t* targets,
+                             size_t target_count)
+{
+    std::string error;
+    if (!server || !server->impl || !service) {
+        error = "ipc_server_serve_async: no server or service";
+    } else {
+        // The C struct and ipc::AsyncService have the same members, of the same types.
+        ipc::AsyncService cpp{ .create = service->create,
+                               .submit = service->submit,
+                               .deliver = service->deliver,
+                               .destroy = service->destroy };
+        std::vector<ipc::HostCallTarget> list;
+        for (size_t i = 0; i < target_count; i++) {
+            list.push_back({ .name = targets[i].name, .path = targets[i].path });
+        }
+        error = ipc::serve_async(*server->impl, cpp, std::move(list));
+    }
+    if (error.empty()) {
+        return nullptr;
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
+    char* out = static_cast<char*>(std::malloc(error.size() + 1));
+    std::memcpy(out, error.c_str(), error.size() + 1);
+    return out;
 }
 
 void ipc_install_default_signal_handlers(ipc_server_t* server)

@@ -39,6 +39,12 @@
                  "response": { "maybeData": "bytes?", "parts": "bytes[2]" } },
 
     "Fail":    { "request":  { "message": "string" },
-                 "response": {} }
+                 "response": {} },
+
+    // Calls out before it answers: with hops > 0, it sends Relay { data + [hops], hops - 1 } to
+    // the host's "peer" target and answers with what comes back; with hops = 0, it answers data.
+    // A host that binds "peer" to the same instance makes the calls nest on it, `hops` deep.
+    "Relay":   { "request":  { "data": "bytes", "hops": "u32" },
+                 "response": { "data": "bytes" } }
   }
 }

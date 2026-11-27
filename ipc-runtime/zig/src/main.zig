@@ -10,6 +10,9 @@
 
 const std = @import("std");
 
+/// The interface generated clients run over; `Client` satisfies it.
+pub const backend = @import("ipc_backend");
+
 const c = @cImport({
     @cInclude("ipc_runtime/c_abi.h");
 });

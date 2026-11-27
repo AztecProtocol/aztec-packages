@@ -88,7 +88,6 @@ interface Args {
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
-  uds: boolean;
   ffi: boolean;
   ffiName: string;
   stripMethodPrefix: boolean;
@@ -153,7 +152,6 @@ Optional:
   --strip-type-prefix      Strip the prefix from generated type and converter
                            names too (e.g. BbCircuitProve -> CircuitProve).
                            Wire tags always keep the full schema name.
-  --uds                    Copy UDS backend templates (rust, zig only)
   --ffi                    In-process FFI (rust, zig, cpp). With --client: the FFI
                            client backend. With --server: the exported FFI
                            (<service>_ipc_ffi_create/_call/...) over the dispatch
@@ -194,7 +192,6 @@ function parseArgs(argv: string[]): Args {
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
-    uds: false,
     ffi: false,
     ffiName: "",
     stripMethodPrefix: false,
@@ -284,8 +281,6 @@ function parseArgs(argv: string[]): Args {
       case "--cpp-include-dir":
         args.cppIncludeDir = takeValue();
         break;
-      case "--uds":
-        args.uds = true;
         break;
       case "--ffi":
         args.ffi = true;
@@ -322,13 +317,6 @@ function parseArgs(argv: string[]): Args {
   }
   if (args.packageDir && args.lang !== "ts") {
     console.error(`--package is only supported for --lang ts`);
-    process.exit(1);
-  }
-  if (args.uds && args.lang !== "rust" && args.lang !== "zig") {
-    console.error(
-      `--uds copies backend templates and only applies to rust and zig; ` +
-        `ts takes its transports from ipc-runtime, and cpp always gets ipc_codegen/ipc_backend.hpp`,
-    );
     process.exit(1);
   }
   if (args.ffi && !["rust", "zig", "cpp"].includes(args.lang)) {
@@ -452,17 +440,6 @@ function pruneStale(root: string) {
     }
   }
   writeFileSync(manifestPath, current.join("\n") + "\n");
-}
-
-function copyTemplate(lang: string, filename: string, outDir: string) {
-  const templatePath = join(__dirname, "..", "templates", lang, filename);
-  const destPath = join(outDir, filename);
-  // Atomic write — see writeFile() above for the race this guards.
-  const tmpPath = `${destPath}.${process.pid}.tmp`;
-  writeFileSync(tmpPath, readFileSync(templatePath, "utf-8"));
-  renameSync(tmpPath, destPath);
-  written.push(destPath);
-  console.log(`  ${destPath} (template)`);
 }
 
 function copyTemplateDir(lang: string, dirname: string, outDir: string) {
@@ -857,17 +834,9 @@ function generate(args: Args) {
           gen.generateApi(compiled),
         );
       }
-      // Backend templates (force-overwritten on regeneration). The `Backend` trait
-      // and `IpcError` type stay shared; ipc-runtime is consumed via the
-      // separate `ipc-runtime` crate.
-      if (args.uds || args.ffi) {
-        copyTemplate("rust", "backend.rs", absOut);
-        copyTemplate("rust", "error.rs", absOut);
-      }
-      if (args.client && (args.uds || args.ffi)) {
-        // For a client inside a wasm module, reaching a service its host provides.
-        copyTemplate("rust", "host_call_backend.rs", absOut);
-      }
+      // The Backend traits, the error type, host calls and asynchronous instances are not
+      // generated: they live in the \`ipc-runtime\` crate (pure Rust without its \`sockets\`
+      // feature), which generated code imports, so a crate with several services has one copy.
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.
         writeFile("ffi_backend.rs", gen.generateFfiBackend());
@@ -902,12 +871,6 @@ function generate(args: Args) {
           `${toSnakeCase(prefix)}_client.zig`,
           gen.generateClient(compiled),
         );
-      }
-      // Backend trait — keep so FFI consumers can plug in their own
-      // implementation. ipc_runtime.Client satisfies the same contract,
-      // so UDS/SHM consumers don't need a separate backend file.
-      if (args.uds || args.ffi) {
-        copyTemplate("zig", "backend.zig", absOut);
       }
       if (args.ffi) {
         // Generated rather than a template: it links the service-prefixed symbols.

@@ -575,14 +575,14 @@ ${this.generateResponseUnion(schema)}
 //! ${prefix} client — typed methods parameterized on a backend type.
 //!
 //! The backend must satisfy: call(self, request: []const u8) ![]u8 and destroy(self) void.
-//! See backend.zig for the interface contract.
+//! See ipc-runtime/zig/src/backend.zig (the \`ipc_backend\` module) for the interface contract.
 //! Implementations: ipc_runtime.Client, FfiBackend (ffi_backend.zig).
 
 const std = @import("std");
 const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
 const types = @import("${typesFile}");
-const backend_mod = @import("backend.zig");
+const backend_mod = @import("ipc_backend");
 
 const alloc = std.heap.page_allocator;
 

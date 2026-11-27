@@ -35,7 +35,15 @@ namespace ipc::napi {
  * whoever answers calls answer(token, ...) once, synchronously or later. A handler must therefore
  * not wait on a call to this thread, which cannot run until the host call is answered.
  *
- * The thread keeps the event loop alive only while a load, call, unload or destroy is in flight.
+ * A library with asynchronous instances is loaded with loadAsync(libraryPath, ffiName): its instance
+ * takes requests with submit(slot, requestId, input) and the answers to its host calls with
+ * deliver(slot, callId, status, bytes), neither of which blocks, and reports its responses and host
+ * calls through onAsyncEvent(slot, kind, id, target, bytes) on the event loop (kind 0 a response to
+ * request `id`, 1 a host call `id` to `target`). The thread keeps running other jobs (more requests
+ * to the same instance among them) while a host call is out.
+ *
+ * The thread keeps the event loop alive only while a load, call, unload or destroy, or a submitted
+ * request, is in flight.
  * When the environment is torn down (process exit, or a worker ending) without destroy(), a cleanup
  * hook ends every instance and the thread, failing a host call still waiting on JS.
  * With IPC_NAPI_SPIN_US set, the thread spins that long for the next job before it sleeps.
@@ -54,6 +62,9 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
     Napi::Value unload(const Napi::CallbackInfo& info);
     Napi::Value answer(const Napi::CallbackInfo& info);
     Napi::Value destroy(const Napi::CallbackInfo& info);
+    Napi::Value load_async(const Napi::CallbackInfo& info);
+    Napi::Value submit(const Napi::CallbackInfo& info);
+    Napi::Value deliver(const Napi::CallbackInfo& info);
 
     static Napi::Function get_class(Napi::Env env);
 
@@ -68,7 +79,7 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
 
     /** Something for the event loop: a promise to settle, or a host call to ask. */
     struct ToJs {
-        enum class Kind : uint8_t { Settle, HostCall } kind = Kind::Settle;
+        enum class Kind : uint8_t { Settle, HostCall, AsyncRespond, AsyncCall } kind = Kind::Settle;
         /** What a Settle resolves its promise with, unless it failed. */
         enum class Value : uint8_t { Bytes, Slot, None } value = Value::None;
         Napi::Promise::Deferred* deferred = nullptr;
@@ -80,18 +91,28 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
         int64_t slot = -1;
         std::string target;
         HostCallWait* wait = nullptr;
+        /** An asynchronous instance's request or call id. */
+        uint64_t id = 0;
     };
 
     static void call_js(Napi::Env env, Napi::Function, ServiceThread* self, ToJs* message);
 
   private:
     struct Job {
-        enum class Kind : uint8_t { Load, Call, Unload, Stop } kind = Kind::Call;
+        enum class Kind : uint8_t { Load, LoadAsync, Call, Submit, Deliver, Unload, Stop } kind = Kind::Call;
         Napi::Promise::Deferred* deferred = nullptr;
         int64_t slot = -1;
         std::vector<uint8_t> input;
+        uint64_t id = 0;
+        int32_t status = 0;
         std::shared_ptr<FfiLibrary::Loaded> loaded;
         std::map<std::string, int64_t> siblings;
+    };
+
+    /** What an asynchronous instance's callbacks are given: which slot they report for. */
+    struct AsyncCtx {
+        ServiceThread* thread = nullptr;
+        int64_t slot = -1;
     };
 
     struct Slot {
@@ -99,7 +120,15 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
         void* handle = nullptr;
         bool busy = false;
         std::map<std::string, int64_t> siblings;
+        /** Set for an asynchronous instance. */
+        std::unique_ptr<AsyncCtx> async;
     };
+
+    static void on_async_respond(void* ctx, uint64_t request_id, const uint8_t* response, size_t len);
+    static void on_async_call(
+        void* ctx, uint64_t call_id, const uint8_t* target, size_t target_len, const uint8_t* request, size_t len);
+    /** Queues a job that settles no promise, keeping the loop alive while `pending` is set. */
+    void enqueue_unsettled(Napi::Env env, Job job, bool pending);
 
     class Router;
 
@@ -124,6 +153,7 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
     void remove_cleanup_hook();
 
     Napi::FunctionReference on_host_call_;
+    Napi::FunctionReference on_async_event_;
     Tsfn tsfn_;
     std::thread thread_;
     // Guarded by mutex_.
@@ -141,6 +171,8 @@ class ServiceThread : public Napi::ObjectWrap<ServiceThread> {
     // The event loop's own.
     int64_t next_slot_ = 0;
     int64_t in_flight_ = 0;
+    /** Requests submitted to each asynchronous instance and not yet responded to. */
+    std::map<int64_t, int64_t> outstanding_;
     bool destroyed_ = false;
     napi_env env_ = nullptr;
     bool cleanup_hooked_ = false;

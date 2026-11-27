@@ -161,6 +161,11 @@ async function run() {
   }
   console.error("echo_client(ts): EchoFail OK");
 
+  // Test 9: EchoRelay — with no hops, no host call
+  const relayed = await api.relay({ data: Uint8Array.from([9]), hops: 0 });
+  assertBytes(relayed.data, Uint8Array.from([9]), "EchoRelay");
+  console.error("echo_client(ts): EchoRelay OK");
+
   await api.destroy();
   console.error("echo_client(ts): all tests passed");
 }
