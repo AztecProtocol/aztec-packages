@@ -14,6 +14,7 @@
 
 #include "plookup_tables.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/blake2s.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp"
@@ -167,89 +168,180 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
                                          const fr& key_b,
                                          const bool is_2_to_1_lookup)
 {
-    // return multi-table, populating global array of all multi-tables if need be
-    const auto& multi_table = get_multitable(id);
-    const size_t num_lookups = multi_table.basic_table_ids.size();
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    // All MultiTable vectors must be consistently sized
-    BB_ASSERT_EQ(multi_table.column_1_coefficients.size(), num_lookups, "MultiTable coefficient/table count mismatch");
-    BB_ASSERT_EQ(multi_table.get_table_values.size(), num_lookups, "MultiTable get_table_values/table count mismatch");
-    BB_ASSERT_EQ(multi_table.slice_sizes.size(), num_lookups, "MultiTable slice_sizes/table count mismatch");
+        // return multi-table, populating global array of all multi-tables if need be
+        const auto& multi_table = get_multitable(id);
+        const size_t num_lookups = multi_table.basic_table_ids.size();
 
-    ReadData<bb::fr> lookup;
-    const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
-    const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
+        // All MultiTable vectors must be consistently sized
+        BB_ASSERT_EQ(
+            multi_table.column_1_coefficients.size(), num_lookups, "MultiTable coefficient/table count mismatch");
+        BB_ASSERT_EQ(
+            multi_table.get_table_values.size(), num_lookups, "MultiTable get_table_values/table count mismatch");
+        BB_ASSERT_EQ(multi_table.slice_sizes.size(), num_lookups, "MultiTable slice_sizes/table count mismatch");
 
-    std::vector<fr> column_1_raw_values;
-    std::vector<fr> column_2_raw_values;
-    std::vector<fr> column_3_raw_values;
+        ReadData<bb::fr> lookup;
+        const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
+        const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
 
-    for (size_t i = 0; i < num_lookups; ++i) {
-        // compute the value(s) corresponding to the key(s) using the i-th basic table query function
-        const auto values = multi_table.get_table_values[i]({ key_a_slices[i], key_b_slices[i] });
-        // store all query data in raw columns and key entry
-        column_1_raw_values.emplace_back(key_a_slices[i]);
-        column_2_raw_values.emplace_back(is_2_to_1_lookup ? key_b_slices[i] : values[0]);
-        column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
+        std::vector<fr> column_1_raw_values;
+        std::vector<fr> column_2_raw_values;
+        std::vector<fr> column_3_raw_values;
 
-        // Store the lookup entries for use in constructing the sorted table/lookup polynomials later on
-        const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
-        lookup.lookup_entries.emplace_back(lookup_entry);
+        for (size_t i = 0; i < num_lookups; ++i) {
+            // compute the value(s) corresponding to the key(s) using the i-th basic table query function
+            const auto values = multi_table.get_table_values[i]({ key_a_slices[i], key_b_slices[i] });
+            // store all query data in raw columns and key entry
+            column_1_raw_values.emplace_back(key_a_slices[i]);
+            column_2_raw_values.emplace_back(is_2_to_1_lookup ? key_b_slices[i] : values[0]);
+            column_3_raw_values.emplace_back(is_2_to_1_lookup ? values[0] : values[1]);
+
+            // Store the lookup entries for use in constructing the sorted table/lookup polynomials later on
+            const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
+            lookup.lookup_entries.emplace_back(lookup_entry);
+        }
+
+        lookup[C1].resize(num_lookups);
+        lookup[C2].resize(num_lookups);
+        lookup[C3].resize(num_lookups);
+
+        /**
+         * A multi-table consists of multiple basic tables (say L = 6).
+         *
+         *             [      ]                [      ]
+         *     [      ]|      |[      ][      ]|      |[      ]
+         * M ≡ |  B1  ||  B2  ||  B3  ||  B4  ||  B5  ||  B6  |
+         *     [      ]|      |[      ][      ]|      |[      ]
+         *             [      ]                [      ]
+         *        |̐       |̐       |̐       |̐       |̐       |̐
+         *        s1      s2      s3      s4      s5      s6
+         *
+         * Note that different basic tables can be of different sizes. Every lookup query generates L output slices (one
+         * for each basic table, here, s1, s2, ..., s6). In other words, every lookup query adds L lookup gates to the
+         * program. For example, to look up the XOR of 32-bit inputs, we actually perform 6 individual lookups on the
+         * 6-bit XOR basic table. Let the input slices/keys be (a1, b1), (a2, b2), ..., (a6, b6). The lookup gate
+         * structure is as follows:
+         *
+         * +---+-----------------------------------+----------------------------------+-----------------------------------+
+         * | s | key_a                             | key_b                            | output |
+         * |---+-----------------------------------+----------------------------------+-----------------------------------|
+         * | 6 | a6 + p.a5 + p^2.a4 + ... + p^5.a1 | b6 + q.b5 + q^2.b4 + .. + q^5.b1 | s6 + r.s5 + r^2.s4 + ... +
+         * r^5.s1 | | 5 | a5 + p.a4 + ...... + p^4.a1       | b5 + q.b4 + ...... + q^4.b1      | s5 + r.s4 + ...... +
+         * r^4.s1       | | 4 | a4 + p.a3 + ... + p^3.a1          | b4 + q.b3 + ... + q^3.b1         | s4 + r.s3 + ... +
+         * r^3.s1          | | 3 | a3 + p.a2 + p^2.a1                | b3 + q.b2 + q^2.b1               | s3 + r.s2 +
+         * r^2.s1                | | 2 | a2 + p.a1                         | b2 + q.b1                        | s2 +
+         * r.s1                         | | 1 | a1                                | b1                               |
+         * s1                                |
+         * +---+-----------------------------------+----------------------------------+-----------------------------------+
+         *
+         * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose
+         * of reconstructing the original inputs/outputs. I.e. the output value at the 0th index in the above table is
+         * the actual value we were interested in computing in the first place. Importantly, the structure of the
+         * remaining rows is such that row_i - (p, q, r)*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly
+         * corresponds to an entry in a BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift
+         * structure in the lookup relation. Here, (p, q, r) are referred to as column coefficients/step sizes. In the
+         * next few lines, we compute these accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1,
+         * ..., s6) and column coefficients (p, q, r).
+         *
+         * For more details: see ./README.md
+         *
+         */
+        lookup[C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];
+        lookup[C2][num_lookups - 1] = column_2_raw_values[num_lookups - 1];
+        lookup[C3][num_lookups - 1] = column_3_raw_values[num_lookups - 1];
+
+        for (size_t i = num_lookups - 1; i > 0; --i) {
+            lookup[C1][i - 1] = column_1_raw_values[i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
+            lookup[C2][i - 1] = column_2_raw_values[i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
+            lookup[C3][i - 1] = column_3_raw_values[i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
+        }
+        return lookup;
+
+    } else {
+
+        // return multi-table, populating global array of all multi-tables if need be
+        const auto& multi_table = get_multitable(id);
+        const size_t num_lookups = multi_table.basic_table_ids.size();
+
+        // All MultiTable vectors must be consistently sized
+        BB_ASSERT_EQ(
+            multi_table.column_1_coefficients.size(), num_lookups, "MultiTable coefficient/table count mismatch");
+        BB_ASSERT_EQ(
+            multi_table.get_table_values.size(), num_lookups, "MultiTable get_table_values/table count mismatch");
+        BB_ASSERT_EQ(multi_table.slice_sizes.size(), num_lookups, "MultiTable slice_sizes/table count mismatch");
+
+        ReadData<bb::fr> lookup;
+        const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
+        const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
+
+        // Each column holds the raw slice values until they are accumulated in place below.
+        lookup[C1].resize(num_lookups);
+        lookup[C2].resize(num_lookups);
+        lookup[C3].resize(num_lookups);
+        lookup.lookup_entries.reserve(num_lookups);
+
+        for (size_t i = 0; i < num_lookups; ++i) {
+            // compute the value(s) corresponding to the key(s) using the i-th basic table query function
+            const auto values = multi_table.get_table_values[i]({ key_a_slices[i], key_b_slices[i] });
+            // store all query data in raw columns and key entry
+            lookup[C1][i] = fr(key_a_slices[i]);
+            lookup[C2][i] = is_2_to_1_lookup ? key_b_slices[i] : values[0];
+            lookup[C3][i] = is_2_to_1_lookup ? values[0] : values[1];
+
+            // Store the lookup entries for use in constructing the sorted table/lookup polynomials later on
+            const BasicTable::LookupEntry lookup_entry{ { key_a_slices[i], key_b_slices[i] }, values };
+            lookup.lookup_entries.emplace_back(lookup_entry);
+        }
+
+        /**
+         * A multi-table consists of multiple basic tables (say L = 6).
+         *
+         *             [      ]                [      ]
+         *     [      ]|      |[      ][      ]|      |[      ]
+         * M ≡ |  B1  ||  B2  ||  B3  ||  B4  ||  B5  ||  B6  |
+         *     [      ]|      |[      ][      ]|      |[      ]
+         *             [      ]                [      ]
+         *        |̐       |̐       |̐       |̐       |̐       |̐
+         *        s1      s2      s3      s4      s5      s6
+         *
+         * Note that different basic tables can be of different sizes. Every lookup query generates L output slices (one
+         * for each basic table, here, s1, s2, ..., s6). In other words, every lookup query adds L lookup gates to the
+         * program. For example, to look up the XOR of 32-bit inputs, we actually perform 6 individual lookups on the
+         * 6-bit XOR basic table. Let the input slices/keys be (a1, b1), (a2, b2), ..., (a6, b6). The lookup gate
+         * structure is as follows:
+         *
+         * +---+-----------------------------------+----------------------------------+-----------------------------------+
+         * | s | key_a                             | key_b                            | output |
+         * |---+-----------------------------------+----------------------------------+-----------------------------------|
+         * | 6 | a6 + p.a5 + p^2.a4 + ... + p^5.a1 | b6 + q.b5 + q^2.b4 + .. + q^5.b1 | s6 + r.s5 + r^2.s4 + ... +
+         * r^5.s1 | | 5 | a5 + p.a4 + ...... + p^4.a1       | b5 + q.b4 + ...... + q^4.b1      | s5 + r.s4 + ...... +
+         * r^4.s1       | | 4 | a4 + p.a3 + ... + p^3.a1          | b4 + q.b3 + ... + q^3.b1         | s4 + r.s3 + ... +
+         * r^3.s1          | | 3 | a3 + p.a2 + p^2.a1                | b3 + q.b2 + q^2.b1               | s3 + r.s2 +
+         * r^2.s1                | | 2 | a2 + p.a1                         | b2 + q.b1                        | s2 +
+         * r.s1                         | | 1 | a1                                | b1                               |
+         * s1                                |
+         * +---+-----------------------------------+----------------------------------+-----------------------------------+
+         *
+         * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose
+         * of reconstructing the original inputs/outputs. I.e. the output value at the 0th index in the above table is
+         * the actual value we were interested in computing in the first place. Importantly, the structure of the
+         * remaining rows is such that row_i - (p, q, r)*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly
+         * corresponds to an entry in a BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift
+         * structure in the lookup relation. Here, (p, q, r) are referred to as column coefficients/step sizes. In the
+         * next few lines, we compute these accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1,
+         * ..., s6) and column coefficients (p, q, r).
+         *
+         * For more details: see ./README.md
+         *
+         */
+        for (size_t i = num_lookups - 1; i > 0; --i) {
+            lookup[C1][i - 1] = lookup[C1][i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
+            lookup[C2][i - 1] = lookup[C2][i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
+            lookup[C3][i - 1] = lookup[C3][i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
+        }
+        return lookup;
     }
-
-    lookup[C1].resize(num_lookups);
-    lookup[C2].resize(num_lookups);
-    lookup[C3].resize(num_lookups);
-
-    /**
-     * A multi-table consists of multiple basic tables (say L = 6).
-     *
-     *             [      ]                [      ]
-     *     [      ]|      |[      ][      ]|      |[      ]
-     * M ≡ |  B1  ||  B2  ||  B3  ||  B4  ||  B5  ||  B6  |
-     *     [      ]|      |[      ][      ]|      |[      ]
-     *             [      ]                [      ]
-     *        |̐       |̐       |̐       |̐       |̐       |̐
-     *        s1      s2      s3      s4      s5      s6
-     *
-     * Note that different basic tables can be of different sizes. Every lookup query generates L output slices (one for
-     * each basic table, here, s1, s2, ..., s6). In other words, every lookup query adds L lookup gates to the program.
-     * For example, to look up the XOR of 32-bit inputs, we actually perform 6 individual lookups on the 6-bit XOR basic
-     * table. Let the input slices/keys be (a1, b1), (a2, b2), ..., (a6, b6). The lookup gate structure is as follows:
-     *
-     * +---+-----------------------------------+----------------------------------+-----------------------------------+
-     * | s | key_a                             | key_b                            | output                            |
-     * |---+-----------------------------------+----------------------------------+-----------------------------------|
-     * | 6 | a6 + p.a5 + p^2.a4 + ... + p^5.a1 | b6 + q.b5 + q^2.b4 + .. + q^5.b1 | s6 + r.s5 + r^2.s4 + ... + r^5.s1 |
-     * | 5 | a5 + p.a4 + ...... + p^4.a1       | b5 + q.b4 + ...... + q^4.b1      | s5 + r.s4 + ...... + r^4.s1       |
-     * | 4 | a4 + p.a3 + ... + p^3.a1          | b4 + q.b3 + ... + q^3.b1         | s4 + r.s3 + ... + r^3.s1          |
-     * | 3 | a3 + p.a2 + p^2.a1                | b3 + q.b2 + q^2.b1               | s3 + r.s2 + r^2.s1                |
-     * | 2 | a2 + p.a1                         | b2 + q.b1                        | s2 + r.s1                         |
-     * | 1 | a1                                | b1                               | s1                                |
-     * +---+-----------------------------------+----------------------------------+-----------------------------------+
-     *
-     * Note that we compute the accumulating sums of the slices so as to avoid using additonal gates for the purpose of
-     * reconstructing the original inputs/outputs. I.e. the output value at the 0th index in the above table is the
-     * actual value we were interested in computing in the first place. Importantly, the structure of the remaining rows
-     * is such that row_i - (p, q, r)*row_{i+1} produces an entry {a_j, b_j, s_j} that exactly corresponds to an entry
-     * in a BasicTable. This is what gives rise to the wire_i - scalar*wire_i_shift structure in the lookup relation.
-     * Here, (p, q, r) are referred to as column coefficients/step sizes. In the next few lines, we compute these
-     * accumulating sums from raw column values (a1, ..., a6), (b1, ..., b6), (s1, ..., s6) and column coefficients (p,
-     * q, r).
-     *
-     * For more details: see ./README.md
-     *
-     */
-    lookup[C1][num_lookups - 1] = column_1_raw_values[num_lookups - 1];
-    lookup[C2][num_lookups - 1] = column_2_raw_values[num_lookups - 1];
-    lookup[C3][num_lookups - 1] = column_3_raw_values[num_lookups - 1];
-
-    for (size_t i = num_lookups - 1; i > 0; --i) {
-        lookup[C1][i - 1] = column_1_raw_values[i - 1] + lookup[C1][i] * multi_table.column_1_step_sizes[i];
-        lookup[C2][i - 1] = column_2_raw_values[i - 1] + lookup[C2][i] * multi_table.column_2_step_sizes[i];
-        lookup[C3][i - 1] = column_3_raw_values[i - 1] + lookup[C3][i] * multi_table.column_3_step_sizes[i];
-    }
-    return lookup;
 }
 
 namespace {

@@ -1,5 +1,6 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
@@ -70,6 +71,17 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                 create_mock_honk_vk<NativeFlavor, StdlibIO>(
                     /*dyadic_size=*/1 << NativeFlavor::VIRTUAL_LOG_N,
                     /*acir_public_inputs_size=*/input.public_inputs.size()));
+        }
+
+        // Steps 2 and 3 read the proof and vk only in write vk mode or under a witness predicate, so skip constructing
+        // them otherwise. Later random draws become witness values, so make the same draws construction would; that
+        // is possible only without ZK, as a ZK prover draws masking values of its own.
+        if constexpr (!NativeFlavor::HasZK) {
+            if (bb::rollup_experimental_optimizations_enabled() && predicate.is_constant()) {
+                discard_arbitrary_valid_honk_proof_randomness<NativeFlavor, StdlibIO>(
+                    /*acir_public_inputs_size=*/input.public_inputs.size());
+                return {};
+            }
         }
 
         return construct_arbitrary_valid_honk_proof_and_vk<NativeFlavor, StdlibIO>(

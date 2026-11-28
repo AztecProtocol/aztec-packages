@@ -1,6 +1,7 @@
 #include "../field/field.hpp"
 #include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/experimental_optimizations.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -742,139 +743,289 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
-    BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
-    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
-    BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
-    const size_t num_points = scalars.size();
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    // Extract the circuit context from any scalar or point
-    Builder* context = nullptr;
-    for (auto [scalar, point] : zip_view(scalars, base_points)) {
-        if (context = scalar.get_context(); context != nullptr) {
-            break;
-        }
-        if (context = point.get_context(); context != nullptr) {
-            break;
-        }
-    }
+        BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
+        BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
+        BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
+        const size_t num_points = scalars.size();
 
-    // All cycle_scalars are guaranteed to be 254 bits
-    constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
-
-    // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs of
-    // each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
-    std::vector<straus_scalar_slices> scalar_slices;
-    scalar_slices.reserve(num_points);
-    for (const auto& scalar : scalars) {
-        scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
-    }
-
-    // Compute the result of each point addition involved in the Straus MSM algorithm natively so they can be used as
-    // "hints" in the in-circuit Straus algorithm. This includes the additions needed to construct the point tables and
-    // those needed to compute the MSM via Straus. Points are computed as Element types with a Z-coordinate then
-    // batch-converted to AffineElement types. This avoids the need to compute modular inversions for every group
-    // operation, which dramatically reduces witness generation times.
-    std::vector<Element> operation_transcript;
-    Element offset_generator_accumulator = offset_generators[0];
-    {
-        // For each point, construct native straus lookup table of the form {G , G + [1]P, G + [2]P, ... , G + [15]P}
-        std::vector<std::vector<Element>> native_straus_tables;
-        for (size_t i = 0; i < num_points; ++i) {
-            AffineElement point = base_points[i].get_value();
-            AffineElement offset = offset_generators[i + 1];
-            std::vector<Element> table = straus_lookup_table::compute_native_table(point, offset, ROM_TABLE_BITS);
-            // Copy all but the first entry (the offset generator) into the operation transcript for use as hints
-            std::copy(table.begin() + 1, table.end(), std::back_inserter(operation_transcript));
-            native_straus_tables.emplace_back(std::move(table));
+        // Extract the circuit context from any scalar or point
+        Builder* context = nullptr;
+        for (auto [scalar, point] : zip_view(scalars, base_points)) {
+            if (context = scalar.get_context(); context != nullptr) {
+                break;
+            }
+            if (context = point.get_context(); context != nullptr) {
+                break;
+            }
         }
 
-        // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
-        Element accumulator = offset_generators[0];
-        for (size_t i = 0; i < num_rounds; ++i) {
-            if (i != 0) {
-                // Perform doublings of the accumulator and offset generator accumulator
-                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
-                    accumulator = accumulator.dbl();
+        // All cycle_scalars are guaranteed to be 254 bits
+        constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
+
+        // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs
+        // of each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
+        std::vector<straus_scalar_slices> scalar_slices;
+        scalar_slices.reserve(num_points);
+        for (const auto& scalar : scalars) {
+            scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
+        }
+
+        // Compute the result of each point addition involved in the Straus MSM algorithm natively so they can be used
+        // as "hints" in the in-circuit Straus algorithm. This includes the additions needed to construct the point
+        // tables and those needed to compute the MSM via Straus. Points are computed as Element types with a
+        // Z-coordinate then batch-converted to AffineElement types. This avoids the need to compute modular inversions
+        // for every group operation, which dramatically reduces witness generation times.
+        std::vector<Element> operation_transcript;
+        Element offset_generator_accumulator = offset_generators[0];
+        {
+            // For each point, construct native straus lookup table of the form {G , G + [1]P, G + [2]P, ... , G +
+            // [15]P}
+            std::vector<std::vector<Element>> native_straus_tables;
+            for (size_t i = 0; i < num_points; ++i) {
+                AffineElement point = base_points[i].get_value();
+                AffineElement offset = offset_generators[i + 1];
+                std::vector<Element> table = straus_lookup_table::compute_native_table(point, offset, ROM_TABLE_BITS);
+                // Copy all but the first entry (the offset generator) into the operation transcript for use as hints
+                std::copy(table.begin() + 1, table.end(), std::back_inserter(operation_transcript));
+                native_straus_tables.emplace_back(std::move(table));
+            }
+
+            // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
+            Element accumulator = offset_generators[0];
+            for (size_t i = 0; i < num_rounds; ++i) {
+                if (i != 0) {
+                    // Perform doublings of the accumulator and offset generator accumulator
+                    for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                        accumulator = accumulator.dbl();
+                        operation_transcript.push_back(accumulator);
+                        offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    }
+                }
+                for (size_t j = 0; j < num_points; ++j) {
+                    // Look up and accumulate the appropriate point for this scalar slice
+                    auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
+                    const Element point = native_straus_tables[j][slice_value];
+                    accumulator += point;
+
+                    // Populate hint and update offset generator accumulator
                     operation_transcript.push_back(accumulator);
-                    offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    offset_generator_accumulator += Element(offset_generators[j + 1]);
                 }
             }
-            for (size_t j = 0; j < num_points; ++j) {
-                // Look up and accumulate the appropriate point for this scalar slice
-                auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
-                const Element point = native_straus_tables[j][slice_value];
-                accumulator += point;
-
-                // Populate hint and update offset generator accumulator
-                operation_transcript.push_back(accumulator);
-                offset_generator_accumulator += Element(offset_generators[j + 1]);
-            }
         }
-    }
 
-    // Normalize the computed witness points and convert them into AffineElements
-    Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
-    std::vector<AffineElement> operation_hints;
-    operation_hints.reserve(operation_transcript.size());
-    for (const Element& element : operation_transcript) {
-        operation_hints.emplace_back(element.x, element.y);
-    }
+        // Normalize the computed witness points and convert them into AffineElements
+        Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
+        std::vector<AffineElement> operation_hints;
+        operation_hints.reserve(operation_transcript.size());
+        for (const Element& element : operation_transcript) {
+            operation_hints.emplace_back(element.x, element.y);
+        }
 
-    // Construct an in-circuit Straus lookup table for each point
-    std::vector<straus_lookup_table> point_tables;
-    point_tables.reserve(num_points);
-    const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
-    for (size_t i = 0; i < num_points; ++i) {
-        // Construct Straus table
-        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
-        straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
-        point_tables.push_back(std::move(table));
-    }
+        // Construct an in-circuit Straus lookup table for each point
+        std::vector<straus_lookup_table> point_tables;
+        point_tables.reserve(num_points);
+        const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
+        for (size_t i = 0; i < num_points; ++i) {
+            // Construct Straus table
+            std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
+            straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
+            point_tables.push_back(std::move(table));
+        }
 
-    // Initialize pointer to the precomputed Straus algorithm hints (stored just after the table construction hints)
-    AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
-    cycle_group accumulator = offset_generators[0];
+        // Initialize pointer to the precomputed Straus algorithm hints (stored just after the table construction hints)
+        AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
+        cycle_group accumulator = offset_generators[0];
 
-    // Execute Straus algorithm in-circuit using the precomputed hints.
-    // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
-    // If unconditional_add == true (trusted constant points only), no per-slice check is added; see
-    // `is_trusted_constant_point`.
-    field_t coordinate_check_product = 1;
-    for (size_t i = 0; i < num_rounds; ++i) {
-        // Double the accumulator ROM_TABLE_BITS times (except in first round)
-        if (i != 0) {
-            for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
-                accumulator = accumulator.dbl(*hint_ptr);
+        // Execute Straus algorithm in-circuit using the precomputed hints.
+        // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
+        // If unconditional_add == true (trusted constant points only), no per-slice check is added; see
+        // `is_trusted_constant_point`.
+        field_t coordinate_check_product = 1;
+        for (size_t i = 0; i < num_rounds; ++i) {
+            // Double the accumulator ROM_TABLE_BITS times (except in first round)
+            if (i != 0) {
+                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                    accumulator = accumulator.dbl(*hint_ptr);
+                    hint_ptr++;
+                }
+            }
+            // Add the contribution from each point's scalar slice for this round
+            for (size_t j = 0; j < num_points; ++j) {
+                const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
+                BB_ASSERT_EQ(scalar_slice.get_value(),
+                             scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
+                const cycle_group point = point_tables[j].read(scalar_slice);
+                if (!unconditional_add) {
+                    coordinate_check_product *= point._x - accumulator._x;
+                }
+                accumulator = accumulator.unconditional_add(point, *hint_ptr);
                 hint_ptr++;
             }
         }
-        // Add the contribution from each point's scalar slice for this round
-        for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
-            BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
-            const cycle_group point = point_tables[j].read(scalar_slice);
-            if (!unconditional_add) {
-                coordinate_check_product *= point._x - accumulator._x;
-            }
-            accumulator = accumulator.unconditional_add(point, *hint_ptr);
-            hint_ptr++;
+
+        // Batch-validate no x-coordinate collisions occurred. We batch because each assert_is_not_zero
+        // requires an expensive modular inversion during witness generation.
+        if (!unconditional_add) {
+            coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
         }
+
+        // Set CONSTANT tag on accumulator to avoid tag conflicts during intermediate operations
+        // The final tag will be set in batch_mul from result_tag
+        accumulator.set_origin_tag(OriginTag::constant());
+
+        // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in
+        // `accumulator`. We don't subtract it off yet as we may be able to combine it with other constant terms in
+        // `batch_mul` before performing the subtraction.
+        return { accumulator, AffineElement(offset_generator_accumulator) };
+
+    } else {
+
+        BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
+        BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
+        BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
+        const size_t num_points = scalars.size();
+
+        // Extract the circuit context from any scalar or point
+        Builder* context = nullptr;
+        for (auto [scalar, point] : zip_view(scalars, base_points)) {
+            if (context = scalar.get_context(); context != nullptr) {
+                break;
+            }
+            if (context = point.get_context(); context != nullptr) {
+                break;
+            }
+        }
+
+        // All cycle_scalars are guaranteed to be 254 bits
+        constexpr size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, ROM_TABLE_BITS);
+
+        // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs
+        // of each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
+        std::vector<straus_scalar_slices> scalar_slices;
+        scalar_slices.reserve(num_points);
+        for (const auto& scalar : scalars) {
+            scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
+        }
+
+        // Compute the result of each point addition involved in the Straus MSM algorithm natively so they can be used
+        // as "hints" in the in-circuit Straus algorithm. This includes the additions needed to construct the point
+        // tables and those needed to compute the MSM via Straus. Points are computed as Element types with a
+        // Z-coordinate then batch-converted to AffineElement types. This avoids the need to compute modular inversions
+        // for every group operation, which dramatically reduces witness generation times.
+        std::vector<Element> operation_transcript;
+        Element offset_generator_accumulator = offset_generators[0];
+        {
+            // For each point, construct native straus lookup table of the form {G , G + [1]P, G + [2]P, ... , G +
+            // [15]P}
+            std::vector<std::vector<Element>> native_straus_tables;
+            for (size_t i = 0; i < num_points; ++i) {
+                AffineElement point = base_points[i].get_value();
+                AffineElement offset = offset_generators[i + 1];
+                std::vector<Element> table = straus_lookup_table::compute_native_table(point, offset, ROM_TABLE_BITS);
+                // Copy all but the first entry (the offset generator) into the operation transcript for use as hints
+                std::copy(table.begin() + 1, table.end(), std::back_inserter(operation_transcript));
+                native_straus_tables.emplace_back(std::move(table));
+            }
+
+            // Every round adds the same offset generators, so the offset generator accumulator adds their sum once per
+            // round.
+            Element offset_generator_sum = Group::point_at_infinity;
+            for (size_t j = 0; j < num_points; ++j) {
+                offset_generator_sum += offset_generators[j + 1];
+            }
+
+            // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
+            Element accumulator = offset_generators[0];
+            for (size_t i = 0; i < num_rounds; ++i) {
+                if (i != 0) {
+                    // Perform doublings of the accumulator and offset generator accumulator
+                    for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                        accumulator = accumulator.dbl();
+                        operation_transcript.push_back(accumulator);
+                        offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    }
+                }
+                for (size_t j = 0; j < num_points; ++j) {
+                    // Look up and accumulate the appropriate point for this scalar slice
+                    auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
+                    const Element point = native_straus_tables[j][slice_value];
+                    accumulator += point;
+
+                    // Populate hint
+                    operation_transcript.push_back(accumulator);
+                }
+                offset_generator_accumulator += offset_generator_sum;
+            }
+        }
+
+        // Normalize the computed witness points and convert them into AffineElements
+        Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
+        std::vector<AffineElement> operation_hints;
+        operation_hints.reserve(operation_transcript.size());
+        for (const Element& element : operation_transcript) {
+            operation_hints.emplace_back(element.x, element.y);
+        }
+
+        // Construct an in-circuit Straus lookup table for each point
+        std::vector<straus_lookup_table> point_tables;
+        point_tables.reserve(num_points);
+        const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
+        for (size_t i = 0; i < num_points; ++i) {
+            // Construct Straus table
+            std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
+            straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
+            point_tables.push_back(std::move(table));
+        }
+
+        // Initialize pointer to the precomputed Straus algorithm hints (stored just after the table construction hints)
+        AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
+        cycle_group accumulator = offset_generators[0];
+
+        // Execute Straus algorithm in-circuit using the precomputed hints.
+        // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
+        // If unconditional_add == true (trusted constant points only), no per-slice check is added; see
+        // `is_trusted_constant_point`.
+        field_t coordinate_check_product = 1;
+        for (size_t i = 0; i < num_rounds; ++i) {
+            // Double the accumulator ROM_TABLE_BITS times (except in first round)
+            if (i != 0) {
+                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
+                    accumulator = accumulator.dbl(*hint_ptr);
+                    hint_ptr++;
+                }
+            }
+            // Add the contribution from each point's scalar slice for this round
+            for (size_t j = 0; j < num_points; ++j) {
+                const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
+                BB_ASSERT_EQ(scalar_slice.get_value(),
+                             scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
+                const cycle_group point = point_tables[j].read(scalar_slice);
+                if (!unconditional_add) {
+                    coordinate_check_product *= point._x - accumulator._x;
+                }
+                accumulator = accumulator.unconditional_add(point, *hint_ptr);
+                hint_ptr++;
+            }
+        }
+
+        // Batch-validate no x-coordinate collisions occurred. We batch because each assert_is_not_zero
+        // requires an expensive modular inversion during witness generation.
+        if (!unconditional_add) {
+            coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
+        }
+
+        // Set CONSTANT tag on accumulator to avoid tag conflicts during intermediate operations
+        // The final tag will be set in batch_mul from result_tag
+        accumulator.set_origin_tag(OriginTag::constant());
+
+        // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in
+        // `accumulator`. We don't subtract it off yet as we may be able to combine it with other constant terms in
+        // `batch_mul` before performing the subtraction.
+        return { accumulator, AffineElement(offset_generator_accumulator) };
     }
-
-    // Batch-validate no x-coordinate collisions occurred. We batch because each assert_is_not_zero
-    // requires an expensive modular inversion during witness generation.
-    if (!unconditional_add) {
-        coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
-    }
-
-    // Set CONSTANT tag on accumulator to avoid tag conflicts during intermediate operations
-    // The final tag will be set in batch_mul from result_tag
-    accumulator.set_origin_tag(OriginTag::constant());
-
-    // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
-    // We don't subtract it off yet as we may be able to combine it with other constant terms in `batch_mul` before
-    // performing the subtraction.
-    return { accumulator, AffineElement(offset_generator_accumulator) };
 }
 
 /**
@@ -1001,105 +1152,231 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const size_t table_bits)
     requires(Builder::ExecutionTrace::has_gate_kind(bb::GateKind::Lookup))
 {
-    BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
-    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
-    BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
-    const size_t num_points = scalars.size();
+    if (!bb::rollup_experimental_optimizations_enabled()) {
 
-    Builder* context = nullptr;
-    for (const auto& scalar : scalars) {
-        if (context = scalar.get_context(); context != nullptr) {
-            break;
+        BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
+        BB_ASSERT_EQ(
+            scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
+        BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
+        const size_t num_points = scalars.size();
+
+        Builder* context = nullptr;
+        for (const auto& scalar : scalars) {
+            if (context = scalar.get_context(); context != nullptr) {
+                break;
+            }
         }
-    }
-    BB_ASSERT(context != nullptr);
-    BB_ASSERT_EQ(cycle_scalar::LO_BITS % table_bits,
-                 0UL,
-                 "table_bits must evenly divide cycle_scalar::LO_BITS. The Straus algorithm splits the scalar "
-                 "into lo/hi limbs and decomposes each separately; if LO_BITS is not a multiple of table_bits, "
-                 "the hi-limb slices start at the wrong bit-offset and the MSM result is incorrect. "
-                 "Valid values for table_bits (given LO_BITS=128) are: 1, 2, 4, 8, 16, 32, 64, 128.");
+        BB_ASSERT(context != nullptr);
+        BB_ASSERT_EQ(cycle_scalar::LO_BITS % table_bits,
+                     0UL,
+                     "table_bits must evenly divide cycle_scalar::LO_BITS. The Straus algorithm splits the scalar "
+                     "into lo/hi limbs and decomposes each separately; if LO_BITS is not a multiple of table_bits, "
+                     "the hi-limb slices start at the wrong bit-offset and the MSM result is incorrect. "
+                     "Valid values for table_bits (given LO_BITS=128) are: 1, 2, 4, 8, 16, 32, 64, 128.");
 
-    const size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, table_bits);
+        const size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, table_bits);
 
-    // Decompose each scalar into table_bits-bit slices (also enforces range constraints)
-    std::vector<straus_scalar_slices> scalar_slices;
-    scalar_slices.reserve(num_points);
-    for (const auto& scalar : scalars) {
-        scalar_slices.emplace_back(context, scalar, table_bits);
-    }
+        // Decompose each scalar into table_bits-bit slices (also enforces range constraints)
+        std::vector<straus_scalar_slices> scalar_slices;
+        scalar_slices.reserve(num_points);
+        for (const auto& scalar : scalars) {
+            scalar_slices.emplace_back(context, scalar, table_bits);
+        }
 
-    // Create plookup tables for each constant base point (zero gate cost).
-    // Phase 1 (parallel): compute native table entries and BasicTable column data — no builder access.
-    // Phase 2 (serial):   register each BasicTable with the builder (builder is not thread-safe).
-    std::vector<typename straus_plookup_table::PrecomputedData> precomputed_tables(num_points);
-    parallel_for(num_points, [&](size_t i) {
-        precomputed_tables[i] =
-            straus_plookup_table::build_precomputed_data(base_points[i], offset_generators[i + 1], table_bits);
-    });
-    std::vector<straus_plookup_table> point_tables;
-    point_tables.reserve(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        point_tables.emplace_back(context, std::move(precomputed_tables[i]));
-    }
+        // Create plookup tables for each constant base point (zero gate cost).
+        // Phase 1 (parallel): compute native table entries and BasicTable column data — no builder access.
+        // Phase 2 (serial):   register each BasicTable with the builder (builder is not thread-safe).
+        std::vector<typename straus_plookup_table::PrecomputedData> precomputed_tables(num_points);
+        parallel_for(num_points, [&](size_t i) {
+            precomputed_tables[i] =
+                straus_plookup_table::build_precomputed_data(base_points[i], offset_generators[i + 1], table_bits);
+        });
+        std::vector<straus_plookup_table> point_tables;
+        point_tables.reserve(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            point_tables.emplace_back(context, std::move(precomputed_tables[i]));
+        }
 
-    // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
-    // Using projective coordinates + batch normalize to avoid per-operation modular inversions.
-    // The per-point lookup tables (point_tables) already hold the precomputed affine entries; we reuse
-    // them directly rather than rebuilding projective copies.
-    std::vector<Element> operation_transcript;
-    Element offset_generator_accumulator = offset_generators[0];
-    {
-        // Perform Straus algorithm natively
-        Element accumulator = offset_generators[0];
+        // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
+        // Using projective coordinates + batch normalize to avoid per-operation modular inversions.
+        // The per-point lookup tables (point_tables) already hold the precomputed affine entries; we reuse
+        // them directly rather than rebuilding projective copies.
+        std::vector<Element> operation_transcript;
+        Element offset_generator_accumulator = offset_generators[0];
+        {
+            // Perform Straus algorithm natively
+            Element accumulator = offset_generators[0];
+            for (size_t i = 0; i < num_rounds; ++i) {
+                if (i != 0) {
+                    for (size_t j = 0; j < table_bits; ++j) {
+                        accumulator = accumulator.dbl();
+                        operation_transcript.push_back(accumulator);
+                        offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    }
+                }
+                for (size_t j = 0; j < num_points; ++j) {
+                    auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
+                    const Element point(point_tables[j].get_native_table()[slice_value]);
+                    accumulator += point;
+                    operation_transcript.push_back(accumulator);
+                    offset_generator_accumulator += Element(offset_generators[j + 1]);
+                }
+            }
+        }
+
+        // Batch-normalize all hint points
+        Element::batch_normalize(operation_transcript.data(), operation_transcript.size());
+        std::vector<AffineElement> operation_hints;
+        operation_hints.reserve(operation_transcript.size());
+        for (const Element& element : operation_transcript) {
+            operation_hints.emplace_back(element.x, element.y);
+        }
+
+        // Execute Straus algorithm in-circuit using plookup reads and precomputed hints
+        AffineElement* hint_ptr = operation_hints.data();
+        cycle_group accumulator = offset_generators[0];
+
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
                 for (size_t j = 0; j < table_bits; ++j) {
-                    accumulator = accumulator.dbl();
-                    operation_transcript.push_back(accumulator);
-                    offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    accumulator = accumulator.dbl(*hint_ptr);
+                    hint_ptr++;
                 }
             }
             for (size_t j = 0; j < num_points; ++j) {
-                auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
-                const Element point(point_tables[j].get_native_table()[slice_value]);
-                accumulator += point;
-                operation_transcript.push_back(accumulator);
-                offset_generator_accumulator += Element(offset_generators[j + 1]);
-            }
-        }
-    }
-
-    // Batch-normalize all hint points
-    Element::batch_normalize(operation_transcript.data(), operation_transcript.size());
-    std::vector<AffineElement> operation_hints;
-    operation_hints.reserve(operation_transcript.size());
-    for (const Element& element : operation_transcript) {
-        operation_hints.emplace_back(element.x, element.y);
-    }
-
-    // Execute Straus algorithm in-circuit using plookup reads and precomputed hints
-    AffineElement* hint_ptr = operation_hints.data();
-    cycle_group accumulator = offset_generators[0];
-
-    for (size_t i = 0; i < num_rounds; ++i) {
-        if (i != 0) {
-            for (size_t j = 0; j < table_bits; ++j) {
-                accumulator = accumulator.dbl(*hint_ptr);
+                const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
+                const cycle_group point = point_tables[j].read(scalar_slice);
+                // No per-slice x-collision check; see the precondition on `fixed_batch_mul`.
+                accumulator = accumulator.unconditional_add(point, *hint_ptr);
                 hint_ptr++;
             }
         }
-        for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
-            const cycle_group point = point_tables[j].read(scalar_slice);
-            // No per-slice x-collision check; see the precondition on `fixed_batch_mul`.
-            accumulator = accumulator.unconditional_add(point, *hint_ptr);
-            hint_ptr++;
-        }
-    }
 
-    accumulator.set_origin_tag(OriginTag::constant());
-    return { accumulator, AffineElement(offset_generator_accumulator) };
+        accumulator.set_origin_tag(OriginTag::constant());
+        return { accumulator, AffineElement(offset_generator_accumulator) };
+
+    } else {
+
+        BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to fixed base plookup batch mul!");
+        BB_ASSERT_EQ(
+            scalars.size(), base_points.size(), "Points/scalars size mismatch in fixed base plookup batch mul!");
+        BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
+        const size_t num_points = scalars.size();
+
+        Builder* context = nullptr;
+        for (const auto& scalar : scalars) {
+            if (context = scalar.get_context(); context != nullptr) {
+                break;
+            }
+        }
+        BB_ASSERT(context != nullptr);
+        BB_ASSERT_EQ(cycle_scalar::LO_BITS % table_bits,
+                     0UL,
+                     "table_bits must evenly divide cycle_scalar::LO_BITS. The Straus algorithm splits the scalar "
+                     "into lo/hi limbs and decomposes each separately; if LO_BITS is not a multiple of table_bits, "
+                     "the hi-limb slices start at the wrong bit-offset and the MSM result is incorrect. "
+                     "Valid values for table_bits (given LO_BITS=128) are: 1, 2, 4, 8, 16, 32, 64, 128.");
+
+        const size_t num_rounds = numeric::ceil_div(cycle_scalar::NUM_BITS, table_bits);
+
+        // Decompose each scalar into table_bits-bit slices (also enforces range constraints)
+        std::vector<straus_scalar_slices> scalar_slices;
+        scalar_slices.reserve(num_points);
+        for (const auto& scalar : scalars) {
+            scalar_slices.emplace_back(context, scalar, table_bits);
+        }
+
+        // Create plookup tables for each constant base point (zero gate cost).
+        // Phase 1 (parallel): compute native table entries and BasicTable column data — no builder access.
+        // Phase 2 (serial):   register each BasicTable with the builder (builder is not thread-safe).
+        std::vector<typename straus_plookup_table::PrecomputedData> precomputed_tables(num_points);
+        parallel_for(num_points, [&](size_t i) {
+            precomputed_tables[i] =
+                straus_plookup_table::build_precomputed_data(base_points[i], offset_generators[i + 1], table_bits);
+        });
+        std::vector<straus_plookup_table> point_tables;
+        point_tables.reserve(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            point_tables.emplace_back(context, std::move(precomputed_tables[i]));
+        }
+
+        // Compute all intermediate points natively for use as hints in the in-circuit Straus algorithm.
+        // Using projective coordinates + batch normalize to avoid per-operation modular inversions.
+        // The per-point lookup tables (point_tables) already hold the precomputed affine entries, which the accumulator
+        // adds directly with mixed additions.
+        std::vector<Element> operation_transcript;
+        operation_transcript.reserve((num_rounds * num_points) + ((num_rounds - 1) * table_bits));
+        Element offset_generator_accumulator = offset_generators[0];
+        {
+            // Every round adds the same offset generators, so the offset generator accumulator adds their sum once per
+            // round.
+            Element offset_generator_sum = Group::point_at_infinity;
+            for (size_t j = 0; j < num_points; ++j) {
+                offset_generator_sum += offset_generators[j + 1];
+            }
+
+            // Perform Straus algorithm natively
+            Element accumulator = offset_generators[0];
+            for (size_t i = 0; i < num_rounds; ++i) {
+                if (i != 0) {
+                    for (size_t j = 0; j < table_bits; ++j) {
+                        accumulator = accumulator.dbl();
+                        operation_transcript.push_back(accumulator);
+                        offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    }
+                }
+                for (size_t j = 0; j < num_points; ++j) {
+                    auto slice_value = static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]);
+                    accumulator += point_tables[j].get_native_table()[slice_value];
+                    operation_transcript.push_back(accumulator);
+                }
+                offset_generator_accumulator += offset_generator_sum;
+            }
+        }
+
+        // Normalize the hint points in chunks, one batched inversion per chunk. Affine coordinates are unique, so the
+        // hint values do not depend on where the chunks start.
+        std::vector<AffineElement> operation_hints(operation_transcript.size());
+        parallel_for_heuristic(
+            operation_transcript.size(),
+            [&](size_t start, size_t end, size_t /*chunk_index*/) {
+                Element::batch_normalize(operation_transcript.data() + start, end - start);
+                for (size_t k = start; k < end; ++k) {
+                    operation_hints[k] = AffineElement(operation_transcript[k].x, operation_transcript[k].y);
+                }
+            },
+            /*heuristic_cost=*/7 * thread_heuristics::FF_MULTIPLICATION_COST);
+
+        // Execute Straus algorithm in-circuit using plookup reads and precomputed hints
+        AffineElement* hint_ptr = operation_hints.data();
+        cycle_group accumulator = offset_generators[0];
+
+        for (size_t i = 0; i < num_rounds; ++i) {
+            if (i != 0) {
+                for (size_t j = 0; j < table_bits; ++j) {
+                    accumulator = accumulator.dbl(*hint_ptr);
+                    hint_ptr++;
+                }
+            }
+            for (size_t j = 0; j < num_points; ++j) {
+                const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
+#ifndef __wasm__
+                // The decomposition cached this exact integer before hint preparation. Emission only
+                // appends point witnesses and gates; it does not rewrite these fresh scalar slices.
+                const cycle_group point = point_tables[j].read_with_native_index(
+                    scalar_slice, static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1]));
+#else
+                const cycle_group point = point_tables[j].read(scalar_slice);
+#endif
+                // No per-slice x-collision check; see the precondition on `fixed_batch_mul`.
+                accumulator = accumulator.unconditional_add(point, *hint_ptr);
+                hint_ptr++;
+            }
+        }
+
+        accumulator.set_origin_tag(OriginTag::constant());
+        return { accumulator, AffineElement(offset_generator_accumulator) };
+    }
 }
 
 /**
