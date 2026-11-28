@@ -179,7 +179,7 @@ The wallet's answer is a **tagging secret strategy**: it expresses *which* secre
 
 When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a default:
 
-- **Unconstrained delivery**: a non-interactive handshake when the recipient is external, so the recipient discovers the message without having registered the sender in advance. When the recipient is one of the wallet's own accounts (a self-send), an address-derived secret is used instead: the wallet holds both sides' keys, so no handshake is needed and nothing is revealed onchain.
+- **Unconstrained delivery**: a non-interactive handshake when the recipient is external, so the recipient discovers the message without having registered the sender in advance. When the recipient is the sender itself (a self-send, such as a change note), an address-derived secret is used instead: no handshake is needed and nothing is revealed onchain.
 - **Constrained delivery**: a non-interactive handshake (constrained delivery must be backed by a handshake).
 
 An interactive handshake is never the default, since it fails when the recipient cannot be reached: a wallet opts in through the hook when it knows how to reach them.
