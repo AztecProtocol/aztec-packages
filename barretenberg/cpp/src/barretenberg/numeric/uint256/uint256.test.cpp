@@ -476,3 +476,23 @@ TEST(uint256, Pow)
     // Verify a^3 == a * a * a
     EXPECT_EQ(b.pow(uint256_t(3)), b * b * b);
 }
+
+TEST(uint256, SingleLimbDivisionPreservesQuotientAndRemainderAtBoundaries)
+{
+    const std::array<uint64_t, 7> divisors{
+        1, 2, 3, 0xffffffffULL, 0x100000000ULL, 0x100000001ULL, 0xffffffffffffffffULL
+    };
+    const std::array<uint256_t, 5> values{
+        uint256_t(0), uint256_t(1), uint256_t(0) - 1, uint256_t(1) << 64, uint256_t(1) << 255
+    };
+    for (const auto divisor : divisors) {
+        for (const auto& value : values) {
+            const auto [quotient, remainder] = value.divmod(divisor);
+            EXPECT_EQ(quotient * uint256_t(divisor) + uint256_t(remainder), value);
+            EXPECT_LT(remainder, divisor);
+            const auto wide = value.divmod(uint256_t(divisor));
+            EXPECT_EQ(wide.first, quotient);
+            EXPECT_EQ(wide.second, uint256_t(remainder));
+        }
+    }
+}
