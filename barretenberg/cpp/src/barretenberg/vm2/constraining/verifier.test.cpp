@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
@@ -52,6 +53,23 @@ TEST_F(AvmVerifierTests, GoodPublicInputs)
     ASSERT_TRUE(verified) << "native proof verification failed";
 }
 
+TEST_F(AvmVerifierTests, MemoryOptimizationsPreserveProof)
+{
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
+    const auto inputs = testing::get_minimal_proving_inputs();
+    AvmAPI baseline_api;
+    const auto baseline_proof = baseline_api.prove(inputs);
+    ASSERT_TRUE(baseline_api.verify(baseline_proof, inputs.public_inputs));
+
+    AvmAPI optimized_api(/*memory_optimizations=*/true);
+    const auto optimized_proof = optimized_api.prove(inputs);
+    ASSERT_TRUE(optimized_api.verify(optimized_proof, inputs.public_inputs));
+    EXPECT_EQ(optimized_proof, baseline_proof);
+}
+
 TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
 {
     if (testing::skip_slow_tests()) {
@@ -91,42 +109,45 @@ TEST_F(AvmVerifierTests, ProvingSystemSecurityShiftedLastRowMustBeZero)
         GTEST_SKIP() << "Skipping slow test";
     }
 
-    auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
-    // Capture the number of witness rows before compute_polynomials consumes the trace.
-    const size_t num_witness_rows = trace.get_num_witness_rows() + 1;
+    for (const bool memory_optimizations : { false, true }) {
+        SCOPED_TRACE(memory_optimizations);
+        auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
+        // Capture the number of witness rows before compute_polynomials consumes the trace.
+        const size_t num_witness_rows = trace.get_num_witness_rows() + 1;
 
-    auto polynomials = constraining::compute_polynomials(trace);
-    auto proving_key = constraining::proving_key_from_polynomials(polynomials);
-    auto verification_key = std::make_shared<AvmVerifier::VerificationKey>();
+        auto polynomials = constraining::compute_polynomials(trace);
+        auto proving_key = constraining::proving_key_from_polynomials(polynomials);
+        auto verification_key = std::make_shared<AvmVerifier::VerificationKey>();
 
-    AvmProver prover(proving_key, verification_key, proving_key->commitment_key);
+        AvmProver prover(proving_key, verification_key, proving_key->commitment_key, memory_optimizations);
 
-    // Attacker: overwrite the shifted view with an independent polynomial carrying a non-zero
-    // value at the last row of the circuit. The shared-memory link to the unshifted polynomial
-    // is severed, so the unshifted commitment no longer "agrees" with what sumcheck uses.
-    using Polynomial = AvmFlavor::Polynomial;
-    auto make_malicious_shift = [] {
-        Polynomial p(/*size=*/1, /*virtual_size=*/MAX_AVM_TRACE_SIZE, /*start_index=*/MAX_AVM_TRACE_SIZE - 1);
-        p.at(MAX_AVM_TRACE_SIZE - 1) = FF(FF::modulus - 1);
-        return p;
-    };
-    prover.prover_polynomials.get(ColumnAndShifts::keccak_memory_addr_shift) = make_malicious_shift();
+        // Attacker: overwrite the shifted view with an independent polynomial carrying a non-zero
+        // value at the last row of the circuit. The shared-memory link to the unshifted polynomial
+        // is severed, so the unshifted commitment no longer "agrees" with what sumcheck uses.
+        using Polynomial = AvmFlavor::Polynomial;
+        auto make_malicious_shift = [] {
+            Polynomial p(/*size=*/1, /*virtual_size=*/MAX_AVM_TRACE_SIZE, /*start_index=*/MAX_AVM_TRACE_SIZE - 1);
+            p.at(MAX_AVM_TRACE_SIZE - 1) = FF(FF::modulus - 1);
+            return p;
+        };
+        prover.prover_polynomials.get(ColumnAndShifts::keccak_memory_addr_shift) = make_malicious_shift();
 
-    // Sanity: all relations (main + lookup/permutation) still hold with the attacker's
-    // polynomials. This demonstrates that any subsequent verification failure is NOT due to a
-    // relation violation but to the proving system's cryptographic shift-consistency check
-    // catching the forged shifted value.
-    AvmFlavor::ProverPolynomials check_polys(*proving_key);
-    check_polys.get(ColumnAndShifts::keccak_memory_addr_shift) = make_malicious_shift();
-    ASSERT_NO_THROW(constraining::run_check_circuit(check_polys, num_witness_rows, /*skippable_enabled=*/true));
+        // Sanity: all relations (main + lookup/permutation) still hold with the attacker's
+        // polynomials. This demonstrates that any subsequent verification failure is NOT due to a
+        // relation violation but to the proving system's cryptographic shift-consistency check
+        // catching the forged shifted value.
+        AvmFlavor::ProverPolynomials check_polys(*proving_key);
+        check_polys.get(ColumnAndShifts::keccak_memory_addr_shift) = make_malicious_shift();
+        ASSERT_NO_THROW(constraining::run_check_circuit(check_polys, num_witness_rows, /*skippable_enabled=*/true));
 
-    const auto proof = prover.construct_proof();
+        const auto proof = prover.construct_proof();
 
-    Verifier verifier;
-    const bool verified = verifier.verify_proof(proof, public_inputs.to_columns());
+        Verifier verifier;
+        const bool verified = verifier.verify_proof(proof, public_inputs.to_columns());
 
-    ASSERT_FALSE(verified)
-        << "verifier accepted a proof where keccak_memory_addr_shift at the last row was forged to be non-zero";
+        ASSERT_FALSE(verified)
+            << "verifier accepted a proof where keccak_memory_addr_shift at the last row was forged to be non-zero";
+    }
 }
 
 // Symmetric attacker simulation for the UNSHIFTED polynomial at its first row (index 0).

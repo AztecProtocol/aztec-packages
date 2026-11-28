@@ -12,4 +12,5 @@ TEST(ExperimentalOptimizationsStartup, UsesRequestedEnvironment)
     };
     EXPECT_EQ(bb::experimental_optimizations_enabled(), requested("BB_EXPERIMENTAL_OPTIMIZATIONS"));
     EXPECT_EQ(bb::rollup_experimental_optimizations_enabled(), requested("ROLLUP_EXPERIMENTAL_OPTIMIZATIONS"));
+    EXPECT_EQ(bb::avm_experimental_optimizations_enabled(), requested("AVM_EXPERIMENTAL_OPTIMIZATIONS"));
 }

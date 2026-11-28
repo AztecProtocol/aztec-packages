@@ -3,6 +3,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/scalar_multiplication/msm_batch_options.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <string>
 
@@ -175,11 +176,13 @@ template <typename Curve> class MSM_fast {
      * @param dedup_hints Optional per-MSM_fast dedup opt-ins (parallel to `scalars`): a
      *                    non-zero entry opts that MSM_fast's input scalars into the
      *                    duplicate-cluster pre-pass. Empty span means no dedup anywhere.
+     * @param options     Per-call aggregate workspace policy for concurrent small members.
      */
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
                                                              std::span<PolynomialSpan<ScalarField>> scalars,
                                                              bool handle_edge_cases = true,
-                                                             std::span<const uint32_t> dedup_infos = {}) noexcept;
+                                                             std::span<const uint32_t> dedup_infos = {},
+                                                             MsmBatchOptions options = {}) noexcept;
 };
 
 extern template class MSM_fast<curve::Grumpkin>;

@@ -19,6 +19,9 @@ export type BackendOptions = {
   /** Enable experimental rollup construction and IPA optimizations. Defaults to OFF. */
   rollupExperimentalOptimizations?: boolean;
 
+  /** Enable experimental AVM first-fold and PCS memory optimisations. Defaults to OFF. */
+  avmExperimentalOptimizations?: boolean;
+
   /** @description Number of threads to run the backend worker on */
   threads?: number;
 

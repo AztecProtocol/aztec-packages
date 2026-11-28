@@ -9,8 +9,10 @@ TEST(ExperimentalOptimizations, DefaultsOff)
     EXPECT_EXIT(
         {
             unsetenv("BB_EXPERIMENTAL_OPTIMIZATIONS");
+            unsetenv("AVM_EXPERIMENTAL_OPTIMIZATIONS");
             bb::initialize_experimental_optimizations();
-            std::_Exit(bb::experimental_optimizations_enabled() ? 1 : 0);
+            std::_Exit(bb::experimental_optimizations_enabled() || bb::avm_experimental_optimizations_enabled() ? 1
+                                                                                                                : 0);
         },
         ::testing::ExitedWithCode(0),
         "");
@@ -21,10 +23,13 @@ TEST(ExperimentalOptimizations, FreezesEnvironment)
     EXPECT_EXIT(
         {
             setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
+            setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", "1", 1);
             bb::initialize_experimental_optimizations();
             setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
+            setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", "0", 1);
             bb::initialize_experimental_optimizations();
-            std::_Exit(bb::experimental_optimizations_enabled() ? 0 : 1);
+            std::_Exit(bb::experimental_optimizations_enabled() && bb::avm_experimental_optimizations_enabled() ? 0
+                                                                                                                : 1);
         },
         ::testing::ExitedWithCode(0),
         "");
@@ -46,6 +51,34 @@ TEST(ExperimentalOptimizations, RejectsInvalidEnvironment)
 #endif
 }
 
+TEST(ExperimentalOptimizations, IndependentGroups)
+{
+    for (int bb_enabled = 0; bb_enabled <= 1; ++bb_enabled) {
+        for (int avm_enabled = 0; avm_enabled <= 1; ++avm_enabled) {
+            EXPECT_EXIT(
+                {
+                    setenv("BB_EXPERIMENTAL_OPTIMIZATIONS", bb_enabled ? "1" : "0", 1);
+                    setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", avm_enabled ? "1" : "0", 1);
+                    bb::initialize_experimental_optimizations();
+                    std::_Exit(bb::experimental_optimizations_enabled() == (bb_enabled != 0) &&
+                                       bb::avm_experimental_optimizations_enabled() == (avm_enabled != 0)
+                                   ? 0
+                                   : 1);
+                },
+                ::testing::ExitedWithCode(0),
+                "");
+        }
+    }
+}
+
+#ifndef BB_NO_EXCEPTIONS
+TEST(ExperimentalOptimizations, RejectsInvalidAvmEnvironment)
+{
+    setenv("AVM_EXPERIMENTAL_OPTIMIZATIONS", "invalid", 1);
+    EXPECT_THROW(bb::initialize_experimental_optimizations(), std::runtime_error);
+    unsetenv("AVM_EXPERIMENTAL_OPTIMIZATIONS");
+}
+#endif
 TEST(RollupExperimentalOptimizations, DefaultsOffAndIndependent)
 {
     EXPECT_EXIT(

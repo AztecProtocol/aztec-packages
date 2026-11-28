@@ -26,7 +26,8 @@ AvmAPI::AvmProof AvmAPI::prove(const AvmAPI::ProvingInputs& inputs)
 
     // Prove.
     vinfo("Proving...");
-    AvmProvingHelper proving_helper;
+    vinfo("AVM memory optimizations: ", memory_optimizations ? "enabled" : "disabled");
+    AvmProvingHelper proving_helper(memory_optimizations);
     auto proof = AVM_TRACK_TIME_V("proving/all", proving_helper.prove(std::move(trace)));
 
     vinfo("Done!");
